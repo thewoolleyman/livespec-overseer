@@ -7,7 +7,9 @@ from datetime import datetime
 from math import inf
 from typing import Protocol
 
+from caam_decision_models import ExtraUsage
 from caam_scoped_model import SCOPED_MODEL
+from caam_spend_report import extra_usage_cells
 
 __all__: list[str] = [
     "CURRENT_COL",
@@ -39,6 +41,7 @@ class RenderableUsageRecord(Protocol):
     seven_day_resets_at: str | None
     fable_remaining: float | None
     fable_resets_at: str | None
+    extra_usage: ExtraUsage | None
 
 
 class RenderableProfileUsage(Protocol):
@@ -92,7 +95,8 @@ def render_table(
     lines = [
         "",
         f"{'PROFILE':<13} {'CURRENT':<{CURRENT_COL}} {'5H LEFT':>7} {'5H RESET':>13} "
-        f"{'WEEK LEFT':>9} {'WEEK RESET':>13} {'FABLE LEFT':>10} {'FABLE RESET':>13}   SOURCE",
+        f"{'WEEK LEFT':>9} {'WEEK RESET':>13} {'FABLE LEFT':>10} {'FABLE RESET':>13} "
+        f"{'EXTRA':>7} {'$ LEFT':>8}   SOURCE",
     ]
     lines.extend(row_line(row=row, active_name=active_name, now=now) for row in rows)
     lines.append("")
@@ -224,26 +228,28 @@ def row_line(*, row: RenderableProfileUsage, active_name: str, now: datetime) ->
     if row.usage is None:
         return (
             f"{row.name:<13} {current_cell(is_active=is_active)} "
-            f"{'-':>7} {'-':>13} {'-':>9} {'-':>13} {'-':>10} {'-':>13}   {source}"
+            f"{'-':>7} {'-':>13} {'-':>9} {'-':>13} {'-':>10} {'-':>13} "
+            f"{'-':>7} {'-':>8}   {source}"
         )
     if stale_past_reset(usage=row.usage, source=row.source, now=now, is_active=is_active):
         return (
             f"{row.name:<13} {current_cell(is_active=is_active)} "
-            f"{'?':>7} {'reset':>13} {'?':>9} {'reset':>13} {'?':>10} {'reset':>13}   "
-            f"{source}, stale"
+            f"{'?':>7} {'reset':>13} {'?':>9} {'reset':>13} {'?':>10} {'reset':>13} "
+            f"{'?':>7} {'?':>8}   {source}, stale"
         )
     # Every cell is the stored figure printed as it stands: the record already
     # holds what each allowance has LEFT, which is what these columns are named
     # for and what the operator reads them as.
     fable = f"{row.usage.fable_remaining:.0f}%" if row.usage.fable_remaining is not None else "-"
+    extra_state, extra_left = extra_usage_cells(extra_usage=row.usage.extra_usage)
     return (
         f"{row.name:<13} {current_cell(is_active=is_active)} "
         f"{row.usage.five_hour_remaining:6.0f}% "
         f"{until(timestamp=row.usage.five_hour_resets_at, now=now):>13} "
         f"{row.usage.seven_day_remaining:8.0f}% "
         f"{until(timestamp=row.usage.seven_day_resets_at, now=now):>13} "
-        f"{fable:>9} {until(timestamp=row.usage.fable_resets_at, now=now):>13}   "
-        f"{source}"
+        f"{fable:>9} {until(timestamp=row.usage.fable_resets_at, now=now):>13} "
+        f"{extra_state:>7} {extra_left:>8}   {source}"
     )
 
 

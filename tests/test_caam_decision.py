@@ -659,13 +659,13 @@ def test_table_renders_remaining_quota_reset_durations_and_source_text():
     assert caam_rendering.render_table(rows=rows, active_name="active", now=now) == (
         "\n"
         "PROFILE       CURRENT  5H LEFT      5H RESET WEEK LEFT    WEEK RESET "
-        "FABLE LEFT   FABLE RESET   SOURCE\n"
+        "FABLE LEFT   FABLE RESET   EXTRA   $ LEFT   SOURCE\n"
         "active        ✅           80%        2h 30m       70%     2d 3h 12m       "
-        "60%      1d 0h 5m   live\n"
+        "60%      1d 0h 5m       -        -   live\n"
         "dark                         -             -         -             -          -"
-        "             -   dark: no token\n"
+        "             -       -        -   dark: no token\n"
         "nofable                    10%            1m        5%         1h 0m         -"
-        "             -   snapshot\n"
+        "             -       -        -   snapshot\n"
         "\n"
     )
 
@@ -689,9 +689,9 @@ def test_cached_row_past_reset_renders_unknown_and_stale_source():
     assert caam_rendering.render_table(rows=(row,), active_name="active", now=now) == (
         "\n"
         "PROFILE       CURRENT  5H LEFT      5H RESET WEEK LEFT    WEEK RESET "
-        "FABLE LEFT   FABLE RESET   SOURCE\n"
+        "FABLE LEFT   FABLE RESET   EXTRA   $ LEFT   SOURCE\n"
         "cached                       ?         reset         ?         reset          ?"
-        "         reset   cached 1.0h, stale\n"
+        "         reset       ?        ?   cached 1.0h, stale\n"
         "\n"
     )
 

@@ -13,6 +13,7 @@ from caam_decision import ProfileUsage, UsageRecord, render_table
 from caam_decision_protection import NO_PROTECTION_FLOORS
 from caam_rendering import RenderableProfileUsage
 from caam_scoped_selection import scoped_servable_fleet_wide
+from caam_spend_report import spend_alert_lines
 
 __all__: list[str] = [
     "EnforceModels",
@@ -107,6 +108,10 @@ def write_status(  # noqa: PLR0913 — one kw-only argument per rotation-pass in
     )
     for line in (
         *lines,
+        # Immediately under the table, because that is where an operator is
+        # already looking, and because the fact it reports contradicts what the
+        # percentages just above it appear to say.
+        *spend_alert_lines(profiles=profiles),
         *model_messages(
             context=context,
             active_fable=current.fable_remaining,

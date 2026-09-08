@@ -194,6 +194,16 @@ If the program prints a line beginning with `FAIL`, say plainly that the pass
 failed and stop. Do not retry with a lower threshold. Do not attempt `caam
 activate` by hand. Do not use a cached or dark account as a destination.
 
+If the program prints any line beginning with `ALERT:`, relay every one of them
+VERBATIM and say plainly that a managed account is spending pay-as-you-go
+dollars or has reached its monthly spend cap. Do not fold them into the table
+summary and do not omit them from an otherwise unremarkable held pass -- they
+are the whole point of that pass. An `ALERT:` is not a failure and does not stop
+the pass: rotation already treats a spend-capped account as unable to serve and
+routes around it, so report the alert alongside the decision and continue. The
+alert fires on the first dollar spent, well before the cap, so an early one is
+the signal working rather than an emergency.
+
 If the program prints a `next-warm-wake: <timestamp>` line and Cron tools are
 available, schedule a one-off wake for it: delete any prior one-off wake you
 created for this operation, then `CronCreate` with `recurring: false`, a `cron`
