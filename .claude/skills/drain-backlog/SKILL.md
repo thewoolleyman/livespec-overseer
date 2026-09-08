@@ -59,6 +59,8 @@ HAS named a plan epic, handoffs and scope events go on that epic instead and
 Scripts shipped beside this file (`<skill-dir>/scripts/`):
 
 - `snapshot.py` — freeze / `--update-snapshot` / `--status` (§2).
+- `plan_completion.py` — `snapshot.py`'s plan half: one record per PLAN, its
+  completion state, and the act that would drive it to closed + archived (§2).
 - `engine-on-green.sh` — the ONLY way an engine is launched (§4).
 - `tick.py` — the §5 tick reader: journal outcomes since the last tick,
   active claims, live runs, open PRs with red checks.
@@ -110,21 +112,69 @@ makes is to a file under `tmp/drain-backlog/`. From that one read it collects
 every open work item as the frozen scope and enumerates the plan-bearing items
 into a reported `plans` list.
 
-**The unit of work is the individual frozen work-item id.** `frozen_ids` is
+**The unit of ITEM work is the individual frozen work-item id.** `frozen_ids` is
 every open id at freeze time; a plan epic is one ordinary row in that set, not a
-container the drain expands. Progress is re-read from the ledger on every
-`--status` and never stored in `snapshot.json`.
+container the drain expands into more ready items. Progress is re-read from the
+ledger on every `--status` and never stored in `snapshot.json`.
 
-**A row is treated as plan-bearing iff its ledger `metadata.plan_slug` is
-truthy** (`plan_slug_of`); that key ALONE decides membership. The
-`plan/<slug>/` directory is a SEPARATE reported flag — `plan_dir_live`, surfaced
-to the operator as a `(dir missing)` annotation in the tier table — and is NOT
-part of the membership test. `build()` collects the `plans` list from every row
-that has a `plan_slug`, whatever `plan_dir_live` says. The closed-epic-AND-live
--directory conjunction appears in exactly ONE place, `stale_plans()`, which
-flags the single anomaly "epic closed but plan directory still live" so the
-operator archives it through the plan gates or reopens it; it is not a
-membership rule.
+**A PLAN is the drain's SECOND unit, and it is COMPLETABLE.** A plan is finished
+when every work item under its subject epic — including a review of the epic
+itself — is closed, and a finished plan must reach epic-closed AND
+directory-archived. Nothing used to drive that, so finished plans sat open
+indefinitely. `plan_completion.py` computes one record per plan and every
+`--status` and every Markdown report carries them (§9's exit gate reads the
+same records). The drain still never archives on a status flip: the record
+NAMES the act; the session runs it through the plan's own gates.
+
+**Plan identification uses BOTH routes, and is deduped by slug.** A slug is a
+plan if a `plan/<slug>/` DIRECTORY exists (excluding `plan/archive/`) OR any
+ledger row carries `metadata.plan_slug`. Neither key alone is sufficient, and
+both failure directions were measured against `livespec-dev-tooling` on
+2026-09-08:
+
+- **The metadata key MISSES.** Four of eight plan directories there had no epic
+  carrying their slug, so a metadata-only membership key could never reach them.
+  The directory route reports them, and the plan's own
+  `associated_work_item_id` anchor file resolves the subject epic when no row
+  carries the slug.
+- **The metadata key also OVER-COUNTS**, because children INHERIT their epic's
+  slug: 40 rows came back plan-bearing for 8 directories, and
+  `performance-improvements-01` appeared ELEVEN times. Records are keyed by
+  SLUG, one per plan, and the subject epic is a ROOT id — never an inheriting
+  child.
+
+**The seven plan states, and which four need an act:**
+
+| state | meaning | act |
+|---|---|---|
+| `finished-unarchived` | epic OPEN, ≥1 child, EVERY child closed, directory live | **drive it: dispose the children, run an independent completeness review of the epic itself, close the epic, archive `plan/<slug>/`** |
+| `epic-closed-directory-live` | epic closed, directory still live | archive it through the plan gates, or reopen the epic |
+| `epic-open-directory-archived` | directory archived, epic still open | dispose, review, close the epic |
+| `unlinked` | directory live, no subject epic reachable by slug OR anchor | link it, then re-read completion |
+| `in-progress` | open work remains (or the epic has NO children yet) | none |
+| `archived` | directory archived and the epic closed | none |
+| `cross-tenant-anchor` | the anchor file carries the `unassigned` sentinel | none HERE |
+
+Two of those rows are load-bearing and were paid for:
+
+- **`finished-unarchived` is the failure that actually occurs, and the
+  predecessor detector was pointed at its INVERSE.** `stale_plans()` fired only
+  on "epic CLOSED and directory live"; run over that whole tenant it flagged
+  NOTHING, while `console-factory-build-cache` (epic `3u3gm2` at `backlog`, both
+  children closed, directory live) sat finished-but-unarchived and unseen.
+- **`cross-tenant-anchor` is a DECLARATION, not a missing link.** The anchor file
+  cannot express a cross-tenant epic, so a plan whose real anchor lives in
+  another tenant writes the sentinel `unassigned` rather than a false local id
+  (`mutation-testing-keystone`, anchored on `livespec-mutreal` in the livespec
+  tenant). It is never reported as `unlinked`: a check that fires permanently on
+  a correctly-declared plan is a check that comes to be ignored.
+
+An epic with NO children is `in-progress`, never finished — "every child is
+closed" is VACUOUSLY true of an epic nobody has filed work under.
+
+The per-row `plan_slug` / `plan_dir_live` flags remain what they always were: a
+`plan:<slug>` annotation in the tier table, surfaced with `(dir missing)`. They
+annotate a ROW; they do not decide plan membership.
 
 It writes `snapshot.json` and prints a Markdown proposal grouped by tier:
 
@@ -318,6 +368,12 @@ Ripe acts, by outcome:
   checkout, even a deletion, is refused by the hook.
 - claims below the cap and keeps still queued → launch the next wave.
 - a tier drained → propose the next batch (§3), then `--update-snapshot`.
+- a plan the snapshot reports `finished-unarchived` → **drive it to done in that
+  tick**: dispose every child, run an independent completeness review of the
+  epic itself, close the epic, then archive `plan/<slug>/`. The other three
+  actionable states (§2) are worked the same way, from the record's own act. A
+  finished plan left open is exactly the condition this skill used to be blind
+  to; it is ripe the moment it is reported.
 
 **Healthy waits are silent.** Write nothing to the ledger when nothing
 changed. A tick report lists what changed, by id, and does not re-argue
@@ -393,8 +449,16 @@ maintainer which action to take when the typed action is dispatchable.
 ## 9. Exit
 
 The drain is complete when `snapshot.py --status` reports every frozen id
-closed or dispositioned, every engine has exited, no worktree or branch from
-the drain remains, and the final handoff names the follow-up plan(s) or
-item(s) that carry anything transferred out. Then archive the plan through its
-own gates (child disposition, independent completeness review) — a drain never
-archives itself on a status flip.
+closed or dispositioned **AND `plans_needing_action` EMPTY**, every engine has
+exited, no worktree or branch from the drain remains, and the final handoff
+names the follow-up plan(s) or item(s) that carry anything transferred out.
+
+**The plan half of that gate is not a footnote.** Every plan the snapshot can
+identify — by directory or by ledger slug, §2 — must have reached
+`archived`, `in-progress`, or `cross-tenant-anchor`; a `finished-unarchived`,
+`epic-closed-directory-live`, `epic-open-directory-archived` or `unlinked`
+plan is unfinished drain work, including the drain's OWN plan. Driving one to
+done means: dispose every child, run an INDEPENDENT completeness review of the
+epic itself, close the epic, then archive `plan/<slug>/`. A drain never
+archives itself on a status flip — the report names the act; you run it
+through the plan's own gates and the ledger is what records it.
