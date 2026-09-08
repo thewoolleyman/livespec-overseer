@@ -30,8 +30,20 @@ learned by stalling. Read the whole file once; then execute §2 → §8 in order
 ```
 
 All durable skill state lives under **`tmp/drain-backlog/`** in the target
-repo (`tmp/` is gitignored fleet-wide). A plan is not required; when the repo
-HAS a plan epic for the drain, handoffs and scope events go on that epic and
+repo (`tmp/` is gitignored fleet-wide).
+
+**The skill neither creates nor requires a plan or epic, and never selects
+one.** `snapshot.py` issues zero ledger writes (§2), so nothing here files a
+plan epic. When a drain runs under a plan epic, that epic was created and bound
+EXTERNALLY — by the orchestrator plan skill
+(`/livespec-orchestrator-beads-fabro:plan <slug>`), not by drain-backlog — and
+WHICH epic a given drain run posts its scope events and handoffs to is
+operator/session judgment the skill does not resolve: there is no `--plan`
+argument, no metadata match, and no lookup in any shipped script. With no epic,
+the drain runs fully in its file-backed mode — dispositions in
+`dispositions.jsonl` (§3), the handoff in `handoff.md` (§7) — and
+`tmp/drain-backlog/` holds the snapshot and engine artefacts. When the operator
+HAS named a plan epic, handoffs and scope events go on that epic instead and
 `tmp/drain-backlog/` holds only the snapshot and engine artefacts.
 
 | path | what |
@@ -90,11 +102,31 @@ $W -- python3 <skill-dir>/scripts/snapshot.py --repo . [--update]
 $W -- python3 <skill-dir>/scripts/snapshot.py --repo . --status     # closed-of-frozen, any time
 ```
 
-`snapshot.py` reads `bd list --all --limit 0 --json` (**`--all`**: the default
-listing hides closed items and any "no item covers X" claim without it is
-unsound), collects every open work item, and every plan: an epic whose
-metadata carries `plan_slug` plus the live `plan/<slug>/` directory. It writes
-`snapshot.json` and prints a Markdown proposal grouped by tier:
+`snapshot.py` makes exactly ONE ledger call — `bd list --all --limit 0 --json`
+(**`--all`**: the default listing hides closed items and any "no item covers X"
+claim without it is unsound) — and issues ZERO ledger writes: it never updates a
+status, never comments, and never creates a plan or epic. Every durable write it
+makes is to a file under `tmp/drain-backlog/`. From that one read it collects
+every open work item as the frozen scope and enumerates the plan-bearing items
+into a reported `plans` list.
+
+**The unit of work is the individual frozen work-item id.** `frozen_ids` is
+every open id at freeze time; a plan epic is one ordinary row in that set, not a
+container the drain expands. Progress is re-read from the ledger on every
+`--status` and never stored in `snapshot.json`.
+
+**A row is treated as plan-bearing iff its ledger `metadata.plan_slug` is
+truthy** (`plan_slug_of`); that key ALONE decides membership. The
+`plan/<slug>/` directory is a SEPARATE reported flag — `plan_dir_live`, surfaced
+to the operator as a `(dir missing)` annotation in the tier table — and is NOT
+part of the membership test. `build()` collects the `plans` list from every row
+that has a `plan_slug`, whatever `plan_dir_live` says. The closed-epic-AND-live
+-directory conjunction appears in exactly ONE place, `stale_plans()`, which
+flags the single anomaly "epic closed but plan directory still live" so the
+operator archives it through the plan gates or reopens it; it is not a
+membership rule.
+
+It writes `snapshot.json` and prints a Markdown proposal grouped by tier:
 
 1. **Factory-path defects** — anything that makes a factory run or a hand
    commit in this repo fail for reasons unrelated to the item it carries:
@@ -148,10 +180,11 @@ picker per item. When the maintainer says "your plan should be clear unless
 there are blockers", that is the standing ruling: decide the batch under the
 decision-authority rule, record it, execute it, report.
 
-**Record the ruling before executing it**: a scope event on the plan epic
-(`record_scope_event`, requirement carriers + explicit deferrals), or one line
-per disposition in `dispositions.jsonl` when there is no epic. Every closure
-names the ruling in its close reason (`… (drain batch N)`).
+**Record the ruling before executing it**: a scope event on the drain's plan
+epic when the operator has named one (`record_scope_event`, requirement
+carriers + explicit deferrals) — the skill does not itself resolve which epic
+that is (§0) — or one line per disposition in `dispositions.jsonl` when there is
+no epic. Every closure names the ruling in its close reason (`… (drain batch N)`).
 
 **Valves** (`blocked` + `blocked-reason:needs-human`): resolve each as a
 finding with the decision written into the acceptance field, then
@@ -323,8 +356,9 @@ chat history. It carries: the state read fresh from the ledger (a pointer, not
 a board), which engines are detached and where their logs are, every
 cross-tenant id filed, the open valves, the read-first chain, and **one typed
 next action** (`kind: impl|spec-op|human|none`, `ref`, one imperative
-sentence). On a plan epic use `append_handoff` (it writes the typed action);
-without an epic, write the same fields to `tmp/drain-backlog/handoff.md`.
+sentence). On the operator-named plan epic (§0 — the skill does not select it)
+use `append_handoff` (it writes the typed action); without an epic, write the
+same fields to `tmp/drain-backlog/handoff.md`.
 
 The prose `next action:` line carries no authority; the typed field wins.
 
