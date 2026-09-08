@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.0.4](https://github.com/thewoolleyman/livespec-overseer/compare/v5.0.3...v5.0.4) (2026-09-08)
+
+
+### Bug Fixes
+
+* **drain-backlog:** require POSITIVE scope evidence before a plan reads FINISHED (overseer-9gfh) ([eb7016f](https://github.com/thewoolleyman/livespec-overseer/commit/eb7016ff6f9ce6945df8d04b349fbd4a8fc5596e))
+
 ## [5.0.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.0.2...v5.0.3) (2026-09-08)
 
 
