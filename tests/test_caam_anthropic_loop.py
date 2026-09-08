@@ -687,13 +687,13 @@ def test_protected_accounts_summary_reports_floors_and_table_is_unchanged(*, tmp
     assert out[1:6] == [
         "",
         "PROFILE       CURRENT  5H LEFT      5H RESET WEEK LEFT    WEEK RESET "
-        "FABLE LEFT   FABLE RESET   SOURCE",
+        "FABLE LEFT   FABLE RESET   EXTRA   $ LEFT   SOURCE",
         "active        ✅           90%        1h 20m       80%    1d 13h 20m       "
-        "90%    1d 13h 20m   live",
+        "90%    1d 13h 20m       -        -   live",
         "backup                     90%        1h 20m       80%    1d 13h 20m       "
-        "90%    1d 13h 20m   snapshot",
+        "90%    1d 13h 20m       -        -   snapshot",
         "main                       90%        1h 20m       80%    1d 13h 20m       "
-        "90%    1d 13h 20m   snapshot",
+        "90%    1d 13h 20m       -        -   snapshot",
     ]
 
 
