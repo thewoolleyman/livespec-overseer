@@ -1,11 +1,19 @@
-"""The drain treats a PLAN as a completable unit (work-item `overseer-exz7`).
+"""The drain treats a PLAN as a completable unit (`overseer-exz7`, `overseer-9gfh`).
 
-Every test here pins one of the four defects measured against livespec-dev-tooling
-on 2026-09-08, and the load-bearing one is
-`test_the_console_factory_build_cache_shape_is_finished_but_unarchived`: the
-predecessor anomaly detector fired only on "epic CLOSED and directory live", which
-is the INVERSE of the failure that occurs, so running it over that whole tenant
-flagged nothing while a genuinely finished plan sat unarchived.
+Every test here pins one of the five defects measured against livespec-dev-tooling
+on 2026-09-08. The first four are `overseer-exz7`'s, and the load-bearing one of
+those is that the predecessor anomaly detector fired only on "epic CLOSED and
+directory live", which is the INVERSE of the failure that occurs, so running it
+over that whole tenant flagged nothing.
+
+The FIFTH is `overseer-9gfh`, and it was found by running exz7's delivered code:
+completion was inferred from the ABSENCE of open children rather than from POSITIVE
+evidence that the plan's DECLARED scope is drained. Two shapes in that tenant are
+pinned below as the false positives they are, and BOTH were once read as true ones
+— `test_the_console_factory_build_cache_shape_declares_no_scope_and_is_not_finished`
+is the correction of this module's own first regression test, which pinned a false
+positive as the exemplar of `finished-unarchived`. The genuinely-finished control is
+CONSTRUCTED, because no plan in that tenant was ever verified genuinely finished.
 
 The module under test is a skill script rather than a package module, so it is
 reached through an explicit path insert. `snapshot.py` is deliberately NOT imported
@@ -15,6 +23,7 @@ here: it shells out to `bd` and its own coverage is not this test's subject.
 from __future__ import annotations
 
 import importlib
+import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -56,15 +65,36 @@ def _repo(*, tmp_path: Path, slugs: tuple[str, ...], anchors: dict[str, str] | N
     return tmp_path
 
 
+def _snapshot(*, repo: Path, slug: str, rel: str, body: str) -> None:
+    """Write one scope document into a plan directory, at any depth beneath it."""
+    path = repo / "plan" / slug / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(body, encoding="utf-8")
+
+
+def _frozen(*, ids: list[str]) -> str:
+    """A frozen-snapshot document in the shape `snapshot.py` itself writes."""
+    return json.dumps({"taken_at": "2026-09-06T07:45:00Z", "frozen_ids": ids})
+
+
 # ---------------------------------------------------------------------------
 # Defect 1 — the anomaly detector was pointed at the inverse of the real failure
 # ---------------------------------------------------------------------------
 
 
-def test_the_console_factory_build_cache_shape_is_finished_but_unarchived(
+def test_the_console_factory_build_cache_shape_declares_no_scope_and_is_not_finished(
     *, tmp_path: Path
 ) -> None:
-    """Epic OPEN, every child CLOSED, directory live — the state that used to be invisible."""
+    """CORRECTION: this shape was pinned here as the TRUE positive and it is a FALSE one.
+
+    Epic `3u3gm2` OPEN, children `.1` and `.2` both CLOSED, directory live — so the
+    child set says finished. Measured 2026-09-08T15:35Z, it is not: that plan's own
+    plan-scope-event of 2026-09-04T20:14:05Z names THREE requirement carriers, and
+    only shape 1 was ever filed as a child. The shape-2 host-backed-sccache carrier
+    was NEVER FILED, and the epic's typed next_action still says to file it. The
+    plan reads 2/2 complete BECAUSE its second carrier is missing from the child
+    set, which is this defect's exact shape.
+    """
     repo = _repo(tmp_path=tmp_path, slugs=("console-factory-build-cache",))
     items = [
         _item(
@@ -79,31 +109,13 @@ def test_the_console_factory_build_cache_shape_is_finished_but_unarchived(
 
     (record,) = pc.plan_records(items=items, repo=repo)
 
-    assert record.state == pc.FINISHED_UNARCHIVED
+    assert record.state != pc.FINISHED_UNARCHIVED
+    assert record.state == pc.SCOPE_UNDECLARED
     assert record.epic == "livespec-dev-tooling-3u3gm2"
     assert record.epic_status == "backlog"
     assert (record.closed_child_count, record.child_count) == (2, 2)
-    assert record in pc.records_needing_action(records=(record,))
-
-
-def test_the_finished_plans_action_names_closing_the_epic_and_archiving_the_directory(
-    *, tmp_path: Path
-) -> None:
-    repo = _repo(tmp_path=tmp_path, slugs=("console-factory-build-cache",))
-    items = [
-        _item(
-            identifier="dt-3u3gm2",
-            issue_type="epic",
-            slug="console-factory-build-cache",
-        ),
-        _item(identifier="dt-3u3gm2.1", status="closed"),
-    ]
-
-    (record,) = pc.plan_records(items=items, repo=repo)
-
-    assert "close the epic" in record.action
-    assert "plan/console-factory-build-cache/" in record.action
-    assert "independent completeness review" in record.action
+    assert (record.scope_size, record.scope_open_count) == (0, 0)
+    assert pc.records_needing_action(records=(record,)) == ()
 
 
 def test_an_epic_with_open_children_is_in_progress_and_needs_no_act(*, tmp_path: Path) -> None:
@@ -153,6 +165,35 @@ def test_an_archived_directory_whose_epic_is_still_open_is_reported(*, tmp_path:
     assert record.dir_live is False
 
 
+def test_the_archived_directory_action_names_the_directory_and_counts_the_open_children(
+    *, tmp_path: Path
+) -> None:
+    """Measured 2026-09-08: TEN of twelve queued records were this state.
+
+    Several of those epics were nowhere near closeable — `8o8e` at 12 of 31
+    children closed — while the action said "dispose every child, review the epic,
+    then close it" unconditionally. Ten such lines in a twelve-line queue train the
+    reader to skip the queue, which is the same ignore-the-check failure the
+    cross-tenant sentinel exists to avoid. The act named now is reconciling the
+    DIRECTORY against its open epic, and the open-child count is in the line so a
+    one-item tail is distinguishable from a live 19-item epic. The CLASSIFICATION
+    is unchanged.
+    """
+    repo = _repo(tmp_path=tmp_path, slugs=())
+    items = [
+        _item(identifier="dt-8o8e", issue_type="epic", slug="rop-railway-enforcement"),
+        _item(identifier="dt-8o8e.1", status="closed"),
+        _item(identifier="dt-8o8e.2", status="ready"),
+        _item(identifier="dt-8o8e.3", status="ready"),
+    ]
+
+    (record,) = pc.plan_records(items=items, repo=repo)
+
+    assert record.state == pc.EPIC_OPEN_DIR_ARCHIVED
+    assert "plan/rop-railway-enforcement/" in record.action
+    assert "open children: 2" in record.action
+
+
 def test_a_closed_epic_with_an_archived_directory_is_simply_archived(*, tmp_path: Path) -> None:
     repo = _repo(tmp_path=tmp_path, slugs=())
     items = [_item(identifier="dt-e", status="done", issue_type="epic", slug="finished-long-ago")]
@@ -196,7 +237,7 @@ def test_the_anchor_file_reaches_a_subject_epic_the_slug_cannot(*, tmp_path: Pat
 
     assert record.anchor == "dt-8o8e"
     assert record.epic == "dt-8o8e"
-    assert record.state == pc.FINISHED_UNARCHIVED
+    assert record.child_count == 1
 
 
 def test_an_anchor_naming_no_local_row_falls_back_to_the_slug(*, tmp_path: Path) -> None:
@@ -291,6 +332,274 @@ def test_children_are_rooted_by_the_dotted_id_and_exclude_the_epic_itself() -> N
 
 
 # ---------------------------------------------------------------------------
+# Defect 5 — completion inferred from ABSENCE, not from positive scope evidence
+# ---------------------------------------------------------------------------
+
+
+def test_the_drains_own_plan_is_not_finished_while_its_frozen_snapshot_holds_open_ids(
+    *, tmp_path: Path
+) -> None:
+    """MEASURED 2026-09-08T15:25Z: `dev-tooling-backlog-drain` reported finished at 114/258.
+
+    Epic `kcoslm` OPEN, exactly ONE child and it is CLOSED, directory live — a
+    mechanical child the plan filed for itself, which is the state EVERY plan
+    reaches sooner or later. Its scope is not its children: it is the frozen
+    snapshot beside its research, and that snapshot still held 144 open ids.
+    Acting on the record's named action would have closed the epic and archived
+    the directory of a LIVE drive, destroying the resume path for all 144.
+    """
+    slug = "dev-tooling-backlog-drain"
+    repo = _repo(tmp_path=tmp_path, slugs=(slug,))
+    closed_ids = [f"livespec-dev-tooling-c{n}" for n in range(114)]
+    open_ids = [f"livespec-dev-tooling-o{n}" for n in range(144)]
+    _snapshot(
+        repo=repo,
+        slug=slug,
+        rel="research/002-snapshot-2026-09-06.json",
+        body=_frozen(ids=[*closed_ids, *open_ids]),
+    )
+    items = [
+        _item(identifier="livespec-dev-tooling-kcoslm", issue_type="epic", slug=slug),
+        _item(identifier="livespec-dev-tooling-kcoslm.1", status="closed"),
+        *[_item(identifier=identifier, status="closed") for identifier in closed_ids],
+        *[_item(identifier=identifier, status="ready") for identifier in open_ids],
+    ]
+
+    (record,) = pc.plan_records(items=items, repo=repo)
+
+    assert record.state == pc.IN_PROGRESS
+    assert record.state != pc.FINISHED_UNARCHIVED
+    assert (record.closed_child_count, record.child_count) == (1, 1)
+    assert (record.scope_size, record.scope_open_count) == (258, 144)
+    assert pc.records_needing_action(records=(record,)) == ()
+
+
+def test_a_plan_whose_declared_scope_is_drained_is_finished_and_is_queued(
+    *, tmp_path: Path
+) -> None:
+    """THE TRUE POSITIVE, and it is CONSTRUCTED rather than taken from that tenant.
+
+    Both tenant shapes above were read as genuinely finished at some point and both
+    are false; no plan there was ever verified finished, so the positive control is
+    built here. The evidence is POSITIVE: the plan declares a scope this module can
+    read, and every id in it is closed.
+    """
+    repo = _repo(tmp_path=tmp_path, slugs=("scope-drained",))
+    _snapshot(
+        repo=repo,
+        slug="scope-drained",
+        rel="snapshot.json",
+        body=_frozen(ids=["dt-1", "dt-2", "dt-3"]),
+    )
+    items = [
+        _item(identifier="dt-f", issue_type="epic", slug="scope-drained"),
+        _item(identifier="dt-f.1", status="closed"),
+        *[_item(identifier=f"dt-{n}", status="closed") for n in (1, 2, 3)],
+    ]
+
+    (record,) = pc.plan_records(items=items, repo=repo)
+
+    assert record.state == pc.FINISHED_UNARCHIVED
+    assert (record.scope_size, record.scope_open_count) == (3, 0)
+    assert record in pc.records_needing_action(records=(record,))
+
+
+def test_the_declared_scope_decides_completion_and_the_child_set_does_not(
+    *, tmp_path: Path
+) -> None:
+    """A DRAINED scope is finished even with an open child; a child set alone never is.
+
+    This is the skill's own §2 rule that nothing filed after the freeze extends the
+    plan, read through to its consequence: the frozen scope is the scope, and a row
+    that arrived later is `admitted_after_snapshot` rather than a widened exit gate.
+    The named act's FIRST step is disposing every child, so an open child is inside
+    the action rather than a contradiction of it.
+    """
+    repo = _repo(tmp_path=tmp_path, slugs=("scope-rules",))
+    _snapshot(repo=repo, slug="scope-rules", rel="snapshot.json", body=_frozen(ids=["dt-1"]))
+    items = [
+        _item(identifier="dt-g", issue_type="epic", slug="scope-rules"),
+        _item(identifier="dt-g.1", status="ready"),
+        _item(identifier="dt-1", status="closed"),
+    ]
+
+    (record,) = pc.plan_records(items=items, repo=repo)
+
+    assert record.state == pc.FINISHED_UNARCHIVED
+    assert (record.closed_child_count, record.child_count) == (0, 1)
+
+
+def test_an_id_in_the_declared_scope_that_no_ledger_row_carries_counts_as_open(
+    *, tmp_path: Path
+) -> None:
+    """Unknown is not evidence of exhaustion, so an id the ledger cannot show is OPEN."""
+    repo = _repo(tmp_path=tmp_path, slugs=("scope-unknown",))
+    _snapshot(
+        repo=repo,
+        slug="scope-unknown",
+        rel="snapshot.json",
+        body=_frozen(ids=["dt-1", "dt-vanished"]),
+    )
+    items = [
+        _item(identifier="dt-h", issue_type="epic", slug="scope-unknown"),
+        _item(identifier="dt-h.1", status="closed"),
+        _item(identifier="dt-1", status="closed"),
+    ]
+
+    (record,) = pc.plan_records(items=items, repo=repo)
+
+    assert record.state == pc.IN_PROGRESS
+    assert (record.scope_size, record.scope_open_count) == (2, 1)
+
+
+def test_an_empty_frozen_scope_is_not_a_declaration(*, tmp_path: Path) -> None:
+    """The same vacuity rule the child set already has: an empty scope proves nothing.
+
+    Without this, freezing an EMPTY snapshot would be the shortest possible route to
+    a false `finished` — every id in it is closed, vacuously.
+    """
+    repo = _repo(tmp_path=tmp_path, slugs=("empty-scope",))
+    _snapshot(repo=repo, slug="empty-scope", rel="snapshot.json", body=_frozen(ids=[]))
+    items = [
+        _item(identifier="dt-i", issue_type="epic", slug="empty-scope"),
+        _item(identifier="dt-i.1", status="closed"),
+    ]
+
+    (record,) = pc.plan_records(items=items, repo=repo)
+
+    assert record.state != pc.FINISHED_UNARCHIVED
+    assert record.state == pc.SCOPE_UNDECLARED
+    assert record.scope_size == 0
+
+
+def test_a_snapshot_that_will_not_parse_withdraws_the_whole_declaration(*, tmp_path: Path) -> None:
+    """A scope read from the READABLE siblings alone is missing exactly what the bad one held.
+
+    So an unreadable document does not merely contribute nothing — it withdraws the
+    plan's declaration, and the plan drops back to the unproven state rather than
+    being declared finished off a scope that is known to be partial.
+    """
+    repo = _repo(tmp_path=tmp_path, slugs=("torn-scope",))
+    _snapshot(repo=repo, slug="torn-scope", rel="snapshot.json", body=_frozen(ids=["dt-1"]))
+    _snapshot(repo=repo, slug="torn-scope", rel="research/002-snapshot.json", body="{not json")
+    items = [
+        _item(identifier="dt-j", issue_type="epic", slug="torn-scope"),
+        _item(identifier="dt-j.1", status="closed"),
+        _item(identifier="dt-1", status="closed"),
+    ]
+
+    (record,) = pc.plan_records(items=items, repo=repo)
+
+    assert record.state != pc.FINISHED_UNARCHIVED
+    assert record.state == pc.SCOPE_UNDECLARED
+    assert record.scope_size == 0
+
+
+def test_the_declared_scope_is_the_union_of_every_snapshot_the_plan_holds(
+    *, tmp_path: Path
+) -> None:
+    """A plan that re-froze keeps the history beside it; the SUPERSET is the safe read."""
+    repo = _repo(tmp_path=tmp_path, slugs=("refrozen",))
+    _snapshot(
+        repo=repo,
+        slug="refrozen",
+        rel="research/001-snapshot-2026-09-01.json",
+        body=_frozen(ids=["dt-1", "dt-2"]),
+    )
+    _snapshot(
+        repo=repo,
+        slug="refrozen",
+        rel="research/002-snapshot-2026-09-06.json",
+        body=_frozen(ids=["dt-2", "dt-3"]),
+    )
+    items = [
+        _item(identifier="dt-k", issue_type="epic", slug="refrozen"),
+        _item(identifier="dt-1", status="closed"),
+        _item(identifier="dt-2", status="closed"),
+        _item(identifier="dt-3", status="ready"),
+    ]
+
+    (record,) = pc.plan_records(items=items, repo=repo)
+
+    assert (record.scope_size, record.scope_open_count) == (3, 1)
+    assert record.state == pc.IN_PROGRESS
+
+
+def test_scope_ids_are_read_from_every_shape_snapshot_py_writes() -> None:
+    """POSITIVE CONTROL for the reader: a zero is otherwise indistinguishable from a miss."""
+    assert pc.scope_ids_of(payload={"frozen_ids": [" dt-1 ", "", 7, {"id": "dt-2"}]}) == (
+        "dt-1",
+        "dt-2",
+    )
+    assert pc.scope_ids_of(payload={"items": [{"id": "dt-3"}, {"tier": 1}]}) == ("dt-3",)
+    assert pc.scope_ids_of(payload=["dt-4"]) == ("dt-4",)
+    assert pc.scope_ids_of(payload={"frozen_ids": "not-a-list", "items": 3}) == ()
+    assert pc.scope_ids_of(payload={"taken_at": "2026-09-06T07:45:00Z"}) == ()
+    assert pc.scope_ids_of(payload="not a scope document") == ()
+
+
+def test_read_json_document_reports_an_unreadable_document_as_none(*, tmp_path: Path) -> None:
+    good = tmp_path / "good.json"
+    good.write_text('{"frozen_ids": []}', encoding="utf-8")
+    bad = tmp_path / "bad.json"
+    bad.write_text("{not json", encoding="utf-8")
+
+    assert pc.read_json_document(path=good) == {"frozen_ids": []}
+    assert pc.read_json_document(path=bad) is None
+
+
+def test_the_finished_plans_action_names_closing_the_epic_and_archiving_the_directory(
+    *, tmp_path: Path
+) -> None:
+    repo = _repo(tmp_path=tmp_path, slugs=("console-factory-build-cache",))
+    _snapshot(
+        repo=repo,
+        slug="console-factory-build-cache",
+        rel="snapshot.json",
+        body=_frozen(ids=["dt-1"]),
+    )
+    items = [
+        _item(
+            identifier="dt-3u3gm2",
+            issue_type="epic",
+            slug="console-factory-build-cache",
+        ),
+        _item(identifier="dt-3u3gm2.1", status="closed"),
+        _item(identifier="dt-1", status="closed"),
+    ]
+
+    (record,) = pc.plan_records(items=items, repo=repo)
+
+    assert "close the epic" in record.action
+    assert "plan/console-factory-build-cache/" in record.action
+    assert "independent completeness review" in record.action
+    assert "declared scope: 1 ids" in record.action
+
+
+def test_the_scope_undeclared_action_refuses_to_name_a_drive_to_completion(
+    *, tmp_path: Path
+) -> None:
+    """The state is REPORTED and NOT actionable, and its action line must say why.
+
+    An action that names closing the epic here is the destructive fire this whole
+    rule exists to prevent — and a queue full of them is how a check earns its way
+    into being ignored.
+    """
+    repo = _repo(tmp_path=tmp_path, slugs=("unproven",))
+    items = [
+        _item(identifier="dt-u", issue_type="epic", slug="unproven"),
+        _item(identifier="dt-u.1", status="closed"),
+    ]
+
+    (record,) = pc.plan_records(items=items, repo=repo)
+
+    assert "close the epic" not in record.action
+    assert "UNPROVEN" in record.action
+    assert "plan/unproven/" in record.action
+    assert record.state == pc.SCOPE_UNDECLARED
+
+
+# ---------------------------------------------------------------------------
 # The cross-tenant anchor sentinel — a DECLARATION, never a missing link
 # ---------------------------------------------------------------------------
 
@@ -364,6 +673,8 @@ def test_record_json_round_trips_every_field(*, tmp_path: Path) -> None:
         "dir_live",
         "child_count",
         "closed_child_count",
+        "scope_size",
+        "scope_open_count",
     }
     assert payload["plan_slug"] == "shape"
 
@@ -376,6 +687,7 @@ def test_every_state_has_an_action_and_the_actionable_set_excludes_the_healthy_o
         pc.EPIC_OPEN_DIR_ARCHIVED,
         pc.FINISHED_UNARCHIVED,
         pc.IN_PROGRESS,
+        pc.SCOPE_UNDECLARED,
         pc.UNLINKED,
     }
 
@@ -384,6 +696,7 @@ def test_every_state_has_an_action_and_the_actionable_set_excludes_the_healthy_o
     assert pc.ARCHIVED not in pc.ACTIONABLE_STATES
     assert pc.IN_PROGRESS not in pc.ACTIONABLE_STATES
     assert pc.CROSS_TENANT_ANCHOR not in pc.ACTIONABLE_STATES
+    assert pc.SCOPE_UNDECLARED not in pc.ACTIONABLE_STATES
 
 
 def test_plan_slug_of_reads_only_a_truthy_string_metadata_key() -> None:
@@ -409,6 +722,13 @@ def test_root_id_of_strips_every_dotted_suffix() -> None:
 
 def test_plan_state_dispatches_on_whether_a_subject_epic_was_found() -> None:
     epic = _item(identifier="dt-a", issue_type="epic")
+    undeclared = pc.PlanScope(ids=(), open_ids=())
 
-    assert pc.plan_state(epic=None, children=(), dir_live=True, anchor=None) == pc.UNLINKED
-    assert pc.plan_state(epic=epic, children=(), dir_live=True, anchor=None) == pc.IN_PROGRESS
+    assert (
+        pc.plan_state(epic=None, children=(), dir_live=True, anchor=None, scope=undeclared)
+        == pc.UNLINKED
+    )
+    assert (
+        pc.plan_state(epic=epic, children=(), dir_live=True, anchor=None, scope=undeclared)
+        == pc.IN_PROGRESS
+    )

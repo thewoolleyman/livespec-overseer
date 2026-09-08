@@ -15,10 +15,10 @@ ruling (SKILL.md section 2).
 
 The report has TWO units. Rows are the frozen work-item scope, tiered above. PLANS
 are the second, computed by `plan_completion` from the `plan/` tree AND the ledger,
-one record per slug, each carrying whether that plan's work is FINISHED and the act
-that would drive it to epic-closed and directory-archived. Both `--status` and the
-Markdown report cover both units, because a drain that closes every item and leaves
-its finished plans open has not finished either.
+one record per slug, each carrying whether that plan's DECLARED scope is drained
+and the act that would drive it to epic-closed and directory-archived. Both
+`--status` and the Markdown report cover both units, because a drain that closes
+every item and leaves its finished plans open has not finished either.
 """
 
 from __future__ import annotations
@@ -215,15 +215,21 @@ def tier_table(rows: list[Item]) -> list[str]:
 
 
 def plan_table(plans: list[Item]) -> list[str]:
+    # The DECLARED-SCOPE column is what makes a state legible: a plan can sit at
+    # 1/1 children closed and still be `in-progress` because its own frozen
+    # snapshot holds 144 open ids, and a reader seeing only the child count would
+    # read that as a bug. `-` means the plan declares no scope this drain can read.
     lines = [
-        "| plan | state | subject epic | children closed | next action |",
-        "|---|---|---|---|---|",
+        "| plan | state | subject epic | children closed | scope closed | next action |",
+        "|---|---|---|---|---|---|",
     ]
     for p in plans:
         epic = p["epic"] or "-"
+        size = p["scope_size"]
+        scope = f"{size - p['scope_open_count']}/{size}" if size else "-"
         lines.append(
             f"| `{p['plan_slug']}` | {p['state']} | `{epic}` | "
-            f"{p['closed_child_count']}/{p['child_count']} | {p['action']} |"
+            f"{p['closed_child_count']}/{p['child_count']} | {scope} | {p['action']} |"
         )
     return lines
 
