@@ -12,6 +12,13 @@ State: <repo>/tmp/drain-backlog/snapshot.json (+ snapshot-<UTC>.json history on 
 The tiering is a HEURISTIC over title, labels and priority. It orders the triage
 proposal; it does not rule. The session reads tier-1/2 candidates' own text before
 ruling (SKILL.md section 2).
+
+The report has TWO units. Rows are the frozen work-item scope, tiered above. PLANS
+are the second, computed by `plan_completion` from the `plan/` tree AND the ledger,
+one record per slug, each carrying whether that plan's work is FINISHED and the act
+that would drive it to epic-closed and directory-archived. Both `--status` and the
+Markdown report cover both units, because a drain that closes every item and leaves
+its finished plans open has not finished either.
 """
 
 from __future__ import annotations
@@ -24,6 +31,8 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any
+
+import plan_completion
 
 Item = dict[str, Any]
 
@@ -147,24 +156,6 @@ def row_of(item: Item, epics_p01: set[str], repo: Path) -> Item:
     return row
 
 
-def stale_plans(items: list[Item], repo: Path) -> list[Item]:
-    stale: list[Item] = []
-    for item in items:
-        slug = plan_slug_of(item)
-        if item.get("status") == "closed" and slug and (repo / "plan" / slug).is_dir():
-            stale.append(
-                {
-                    "epic": item["id"],
-                    "plan_slug": slug,
-                    "status": "closed",
-                    "dir_live": True,
-                    "note": "epic closed but plan directory still live: archive it through "
-                    "the plan gates, or reopen",
-                }
-            )
-    return stale
-
-
 def build(items: list[Item], repo: Path, frozen_ids: list[str] | None) -> Item:
     open_items = [i for i in items if i.get("status") != "closed"]
     epics_p01 = {
@@ -181,26 +172,18 @@ def build(items: list[Item], repo: Path, frozen_ids: list[str] | None) -> Item:
     frozen_set = set(frozen)
     for r in rows:
         r["admitted_after_snapshot"] = r["id"] not in frozen_set
-    plans: list[Item] = [
-        {
-            "epic": r["id"],
-            "plan_slug": r["plan_slug"],
-            "status": r["status"],
-            "dir_live": r["plan_dir_live"],
-            "tier": r["tier"],
-            "order": r["order"],
-        }
-        for r in rows
-        if r.get("plan_slug")
-    ]
-    plans += stale_plans(items, repo)
+    # PLANS ARE A SECOND UNIT, computed from EVERY item (not just the open rows)
+    # and from the `plan/` tree, so a plan whose subject epic carries no
+    # `plan_slug` is still reported and an inheriting child cannot double-count
+    # its own plan. See `plan_completion` for the four defects this replaced.
+    records = plan_completion.plan_records(items=items, repo=repo)
     return {
         "taken_at": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "repo": str(repo),
         "frozen_ids": frozen,
         "open_count": len(rows),
         "items": rows,
-        "plans": plans,
+        "plans": [plan_completion.record_json(record=r) for r in records],
     }
 
 
@@ -231,6 +214,43 @@ def tier_table(rows: list[Item]) -> list[str]:
     return lines
 
 
+def plan_table(plans: list[Item]) -> list[str]:
+    lines = [
+        "| plan | state | subject epic | children closed | next action |",
+        "|---|---|---|---|---|",
+    ]
+    for p in plans:
+        epic = p["epic"] or "-"
+        lines.append(
+            f"| `{p['plan_slug']}` | {p['state']} | `{epic}` | "
+            f"{p['closed_child_count']}/{p['child_count']} | {p['action']} |"
+        )
+    return lines
+
+
+def plan_sections(snap: Item) -> list[str]:
+    """The plan half of the report: every plan, then the ones a tick must act on.
+
+    The predecessor printed ONE anomaly line, for "epic closed but directory
+    live" — the inverse of the failure that actually occurs — so a finished plan
+    produced no output at all and sat open indefinitely. Every plan is listed
+    now, and the finished-but-unarchived ones are called out separately because
+    they are the ones the drain drives to closed-and-archived.
+    """
+    plans: list[Item] = snap["plans"]
+    lines = ["", f"## Plans as completable units ({len(plans)})", "", *plan_table(plans)]
+    finished = [p for p in plans if p["state"] == plan_completion.FINISHED_UNARCHIVED]
+    if finished:
+        lines += ["", "## FINISHED but not archived - drive each to epic-closed + archived", ""]
+        lines += [f"- `{p['plan_slug']}` (epic `{p['epic']}`): {p['action']}" for p in finished]
+    acting = [p for p in plans if p["state"] in plan_completion.ACTIONABLE_STATES]
+    other = [p for p in acting if p["state"] != plan_completion.FINISHED_UNARCHIVED]
+    if other:
+        lines += ["", "## Other plans needing an operator act", ""]
+        lines += [f"- `{p['plan_slug']}` ({p['state']}): {p['action']}" for p in other]
+    return lines
+
+
 def markdown(snap: Item) -> str:
     rows: list[Item] = snap["items"]
     after = sum(1 for r in rows if r["admitted_after_snapshot"])
@@ -246,10 +266,7 @@ def markdown(snap: Item) -> str:
     valves = [r for r in rows if r["valve"]]
     lines += ["", f"## Valves - blocked needs-human, decided as findings ({len(valves)})", ""]
     lines += [f"- `{r['id']}` P{r['priority']}: {str(r['title'])[:110]}" for r in valves]
-    stale = [p for p in snap["plans"] if p.get("note")]
-    if stale:
-        lines += ["", "## Plans whose epic is closed but whose directory is live", ""]
-        lines += [f"- `{p['epic']}` plan/{p['plan_slug']}/ - {p['note']}" for p in stale]
+    lines += plan_sections(snap)
     lines += [
         "",
         "Tiering is a heuristic; read each tier-1/2 item's own text before ruling. "
@@ -258,7 +275,7 @@ def markdown(snap: Item) -> str:
     return "\n".join(lines)
 
 
-def status(items: list[Item], snap: Item) -> Item:
+def status(items: list[Item], snap: Item, repo: Path) -> Item:
     by_id = {str(i["id"]): i for i in items}
     frozen: list[str] = snap["frozen_ids"]
     counts: dict[str, int] = {}
@@ -266,26 +283,37 @@ def status(items: list[Item], snap: Item) -> Item:
         st = str(by_id.get(fid, {}).get("status", "MISSING"))
         counts[st] = counts.get(st, 0) + 1
     closed = counts.get("closed", 0)
+    # Plans are re-read here, not carried from the snapshot file: the exit gate
+    # (SKILL.md section 9) now requires every plan closed-and-archived as well as
+    # every frozen id closed, and a status a file records is a shadow ledger.
+    records = plan_completion.plan_records(items=items, repo=repo)
+    pending = plan_completion.records_needing_action(records=records)
     return {
         "frozen": len(frozen),
         "closed": closed,
         "remaining": len(frozen) - closed,
         "by_status": counts,
+        "plans": len(records),
+        "plans_needing_action": [plan_completion.record_json(record=r) for r in pending],
         "taken_at": snap["taken_at"],
     }
 
 
-def report_status(items: list[Item], snap_path: Path, *, as_json: bool) -> int:
+def report_status(items: list[Item], snap_path: Path, repo: Path, *, as_json: bool) -> int:
     if not snap_path.exists():
         err("no snapshot yet: run without --status to freeze one")
         return 2
-    s = status(items, json.loads(snap_path.read_text()))
+    s = status(items, json.loads(snap_path.read_text()), repo)
     if as_json:
         out(json.dumps(s, indent=1))
     else:
         out(
             f"frozen {s['frozen']}: closed {s['closed']}, remaining {s['remaining']} "
             f"{s['by_status']} (snapshot {s['taken_at']})"
+        )
+        out(
+            f"plans {s['plans']}: {len(s['plans_needing_action'])} need an act "
+            + ", ".join(f"{p['plan_slug']}={p['state']}" for p in s["plans_needing_action"])
         )
     return 0
 
@@ -305,7 +333,7 @@ def main() -> int:
     snap_path = state / "snapshot.json"
     items = read_ledger(repo)
     if a.status:
-        return report_status(items, snap_path, as_json=bool(a.json))
+        return report_status(items, snap_path, repo, as_json=bool(a.json))
 
     frozen_ids: list[str] | None = None
     if snap_path.exists():
