@@ -118,13 +118,35 @@ container the drain expands into more ready items. Progress is re-read from the
 ledger on every `--status` and never stored in `snapshot.json`.
 
 **A PLAN is the drain's SECOND unit, and it is COMPLETABLE.** A plan is finished
-when every work item under its subject epic — including a review of the epic
-itself — is closed, and a finished plan must reach epic-closed AND
-directory-archived. Nothing used to drive that, so finished plans sat open
+when the SCOPE IT DECLARED is drained, and a finished plan must reach epic-closed
+AND directory-archived. Nothing used to drive that, so finished plans sat open
 indefinitely. `plan_completion.py` computes one record per plan and every
 `--status` and every Markdown report carries them (§9's exit gate reads the
 same records). The drain still never archives on a status flip: the record
 NAMES the act; the session runs it through the plan's own gates.
+
+**Completion needs POSITIVE evidence, and a closed child set is not it.** A plan
+DECLARES its scope by holding a frozen `*snapshot*.json` anywhere under
+`plan/<slug>/`; completion is every id in that snapshot closed, and the child set
+does not decide it. Measured 2026-09-08 (`overseer-9gfh`) by running the
+predecessor over this same tenant, where inferring completion from the ABSENCE of
+open children was wrong TWICE:
+
+- **The drain's OWN plan.** `dev-tooling-backlog-drain` reported
+  `finished-unarchived` at 114 of 258 closed. Its epic has exactly ONE child, a
+  mechanical one it filed for itself, and closing that child made the whole plan
+  read complete. Its scope is the frozen 258-id snapshot beside its research.
+  The action that record named would have closed the epic and archived the
+  directory of a LIVE drive with 144 items still open.
+- **A carrier that was never filed.** `console-factory-build-cache` reads 2/2
+  children closed because the second of the three requirement carriers its own
+  plan-scope event names was NEVER FILED as a child. It was this skill's pinned
+  example of a genuinely finished plan; it is a false positive.
+
+A plan whose every child is closed but which declares no readable scope is
+`scope-undeclared` — reported, NOT actionable. Unproven is not finished, and a
+check that fires destructively on a correctly-declared plan is a check that comes
+to be ignored, or obeyed once, catastrophically.
 
 **Plan identification uses BOTH routes, and is deduped by slug.** A slug is a
 plan if a `plan/<slug>/` DIRECTORY exists (excluding `plan/archive/`) OR any
@@ -143,25 +165,28 @@ both failure directions were measured against `livespec-dev-tooling` on
   SLUG, one per plan, and the subject epic is a ROOT id — never an inheriting
   child.
 
-**The seven plan states, and which four need an act:**
+**The eight plan states, and which four need an act:**
 
 | state | meaning | act |
 |---|---|---|
-| `finished-unarchived` | epic OPEN, ≥1 child, EVERY child closed, directory live | **drive it: dispose the children, run an independent completeness review of the epic itself, close the epic, archive `plan/<slug>/`** |
+| `finished-unarchived` | epic OPEN, directory live, and the plan's DECLARED scope is fully closed | **drive it: dispose the children, run an independent completeness review of the epic itself, close the epic, archive `plan/<slug>/`** |
 | `epic-closed-directory-live` | epic closed, directory still live | archive it through the plan gates, or reopen the epic |
-| `epic-open-directory-archived` | directory archived, epic still open | dispose, review, close the epic |
+| `epic-open-directory-archived` | directory archived, epic still open | reconcile the DIRECTORY: un-archive it, or drive the epic to closed (the record reports the open-child count) |
 | `unlinked` | directory live, no subject epic reachable by slug OR anchor | link it, then re-read completion |
-| `in-progress` | open work remains (or the epic has NO children yet) | none |
+| `in-progress` | declared-scope or child work is still open (or the epic has NO children yet) | none |
+| `scope-undeclared` | every child closed, but the plan declares no scope the drain can read | none: exhaustion is UNPROVEN, so declare the scope before any drive |
 | `archived` | directory archived and the epic closed | none |
 | `cross-tenant-anchor` | the anchor file carries the `unassigned` sentinel | none HERE |
 
-Two of those rows are load-bearing and were paid for:
+Three of those rows are load-bearing and were paid for:
 
 - **`finished-unarchived` is the failure that actually occurs, and the
   predecessor detector was pointed at its INVERSE.** `stale_plans()` fired only
   on "epic CLOSED and directory live"; run over that whole tenant it flagged
-  NOTHING, while `console-factory-build-cache` (epic `3u3gm2` at `backlog`, both
-  children closed, directory live) sat finished-but-unarchived and unseen.
+  NOTHING while finished-but-unarchived plans sat unseen.
+- **`scope-undeclared` is why that state cannot be read off the children.** It is
+  the two false positives above: reported so a session knows the plan is
+  unmeasured, never queued, because acting on it is the destructive move.
 - **`cross-tenant-anchor` is a DECLARATION, not a missing link.** The anchor file
   cannot express a cross-tenant epic, so a plan whose real anchor lives in
   another tenant writes the sentinel `unassigned` rather than a false local id
@@ -170,7 +195,14 @@ Two of those rows are load-bearing and were paid for:
   a correctly-declared plan is a check that comes to be ignored.
 
 An epic with NO children is `in-progress`, never finished — "every child is
-closed" is VACUOUSLY true of an epic nobody has filed work under.
+closed" is VACUOUSLY true of an epic nobody has filed work under, and an EMPTY
+frozen snapshot is not a declaration for exactly the same reason.
+
+**`epic-open-directory-archived`'s act names the DIRECTORY, and reports the open
+children.** Measured on the same run: ten of the twelve records in that tenant's
+queue were this state, several with the epic nowhere near closeable (`8o8e` at 12
+of 31 children closed, 19 OPEN). Telling an operator to "close" a 19-open-child
+epic ten times in a twelve-line queue trains the reader to skip the queue.
 
 The per-row `plan_slug` / `plan_dir_live` flags remain what they always were: a
 `plan:<slug>` annotation in the tier table, surfaced with `(dir missing)`. They
@@ -455,10 +487,18 @@ names the follow-up plan(s) or item(s) that carry anything transferred out.
 
 **The plan half of that gate is not a footnote.** Every plan the snapshot can
 identify — by directory or by ledger slug, §2 — must have reached
-`archived`, `in-progress`, or `cross-tenant-anchor`; a `finished-unarchived`,
-`epic-closed-directory-live`, `epic-open-directory-archived` or `unlinked`
+`archived`, `in-progress`, `scope-undeclared`, or `cross-tenant-anchor`; a
+`finished-unarchived`, `epic-closed-directory-live`,
+`epic-open-directory-archived` or `unlinked`
 plan is unfinished drain work, including the drain's OWN plan. Driving one to
 done means: dispose every child, run an INDEPENDENT completeness review of the
 epic itself, close the epic, then archive `plan/<slug>/`. A drain never
 archives itself on a status flip — the report names the act; you run it
 through the plan's own gates and the ledger is what records it.
+
+**`scope-undeclared` passes that gate without being a clean bill of health.** It
+says the plan's exhaustion is UNMEASURED, not that it is finished — the drain has
+no scope to measure it against. Declare one (freeze a `*snapshot*.json` under
+`plan/<slug>/`) and the plan becomes measurable; do NOT close and archive it off
+a closed child set, which is precisely the destructive act this state exists to
+withhold.

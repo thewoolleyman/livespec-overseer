@@ -1,13 +1,15 @@
 """drain-backlog plan completion: a PLAN is a completable unit, not one more row.
 
 `snapshot.py` freezes ROWS. A plan is not a row: it is a `plan/<slug>/` directory,
-a subject epic, and that epic's children, and it is FINISHED once every one of
-those children is closed — at which point the epic must be closed and the
+a subject epic, and the SCOPE that plan declared — and it is FINISHED once that
+declared scope is drained, at which point the epic must be closed and the
 directory archived through the plan's own gates (child disposition plus an
-independent completeness review of the epic itself).
+independent completeness review of the epic itself). A plan's children are
+EVIDENCE about it, never a substitute for the scope it declared; defect 5 below
+is what that distinction cost.
 
-Four defects shaped this module, every one measured against livespec-dev-tooling
-on 2026-09-08 (work-item `overseer-exz7`):
+Five defects shaped this module, every one measured against livespec-dev-tooling
+on 2026-09-08. The first four are `overseer-exz7`'s:
 
 1. The old `stale_plans()` fired on "epic CLOSED and directory still live" — the
    INVERSE of the failure that actually occurs. Run over that whole tenant it
@@ -28,6 +30,39 @@ on 2026-09-08 (work-item `overseer-exz7`):
    indefinitely with nothing driving it. Every record now names its own next
    action, and `records_needing_action` is the queue.
 
+The fifth is `overseer-9gfh`, found by RUNNING the code the first four produced:
+
+5. Completion was inferred from the ABSENCE of open children rather than from
+   POSITIVE evidence that the plan's declared scope is drained. That is right
+   for a plan whose scope IS its children and WRONG for a plan that tracks its
+   work anywhere else, and it needs exactly ONE closed incidental child to fire
+   — the state every plan reaches the moment it files a mechanical child for
+   itself. The first victim was the drain's OWN plan:
+   `dev-tooling-backlog-drain` reported `finished-unarchived` at 114 of 258
+   closed, because its one child was closed and its real scope is a frozen
+   258-id snapshot; the action that record named would have closed the epic and
+   archived the directory of a LIVE drive with 144 items still open. The second
+   shape is quieter and was read as a TRUE positive twice, once by this module's
+   own first regression test: `console-factory-build-cache` reads 2/2 children
+   closed BECAUSE the second of the three requirement carriers its plan-scope
+   event names was never filed as a child at all.
+
+So `FINISHED_UNARCHIVED` now requires POSITIVE evidence: a scope the plan itself
+DECLARES and this module can READ — a frozen `*snapshot*.json` under
+`plan/<slug>/` — with every id in it closed. The declared scope DECIDES and the
+child set does not, which follows from the skill's own §2 rule that nothing filed
+after the freeze extends the plan. A plan whose every child is closed while it
+declares no readable scope reports `SCOPE_UNDECLARED`: reported, and NOT
+actionable, because unproven is not the same as finished.
+
+The `EPIC_OPEN_DIR_ARCHIVED` action was reworded in the same pass, for the same
+family of reason. On that run TEN of twelve queued records were that state and
+several of their epics were nowhere near closeable (`8o8e` at 12 of 31 children
+closed), while the action said "dispose every child, review the epic, then close
+it" unconditionally. The act it names now is reconciling the DIRECTORY against
+its open epic, and it carries the open-child count so a one-item tail is
+distinguishable from a live 19-item epic. The CLASSIFICATION is unchanged.
+
 The anchor file has no way to name a CROSS-TENANT epic, so a plan whose real
 anchor lives in another tenant writes the sentinel `unassigned` rather than a
 false local id (`mutation-testing-keystone`, whose anchor is `livespec-mutreal`
@@ -42,6 +77,7 @@ status flip: the record NAMES the action; the operator runs it through the gates
 
 from __future__ import annotations
 
+import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -61,19 +97,27 @@ __all__: list[str] = [
     "EPIC_OPEN_DIR_ARCHIVED",
     "FINISHED_UNARCHIVED",
     "IN_PROGRESS",
+    "SCOPE_DOCUMENT_GLOB",
+    "SCOPE_ID_LIST_KEYS",
+    "SCOPE_UNDECLARED",
     "UNLINKED",
     "PlanRecord",
+    "PlanScope",
     "anchor_of",
     "children_of",
+    "declared_scope",
     "is_closed",
     "ledger_plan_slugs",
     "live_plan_slugs",
     "plan_records",
+    "plan_scope",
     "plan_slug_of",
     "plan_state",
+    "read_json_document",
     "record_json",
     "records_needing_action",
     "root_id_of",
+    "scope_ids_of",
     "status_of",
     "subject_epic",
 ]
@@ -84,6 +128,14 @@ __all__: list[str] = [
 ANCHOR_FILENAME = "associated_work_item_id"
 ARCHIVE_DIRNAME = "archive"
 CROSS_TENANT_ANCHOR_SENTINEL = "unassigned"
+# How a plan DECLARES its scope: a frozen snapshot held anywhere beneath its own
+# directory — the artefact `snapshot.py` writes, and the only per-plan statement
+# of scope this module can read. The repo-wide `tmp/drain-backlog/snapshot.json`
+# is deliberately NOT read here: it is the scope of whatever drain is running
+# now, and attributing it to a plan slug would be a guess rather than a reading.
+SCOPE_DOCUMENT_GLOB = "**/*snapshot*.json"
+# The id-carrying keys `snapshot.py` writes, in the order they are trusted.
+SCOPE_ID_LIST_KEYS = ("frozen_ids", "items")
 # `done` is the beads-native terminal name; the lifecycle status is `closed`.
 # Both are read here because this module READS a ledger it does not write.
 CLOSED_STATUSES = frozenset({"closed", "done"})
@@ -94,6 +146,7 @@ EPIC_CLOSED_DIR_LIVE = "epic-closed-directory-live"
 EPIC_OPEN_DIR_ARCHIVED = "epic-open-directory-archived"
 FINISHED_UNARCHIVED = "finished-unarchived"
 IN_PROGRESS = "in-progress"
+SCOPE_UNDECLARED = "scope-undeclared"
 UNLINKED = "unlinked"
 
 ACTIONS = {
@@ -102,18 +155,24 @@ ACTIONS = {
     "completion belongs to the owning tenant",
     EPIC_CLOSED_DIR_LIVE: "archive plan/{slug}/ through the plan gates, or reopen the epic: "
     "the epic is closed while its directory is still live",
-    EPIC_OPEN_DIR_ARCHIVED: "dispose every child, review the epic, then close it: "
-    "plan/{slug}/ is already archived while the epic is still open",
+    EPIC_OPEN_DIR_ARCHIVED: "reconcile plan/{slug}/ against its still-OPEN epic — un-archive "
+    "the directory, or drive the epic to closed and leave it archived "
+    "(open children: {open_children})",
     FINISHED_UNARCHIVED: "DRIVE TO COMPLETION: dispose every child, run an independent "
-    "completeness review of the epic itself, close the epic, then archive plan/{slug}/",
-    IN_PROGRESS: "none: work remains open under the epic",
+    "completeness review of the epic itself, close the epic, then archive plan/{slug}/ "
+    "(declared scope: {scope_size} ids, every one closed)",
+    IN_PROGRESS: "none: declared-scope or child work is still open",
+    SCOPE_UNDECLARED: "none from this queue, and NOT finished: every child is closed, but "
+    "plan/{slug}/ declares no scope this drain can read, so exhaustion is UNPROVEN — "
+    "declare it (a frozen *snapshot*.json) before any drive to completion",
     UNLINKED: "link plan/{slug}/ to its subject epic (metadata plan_slug, or the "
     "{anchor} anchor file), then re-read completion",
 }
 
 # The states a drain tick must act on. `IN_PROGRESS` and `ARCHIVED` are healthy,
-# and `CROSS_TENANT_ANCHOR` is a correct declaration — reporting any of the three
-# as work is how a completion check earns its way into being ignored.
+# `CROSS_TENANT_ANCHOR` is a correct declaration, and `SCOPE_UNDECLARED` names a
+# thing that is UNPROVEN rather than a thing to do — reporting any of the four as
+# work is how a completion check earns its way into being ignored.
 ACTIONABLE_STATES = frozenset(
     {
         EPIC_CLOSED_DIR_LIVE,
@@ -137,6 +196,20 @@ class PlanRecord:
     dir_live: bool
     child_count: int
     closed_child_count: int
+    scope_size: int
+    scope_open_count: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class PlanScope:
+    """A plan's DECLARED scope, and the part of it the ledger does not show closed.
+
+    An EMPTY `ids` means the plan declares no scope this module can read, which is
+    not the same as declaring an empty one — see `declared_scope`.
+    """
+
+    ids: tuple[str, ...]
+    open_ids: tuple[str, ...]
 
 
 def plan_slug_of(*, item: Item) -> str | None:
@@ -231,6 +304,79 @@ def children_of(*, items: list[Item], epic_id: str) -> tuple[Item, ...]:
     )
 
 
+def read_json_document(*, path: Path) -> Any | None:
+    """The parsed document, or None when it will not parse as JSON."""
+    try:
+        payload: Any = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    return payload
+
+
+def _ids_in(*, entries: list[Any]) -> tuple[str, ...]:
+    ids: list[str] = []
+    for entry in entries:
+        identifier: Any = entry.get("id") if isinstance(entry, dict) else entry
+        if isinstance(identifier, str) and identifier.strip():
+            ids.append(identifier.strip())
+    return tuple(ids)
+
+
+def scope_ids_of(*, payload: Any) -> tuple[str, ...]:
+    """Every work-item id ONE parsed scope document declares.
+
+    Three shapes, all of them things `snapshot.py` itself writes or a hand-written
+    scope file plausibly holds: the `frozen_ids` list it freezes, the `items` rows
+    it tiers, and a bare list of ids. Anything else declares nothing, which lands
+    the plan in `SCOPE_UNDECLARED` rather than in a false `finished` — the safe
+    direction for a reader that cannot know every shape it will meet.
+    """
+    if isinstance(payload, dict):
+        for key in SCOPE_ID_LIST_KEYS:
+            entries: Any = payload.get(key)
+            if isinstance(entries, list):
+                return _ids_in(entries=entries)
+        return ()
+    if isinstance(payload, list):
+        return _ids_in(entries=payload)
+    return ()
+
+
+def declared_scope(*, repo: Path, slug: str) -> tuple[str, ...]:
+    """The ids the plan's own frozen snapshots declare. EMPTY means it declares none.
+
+    The UNION across every snapshot the plan holds: a plan that re-froze keeps the
+    history beside it, and the superset is the safe direction — one extra open id
+    costs a `finished` this module was not entitled to declare.
+
+    An empty result is not a declaration of an empty scope. Treating it as one
+    would make freezing an empty snapshot the shortest route to a false `finished`,
+    which is the same vacuity the child set is already guarded against.
+
+    A document NAMED a snapshot that will not parse WITHDRAWS the declaration
+    outright rather than being skipped: a scope read from its siblings alone is
+    missing exactly the ids the unreadable file held.
+    """
+    ids: set[str] = set()
+    for document in sorted((repo / "plan" / slug).glob(SCOPE_DOCUMENT_GLOB)):
+        payload = read_json_document(path=document)
+        if payload is None:
+            return ()
+        ids.update(scope_ids_of(payload=payload))
+    return tuple(sorted(ids))
+
+
+def plan_scope(*, items: list[Item], repo: Path, slug: str) -> PlanScope:
+    """The plan's declared scope, measured against the ledger.
+
+    An id no ledger row carries at all is UNKNOWN, and unknown is never evidence
+    of exhaustion, so it counts as OPEN.
+    """
+    ids = declared_scope(repo=repo, slug=slug)
+    closed = {str(item.get("id")) for item in items if is_closed(item=item)}
+    return PlanScope(ids=ids, open_ids=tuple(i for i in ids if i not in closed))
+
+
 def _state_without_epic(*, dir_live: bool, anchor: str | None) -> str:
     if not dir_live:
         return ARCHIVED
@@ -239,18 +385,34 @@ def _state_without_epic(*, dir_live: bool, anchor: str | None) -> str:
     return UNLINKED
 
 
-def _state_with_epic(*, epic: Item, children: tuple[Item, ...], dir_live: bool) -> str:
+def _live_epic_state(*, children: tuple[Item, ...], scope: PlanScope) -> str:
+    """Completion for a LIVE directory under an OPEN epic — the load-bearing arc.
+
+    A declared scope DECIDES, and the child set does not: the skill's own §2 rule
+    is that nothing filed after the freeze extends the plan, so a drained frozen
+    scope is exhaustion even with a later-filed child still open — and the act
+    that record names begins by disposing every child.
+
+    Absent a declared scope there is no positive evidence at all, so a child set
+    that is entirely closed reports UNPROVEN rather than finished. `children and`
+    stays load-bearing for the reason it always was: "every child is closed" is
+    VACUOUSLY true of an epic nobody has filed work under, which is unstarted.
+    """
+    if scope.ids:
+        return IN_PROGRESS if scope.open_ids else FINISHED_UNARCHIVED
+    if children and all(is_closed(item=child) for child in children):
+        return SCOPE_UNDECLARED
+    return IN_PROGRESS
+
+
+def _state_with_epic(
+    *, epic: Item, children: tuple[Item, ...], dir_live: bool, scope: PlanScope
+) -> str:
     if is_closed(item=epic):
         return EPIC_CLOSED_DIR_LIVE if dir_live else ARCHIVED
     if not dir_live:
         return EPIC_OPEN_DIR_ARCHIVED
-    # `children and` is load-bearing: "every child is closed" is VACUOUSLY true of
-    # an epic with no children at all, and an epic nobody has filed work under is
-    # not finished — it is unstarted. Without this guard the drive-to-completion
-    # action would fire on every childless epic in the tenant.
-    if children and all(is_closed(item=child) for child in children):
-        return FINISHED_UNARCHIVED
-    return IN_PROGRESS
+    return _live_epic_state(children=children, scope=scope)
 
 
 def plan_state(
@@ -259,10 +421,11 @@ def plan_state(
     children: tuple[Item, ...],
     dir_live: bool,
     anchor: str | None,
+    scope: PlanScope,
 ) -> str:
     if epic is None:
         return _state_without_epic(dir_live=dir_live, anchor=anchor)
-    return _state_with_epic(epic=epic, children=children, dir_live=dir_live)
+    return _state_with_epic(epic=epic, children=children, dir_live=dir_live, scope=scope)
 
 
 def _record(*, items: list[Item], repo: Path, slug: str, live: frozenset[str]) -> PlanRecord:
@@ -270,18 +433,27 @@ def _record(*, items: list[Item], repo: Path, slug: str, live: frozenset[str]) -
     epic = subject_epic(items=items, slug=slug, anchor=anchor)
     epic_id = str(epic["id"]) if epic is not None else None
     children = () if epic_id is None else children_of(items=items, epic_id=epic_id)
+    scope = plan_scope(items=items, repo=repo, slug=slug)
     dir_live = slug in live
-    state = plan_state(epic=epic, children=children, dir_live=dir_live, anchor=anchor)
+    state = plan_state(epic=epic, children=children, dir_live=dir_live, anchor=anchor, scope=scope)
+    closed_children = sum(1 for child in children if is_closed(item=child))
     return PlanRecord(
         plan_slug=slug,
         state=state,
-        action=ACTIONS[state].format(slug=slug, anchor=ANCHOR_FILENAME),
+        action=ACTIONS[state].format(
+            slug=slug,
+            anchor=ANCHOR_FILENAME,
+            open_children=len(children) - closed_children,
+            scope_size=len(scope.ids),
+        ),
         epic=epic_id,
         epic_status=None if epic is None else status_of(item=epic),
         anchor=anchor,
         dir_live=dir_live,
         child_count=len(children),
-        closed_child_count=sum(1 for child in children if is_closed(item=child)),
+        closed_child_count=closed_children,
+        scope_size=len(scope.ids),
+        scope_open_count=len(scope.open_ids),
     )
 
 
