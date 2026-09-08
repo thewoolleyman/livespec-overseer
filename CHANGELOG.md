@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.0.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.0.2...v5.0.3) (2026-09-08)
+
+
+### Bug Fixes
+
+* **caam:** disqualify an account at its extra-usage spend limit (overseer-t04c) ([11d1b13](https://github.com/thewoolleyman/livespec-overseer/commit/11d1b13b0e0f2840bccb47224dbd442176b559c9))
+* **caam:** read the extra-usage dollar meter off the usage response (overseer-t04c) ([4576b36](https://github.com/thewoolleyman/livespec-overseer/commit/4576b3649a2b43be0c5c5c6cbd4f9258ec2c1d31))
+* **caam:** surface extra-usage spend on the pass's operator surfaces (overseer-t04c) ([2194296](https://github.com/thewoolleyman/livespec-overseer/commit/219429675296e1f4fc332a497eafa8521669f530))
+
 ## [5.0.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.0.1...v5.0.2) (2026-09-07)
 
 
