@@ -184,7 +184,7 @@
       "livespec": ">=0.1.0,<1.0.0",
       // Bootstrap placeholder; the first successful cross-repo fan-out
       // rewrites this to a livespec release tag.
-      "pinned": "v0.38.2"
+      "pinned": "v0.38.4"
     },
     // Network decision for overseer-hgq4wi.19: a bounded GitHub workflow-runs
     // query for the release-tag lane is permitted because the operator surface is
@@ -208,7 +208,7 @@
     "format": "beads",
     "compat": {
       "livespec": ">=0.1.0,<1.0.0",
-      "pinned": "v0.38.2"
+      "pinned": "v0.38.4"
     },
     // Per-repo beads tenant CONNECTION block, read by the plugin's
     // commands/_config.py. `tenant` == `database` == `server_user` is the
