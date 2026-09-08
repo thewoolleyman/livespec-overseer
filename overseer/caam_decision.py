@@ -17,7 +17,6 @@ from caam_decision_protection import (
     candidate_allowed,
     candidate_holds_scoped_above_reserve,
     dimension_remaining,
-    empty_release_note,
     floor_breach,
     is_eligible,
     protection_floor_for,
@@ -25,6 +24,8 @@ from caam_decision_protection import (
     select_candidate_set,
     weekly_left,
 )
+from caam_extra_usage import spend_capped
+from caam_release_note import empty_release_note
 from caam_rendering import (
     SwitchTargetSummary,
     current_cell,
@@ -91,6 +92,12 @@ def binding(
     protection_floors: Mapping[str, float] = NO_PROTECTION_FLOORS,
 ) -> tuple[str, float, str]:
     protection_floor = protection_floor_for(name=active_name, protection_floors=protection_floors)
+    # First, because it outranks every percentage below it: an account at its
+    # dollar cap can serve nothing at all, so naming a healthy 5-hour window as
+    # the reason the pass is leaving would report a figure that has stopped
+    # meaning anything about what this account can do.
+    if spend_capped(usage=usage):
+        return ("five_hour", usage.five_hour_remaining, "extra-usage spend limit")
     if usage.five_hour_remaining <= five_hour_remaining_floor():
         return ("five_hour", usage.five_hour_remaining, "5-hour window")
     if protection_floor > 0 and raw_weekly_left(usage=usage) <= protection_floor:
@@ -116,9 +123,14 @@ def triggered(
     # fires only while an operator pin names the scoped model: with no pin,
     # rotating on scoped exhaustion would be rotating in order to consume a
     # scoped allowance, which the same clause still forbids.
+    #
+    # The spend-cap leg is unconditional, unlike the scoped one: an account that
+    # cannot serve a request is a reason to leave whatever any session happens to
+    # be doing on it.
     protection_floor = protection_floor_for(name=active_name, protection_floors=protection_floors)
     return (
-        usage.five_hour_remaining <= five_hour_remaining_floor()
+        spend_capped(usage=usage)
+        or usage.five_hour_remaining <= five_hour_remaining_floor()
         or weekly_left(usage=usage) < weekly_reserve()
         or (protection_floor > 0 and raw_weekly_left(usage=usage) <= protection_floor)
         or (scoped_pin and active_at_or_below_scoped_reserve(usage=usage, reserve=scoped_reserve()))
@@ -156,6 +168,15 @@ def eligible_profiles(
     protection_floors: Mapping[str, float] = NO_PROTECTION_FLOORS,
 ) -> EligibleProfiles:
     reserve = weekly_reserve()
+    # The relative-headroom margin asks a candidate to beat the balance the
+    # account in use still has. An account at its dollar cap has no balance it is
+    # permitted to spend, however healthy its percentages read, so there is
+    # nothing for a candidate to beat and the margin is WAIVED rather than
+    # measured -- measuring it against unusable headroom is precisely what would
+    # leave the fleet stranded on the account that cannot serve it.
+    gain_needed = (
+        -inf if spend_capped(usage=active.usage) else (0.01 if force else min_headroom_gain())
+    )
 
     def _select(*, enforce_reserve: bool) -> tuple[ProfileUsage, ...]:
         """The candidate set under one reserve stance, everything else held fixed.
@@ -171,7 +192,7 @@ def eligible_profiles(
             active_name=active.name,
             policy=CandidatePolicy(
                 current=active.usage,
-                gain_needed=0.01 if force else min_headroom_gain(),
+                gain_needed=gain_needed,
                 dimension=dimension,
                 enforce_reserve=enforce_reserve,
                 weekly_reserve=reserve,
