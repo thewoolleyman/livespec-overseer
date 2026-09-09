@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 
 from _caam_rotation_span import RotationOutcome, switch_trigger
 from _caam_switch_host import acquire_switch_lock, caam_activate
@@ -186,11 +187,7 @@ def _switch_decision(
             state=context.state,
             home=context.home,
             now=context.now,
-            active_reader=lambda: active_profile(
-                live_account_path=context.home / ".claude.json",
-                vault_path=caam_vault(home=context.home),
-                caam_runner=_run_caam,
-            ),
+            active_reader=lambda: _active_name(home=context.home),
             fetcher=seams.fetcher,
             activator=caam_activate,
             lock_factory=acquire_switch_lock,
@@ -219,6 +216,23 @@ def _switch_decision(
     if result.switched and seams.after_switch is not None:
         seams.after_switch(active_name=plan.target.name)
     return result.exit_code
+
+
+def _active_name(*, home: Path) -> str | None:
+    """The active profile's NAME, for the re-read taken while holding the lock.
+
+    That read exists to catch the decision's premise changing beneath it, which
+    the name alone settles: the identity of the account this pass determined was
+    resolved once, where it was determined, and re-resolving it here would answer
+    a question nobody asked at this point in the sequence.
+    """
+
+    active = active_profile(
+        live_account_path=home / ".claude.json",
+        vault_path=caam_vault(home=home),
+        caam_runner=_run_caam,
+    )
+    return None if active is None else active.profile
 
 
 def _run_caam(*, args: tuple[str, ...]):

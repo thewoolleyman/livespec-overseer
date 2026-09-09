@@ -664,6 +664,12 @@ def test_protected_accounts_summary_reports_floors_and_table_is_unchanged(*, tmp
     out: list[str] = []
     for name in ("active", "main", "backup"):
         (tmp_path / ".local/share/caam/vault/claude" / name).mkdir(parents=True)
+    # A real host always has a live account file carrying its account's own id, and
+    # this test asserts on the report's exact leading lines -- so without one the
+    # pass would correctly report an unresolved identity above the table (v049).
+    _ = (tmp_path / ".claude.json").write_text(
+        '{"oauthAccount":{"accountUuid":"live-uuid"}}\n', encoding="utf-8"
+    )
 
     result = module.run_pass(
         flags=module.parse_flags(

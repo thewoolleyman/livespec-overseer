@@ -39,7 +39,12 @@ from caam_profile_state import (
 from caam_profile_state import (
     state_path as caam_state_path,
 )
-from caam_profiles import CaamRunner, active_profile
+from caam_profiles import (
+    ActiveIdentity,
+    CaamRunner,
+    active_profile,
+    unresolved_identity_note,
+)
 from caam_protected_accounts import apply_protected_accounts
 from caam_rendering import RenderableProfileUsage, render_table, trigger_header
 from caam_switch import switch_account as default_switch_account
@@ -126,12 +131,12 @@ def _run_pass(
             stdout=stdout,
             lines=(_EMPTY_VAULT,),
         )
-    active_name = active_profile(
+    active = active_profile(
         live_account_path=run_home / ".claude.json",
         vault_path=vault,
         caam_runner=run_caam,
     )
-    if active_name is None:
+    if active is None:
         return finish(
             code=2,
             state=state,
@@ -140,7 +145,7 @@ def _run_pass(
             stdout=stdout,
             lines=(_ACTIVE_FAIL,),
         )
-    span.note_account(name=active_name)
+    span.note_account(name=active.profile)
     return _pass_with_active(
         context=PassContext(
             flags=flags,
@@ -151,7 +156,7 @@ def _run_pass(
             stdout=stdout,
             span=span,
         ),
-        active_name=active_name,
+        active=active,
         seams=PassSeams(
             fetcher=fetcher,
             save_state=save_state,
@@ -180,9 +185,10 @@ def _pass_stamp(*, now: float) -> str:
 def _pass_with_active(
     *,
     context: PassContext,
-    active_name: str,
+    active: ActiveIdentity,
     seams: PassSeams,
 ) -> int:
+    active_name = active.profile
     # Carrier R12. The oracle emits this immediately after the active profile is
     # resolved and BEFORE resnapshot, so it precedes the table on every pass and
     # still appears when the pass later fails to read usage. It is the only line
@@ -190,6 +196,14 @@ def _pass_with_active(
     # overridable -- without it the table's numbers cannot be read against the
     # decision. It shipped defined, exported and uncalled (overseer-54k2za.38).
     context.stdout(trigger_header(stamp=_pass_stamp(now=context.now)))
+    # An account determined without its stable identifier is REPORTED and the pass
+    # continues, per spec.md's "An unresolved identifier is a reported condition,
+    # not a failure path" -- it never contributes to the exit code. Reported here,
+    # beside the header and above the table, for the reason the header is: a pass
+    # that later fails to read usage exits before the table and would otherwise
+    # say nothing about the gap.
+    if active.account_uuid is None:
+        context.stdout(unresolved_identity_note(profile=active_name))
     resnapshot_active(
         active_name=active_name,
         home=context.home,
