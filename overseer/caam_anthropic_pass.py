@@ -20,6 +20,7 @@ from caam_anthropic_status import EnforceModels, write_status
 from caam_decision import ProfileUsage
 from caam_enforcement import enforce_models as default_enforce_models
 from caam_pass_probe import probe_snapshotless_profiles
+from caam_pass_publish import publish_determined, publish_switched
 from caam_pass_seams import (
     AgentRunner,
     default_agent_runner,
@@ -204,6 +205,15 @@ def _pass_with_active(
     # say nothing about the gap.
     if active.account_uuid is None:
         context.stdout(unresolved_identity_note(profile=active_name))
+    # The record names the account active at the END of the pass, so a switch
+    # republishes from `_after_switch` below and this write is the one that
+    # stands for every other outcome. It happens HERE, above the unreadable-usage
+    # exit, because spec.md requires a pass that fully resolved the identity but
+    # could not read its quota to publish anyway: the identity is known and the
+    # missing figures bear only on the report. `publish_selection` refuses a
+    # partial identity itself, so a determined-but-unidentified account writes
+    # nothing rather than a name-only record.
+    publish_determined(home=context.home, now=context.now, active=active)
     resnapshot_active(
         active_name=active_name,
         home=context.home,
@@ -265,6 +275,12 @@ def _pass_with_active(
 
     def _after_switch(*, active_name: str) -> None:
         _emit_table(context=context, profiles=profiles, active_name=active_name)
+        # Runs only on a switch that MOVED the credential, so the record ends the
+        # pass naming the account now in use rather than the one it started on.
+        # The identifier comes from the destination profile's own stored snapshot:
+        # the live account file is the account manager's to rewrite, and reading it
+        # here would race that write.
+        publish_switched(home=context.home, now=context.now, profile=active_name)
         # Runs only on a switch that moved the credential, so a hold still warms
         # exactly once. It needs no re-poll: keep_warm reads each candidate's
         # expiry from that profile's own vault snapshot, never from the rows this

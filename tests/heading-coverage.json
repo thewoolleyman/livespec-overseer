@@ -856,24 +856,24 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A pass that switches publishes the newly selected account's identity",
-    "test": "TODO",
-    "reason": "Ratified ahead of implementation as part of v049 (plan epic overseer-rqkwyh): the published selection record and the unconditional stable-identifier resolution are specified first so the implementation is written against a ratified contract. Coverage arrives with the publication slice filed under that epic; until then this row is a declared TODO rather than a silent gap. Its replacement MUST be an integration-tier test, per the heading taxonomy's scenario-tier rule for scenarios.md headings.",
+    "test": "tests.integration.test_caam_published_selection_record.test_a_pass_that_switches_publishes_the_newly_selected_account",
+    "reason": "Covered by an integration-tier test over the shipped rotation pass, with only process boundaries seamed and home= injected (plan epic overseer-rqkwyh, v049 published selection record).",
     "work_item": "overseer-rqkwyh"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A pass that holds after a hand-run activation publishes the account it found active",
-    "test": "TODO",
-    "reason": "Ratified ahead of implementation as part of v049 (plan epic overseer-rqkwyh): the published selection record and the unconditional stable-identifier resolution are specified first so the implementation is written against a ratified contract. Coverage arrives with the publication slice filed under that epic; until then this row is a declared TODO rather than a silent gap. Its replacement MUST be an integration-tier test, per the heading taxonomy's scenario-tier rule for scenarios.md headings.",
+    "test": "tests.integration.test_caam_published_selection_record.test_a_hand_run_activation_converges_within_one_pass",
+    "reason": "Covered by an integration-tier test over the shipped rotation pass, with only process boundaries seamed and home= injected (plan epic overseer-rqkwyh, v049 published selection record).",
     "work_item": "overseer-rqkwyh"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Republishing an unchanged identity is not reported as a change",
-    "test": "TODO",
-    "reason": "Ratified ahead of implementation as part of v049 (plan epic overseer-rqkwyh): the published selection record and the unconditional stable-identifier resolution are specified first so the implementation is written against a ratified contract. Coverage arrives with the publication slice filed under that epic; until then this row is a declared TODO rather than a silent gap. Its replacement MUST be an integration-tier test, per the heading taxonomy's scenario-tier rule for scenarios.md headings.",
+    "test": "tests.integration.test_caam_published_selection_record.test_republishing_an_unchanged_identity_is_not_reported_as_a_change",
+    "reason": "Covered by an integration-tier test over the shipped rotation pass, with only process boundaries seamed and home= injected (plan epic overseer-rqkwyh, v049 published selection record).",
     "work_item": "overseer-rqkwyh"
   },
   {
@@ -912,8 +912,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unreadable usage response does not suppress publication",
-    "test": "TODO",
-    "reason": "Ratified ahead of implementation as part of v049 (plan epic overseer-rqkwyh): the published selection record and the unconditional stable-identifier resolution are specified first so the implementation is written against a ratified contract. Coverage arrives with the publication slice filed under that epic; until then this row is a declared TODO rather than a silent gap. Its replacement MUST be an integration-tier test, per the heading taxonomy's scenario-tier rule for scenarios.md headings.",
+    "test": "tests.integration.test_caam_published_selection_record.test_an_unreadable_usage_response_does_not_suppress_publication",
+    "reason": "Covered by an integration-tier test over the shipped rotation pass, with only process boundaries seamed and home= injected (plan epic overseer-rqkwyh, v049 published selection record).",
     "work_item": "overseer-rqkwyh"
   },
   {
