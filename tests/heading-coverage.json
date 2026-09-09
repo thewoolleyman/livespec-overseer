@@ -843,5 +843,85 @@
     "test": "tests.integration.test_start_intent_before_spawn.test_a_spawn_that_fails_and_returns_amends_its_intent_record_with_the_error",
     "reason": "Integration-tier: drives the shipped actuator over a plan_start proposal whose spawn seam RETURNS non-zero, so the surface survives and owes the amendment — the SATISFIABLE half the killed-spawn scenario structurally cannot exercise, because a dead surface writes nothing. It asserts the amended outcome carries the ERROR and not merely a failure flag: a record saying only 'it failed' cannot tell the next reader whether the spawn was refused, crashed, or never found its command. It drives plan_start deliberately, the half research note 002 measured as carrying no pre-spawn record at all and therefore nothing to amend. Its siblings in the same module carry the rest of the reconciliation: the work_item_session_start family, whose failed spawn also releases the stale claim research note 002 measured being left in place; a control that an intent record deleted underneath the surface is reconciled rather than resurrected, since re-creating one from the wrong side of the spawn would fabricate evidence of an attempt. Replaces the TODO filed by plan session-start-and-registry-integrity (anchor overseer-zidpiu); implemented by overseer-zidpiu.4.",
     "work_item": "overseer-zidpiu.4"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The stable account identifier is resolved even when the account manager names the profile",
+    "test": "TODO",
+    "reason": "Ratified ahead of implementation as part of v049 (plan epic overseer-rqkwyh): the published selection record and the unconditional stable-identifier resolution are specified first so the implementation is written against a ratified contract. Coverage arrives with the publication slice filed under that epic; until then this row is a declared TODO rather than a silent gap. Its replacement MUST be an integration-tier test, per the heading taxonomy's scenario-tier rule for scenarios.md headings.",
+    "work_item": "overseer-rqkwyh"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A pass that switches publishes the newly selected account's identity",
+    "test": "TODO",
+    "reason": "Ratified ahead of implementation as part of v049 (plan epic overseer-rqkwyh): the published selection record and the unconditional stable-identifier resolution are specified first so the implementation is written against a ratified contract. Coverage arrives with the publication slice filed under that epic; until then this row is a declared TODO rather than a silent gap. Its replacement MUST be an integration-tier test, per the heading taxonomy's scenario-tier rule for scenarios.md headings.",
+    "work_item": "overseer-rqkwyh"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A pass that holds after a hand-run activation publishes the account it found active",
+    "test": "TODO",
+    "reason": "Ratified ahead of implementation as part of v049 (plan epic overseer-rqkwyh): the published selection record and the unconditional stable-identifier resolution are specified first so the implementation is written against a ratified contract. Coverage arrives with the publication slice filed under that epic; until then this row is a declared TODO rather than a silent gap. Its replacement MUST be an integration-tier test, per the heading taxonomy's scenario-tier rule for scenarios.md headings.",
+    "work_item": "overseer-rqkwyh"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Republishing an unchanged identity is not reported as a change",
+    "test": "TODO",
+    "reason": "Ratified ahead of implementation as part of v049 (plan epic overseer-rqkwyh): the published selection record and the unconditional stable-identifier resolution are specified first so the implementation is written against a ratified contract. Coverage arrives with the publication slice filed under that epic; until then this row is a declared TODO rather than a silent gap. Its replacement MUST be an integration-tier test, per the heading taxonomy's scenario-tier rule for scenarios.md headings.",
+    "work_item": "overseer-rqkwyh"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The published record never influences a later pass's selection",
+    "test": "TODO",
+    "reason": "Ratified ahead of implementation as part of v049 (plan epic overseer-rqkwyh): the published selection record and the unconditional stable-identifier resolution are specified first so the implementation is written against a ratified contract. Coverage arrives with the publication slice filed under that epic; until then this row is a declared TODO rather than a silent gap. Its replacement MUST be an integration-tier test, per the heading taxonomy's scenario-tier rule for scenarios.md headings.",
+    "work_item": "overseer-rqkwyh"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An undetermined active account leaves the published record intact",
+    "test": "TODO",
+    "reason": "Ratified ahead of implementation as part of v049 (plan epic overseer-rqkwyh): the published selection record and the unconditional stable-identifier resolution are specified first so the implementation is written against a ratified contract. Coverage arrives with the publication slice filed under that epic; until then this row is a declared TODO rather than a silent gap. Its replacement MUST be an integration-tier test, per the heading taxonomy's scenario-tier rule for scenarios.md headings.",
+    "work_item": "overseer-rqkwyh"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unresolvable stable identifier suppresses publication",
+    "test": "TODO",
+    "reason": "Ratified ahead of implementation as part of v049 (plan epic overseer-rqkwyh): the published selection record and the unconditional stable-identifier resolution are specified first so the implementation is written against a ratified contract. Coverage arrives with the publication slice filed under that epic; until then this row is a declared TODO rather than a silent gap. Its replacement MUST be an integration-tier test, per the heading taxonomy's scenario-tier rule for scenarios.md headings.",
+    "work_item": "overseer-rqkwyh"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A pass that could not take the decision lock does not publish",
+    "test": "TODO",
+    "reason": "Ratified ahead of implementation as part of v049 (plan epic overseer-rqkwyh): the published selection record and the unconditional stable-identifier resolution are specified first so the implementation is written against a ratified contract. Coverage arrives with the publication slice filed under that epic; until then this row is a declared TODO rather than a silent gap. Its replacement MUST be an integration-tier test, per the heading taxonomy's scenario-tier rule for scenarios.md headings.",
+    "work_item": "overseer-rqkwyh"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unreadable usage response does not suppress publication",
+    "test": "TODO",
+    "reason": "Ratified ahead of implementation as part of v049 (plan epic overseer-rqkwyh): the published selection record and the unconditional stable-identifier resolution are specified first so the implementation is written against a ratified contract. Coverage arrives with the publication slice filed under that epic; until then this row is a declared TODO rather than a silent gap. Its replacement MUST be an integration-tier test, per the heading taxonomy's scenario-tier rule for scenarios.md headings.",
+    "work_item": "overseer-rqkwyh"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A failed publication fails the pass without undoing it",
+    "test": "TODO",
+    "reason": "Ratified ahead of implementation as part of v049 (plan epic overseer-rqkwyh): the published selection record and the unconditional stable-identifier resolution are specified first so the implementation is written against a ratified contract. Coverage arrives with the publication slice filed under that epic; until then this row is a declared TODO rather than a silent gap. Its replacement MUST be an integration-tier test, per the heading taxonomy's scenario-tier rule for scenarios.md headings.",
+    "work_item": "overseer-rqkwyh"
   }
 ]
