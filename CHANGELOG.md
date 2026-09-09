@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.1.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.0.4...v5.1.0) (2026-09-09)
+
+
+### Features
+
+* **caam:** resolve the stable account identifier on every determining pass (overseer-rqkwyh.1) ([c68113e](https://github.com/thewoolleyman/livespec-overseer/commit/c68113eb7a89ca6265f346665811fba475e56e0c))
+
 ## [5.0.4](https://github.com/thewoolleyman/livespec-overseer/compare/v5.0.3...v5.0.4) (2026-09-08)
 
 
