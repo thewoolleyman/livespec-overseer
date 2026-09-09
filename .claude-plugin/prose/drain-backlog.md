@@ -1,6 +1,11 @@
 ---
 name: drain-backlog
-description: Drain a livespec repository's open backlog through the factory without a foreman seat — freeze the scope, triage it in ruled batches, dispatch through detached probe-gated engines, and loop on outcomes until every item is closed or dispositioned. Invoke as `/drain-backlog [--update-snapshot] [--repo <path>]` from any fleet repo, or point a session at this SKILL.md directly.
+description: >-
+  Drain a livespec repository's open backlog through the factory without a
+  foreman seat — freeze the scope, triage it in ruled batches, dispatch through
+  detached probe-gated engines, and loop on outcomes until every item is closed
+  or dispositioned. Invoke as `/livespec-overseer:drain-backlog
+  [--update-snapshot] [--repo <path>]` from any fleet repo.
 ---
 
 # drain-backlog — own the forest, keep the factory fed
@@ -24,9 +29,9 @@ learned by stalling. Read the whole file once; then execute §2 → §8 in order
 ## 0. Invocation and state
 
 ```text
-/drain-backlog                      # resume (or first run: freeze the snapshot and propose batch 1)
-/drain-backlog --update-snapshot    # re-read every open item + plan, re-prioritise, persist a new snapshot
-/drain-backlog --repo <path>        # run against another checkout (default: cwd's primary checkout)
+/livespec-overseer:drain-backlog                      # resume (or first run: freeze the snapshot and propose batch 1)
+/livespec-overseer:drain-backlog --update-snapshot    # re-read every open item + plan, re-prioritise, persist a new snapshot
+/livespec-overseer:drain-backlog --repo <path>        # run against another checkout (default: cwd's primary checkout)
 ```
 
 All durable skill state lives under **`tmp/drain-backlog/`** in the target
@@ -56,19 +61,44 @@ HAS named a plan epic, handoffs and scope events go on that epic instead and
 | `tmp/drain-backlog/launch-<label>.log` | the launcher's gate trace for that engine |
 | `tmp/drain-backlog/last-tick` | ISO instant of the last loop tick (§5) |
 
-Scripts shipped beside this file (`<skill-dir>/scripts/`):
+Scripts ship inside this plugin, under `scripts/drain-backlog/`. Resolve that
+directory ONCE, at the start of the pass, and use `$DRAIN_SCRIPTS` everywhere
+below — your binding has already resolved `$PLUGIN_ROOT` (Codex and pi resolve
+it explicitly; Claude Code substitutes `CLAUDE_PLUGIN_ROOT`):
 
-- `snapshot.py` — freeze / `--update-snapshot` / `--status` (§2).
+```bash
+PLUGIN_ROOT="${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}"
+if [ -z "$PLUGIN_ROOT" ]; then
+  echo "livespec-overseer plugin root not set; expected PLUGIN_ROOT or CLAUDE_PLUGIN_ROOT" >&2
+  exit 1
+fi
+DRAIN_SCRIPTS="$PLUGIN_ROOT/scripts/drain-backlog"
+[ -f "$DRAIN_SCRIPTS/snapshot.py" ] || {
+  echo "drain-backlog scripts not found under $DRAIN_SCRIPTS" >&2
+  exit 1
+}
+```
+
+Three entry points, plus the modules they compose with:
+
+- `snapshot.py` — freeze / `--update-snapshot` / `--status` (§2). Its tiering
+  heuristic is `snapshot_tiering.py` and its Markdown is `snapshot_report.py`.
 - `plan_completion.py` — `snapshot.py`'s plan half: one record per PLAN, its
   completion state, and the act that would drive it to closed + archived (§2).
+  Its positive-evidence readers — the ledger's closed-set and a plan's declared
+  scope — are `plan_evidence.py`.
 - `engine-on-green.sh` — the ONLY way an engine is launched (§4).
 - `tick.py` — the §5 tick reader: journal outcomes since the last tick,
   active claims, live runs, open PRs with red checks.
 
-`<skill-dir>` is the directory holding this SKILL.md (the harness prints it as
-"Base directory for this skill"). Every ledger call goes through the repo's
-credential wrapper: `/usr/local/bin/with-livespec-env.sh -- bd …`. A bare `bd`
-that says `Access denied` is a MISSING CREDENTIAL, not an outage.
+`engine-on-green.sh` resolves a DIFFERENT plugin root of its own — the
+orchestrator's installed cache, where `dispatcher.py` lives. That glob is
+unrelated to `$PLUGIN_ROOT` above and needs nothing from you; override it with
+`DRAIN_PLUGIN_ROOT` only when the orchestrator cache is somewhere nonstandard.
+
+Every ledger call goes through the repo's credential wrapper:
+`/usr/local/bin/with-livespec-env.sh -- bd …`. A bare `bd` that says
+`Access denied` is a MISSING CREDENTIAL, not an outage.
 
 ## 1. Preconditions — measure, never carry a claim
 
@@ -100,8 +130,8 @@ magnitude.
 First run, or `--update-snapshot`:
 
 ```bash
-$W -- python3 <skill-dir>/scripts/snapshot.py --repo . [--update]
-$W -- python3 <skill-dir>/scripts/snapshot.py --repo . --status     # closed-of-frozen, any time
+$W -- python3 "$DRAIN_SCRIPTS/snapshot.py" --repo . [--update]
+$W -- python3 "$DRAIN_SCRIPTS/snapshot.py" --repo . --status     # closed-of-frozen, any time
 ```
 
 `snapshot.py` makes exactly ONE ledger call — `bd list --all --limit 0 --json`
@@ -318,7 +348,7 @@ then `stages/*/response.md`). Then exactly one of:
 **The engine.** Launch ONLY through the shipped launcher, DETACHED:
 
 ```bash
-setsid nohup <skill-dir>/scripts/engine-on-green.sh <label> <parallel> <id>... \
+setsid nohup "$DRAIN_SCRIPTS/engine-on-green.sh" <label> <parallel> <id>... \
   > tmp/drain-backlog/launch-<label>.log 2>&1 < /dev/null &
 ```
 
@@ -353,7 +383,7 @@ and the open PRs — plus the engine logs under tmp/drain-backlog/ and live runs
 fabro ps --server <FABRO_SERVER>. Act only on what is ripe: re-dispatch a run-environment
 failure once, groom a repeat, close a zero-diff "already landed" run as landed, close merged
 items on CI evidence, work the valves as findings, launch the next keeps as claims free
-(wip_cap counts ledger claims; engines DETACHED through scripts/engine-on-green.sh, which gates
+(wip_cap counts ledger claims; engines DETACHED through $DRAIN_SCRIPTS/engine-on-green.sh, which gates
 on the credential probe and master CI, never on a clock), file discovered-during defects with
 discovered-from provenance, and propose the next batch when a tier drains. Healthy waits are
 silent: write nothing to the ledger when nothing changed. A tick report lists what changed by
@@ -375,7 +405,7 @@ waiting on.
 Each tick reads three sources and acts only on what is ripe:
 
 ```bash
-$W -- python3 <skill-dir>/scripts/tick.py --repo . --server "$FABRO_SERVER"
+$W -- python3 "$DRAIN_SCRIPTS/tick.py" --repo . --server "$FABRO_SERVER"
 $W -- python3 "$R/needs_attention.py" --project-root .
 gh pr list --state open --json number,title,mergeStateStatus,statusCheckRollup
 ```
