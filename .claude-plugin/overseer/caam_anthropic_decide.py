@@ -40,7 +40,7 @@ from caam_profile_state import caam_vault
 from caam_profiles import active_profile
 from caam_scoped_model import scoped_model_pinned
 from caam_scoped_selection import none_holds_scoped_above_reserve, scoped_alone_trigger
-from caam_switch import SwitchRequest
+from caam_switch import REASON_HOLD_LOCK_HELD, SwitchRequest
 
 __all__: list[str] = [
     "DecisionContext",
@@ -194,6 +194,12 @@ def _switch_decision(
             save=save,
         )
     )
+    # The ONE outcome in which this pass never held the lock, and therefore never
+    # owned the decision it was about to record. Reported from the reason rather
+    # than from the exit code, which a lock contention shares with an ordinary
+    # successful hold.
+    if seams.lock_contended is not None and result.reason == REASON_HOLD_LOCK_HELD:
+        seams.lock_contended()
     for line in (plan.decision_line, *result.lines):
         context.stdout(line)
     # Emitted for a HOLD as well as a move: `switched` is the attribute that

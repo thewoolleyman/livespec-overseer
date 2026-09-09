@@ -16,6 +16,7 @@ __all__: list[str] = [
     "DecisionContext",
     "DecisionSeams",
     "Flags",
+    "LockContended",
     "SwitchAccount",
     "UsageFetcher",
 ]
@@ -53,6 +54,20 @@ class AfterSwitch(Protocol):
     def __call__(self, *, active_name: str) -> None: ...
 
 
+class LockContended(Protocol):
+    """Called once when a switch attempt could not take the decision lock.
+
+    A NEUTRAL FACT carried upward, not an interpretation: the pass above decides
+    what a contended lock means for it. Today it means the pass must not publish
+    its selected account -- spec.md v049 gives that write to the caller holding
+    the lock, which is deciding the very fact the record would state -- but the
+    decision path has no business knowing that, and a seam named for the
+    consequence would have to be renamed by the next consequence.
+    """
+
+    def __call__(self) -> None: ...
+
+
 class DecisionContext(Protocol):
     @property
     def flags(self) -> Flags: ...
@@ -79,6 +94,10 @@ class DecisionSeams:
     save_state: SaveState
     switch_account: SwitchAccount
     after_switch: AfterSwitch | None = None
+    # Absent for every caller with nothing riding on the lock. A `decide` caller
+    # that publishes nothing has nothing to forfeit when another caller is
+    # already deciding, so it reports the contention to no one.
+    lock_contended: LockContended | None = None
     # Where a `caam.rotation.switch` record goes. Absent for every caller that is
     # not a span-carrying rotation pass -- a direct `decide` caller has no trace to
     # hang one from, and reports nothing rather than emitting an orphan record.

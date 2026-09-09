@@ -20,7 +20,7 @@ from caam_anthropic_status import EnforceModels, write_status
 from caam_decision import ProfileUsage
 from caam_enforcement import enforce_models as default_enforce_models
 from caam_pass_probe import probe_snapshotless_profiles
-from caam_pass_publish import publish_determined, publish_switched
+from caam_pass_publish import pass_publication, pass_stamp
 from caam_pass_seams import (
     AgentRunner,
     default_agent_runner,
@@ -44,7 +44,6 @@ from caam_profiles import (
     ActiveIdentity,
     CaamRunner,
     active_profile,
-    unresolved_identity_note,
 )
 from caam_protected_accounts import apply_protected_accounts
 from caam_rendering import RenderableProfileUsage, render_table, trigger_header
@@ -179,10 +178,6 @@ class PassSeams:
     caam_runner: ResnapshotRunner
 
 
-def _pass_stamp(*, now: float) -> str:
-    return datetime.fromtimestamp(now, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 def _pass_with_active(
     *,
     context: PassContext,
@@ -196,24 +191,13 @@ def _pass_with_active(
     # carrying the pass timestamp, and the thresholds it names are environment-
     # overridable -- without it the table's numbers cannot be read against the
     # decision. It shipped defined, exported and uncalled (overseer-54k2za.38).
-    context.stdout(trigger_header(stamp=_pass_stamp(now=context.now)))
-    # An account determined without its stable identifier is REPORTED and the pass
-    # continues, per spec.md's "An unresolved identifier is a reported condition,
-    # not a failure path" -- it never contributes to the exit code. Reported here,
-    # beside the header and above the table, for the reason the header is: a pass
-    # that later fails to read usage exits before the table and would otherwise
-    # say nothing about the gap.
-    if active.account_uuid is None:
-        context.stdout(unresolved_identity_note(profile=active_name))
-    # The record names the account active at the END of the pass, so a switch
-    # republishes from `_after_switch` below and this write is the one that
-    # stands for every other outcome. It happens HERE, above the unreadable-usage
-    # exit, because spec.md requires a pass that fully resolved the identity but
-    # could not read its quota to publish anyway: the identity is known and the
-    # missing figures bear only on the report. `publish_selection` refuses a
-    # partial identity itself, so a determined-but-unidentified account writes
-    # nothing rather than a name-only record.
-    publish_determined(home=context.home, now=context.now, active=active)
+    context.stdout(trigger_header(stamp=pass_stamp(now=context.now)))
+    # Publication is OPENED here, where the identity becomes known -- which is
+    # also where an identity the pass could not fully resolve is reported -- and
+    # ANSWERED at whichever exit the pass reaches. It cannot be answered here:
+    # a pass that goes on to lose the decision lock must publish nothing, and no
+    # write can be taken back once made.
+    publication = pass_publication(context=context, active=active)
     resnapshot_active(
         active_name=active_name,
         home=context.home,
@@ -240,7 +224,11 @@ def _pass_with_active(
     )
     current = next((profile.usage for profile in profiles if profile.name == active_name), None)
     if current is None:
-        return finish(
+        # Published AFTER the report is written and the state persisted, and
+        # published at all because spec.md requires a pass that fully resolved
+        # the identity but could not read its quota to publish anyway: the
+        # identity is known and the missing figures bear only on the report.
+        code = finish(
             code=2,
             state=context.state,
             state_path=context.state_path,
@@ -251,6 +239,7 @@ def _pass_with_active(
                 f"FAIL cannot read usage for active profile {active_name}",
             ),
         )
+        return publication.publish(code=code)
     write_status(
         context=context,
         profiles=profiles,
@@ -280,14 +269,14 @@ def _pass_with_active(
         # The identifier comes from the destination profile's own stored snapshot:
         # the live account file is the account manager's to rewrite, and reading it
         # here would race that write.
-        publish_switched(home=context.home, now=context.now, profile=active_name)
+        publication.publish_switched(profile=active_name)
         # Runs only on a switch that moved the credential, so a hold still warms
         # exactly once. It needs no re-poll: keep_warm reads each candidate's
         # expiry from that profile's own vault snapshot, never from the rows this
         # pass polled. It records NO second span -- see `run_warm_stage`.
         _ = warm_idle(stage=warm, active_name=active_name)
 
-    return decide(
+    code = decide(
         context=context,
         profiles=profiles,
         active_name=active_name,
@@ -298,9 +287,15 @@ def _pass_with_active(
             save_state=seams.save_state,
             switch_account=seams.switch_account,
             after_switch=_after_switch,
+            lock_contended=publication.suppress,
             emit_rotation=rotation_sink(span=context.span, at=context.now),
         ),
     )
+    # Answers publication for every outcome the decision did not already settle:
+    # a hold, a dry run, an unsatisfiable pin, an empty candidate set, and every
+    # failed switch that DID hold the lock. A switch that moved the credential
+    # and a contended lock both settled it above, so this is a no-op for them.
+    return publication.publish(code=code)
 
 
 def _emit_table(
