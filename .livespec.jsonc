@@ -333,6 +333,40 @@
         "fix": 3600,
         "review_fix": 3600
       },
+      // Park the `pr` node on the Claude adapter, OFF Codex.
+      //
+      // WHY. `dispatcher.codex_models` expands its `pr` tier UNCONDITIONALLY
+      // (`_acp_node_repository.py`: the publish node runs the Codex adapter on
+      // the built-in `_DEFAULT_PR_MODEL = "gpt-5.4-mini"` with no configuration),
+      // and this repo declares no `codex_models` block, so it took that default.
+      // The slug was dropped from the ChatGPT-account Codex catalog, so the
+      // publish leg is dead: implement/janitor/review all pass, `pr` returns
+      // HTTP 400 "The 'gpt-5.4-mini' model is not supported when using Codex with
+      // a ChatGPT account", the fabro run still reports `succeeded`, and the
+      // dispatcher reports `failed` at pr-view "no PR found for branch". Measured
+      // here 2026-09-09 on run 01M22TMNE1RGPJ5G1WQ00T55C6 (overseer-rqkwyh.3),
+      // whose work had to be recovered by hand from the preserved implement diff
+      // and landed as PR #2253.
+      //
+      // WHY HERE, NOT workflow.toml. `repository_acp_overlays` applies the
+      // explicit `acp_nodes` table over the codex-shorthand overlays, so THIS key
+      // wins; editing `pr_adapter` in the workflow would leave a green tree and an
+      // UNCHANGED live adapter. `codex_models.pr.model = ""` does NOT help — it
+      // drops only the model keys, the Codex command still emits and the node
+      // stays dead.
+      //
+      // COST NOTE. The `pr` tier exists to keep a scripted git/gh recipe off the
+      // expensive implementer tier; parking it on the same Claude adapter is a
+      // deliberate cost regression taken over a dead publish leg — the same trade
+      // livespec-dev-tooling (acp_nodes.pr, 2026-09-08), console and homelab made.
+      // The value is byte-identical to workflow.toml's own `pr_adapter` default.
+      //
+      // REVERT CONDITION: a re-measured reachable-model table for the baked
+      // codex-acp version naming a `pr`-tier slug that completes a turn (fleet
+      // item livespec-dev-tooling-zwsl).
+      "acp_nodes": {
+        "pr": "npx -y @agentclientprotocol/claude-agent-acp"
+      },
       "prepare_toolchain": {
         "mise": ["sh", "-c", "mise trust && env -u GITHUB_TOKEN -u GH_TOKEN -u GITHUB_API_TOKEN mise install --quiet"],
         "lefthook": ["uv", "run", "lefthook", "install"]
