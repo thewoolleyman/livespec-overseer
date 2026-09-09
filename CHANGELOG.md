@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.2.0...v5.3.0) (2026-09-09)
+
+
+### Features
+
+* **caam:** suppress or fail account-selection publication per v049 (overseer-rqkwyh.3) ([9392361](https://github.com/thewoolleyman/livespec-overseer/commit/93923614e74e824002fe414e148b72526baf0eff))
+
 ## [5.2.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.1.0...v5.2.0) (2026-09-09)
 
 
