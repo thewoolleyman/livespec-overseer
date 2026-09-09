@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.4.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.3.0...v5.4.0) (2026-09-09)
+
+
+### Features
+
+* **plugin:** ship drain-backlog as /livespec-overseer:drain-backlog ([ab5e60f](https://github.com/thewoolleyman/livespec-overseer/commit/ab5e60fda4c2f55bade1a8da3595ff4be49c6c36))
+
 ## [5.3.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.2.0...v5.3.0) (2026-09-09)
 
 
