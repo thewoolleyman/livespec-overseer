@@ -76,8 +76,22 @@ status flip: the record NAMES the action; the operator runs it through the gates
 
 The positive-evidence half of defect 5 — the ledger's closed-set vocabulary and
 the reading of a plan's DECLARED scope — lives beside this module in
-`plan_evidence`, which this module composes with. That split is what keeps both
-halves inside the shipped plugin tree's per-file LLOC ceiling.
+`plan_evidence`, which this module composes with.
+
+That split is what keeps both halves under the 250-LLOC HARD ceiling, and the
+ceiling reaches this file only BECAUSE of the move into the plugin, so the
+mechanism is worth naming precisely. `file_lloc` walks the git-derived
+first-party `.py` universe (`config.iter_first_party_py_files`), NOT a tree
+allowlist; that universe exempts `.claude/skills/` — this module's old home,
+exempt as host-only agent-runtime infra — and does NOT exempt `.claude-plugin/`.
+Measured 2026-09-09 against the pinned dev-tooling: moved verbatim, this module
+is 254 LLOC and `snapshot.py` 275, both over a ceiling the check documents as
+unconditional, with no marker and no per-file exemption to declare.
+
+`pyproject.toml`'s `source_trees`/`covered_trees = ["overseer"]` is NOT that
+universe — it scopes the Result-railway checks and coverage. Reading it as the
+LLOC scope makes this ceiling look inapplicable here, and the split unmotivated;
+it is neither. Re-measure before undoing this.
 """
 
 from __future__ import annotations

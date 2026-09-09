@@ -14,6 +14,13 @@ proposal; it does not rule. The session reads tier-1/2 candidates' own text befo
 ruling (the operating contract's section 2). It lives beside this module in
 `snapshot_tiering`; the Markdown the snapshot is READ as lives in `snapshot_report`.
 
+Those two are split out to hold this file under the 250-LLOC HARD ceiling, which
+reaches it only because the move into `.claude-plugin/` left the `.claude/skills/`
+exemption behind; moved verbatim it measures 275. The mechanism, and the
+`source_trees` misreading that makes the ceiling look inapplicable here, are
+recorded once in `plan_completion`'s module docstring — read that before undoing
+this split.
+
 The report has TWO units. Rows are the frozen work-item scope, tiered above. PLANS
 are the second, computed by `plan_completion` from the `plan/` tree AND the ledger,
 one record per slug, each carrying whether that plan's DECLARED scope is drained
