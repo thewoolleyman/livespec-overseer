@@ -880,32 +880,32 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The published record never influences a later pass's selection",
-    "test": "TODO",
-    "reason": "Ratified ahead of implementation as part of v049 (plan epic overseer-rqkwyh): the published selection record and the unconditional stable-identifier resolution are specified first so the implementation is written against a ratified contract. Coverage arrives with the publication slice filed under that epic; until then this row is a declared TODO rather than a silent gap. Its replacement MUST be an integration-tier test, per the heading taxonomy's scenario-tier rule for scenarios.md headings.",
+    "test": "tests.integration.test_caam_publication_refusals.test_the_published_record_never_influences_a_later_passs_selection",
+    "reason": "Integration-tier: runs the shipped `run_pass` over two identically-configured hosts, one carrying a stale published record naming an account that exists in NEITHER vault, and asserts the two passes emit identical output and reach the same switch target -- so the record changed neither eligibility, ranking, nor the decision. It also asserts the stale account is named nowhere in either pass's report, which is what a pass that read the record back could not do. Absence is the property under test, so it is measured against a control rather than by inspecting the code. Replaces the TODO filed by v049 (anchor overseer-rqkwyh); implemented by overseer-rqkwyh.3.",
     "work_item": "overseer-rqkwyh"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An undetermined active account leaves the published record intact",
-    "test": "TODO",
-    "reason": "Ratified ahead of implementation as part of v049 (plan epic overseer-rqkwyh): the published selection record and the unconditional stable-identifier resolution are specified first so the implementation is written against a ratified contract. Coverage arrives with the publication slice filed under that epic; until then this row is a declared TODO rather than a silent gap. Its replacement MUST be an integration-tier test, per the heading taxonomy's scenario-tier rule for scenarios.md headings.",
+    "test": "tests.integration.test_caam_publication_refusals.test_an_undetermined_active_account_leaves_the_published_record_intact",
+    "reason": "Integration-tier: drives the shipped `run_pass` with only its process boundaries seamed and `home=` injected, over a host where the account manager names no active profile and the live account file carries no identifier for the fallback to match -- the shape a token refresh leaves when no snapshot answers either. The record an earlier pass published survives BYTE FOR BYTE and the pass reports that it could not determine the active account. Replaces the TODO filed by v049 (anchor overseer-rqkwyh); implemented by overseer-rqkwyh.3.",
     "work_item": "overseer-rqkwyh"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unresolvable stable identifier suppresses publication",
-    "test": "TODO",
-    "reason": "Ratified ahead of implementation as part of v049 (plan epic overseer-rqkwyh): the published selection record and the unconditional stable-identifier resolution are specified first so the implementation is written against a ratified contract. Coverage arrives with the publication slice filed under that epic; until then this row is a declared TODO rather than a silent gap. Its replacement MUST be an integration-tier test, per the heading taxonomy's scenario-tier rule for scenarios.md headings.",
+    "test": "tests.integration.test_caam_publication_refusals.test_an_unresolvable_stable_identifier_suppresses_publication",
+    "reason": "Integration-tier: drives the shipped `run_pass` with only its process boundaries seamed and `home=` injected, over a host where the account manager NAMES the active profile but neither the live account file nor that profile's stored snapshot carries an identifier. The earlier record survives byte for byte rather than being degraded to a name-only one a consumer could follow to a renamed profile, the gap is reported, and the pass still exits zero -- the third assertion is the one that pins an unresolved identifier as a reported condition rather than a failure path. Replaces the TODO filed by v049 (anchor overseer-rqkwyh); implemented by overseer-rqkwyh.3.",
     "work_item": "overseer-rqkwyh"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A pass that could not take the decision lock does not publish",
-    "test": "TODO",
-    "reason": "Ratified ahead of implementation as part of v049 (plan epic overseer-rqkwyh): the published selection record and the unconditional stable-identifier resolution are specified first so the implementation is written against a ratified contract. Coverage arrives with the publication slice filed under that epic; until then this row is a declared TODO rather than a silent gap. Its replacement MUST be an integration-tier test, per the heading taxonomy's scenario-tier rule for scenarios.md headings.",
+    "test": "tests.integration.test_caam_publication_refusals.test_a_pass_that_could_not_take_the_decision_lock_does_not_publish",
+    "reason": "Integration-tier: drives the shipped `run_pass` with only its process boundaries seamed (the account manager subprocess, the usage endpoint, the state file) and `home=` injected. The decision lock is NOT seamed -- the leg takes the real `fcntl` lock on the real path and lets the shipped switch path discover the contention itself, since a seamed lock factory would prove only that a test can return a reason string. The pass is set up so it WOULD otherwise publish (it fully determines the account and reaches a rotation decision), and the assertion is on the record's BYTES, so a rewrite carrying identical content would still fail. Replaces the TODO filed by v049 (anchor overseer-rqkwyh); implemented by overseer-rqkwyh.3.",
     "work_item": "overseer-rqkwyh"
   },
   {
@@ -920,8 +920,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed publication fails the pass without undoing it",
-    "test": "TODO",
-    "reason": "Ratified ahead of implementation as part of v049 (plan epic overseer-rqkwyh): the published selection record and the unconditional stable-identifier resolution are specified first so the implementation is written against a ratified contract. Coverage arrives with the publication slice filed under that epic; until then this row is a declared TODO rather than a silent gap. Its replacement MUST be an integration-tier test, per the heading taxonomy's scenario-tier rule for scenarios.md headings.",
+    "test": "tests.integration.test_caam_publication_refusals.test_a_failed_publication_fails_the_pass_without_undoing_it",
+    "reason": "Integration-tier: drives the shipped `run_pass` with only its process boundaries seamed and `home=` injected, over a host where the record path is occupied by a DIRECTORY -- so the shipped atomic replace fails for a real filesystem reason rather than a seamed one. All four halves of the clause are asserted together, because the rule is that they hold at once: the switch stands, operation state was persisted, the account table is reported before and after the move, a clearly-marked FAIL line names the publication, and the pass exits non-zero. Replaces the TODO filed by v049 (anchor overseer-rqkwyh); implemented by overseer-rqkwyh.3.",
     "work_item": "overseer-rqkwyh"
   }
 ]

@@ -180,6 +180,45 @@ exit code. If the program is not exposed by the installed plugin version, report
 that as a failure of this operation surface and stop rather than reconstructing
 the implementation inside the binding.
 
+## Published Account Selection
+
+Every pass that fully determines the active account -- both the account
+manager's profile name and that account's own stable identifier -- publishes
+that identity as a small record beside the operation's own state. It exists for
+a CREDENTIAL CONSUMER: a party outside this host's interactive agent that bills
+against the same accounts under its own separately-provisioned credential, which
+this operation neither stores, installs, nor refreshes. Such a consumer cannot
+follow a rotation unless the operation states which account it selected.
+
+The record carries IDENTITY ONLY, never credential material, and the program
+owns its location and shape. Do not hand-write it, hand-repair it, delete it, or
+quote it back to the program as evidence of which account is active. It is an
+OUTPUT of a pass, never an input to one: its presence, absence, age or contents
+change nothing about eligibility, ranking, or the decision to hold.
+
+A pass publishes on a hold exactly as on a switch, because the record must name
+the account active when the pass ends, and an account activated by hand outside
+this operation must be followed rather than reported as a rotation of its own.
+Three conditions suppress the write instead, and in every one the previously
+published record is left standing because a stale but complete record is safer
+than a fabricated or half-resolved one:
+
+- The pass could not take the lock that serializes the decision-and-switch
+  sequence. Another caller holds it and is deciding the very fact the record
+  states, so that caller owns the write. The pass reports a hold and exits zero.
+- The pass could not determine the active account at all. It reports that
+  failure as usual.
+- The pass determined the account but could not resolve its stable identifier.
+  It prints a `note:` line saying so, above the table, and CONTINUES: this is a
+  reported condition, not a failure, and on its own it never makes a pass exit
+  non-zero. Report the note alongside the table and the decision.
+
+If publication itself fails, the program prints a `FAIL` line naming it and
+exits non-zero. Report that failure per the `FAIL` rule under Reporting -- and
+report the table and the decision too, because a completed switch STANDS. Never
+re-run the pass to try to undo a rotation whose only failure was publishing it,
+and never `caam activate` back by hand.
+
 ## Reporting
 
 Show the account table verbatim on EVERY pass -- scheduled, held, dry-run,
