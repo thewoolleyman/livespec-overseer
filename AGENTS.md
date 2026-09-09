@@ -1,7 +1,7 @@
 # livespec-overseer — repo orientation
 
 livespec-overseer is the Control-Plane operator tool for livespec. It ships
-exactly TWO operator surfaces, and nothing else:
+exactly THREE operator surfaces, and nothing else:
 
 - **`overseer`** — the two-pane overseer daemon (`overseerd`), which watches
   every tracked agent session's remaining context headroom, injects an
@@ -9,6 +9,22 @@ exactly TWO operator surfaces, and nothing else:
   that session has declared itself `ready` on the filesystem.
 - **`caam-anthropic-loop`** — the caam-managed Claude Max quota watcher, which
   observes account usage and rotates accounts safely.
+- **`drain-backlog`** — the fleet-wide backlog drain, which freezes a target
+  repository's open scope, triages it in ruled batches, dispatches it through
+  detached probe-gated engines, and loops on outcomes until every item is
+  closed or dispositioned.
+
+**That count was TWO until 2026-09-09, and the third entry deliberately
+REVERSES console plan decision D5** (the "bucket-2 trim", maintainer ruling
+2026-09-06), which closed the shipped surface at two. `drain-backlog` moved in
+from the repo-local `.claude/skills/drain-backlog/` tree at the maintainer's
+request (`overseer-f4664u`); that request is the authorization, and the reversal
+is recorded here and in `tests/test_shipped_skill_surface.py` rather than
+smuggled in. **What D5 RETIRED is untouched** — the three seats below stay gone,
+and what reopened is the COUNT of shipped operations, not any seat. It is not
+spec-change tier either: `SPECIFICATION/` governs the supervision contract, not
+the operator-skill set, so the invariant was maintainer-ruled and test-pinned
+only, and the move landed as an ordinary repo change.
 
 The foreman, grooming and supervise-plan seats this repo used to carry were
 retired by SPECIFICATION v047 (maintainer ruling 2026-09-06) and removed in

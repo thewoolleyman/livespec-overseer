@@ -15,9 +15,13 @@ is the correction of this module's own first regression test, which pinned a fal
 positive as the exemplar of `finished-unarchived`. The genuinely-finished control is
 CONSTRUCTED, because no plan in that tenant was ever verified genuinely finished.
 
-The module under test is a skill script rather than a package module, so it is
+The module under test is a plugin script rather than a package module, so it is
 reached through an explicit path insert. `snapshot.py` is deliberately NOT imported
 here: it shells out to `bd` and its own coverage is not this test's subject.
+
+The positive-evidence readers the fifth defect produced sit in `plan_evidence`
+beside `plan_completion`, which composes with them; both are imported here, and
+each assertion drives whichever module now owns the name.
 """
 
 from __future__ import annotations
@@ -30,13 +34,12 @@ from typing import Any
 
 __all__: list[str] = []
 
-SCRIPTS = (
-    Path(__file__).resolve().parent.parent / ".claude" / "skills" / "drain-backlog" / "scripts"
-)
+SCRIPTS = Path(__file__).resolve().parent.parent / ".claude-plugin" / "scripts" / "drain-backlog"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
 pc = importlib.import_module("plan_completion")
+ev = importlib.import_module("plan_evidence")
 
 Item = dict[str, Any]
 
@@ -527,15 +530,15 @@ def test_the_declared_scope_is_the_union_of_every_snapshot_the_plan_holds(
 
 def test_scope_ids_are_read_from_every_shape_snapshot_py_writes() -> None:
     """POSITIVE CONTROL for the reader: a zero is otherwise indistinguishable from a miss."""
-    assert pc.scope_ids_of(payload={"frozen_ids": [" dt-1 ", "", 7, {"id": "dt-2"}]}) == (
+    assert ev.scope_ids_of(payload={"frozen_ids": [" dt-1 ", "", 7, {"id": "dt-2"}]}) == (
         "dt-1",
         "dt-2",
     )
-    assert pc.scope_ids_of(payload={"items": [{"id": "dt-3"}, {"tier": 1}]}) == ("dt-3",)
-    assert pc.scope_ids_of(payload=["dt-4"]) == ("dt-4",)
-    assert pc.scope_ids_of(payload={"frozen_ids": "not-a-list", "items": 3}) == ()
-    assert pc.scope_ids_of(payload={"taken_at": "2026-09-06T07:45:00Z"}) == ()
-    assert pc.scope_ids_of(payload="not a scope document") == ()
+    assert ev.scope_ids_of(payload={"items": [{"id": "dt-3"}, {"tier": 1}]}) == ("dt-3",)
+    assert ev.scope_ids_of(payload=["dt-4"]) == ("dt-4",)
+    assert ev.scope_ids_of(payload={"frozen_ids": "not-a-list", "items": 3}) == ()
+    assert ev.scope_ids_of(payload={"taken_at": "2026-09-06T07:45:00Z"}) == ()
+    assert ev.scope_ids_of(payload="not a scope document") == ()
 
 
 def test_read_json_document_reports_an_unreadable_document_as_none(*, tmp_path: Path) -> None:
@@ -544,8 +547,8 @@ def test_read_json_document_reports_an_unreadable_document_as_none(*, tmp_path: 
     bad = tmp_path / "bad.json"
     bad.write_text("{not json", encoding="utf-8")
 
-    assert pc.read_json_document(path=good) == {"frozen_ids": []}
-    assert pc.read_json_document(path=bad) is None
+    assert ev.read_json_document(path=good) == {"frozen_ids": []}
+    assert ev.read_json_document(path=bad) is None
 
 
 def test_the_finished_plans_action_names_closing_the_epic_and_archiving_the_directory(

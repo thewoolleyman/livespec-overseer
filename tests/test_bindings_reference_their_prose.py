@@ -25,6 +25,7 @@ PLUGIN_ROOT = ROOT / ".claude-plugin"
 OPERATIONS = (
     "overseer",
     "caam-anthropic-loop",
+    "drain-backlog",
 )
 
 
