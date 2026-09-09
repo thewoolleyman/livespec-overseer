@@ -848,8 +848,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The stable account identifier is resolved even when the account manager names the profile",
-    "test": "TODO",
-    "reason": "Ratified ahead of implementation as part of v049 (plan epic overseer-rqkwyh): the published selection record and the unconditional stable-identifier resolution are specified first so the implementation is written against a ratified contract. Coverage arrives with the publication slice filed under that epic; until then this row is a declared TODO rather than a silent gap. Its replacement MUST be an integration-tier test, per the heading taxonomy's scenario-tier rule for scenarios.md headings.",
+    "test": "tests.integration.test_caam_active_account_identity.test_a_pass_named_by_the_account_manager_still_resolves_the_stable_identifier",
+    "reason": "Integration-tier: drives the shipped `run_pass` with only its process boundaries seamed (the account manager subprocess, the usage endpoint, the state file) and `home=` injected, over a host where the account manager's report NAMES the active profile — so the identity fallback is not needed, and no vault snapshot carries the live identifier, which means the fallback could not have named the profile either. The pass determines that account and resolves its stable account identifier from the live account file. Read with its two module siblings, which are what make the resolution measurable while publication remains a later slice: one leaves only the account's STORED SNAPSHOT able to answer, covering the other source the clause names, and one is the control where NEITHER source carries an identifier, so the same pass emits the reported condition — the absence of that line in this leg is therefore evidence of a resolution rather than of silence. Replaces the TODO filed by v049 (anchor overseer-rqkwyh); implemented by overseer-rqkwyh.1.",
     "work_item": "overseer-rqkwyh"
   },
   {
