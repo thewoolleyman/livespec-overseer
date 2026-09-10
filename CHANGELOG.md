@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.4.4](https://github.com/thewoolleyman/livespec-overseer/compare/v5.4.3...v5.4.4) (2026-09-10)
+
+
+### Bug Fixes
+
+* **overseer:** dispatch deliberate dead-track relaunch on runtime evidence ([6f174fd](https://github.com/thewoolleyman/livespec-overseer/commit/6f174fd6cddd2e66018533e6baa44fab9f9d412f))
+
 ## [5.4.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.4.2...v5.4.3) (2026-09-10)
 
 
