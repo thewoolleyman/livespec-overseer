@@ -11,7 +11,9 @@ import signals
 from _supervisor_config import track_key
 from _supervisor_launch_profile import CodexLaunchPlan
 from _supervisor_prompts import resume_for_track
-from _supervisor_statusline_model import restart_blocked_by_statusline_mismatch
+from _supervisor_statusline_model import (
+    restart_blocked_by_statusline_mismatch as statusline_mismatch,
+)
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -43,13 +45,17 @@ def _post_respawn_live_process(
     session: str,
     session_id: str,
 ) -> bool:
-    sup.refresh_codex_sessions()
-    post_respawn_live = sup.live_codex.get((session, track.topic))
-    return (
-        post_respawn_live is not None
-        and post_respawn_live.session_id == session_id
-        and signals.path_in_repo(pane_current_path=post_respawn_live.cwd, repo=track.repo)
-    )
+    for _ in range(_supervisor_launch.RESTART_POLL_MAX):
+        sup.refresh_codex_sessions()
+        live = sup.live_codex.get((session, track.topic))
+        if (
+            live is not None
+            and live.session_id == session_id
+            and signals.path_in_repo(pane_current_path=live.cwd, repo=track.repo)
+        ):
+            return True
+        sup.sleep(_supervisor_launch.RESTART_POLL_INTERVAL)
+    return False
 
 
 def _codex_launch_plan_for_restart(
@@ -77,12 +83,7 @@ def _codex_launch_plan_for_restart(
             condition="stale-launch-profile",
         )
         return None
-    if restart_blocked_by_statusline_mismatch(
-        sup=sup,
-        track=track,
-        target=target,
-        session=session,
-    ):
+    if statusline_mismatch(sup=sup, track=track, target=target, session=session):
         return None
     return launch
 
