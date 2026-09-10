@@ -31,6 +31,7 @@ __all__: list[str] = [
 ]
 
 _NOTHING_SPENT = 0.0
+_NO_SCALE_DECIMAL_PLACES = 0
 
 
 def extra_usage_from(*, body: dict[str, object]) -> ExtraUsage | None:
@@ -40,16 +41,44 @@ def extra_usage_from(*, body: dict[str, object]) -> ExtraUsage | None:
     fail-closed direction on the one dimension where a wrong reading costs money:
     a string, a number or anything else the response might carry in place of a
     boolean arms nothing.
+
+    `monthly_limit` and `used_credits` arrive in MINOR units (cents for USD),
+    scaled by the response's own `decimal_places` -- measured live: `used_credits:
+    10737, monthly_limit: 10000, decimal_places: 2`, i.e. $107.37 spent of a
+    $100.00 cap. Reading those two fields as already-dollars printed an ALERT two
+    orders of magnitude too high while the account was, correctly, capped.
     """
     block = jsonio.as_object(value=body.get("extra_usage"))
     if block is None:
         return None
+    decimal_places = _decimal_places(block=block)
     return ExtraUsage(
         is_enabled=block.get("is_enabled") is True,
         spend_limit_reached=block.get("spend_limit_reached") is True,
-        monthly_limit=jsonio.as_float(value=block.get("monthly_limit")),
-        used_credits=jsonio.as_float(value=block.get("used_credits")),
+        monthly_limit=_major_units(
+            value=jsonio.as_float(value=block.get("monthly_limit")), decimal_places=decimal_places
+        ),
+        used_credits=_major_units(
+            value=jsonio.as_float(value=block.get("used_credits")), decimal_places=decimal_places
+        ),
     )
+
+
+def _decimal_places(*, block: dict[str, object]) -> int:
+    """How many fractional digits the block's minor-unit figures scale by.
+
+    A response that never reports `decimal_places` is read as scale zero, which
+    leaves the raw figure untouched -- the correct reading for a fixture written
+    before the field shipped, since inventing a scale the response never named
+    would be a guess, not a reading.
+    """
+    value = jsonio.as_float(value=block.get("decimal_places"))
+    return _NO_SCALE_DECIMAL_PLACES if value is None else int(value)
+
+
+def _major_units(*, value: float | None, decimal_places: int) -> float | None:
+    """A minor-unit figure (cents) converted to its major unit (dollars)."""
+    return None if value is None else value / (10**decimal_places)
 
 
 def window_dollars_from(*, window: dict[str, object]) -> WindowDollars | None:
