@@ -111,6 +111,45 @@ def test_a_response_carrying_no_extra_usage_block_reads_as_no_meter() -> None:
     assert meter(block=None) is None
 
 
+def test_minor_unit_figures_are_scaled_to_dollars_by_decimal_places() -> None:
+    """The live response reports MINOR units (cents), not dollars.
+
+    Measured live 2026-09-10: `used_credits: 10737, monthly_limit: 10000,
+    decimal_places: 2` against an account the operator confirmed had actually
+    spent about $107 of a $100 cap. Reading the raw figures as already-dollars
+    printed an ALERT reading $10737.00 spent of $10000.00 -- two orders of
+    magnitude too high, and exactly the scale `decimal_places` names.
+    """
+    parsed = meter(
+        block={
+            "is_enabled": False,
+            "spend_limit_reached": True,
+            "monthly_limit": 10000,
+            "used_credits": 10737.0,
+            "decimal_places": 2,
+        }
+    )
+
+    assert parsed is not None
+    assert parsed.monthly_limit == 100.0
+    assert parsed.used_credits == 107.37
+
+
+def test_a_missing_decimal_places_leaves_the_raw_figure_unscaled() -> None:
+    """No reported scale means the figure is already in its major unit.
+
+    This is the ordinary reading for the fixtures elsewhere in this file, which
+    predate `decimal_places` shipping on the response and carry raw dollar
+    floats directly -- scaling them would be inventing a factor the response
+    never reported.
+    """
+    parsed = meter(block={"monthly_limit": 40.0, "used_credits": 12.0})
+
+    assert parsed is not None
+    assert parsed.monthly_limit == 40.0
+    assert parsed.used_credits == 12.0
+
+
 def test_a_non_boolean_flag_reads_as_false_rather_than_as_truthy() -> None:
     """Fail-closed: only a literal `true` arms a flag that can license dollar spend."""
     parsed = meter(block={"is_enabled": "yes", "spend_limit_reached": 1})
