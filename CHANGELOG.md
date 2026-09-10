@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.4.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.4.0...v5.4.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* **caam:** scale extra-usage minor units (overseer-hfrw) ([029fdd6](https://github.com/thewoolleyman/livespec-overseer/commit/029fdd61969457e43c3630adf6a33f8635516054))
+
 ## [5.4.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.3.0...v5.4.0) (2026-09-09)
 
 
