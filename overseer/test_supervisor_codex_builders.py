@@ -1,14 +1,15 @@
 """Extracted supervisor beside-test builders."""
 
+import dataclasses
 import json
 
 import codex_sessions
 import registry
-from test_supervisor_capture_builders import codex_idle_capture
+from test_supervisor_capture_builders import codex_busy_capture, codex_idle_capture
 from test_supervisor_core_builders import make_supervisor
 from test_supervisor_fakes import FakeTmux
-from test_supervisor_restart_builders import arm_ready_marker
-from test_supervisor_store_builders import make_plan
+from test_supervisor_restart_builders import arm_ready_marker, on_respawn
+from test_supervisor_store_builders import make_plan, mapped_track
 
 __all__: list[str] = []
 
@@ -37,6 +38,47 @@ def codex_home_with(*, tmp_path, topic, session_id, rollout=True):
         day.mkdir(parents=True)
         (day / f"rollout-2026-07-18T00-00-00-{session_id}.jsonl").write_text("{}\n")
     return home
+
+
+def codex_dead_track(*, repo, topic, session, session_id):
+    """A mapped row whose DURABLE `observed_session_identity` proves it ran Codex.
+
+    The recorded identity is the only evidence a dead track's runtime may be established
+    from; the index and the rollout merely corroborate it. A row without one is a
+    topic-only guess and is refused, so every Codex recovery test builds its row here.
+    """
+    return dataclasses.replace(
+        mapped_track(repo=repo, topic=topic, session=session),
+        observed_session_identity=f"codex:{session_id}",
+    )
+
+
+def verify_codex_respawn(*, sup, fake, plan, session_id, capture=None, live=None):
+    """Model a REAL `codex resume` landing: the process registers and the kick submits.
+
+    ``plan`` is the ``(repo, topic, session)`` triple the track is mapped to. The verified
+    recovery launcher reports success only on live process evidence matching the target
+    session, topic, exact UUID and repository cwd, PLUS the pane going busy — the Codex
+    submit-confirm signal. Both are what a genuinely resumed session supplies, so a test
+    exercising the SUCCESS leg supplies both here.
+
+    The two overrides model the near-misses that must NOT read as success: ``capture`` a
+    pane that came up on a picker or sat idle, and ``live`` the ``(cwd, session_id)`` a
+    process in another repository — or holding another rollout — would report.
+    """
+    repo, topic, session = plan
+    frame = capture if capture is not None else codex_busy_capture()
+    live_cwd, live_session_id = live if live is not None else (repo, session_id)
+    on_respawn(fake=fake, after=lambda target: fake.panes.__setitem__(target, frame))
+
+    def refresh_to_live_codex() -> None:
+        sup.live_codex = {
+            (session, topic): codex_sessions.CodexSession(
+                pid=4242, name=topic, cwd=str(live_cwd), session_id=live_session_id
+            )
+        }
+
+    sup._refresh_codex_sessions = refresh_to_live_codex
 
 
 # --------------------------------------------------------------------------- #

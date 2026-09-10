@@ -11,10 +11,11 @@ import registry
 import supervisor
 from test_supervisor_builders import (
     TEST_EPIC,
+    codex_dead_track,
     codex_home_with,
     make_plan,
     make_supervisor,
-    mapped_track,
+    verify_codex_respawn,
 )
 from test_supervisor_fakes import FakeTmux
 
@@ -41,7 +42,7 @@ def test_recover_resumes_a_codex_track_with_its_recorded_wrapper_profile(*, tmp_
     )
     registry.append_mapping(
         track=dataclasses.replace(
-            mapped_track(repo=repo, topic=topic, session=session),
+            codex_dead_track(repo=repo, topic=topic, session=session, session_id=sid),
             model_profile={
                 "harness": "codex",
                 "model": "macmini/qwen3-coder-next",
@@ -50,6 +51,7 @@ def test_recover_resumes_a_codex_track_with_its_recorded_wrapper_profile(*, tmp_
         ),
         store_path=sup.store_path,
     )
+    verify_codex_respawn(sup=sup, fake=fake, plan=(repo, topic, session), session_id=sid)
 
     recovered = sup.recover_missing_sessions()
 
@@ -82,7 +84,7 @@ def test_recover_surfaces_and_skips_a_codex_track_with_a_stale_profile(*, tmp_pa
     )
     registry.append_mapping(
         track=dataclasses.replace(
-            mapped_track(repo=repo, topic=topic, session=session),
+            codex_dead_track(repo=repo, topic=topic, session=session, session_id=sid),
             model_profile={
                 "harness": "claude",
                 "model": "claude-opus",
@@ -99,4 +101,4 @@ def test_recover_surfaces_and_skips_a_codex_track_with_a_stale_profile(*, tmp_pa
     assert not fake.has(method="respawn")
     err = capsys.readouterr().err
     assert "cannot relaunch a Codex track" in err
-    assert "skipping" in err
+    assert "FAILED to resume codex" in err

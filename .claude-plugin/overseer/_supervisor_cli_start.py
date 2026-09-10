@@ -13,7 +13,8 @@ import signals
 import streams
 import tmuxio
 from _supervisor_core import Supervisor
-from _supervisor_start_cli import launch_attempt_message
+from _supervisor_dead_track import AmbiguousRuntime, classify_dead_track
+from _supervisor_start_cli import StartLaunchMessage, launch_attempt_message
 
 __all__: list[str] = [
     "start_command",
@@ -40,6 +41,33 @@ def _existing_start_track(*, repo: str, topic: str) -> registry.Track | None:
     return None
 
 
+def _report_launch_failure(
+    *,
+    io: tmuxio.TmuxIO,
+    attempt: StartLaunchMessage,
+    repo: str,
+    topic: str,
+    session: str,
+    created_session: bool,
+) -> None:
+    """Report a launch that never landed, tearing down a session this call created.
+
+    A session `start` created and then failed to launch into is torn down so a retry can
+    take the create-then-launch path again rather than inheriting a husk; a session that
+    already existed is left exactly as it was found.
+    """
+    cleanup = "not_created"
+    if created_session:
+        cleanup = "cleaned" if io.kill_session(session=session) else "leftover_session"
+    streams.write_stderr(
+        text=(
+            f"start FAILED to launch {repo}::{topic} in tmux session {session}; "
+            f"reason={attempt.reason or 'launch_failed'} "
+            f"session={session} repo={repo} topic={topic} cleanup={cleanup}\n"
+        )
+    )
+
+
 def start_command(
     *,
     args: argparse.Namespace,
@@ -54,6 +82,13 @@ def start_command(
     the exact "never force-kill mid-work" violation the whole design exists to
     prevent, reachable via a repeated bottom-pane ``start``). It just upserts the
     mapping and reports. ``--force`` is required to actually respawn a live one.
+
+    RUNTIME-DISPATCHED, on evidence, BEFORE anything is created. The track is classified
+    by :func:`_supervisor_dead_track.classify_dead_track` ahead of ``new-session`` and
+    ahead of any respawn, so an ambiguous runtime is reported to the operator without a
+    single tmux mutation — and a track carrying a proven ``codex:<uuid>`` identity
+    resumes its own rollout instead of being recreated under the Claude launcher, which
+    would replace the Codex session outright.
     """
     repo = os.path.normpath(args.repo)
     topic = args.topic
@@ -94,6 +129,15 @@ def start_command(
                 )
             )
             return 0
+    runtime = classify_dead_track(track=track, codex_home=sup.codex_home)
+    if isinstance(runtime, AmbiguousRuntime):
+        streams.write_stderr(
+            text=(
+                f"start REFUSED for {repo}::{topic}: {runtime.reason}; "
+                f"reason=ambiguous_runtime session={session} repo={repo} topic={topic}\n"
+            )
+        )
+        return 1
     created_session = False
     if not io.session_exists(session=session):
         _ = io.new_session(name=session, cwd=repo)
@@ -110,17 +154,15 @@ def start_command(
             )
             return 1
         created_session = True
-    attempt = launch_attempt_message(sup=sup, io=io, track=track, session=session)
+    attempt = launch_attempt_message(sup=sup, io=io, track=track, session=session, runtime=runtime)
     if attempt.message is None:
-        cleanup = "not_created"
-        if created_session:
-            cleanup = "cleaned" if io.kill_session(session=session) else "leftover_session"
-        streams.write_stderr(
-            text=(
-                f"start FAILED to launch {repo}::{topic} in tmux session {session}; "
-                f"reason={attempt.reason or 'claude_launch_failed'} "
-                f"session={session} repo={repo} topic={topic} cleanup={cleanup}\n"
-            )
+        _report_launch_failure(
+            io=io,
+            attempt=attempt,
+            repo=repo,
+            topic=topic,
+            session=session,
+            created_session=created_session,
         )
         return 1
     _ = _supervisor_cli_update.upsert_track(track=track)

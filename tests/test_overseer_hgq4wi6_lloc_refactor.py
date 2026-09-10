@@ -73,7 +73,7 @@ def test_hgq4wi6_scoped_beside_tests_keep_refactor_margin():
         "overseer/test_supervisor_liveness_starvation.py": 119,
         "overseer/test_supervisor_row_color_operator.py": 143,
         "overseer/test_supervisor_fail_soft_marker.py": 143,
-        "overseer/test_supervisor_builders.py": 102,
+        "overseer/test_supervisor_builders.py": 108,
         "overseer/test_supervisor_warned_stamp_written.py": 153,
         "overseer/test_supervisor_archive_gc.py": 86,
     }
