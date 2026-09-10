@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.4.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.4.2...v5.4.3) (2026-09-10)
+
+
+### Bug Fixes
+
+* **overseer:** wait for resumed Codex registration ([e7f754d](https://github.com/thewoolleyman/livespec-overseer/commit/e7f754d158f028b59cff81bcb725571245b5a711))
+
 ## [5.4.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.4.1...v5.4.2) (2026-09-10)
 
 
