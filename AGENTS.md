@@ -269,6 +269,22 @@ the `livespec-overseer` beads tenant (`bd` via the fleet credential
 wrapper). Durable agent guidance belongs in this file — never in any
 harness-private memory store.
 
+**Stop the line for breakages.** When shared factory or fleet tooling is BROKEN
+— a bad model/adapter config, a stale-but-fixable plugin build the session
+dispatches through, a mint/credential outage, a gate wedged by a defect — HALT,
+fix the root cause or notify its owner and WAIT for the fix, and resume only on
+the NORMAL path once the fix rolls out through the ordinary channel (release →
+`ensure-plugins` → reload → Skill-resolved dispatch). Never pin a build,
+re-route, or otherwise route around a breakage to keep your own work moving: a
+broken-window workaround normalizes the outage, hides it from a real fix, and
+validates only your private path, not the one every other session uses. A
+transient (a rate-limit window that resets, an intermittent ENOSPC) is waited out
+and retried on the normal path; a permanent tool limitation is designed within —
+neither is a bypass. Fleet source: the livespec `agent-disciplines.md`
+discipline §"A factory or tooling BREAKAGE stops the line"; the
+stale-session-build case and its retracted 2026-08-03 pin ruling are in
+`.ai/dispatch-traps.md`.
+
 Red-mode pre-commit skips coverage because commit-msg replay verifies the Red.
 If you are repairing one specific gate that lives inside `just check`, an
 exported `LIVESPEC_CHECK_SKIP` is UNIONED with the built-in Red-mode coverage

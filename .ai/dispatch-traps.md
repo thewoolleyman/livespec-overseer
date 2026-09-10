@@ -1285,27 +1285,26 @@ Running the update (or `just ensure-plugins`) **is correct and does work** — b
 Skill-resolved `drive.py` is still the old build and re-running the same command
 reproduces the identical error. It reads as "the remedy is broken".
 
-**Ruling, measured 2026-08-03:** dispatch-time absolute-path resolution is the
-sanctioned remedy for an already-updated-but-stale session. It does not bypass
-the stale-build gate; it uses the build that the gate itself names as current.
-Session restart remains acceptable, but it is not required before routine
-dispatch. The older Gate 1 sentence in
-`plan/archive/background-shell-supervision-liveness/handoff.md` that equated this
-with `--no-verify` is retired for dispatch commands.
+**Ruling, measured 2026-09-10 (SUPERSEDES and RETRACTS the 2026-08-03
+absolute-path ruling).** The remedy is to bring the SESSION onto the current
+build and dispatch through the NORMAL, Skill-resolved path: run
+`just ensure-plugins` to confirm the install is current (`already at the latest
+version (<build>)`), then **reload the session's plugins (`/reload-plugins`) or
+restart it**, and re-dispatch with the ordinary Skill-resolved `drive.py`. If the
+session cannot be reloaded (an unattended / loop-parked driver), **HALT and
+surface it** — the session cannot dispatch correctly until it is current.
 
-Invoke the new build by ABSOLUTE PATH instead:
-
-```
-python3 ~/.claude/plugins/cache/livespec-orchestrator-beads-fabro/\
-livespec-orchestrator-beads-fabro/<new-build>/scripts/bin/drive.py --action impl:<id> ...
-```
-
-Confirm which build is current with `just ensure-plugins` (it prints
-`already at the latest version (<build>)`), then point at that directory.
-Take the build id from `ensure-plugins`' own output, never from the error
-message: the `<new>` id the error names is whatever was latest when the stale
-build resolved, and can itself be superseded by the time you read it — pointing
-at it reproduces the refusal with a fresher pair of ids (measured 2026-08-19).
+**Do NOT pin the new build's absolute `drive.py` path to route around the stale
+session.** Pinning yields a green run off a hand-picked path, but it is a
+broken-window workaround: it normalizes dispatching off-path, and it never proves
+the NORMAL path — the one every other session and fleet member uses — actually
+resolves the current build; a latent rollout gap survives your green checkmark.
+This is the fleet **stop-the-line-for-breakages** discipline: see the livespec
+`agent-disciplines.md` discipline §"A factory or tooling BREAKAGE stops the
+line — fix the root cause, never route around it". The earlier 2026-08-03 ruling
+— which called dispatch-time absolute-path pinning "the sanctioned remedy" and
+said session restart "is not required" — is RETRACTED as exactly the habit this
+discipline exists to stop.
 
 **AND ITS FOUR-WAY SIGNATURE IS NOT UNIQUE — IT COLLIDES WITH THE
 ANCHOR-AS-DEPENDENCY ROW OF THE TABLE ABOVE.** Measured 2026-08-21 dispatching
