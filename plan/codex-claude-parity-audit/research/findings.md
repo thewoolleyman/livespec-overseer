@@ -66,6 +66,24 @@ Disposition: `overseer-kmgxk4` is the code-only observability bug requiring runt
 sources and harness-scoped statusline resolution, with the existing Claude behavior
 retained.
 
+### The real Codex skill-picker gate inherits an unusable terminal type
+
+The authoritative pre-push aggregate reproduced a third bug after the initial audit
+commit. `tests/e2e-cli/test_codex_skill_picker.py` copies the hook runner's environment
+and uses `env.get("TERM", "xterm-256color")`. Under lefthook, `TERM` exists but equals
+`dumb`, so the fallback does not fire. The spawned real Codex TUI stops at its terminal
+warning and the driver times out while waiting for the `/skills` picker. Every other
+aggregate target passed, including 100% product coverage.
+
+This is caller-dependent evidence: the same gate can pass from a capable interactive
+terminal, while the pre-push environment changes what it exercises. The pseudoterminal
+setup must provide a TUI-capable terminal contract rather than copy a known-unusable
+value.
+
+Disposition: `overseer-m7jty7` is the code/test-only gate-integrity bug. It requires a
+real Codex regression launched from `TERM=dumb`; it does not weaken or skip the live
+picker assertion.
+
 ### Codex mid-session model changes are not preserved
 
 The existing backlog item `overseer-v55x` accurately carries this known parity gap.
