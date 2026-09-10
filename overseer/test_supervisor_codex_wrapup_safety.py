@@ -16,6 +16,7 @@ import pytest
 import registry
 import signals
 from test_supervisor_builders import (
+    TEST_EPIC,
     adopt_codex_ready,
     adopt_sup,
     assert_no_tmux_scoping,
@@ -38,15 +39,23 @@ def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
 
-def test_an_adopted_codex_track_declaring_ready_is_restarted_with_the_codex_command(*, tmp_path):
-    """A Codex track is now a FULL CITIZEN (maintainer-declared 2026-07-17): its own `ready`
-    IS honoured — but via `codex resume <id>`, NEVER the claude launch command.
+def test_an_adopted_codex_track_declaring_ready_is_restarted_with_a_fresh_codex_session(
+    *, tmp_path
+):
+    """A Codex track is a FULL CITIZEN (maintainer-declared 2026-07-17): its own `ready` IS
+    honoured — but via a BRAND-NEW `codex` session, never the claude launch command and
+    never a resume of the rollout it just wound down out of.
 
-    This replaces the former monitor-only refusal. `_do_restart` runtime-dispatches: a Codex
-    track routes to `_do_codex_restart`, which respawns `codex resume <session-id> "<kick>"`
-    (reattaches the SAME rollout → adoptability survives; the kick auto-submits). The
-    destructive bug this daemon can have is aiming `claude -n <topic>` at a codex pane; the
-    routing prevents it and its sibling below pins it by sabotage.
+    The resume arm is the defect this replaced. `codex resume <id>` reattaches the prior
+    rollout AND the context it accumulated, so the restart consumed the `ready`
+    declaration while handing the successor back the same exhausted window (measured live
+    on `fix-git-email` 2026-09-10: one rollout id resumed four times, 50% → 17% remaining,
+    until Codex compacted itself). A fresh launch resets the window, which is the whole
+    point of a wrap-up restart — and `codex resume` remains correct for CRASH RECOVERY,
+    where restoring the interrupted conversation is the goal.
+
+    The destructive bug this daemon can have is aiming `claude -n <topic>` at a codex
+    pane; the routing prevents it and its sibling below pins it by sabotage.
     """
     repo, topic, session, session_id, fake, sup = adopt_codex_ready(tmp_path=tmp_path)
     with contextlib.redirect_stderr(_io.StringIO()):
@@ -56,13 +65,19 @@ def test_an_adopted_codex_track_declaring_ready_is_restarted_with_the_codex_comm
     assert len(respawns) == 1
     command = respawns[0][3]
     assert_no_tmux_scoping(command=command)
-    assert "codex resume " in command  # the CODEX command, not claude
-    assert session_id in command  # resumes the SAME session by id → adoptability survives
+    assert command.startswith("codex ")  # the CODEX command, not claude
+    assert " resume " not in command  # ...and a FRESH rollout, not the predecessor's
+    assert session_id not in command  # the exhausted window is not handed back
     # Autonomy parity with the Claude path's `--dangerously-skip-permissions`: without this
-    # the resumed codex stalls at an interactive approval picker and the restart is not
+    # the fresh codex stalls at an interactive approval picker and the restart is not
     # hands-off (maintainer-declared 2026-07-17).
     assert "--dangerously-bypass-approvals-and-sandbox" in command
-    assert not fake.has(method="paste")  # the kick is the resume ARGUMENT — no separate paste
+    # A fresh rollout carries no `thread_name`, so it is NAMED before it is kicked or
+    # discovery could never join it back to the plan topic; the ledger-grounded resume
+    # line is then pasted, since a fresh launch — unlike `codex resume` — takes no argv
+    # prompt to auto-submit.
+    assert fake.paste_texts()[0] == f"/rename {topic}"
+    assert TEST_EPIC in fake.paste_texts()[1]
     # THE ROUND IS CLOSED on success — and this is the high-consequence property. The await
     # (`_await_pane(pane_is_codex)`, which needs FakeTmux to model the respawn as a codex
     # pane) must succeed AND `_clear_state` must delete the marker, or a stale `ready` would
@@ -79,11 +94,15 @@ def test_an_adopted_codex_track_declaring_ready_is_restarted_with_the_codex_comm
 def test_two_codex_tracks_sharing_a_tmux_session_each_restart_their_own_session(*, tmp_path):
     """#4: two codex sessions live in ONE tmux session, each named for its own plan topic.
     Before the (tmux, name) keying, `self.live_codex` kept ONE CodexSession per tmux session,
-    so the SECOND track resolved to the wrong session id (or None) — its restart aimed at
-    the wrong rollout and its monitoring was silently lost, invisible in the table. Keyed
-    by (tmux, topic), each track's `_do_codex_restart` resolves to ITS OWN session, so each
-    respawns `codex resume <its-own-id>`. Sabotage: revert the lookup to `.get(session)`
-    and the second track resolves to None → no respawn → this goes red."""
+    so the SECOND track resolved to None — its restart never fired and its monitoring was
+    silently lost, invisible in the table. Keyed by (tmux, topic), each track's
+    `_do_codex_restart` resolves to ITS OWN live session and restarts for ITS OWN topic.
+
+    The per-track evidence moved when the wrap-up arm stopped resuming: a FRESH launch
+    carries no session id, so both tracks render one identical command, and what
+    distinguishes them is the `/rename <topic>` the daemon submits to each successor.
+    Sabotage: revert the lookup to `.get(session)` and the second track resolves to None →
+    one respawn and one rename instead of two → this goes red."""
     repo, topic_a = make_plan(tmp_path=tmp_path, topic="alpha")
     _, topic_b = make_plan(tmp_path=tmp_path, topic="beta")
     shared = "shared-tmux"
@@ -122,8 +141,9 @@ def test_two_codex_tracks_sharing_a_tmux_session_each_restart_their_own_session(
         )
     respawn_cmds = [c[3] for c in fake.calls if c[0] == "respawn"]
     assert len(respawn_cmds) == 2  # each track resolved to a live session and respawned
-    assert id_a in respawn_cmds[0] and id_b not in respawn_cmds[0]  # track alpha → A's rollout
-    assert id_b in respawn_cmds[1] and id_a not in respawn_cmds[1]  # track beta → B's rollout
+    assert id_a not in respawn_cmds[0] and id_b not in respawn_cmds[1]  # fresh, not resumed
+    renames = [text for text in fake.paste_texts() if text.startswith("/rename ")]
+    assert renames == [f"/rename {topic_a}", f"/rename {topic_b}"]  # each names its OWN topic
 
 
 def test_a_codex_restart_keeps_the_ready_marker_when_the_respawn_fails(*, tmp_path):

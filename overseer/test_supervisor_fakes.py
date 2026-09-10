@@ -51,6 +51,12 @@ class FakeTmux:
         # successor transcript.  Set False to model the picker-shaped failure:
         # Codex is present, but its required resume kick never arrived.
         self.respawn_shows_command = True
+        # The capture a Codex pane shows once a pasted, non-slash payload is submitted.
+        # Codex confirms a submit by GOING BUSY (it has no `❯` box to watch clear), so a
+        # test exercising the fresh-restart resume paste sets this to a busy frame; a
+        # slash command (`/rename …`) deliberately does NOT trip it, because asking the
+        # TUI to rename its own thread never makes the model work.
+        self.codex_busy_frame = None
         self.new_session_ok = True  # set False to model a failed new-session (Codex #3)
         self.pane_pids = {}  # {pane_pid: session} for the registry→tmux adopt join
         # Per-session pane PID (the login shell) fed to has_active_subshell. Defaults
@@ -152,6 +158,8 @@ class FakeTmux:
             val = self.panes.get(session, "")
             if isinstance(val, str):
                 self.panes[session] = val.replace(f"❯ {text}\n", "❯ \n")
+            if self.codex_busy_frame is not None and not text.startswith("/"):
+                self.panes[session] = self.codex_busy_frame
         return True
 
     def bracketed_paste(self, *, session, text):
@@ -162,6 +170,11 @@ class FakeTmux:
         if self.paste_ok:
             val = self.panes.get(session, "")
             display_text = text.splitlines()[0]
+            if self.codex_busy_frame is not None:
+                # A Codex composer holds the payload until Enter; `send_keys` decides
+                # what submitting it does. Recorded here for BOTH pane shapes, since a
+                # Codex pane has no `❯` box for the branch below to match on.
+                self.pasted_inputs[session] = display_text
             if isinstance(val, str) and "\n❯ \n" in val:
                 self.panes[session] = val.replace("\n❯ \n", f"\n❯ {display_text}\n", 1)
                 self.pasted_inputs[session] = display_text
@@ -185,14 +198,13 @@ class FakeTmux:
         if not self.respawn_ok:
             return False
         # Model the runtime the command launches so the post-respawn identity await
-        # (`_await_pane`) matches: a `codex resume …` respawn yields a codex pane (`bun`,
-        # the launcher), any other command a fresh Claude TUI (`node`). A codex respawn
-        # with `respawn_yields_codex=False` comes up non-codex (`node`), modeling the
-        # await-fail leg.
-        if (
-            " resume --dangerously-bypass-approvals-and-sandbox " in command
-            and self.respawn_yields_codex
-        ):
+        # (`_await_pane`) matches: a codex respawn yields a codex pane (`bun`, the
+        # launcher), any other command a fresh Claude TUI (`node`). A codex respawn with
+        # `respawn_yields_codex=False` comes up non-codex (`node`), modeling the
+        # await-fail leg. The discriminator is the approvals flag, which BOTH Codex arms
+        # carry — the fresh wrap-up launch (no `resume` subcommand) and the
+        # crash-recovery resume of an exact prior rollout.
+        if "--dangerously-bypass-approvals-and-sandbox" in command and self.respawn_yields_codex:
             self.cmds[session] = "bun"
             self.panes[session] = (
                 command if self.respawn_shows_command else "Resume a previous session"

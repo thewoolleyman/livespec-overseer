@@ -128,8 +128,8 @@ def test_codex_shell_only_evidence_does_not_withhold_or_void_a_certified_ready(*
     assert view.status == "restarting"
     respawns = [call for call in fake.calls if call[0] == "respawn"]
     assert len(respawns) == 1
-    assert "codex resume" in respawns[0][3]
-    assert session_id in respawns[0][3]
+    assert respawns[0][3] == "codex --dangerously-bypass-approvals-and-sandbox"
+    assert session_id not in respawns[0][3]  # a wrap-up restart is a FRESH session
     assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
 
 

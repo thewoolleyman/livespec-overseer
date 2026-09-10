@@ -147,9 +147,10 @@ Both are followed by the same body:
 ```
 You WILL be restarted — but ONLY when YOU say so. The overseer never kills a session
 that has not declared itself ready. When you stop, this pane is restarted according to
-its runtime and handed exactly ONE prompt. A Claude restart launches a new conversation.
-A Codex restart uses `codex resume`, reattaches this same Codex rollout, and auto-submits
-the prompt:
+its runtime into a FRESH session with a new context window — a Claude restart launches a
+new conversation, and a Codex restart launches a new Codex session rather than resuming
+this rollout. NEITHER runtime inherits this conversation. The successor is handed exactly
+ONE prompt:
     {resume}
 So {read_first} is the ONLY durable resume state inherited by the restarted runtime. Do
 NOT leave your resume state anywhere else (a scratchpad file, this transcript, a file
@@ -586,8 +587,11 @@ up: on a failed submit it keeps the round open (marker + stamp) and marks a
 round-scoped `resume_pending`, then on the next tick re-sends Enter — **the
 SUBMIT only, never a re-respawn** — until the box clears. Re-`respawn-pane -k`
 stays gated on a fresh `ready` alone, so the retry can never escalate to a kill;
-the stranded track is a NEEDS-YOU report until it resumes. (Codex needs none of
-this: `codex resume` takes the kick as an argument and auto-submits it.)
+the stranded track is a NEEDS-YOU report until it resumes. (Codex reaches the same
+outcome differently: its restart names the fresh session with `/rename <topic>`,
+submit-verifies the resume line inline, and on failure keeps the `ready` declaration
+rather than opening a retry round — a fresh Codex session holds nothing worth
+preserving across a re-respawn, which is exactly why the Claude arm cannot do that.)
 
 ## Notify, never block — the overseer relays, the tracked pane answers
 

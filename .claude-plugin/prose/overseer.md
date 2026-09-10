@@ -435,6 +435,18 @@ keyword flags. (`<cmd>` is one of `list` / `add` / `remove` / `unassign` /
   restart is skipped; the daemon never falls back to a default-model or
   default-wrapper launch.
 
+  **Both runtimes restart into a FRESH session, and Codex is no longer the
+  exception.** A wrap-up restart exists to give the successor a reset context
+  window, so a Codex track respawns a brand-new `codex` session — NOT
+  `codex resume`, which reattaches the predecessor's rollout and the context it had
+  already exhausted (measured live 2026-09-10: one rollout resumed four times,
+  50% → 17% remaining). A fresh Codex rollout carries no `thread_name`, so the
+  daemon submits `/rename <topic>` to give it the durable adoption record and only
+  then submits the ledger-grounded resume line; the round is closed only once the
+  successor is observed on a rollout that is not its predecessor's. `codex resume
+  <uuid>` remains correct — and unchanged — for `start` and dead-track recovery,
+  where restoring the conversation a crash interrupted is the whole point.
+
 ### Fixed paths + fleet-only watch-set (no CLI knobs)
 
 The invocation surface has **no** `--store` / `--stamp` / `--repos` /

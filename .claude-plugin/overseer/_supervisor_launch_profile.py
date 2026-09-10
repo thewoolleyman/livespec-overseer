@@ -22,6 +22,7 @@ from _supervisor_statusline_model import rendered_statusline_model
 
 __all__: list[str] = [
     "CLAUDE_CONTROLLED_ENV",
+    "CODEX_APPROVALS_FLAG",
     "DEFAULT_START_MODEL",
     "PLAN_UNATTENDED_ENV",
     "ClaudeLaunchPlan",
@@ -29,6 +30,7 @@ __all__: list[str] = [
     "LaunchProfileProblem",
     "apply_runtime_model",
     "claude_launch_plan",
+    "codex_fresh_launch_plan",
     "codex_launch_plan",
     "preflight_launch_command",
     "read_launch_profile",
@@ -205,29 +207,37 @@ def claude_launch_plan(
     )
 
 
-def _bare_codex_command(*, session_id: str, resume: str) -> str:
-    return (
-        "codex resume --dangerously-bypass-approvals-and-sandbox "
-        f"{shlex.quote(session_id)} {shlex.quote(resume)}"
-    )
+CODEX_APPROVALS_FLAG = "--dangerously-bypass-approvals-and-sandbox"
 
 
-def _codex_command(*, command: str, session_id: str, resume: str, model: str | None) -> str:
-    model_arg = f" -m {shlex.quote(model)}" if model is not None else ""
-    return (
-        f"{shlex.quote(command)}{model_arg} resume "
-        f"--dangerously-bypass-approvals-and-sandbox "
-        f"{shlex.quote(session_id)} {shlex.quote(resume)}"
-    )
+@dataclass(frozen=True, kw_only=True)
+class _CodexInvocation:
+    """The profile-derived half of a Codex command: WHAT to run and under WHICH model.
+
+    Both Codex arms resolve the profile identically — that resolution is about the
+    harness, the wrapper and the model, none of which care whether the session being
+    launched is fresh or resumed. Only the SUBCOMMAND differs, so the arms share this
+    and render their own tail.
+    """
+
+    command: str
+    model: str | None
+    env: Mapping[str, str | None]
 
 
-def codex_launch_plan(
-    *, track: registry.Track, session_id: str, resume: str, daemon_restart: bool = False
-) -> CodexLaunchPlan | LaunchProfileProblem:
+def _codex_prefix(*, invocation: _CodexInvocation) -> str:
+    model_arg = "" if invocation.model is None else f" -m {shlex.quote(invocation.model)}"
+    return f"{shlex.quote(invocation.command)}{model_arg}"
+
+
+def _codex_invocation(
+    *, track: registry.Track, daemon_restart: bool
+) -> _CodexInvocation | LaunchProfileProblem:
     profile = track.model_profile
     if profile is None:
-        return CodexLaunchPlan(
-            command=_bare_codex_command(session_id=session_id, resume=resume),
+        return _CodexInvocation(
+            command="codex",
+            model=None,
             env=_with_unattended_restart_env(
                 env=_scrubbed_env(),
                 daemon_restart=daemon_restart,
@@ -241,13 +251,9 @@ def codex_launch_plan(
     model = cast(str, profile["model"])
     wrapper = profile["wrapper"]
     if wrapper is None:
-        return CodexLaunchPlan(
-            command=_codex_command(
-                command="codex",
-                model=model,
-                session_id=session_id,
-                resume=resume,
-            ),
+        return _CodexInvocation(
+            command="codex",
+            model=model,
             env=_with_unattended_restart_env(
                 env=MappingProxyType(_scrubbed_env()),
                 daemon_restart=daemon_restart,
@@ -271,15 +277,60 @@ def codex_launch_plan(
     # So the model rides `-m` through the wrapper's `"$@"`, exactly as on the bare
     # codex arm — a mechanism the real consumer honours.
     env["ANTHROPIC_MODEL"] = model
-    return CodexLaunchPlan(
-        command=_codex_command(
-            command=wrapper,
-            model=model,
-            session_id=session_id,
-            resume=resume,
-        ),
+    return _CodexInvocation(
+        command=wrapper,
+        model=model,
         env=_with_unattended_restart_env(
             env=MappingProxyType(env),
             daemon_restart=daemon_restart,
         ),
+    )
+
+
+def codex_launch_plan(
+    *, track: registry.Track, session_id: str, resume: str, daemon_restart: bool = False
+) -> CodexLaunchPlan | LaunchProfileProblem:
+    """RESUME the exact prior rollout — the CRASH-RECOVERY arm.
+
+    ``codex resume <uuid>`` reattaches that rollout AND the context it accumulated,
+    which is precisely what recovery wants: the conversation a crash interrupted is
+    restored rather than re-derived. It is the WRONG arm for a wrap-up restart, whose
+    whole purpose is a reset context window — see :func:`codex_fresh_launch_plan`.
+    """
+    invocation = _codex_invocation(track=track, daemon_restart=daemon_restart)
+    if isinstance(invocation, LaunchProfileProblem):
+        return invocation
+    return CodexLaunchPlan(
+        command=(
+            f"{_codex_prefix(invocation=invocation)} resume {CODEX_APPROVALS_FLAG} "
+            f"{shlex.quote(session_id)} {shlex.quote(resume)}"
+        ),
+        env=invocation.env,
+    )
+
+
+def codex_fresh_launch_plan(
+    *, track: registry.Track, daemon_restart: bool = False
+) -> CodexLaunchPlan | LaunchProfileProblem:
+    """Launch a BRAND-NEW Codex session — the WRAP-UP-RESTART arm.
+
+    No ``resume`` subcommand and no positional session id, so Codex opens a rollout of
+    its own with an empty context window. That reset IS the deliverable of a wrap-up
+    restart: the session declared ``ready`` because it had wound down out of context,
+    and handing its successor the predecessor's rollout hands back the same exhausted
+    window (measured live 2026-09-10: one rollout resumed four times, 50% → 17%
+    remaining, until Codex compacted itself).
+
+    No prompt is passed either. ``codex resume`` can take its kick as an argv
+    positional, but a fresh session must first be NAMED — the daemon submits
+    ``/rename <topic>`` so the rollout carries durable thread-name evidence — and a
+    launch-time prompt would start the model working before that could happen. The
+    resume line is therefore pasted after naming, by :mod:`_supervisor_codex_restart`.
+    """
+    invocation = _codex_invocation(track=track, daemon_restart=daemon_restart)
+    if isinstance(invocation, LaunchProfileProblem):
+        return invocation
+    return CodexLaunchPlan(
+        command=f"{_codex_prefix(invocation=invocation)} {CODEX_APPROVALS_FLAG}",
+        env=invocation.env,
     )
