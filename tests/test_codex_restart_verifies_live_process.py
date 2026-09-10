@@ -5,9 +5,42 @@ import io as _io
 
 import codex_sessions
 import signals
-from test_supervisor_builders import adopt_codex_ready, mapped_track
+from test_supervisor_builders import (
+    TEST_EPIC,
+    adopt_codex_ready,
+    mapped_track,
+    on_respawn,
+)
 
 __all__: list[str] = []
+
+
+def test_a_codex_restart_accepts_a_line_wrapped_resume_kick(tmp_path):
+    """Rendered wrapping cannot turn a successful exact-session resume into failure."""
+    repo, topic, session, _session_id, fake, sup = adopt_codex_ready(tmp_path=tmp_path)
+    resume = (
+        f"resume plan epic {TEST_EPIC} in repository {repo}; " "read its ledger-held plan state"
+    )
+    wrapped_resume = resume.replace(" in repository ", " in\nrepository ")
+    assert resume not in wrapped_resume
+    on_respawn(
+        fake=fake,
+        after=lambda target: fake.panes.__setitem__(target, wrapped_resume),
+    )
+    log = _io.StringIO()
+
+    with contextlib.redirect_stderr(log):
+        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None and state.token == signals.STATE_RESTARTED
+    assert log.getvalue().count(f"restarted (codex) {repo}::{topic}") == 1
+
+    fake.calls.clear()
+    with contextlib.redirect_stderr(log):
+        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+    assert not fake.has(method="respawn")
+    assert log.getvalue().count(f"restarted (codex) {repo}::{topic}") == 1
 
 
 def test_a_codex_restart_with_no_post_respawn_live_process_is_not_success(tmp_path):

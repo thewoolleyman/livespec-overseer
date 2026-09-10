@@ -131,18 +131,17 @@ def _respawn_verified(
             condition="codex-post-respawn-not-ready",
         )
         return False
-    fresh_capture = signals.strip_ansi(text=sup.tmux.capture_pane(session=target))
-    if resume not in fresh_capture:
+    fresh_capture = sup.tmux.capture_pane(session=target)
+    if signals.is_structured_gate(capture_text=fresh_capture):
         sup.alert(
             repo=track.repo,
             topic=track.topic,
             session=session,
             pane=target,
             message=(
-                "respawned Codex pane did not show its required resume kick; "
-                "keeping the ready declaration"
+                "respawned Codex pane is on a structured picker; keeping the ready declaration"
             ),
-            condition="codex-resume-kick-missing",
+            condition="codex-resume-picker-after-restart",
         )
         return False
     if not _post_respawn_live_process(sup=sup, track=track, session=session, session_id=session_id):
