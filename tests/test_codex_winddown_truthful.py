@@ -76,7 +76,15 @@ def test_prompt_builder_public_branches_stay_covered(*, tmp_path) -> None:
     )
 
 
-def test_codex_low_context_wrapup_discloses_same_rollout_resume(*, tmp_path) -> None:
+def test_codex_low_context_wrapup_discloses_a_fresh_session_restart(*, tmp_path) -> None:
+    """The wind-down text must describe the restart the daemon actually performs.
+
+    It used to promise a Codex session that `codex resume` would reattach "this same
+    Codex rollout" — true of the arm as it then stood, and the reason that arm was a
+    defect: the successor inherited the exhausted window the wind-down was about. The
+    wrap-up arm now launches a FRESH session, so a session reading this must understand
+    that nothing in this conversation survives except what it writes down.
+    """
     test_prompt_builder_public_branches_stay_covered(tmp_path=tmp_path)
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
@@ -104,5 +112,6 @@ def test_codex_low_context_wrapup_discloses_same_rollout_resume(*, tmp_path) -> 
 
     assert view.status == "warned"
     text = " ".join(fake.paste_texts())
-    assert "reattaches this same Codex rollout" in text
-    assert "fresh session" not in text
+    assert "reattaches this same Codex rollout" not in text
+    assert "launches a new Codex session rather than resuming" in text
+    assert "NEITHER runtime inherits this conversation" in text

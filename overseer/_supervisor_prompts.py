@@ -185,9 +185,10 @@ you can no longer hand off cleanly."""
 _WRAPUP_BODY = """\
 You WILL be restarted — but ONLY when YOU say so. The overseer never kills a session
 that has not declared itself ready. When you stop, this pane is restarted according to
-its runtime and handed exactly ONE prompt. A Claude restart launches a new conversation.
-A Codex restart uses `codex resume`, reattaches this same Codex rollout, and auto-submits
-the prompt:
+its runtime into a FRESH session with a new context window — a Claude restart launches a
+new conversation, and a Codex restart launches a new Codex session rather than resuming
+this rollout. NEITHER runtime inherits this conversation. The successor is handed exactly
+ONE prompt:
     {resume}
 So {read_first} is the ONLY durable resume state inherited by the restarted runtime. Do
 NOT leave your resume state anywhere else (a scratchpad file, this transcript, a file

@@ -45,6 +45,7 @@ from overseer.test_supervisor_fakes import (
 )
 
 _CODEX_SESSION_ID = "019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
+_FRESH_CODEX_SESSION_ID = "019f7b2f-3771-7ad3-9fc3-26fda0435ca9"
 
 
 def _warnable(*, tmp_path, **kwargs):
@@ -145,16 +146,36 @@ def _codex_restart_commands(*, tmp_path) -> list[str]:
     track = mapped_track(repo=repo, topic=topic, session=session)
     fake.on_paste = lambda s, _t: fake.panes.__setitem__(s, codex_busy_capture(ctx=40))
 
+    def observed_codex_session() -> None:
+        """Discovery across the respawn: the successor is a session of its OWN.
+
+        A wrap-up restart launches a FRESH Codex session, so the post-respawn
+        observation reports a different rollout — which is the evidence the restart
+        requires before it will consume the `ready` declaration.
+        """
+        restarted = any(call[0] == "respawn" for call in fake.calls)
+        sup.live_codex = {
+            (session, topic): codex_sessions.CodexSession(
+                pid=4242,
+                name=topic,
+                cwd=str(repo),
+                session_id=_FRESH_CODEX_SESSION_ID if restarted else _CODEX_SESSION_ID,
+            )
+        }
+
+    observed_codex_session()
+    sup._refresh_codex_sessions = observed_codex_session
+
     with contextlib.redirect_stderr(_io.StringIO()):
         assert (
             sup.evaluate(track=track, act=True).status == "warned"
         )  # a real, codex-submitted round
 
-    fake.on_paste = None
     fake.panes[session] = codex_idle_capture(ctx=40, topic=topic)
     declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
     with contextlib.redirect_stderr(_io.StringIO()):
         assert sup.evaluate(track=track, act=True).status == "restarting"
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
     return _respawn_commands(fake=fake)
 
 
@@ -437,8 +458,9 @@ def test_scenario_a_restart_never_switches_a_tracks_runtime(*, tmp_path):
     """
     codex = _codex_restart_commands(tmp_path=tmp_path)
     assert len(codex) == 1
-    assert "codex resume " in codex[0]  # resumed under the SAME runtime...
-    assert _CODEX_SESSION_ID in codex[0]  # ...and the same rollout
+    assert codex[0].startswith("codex ")  # relaunched under the SAME runtime...
+    assert " resume " not in codex[0]  # ...on a FRESH rollout, which is what a wrap-up
+    assert _CODEX_SESSION_ID not in codex[0]  # restart owes the successor
     assert "claude " not in codex[0]  # the other runtime's command is never issued
 
     claude_topic, claude = _claude_restart_commands(tmp_path=tmp_path)

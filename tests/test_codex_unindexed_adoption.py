@@ -28,6 +28,8 @@ __all__: list[str] = []
 
 
 ID_C = "019fc714-beaa-7992-aedf-039091f6d94a"
+# The rollout a FRESH Codex session opens when a wrap-up restart replaces its predecessor.
+ID_D = "019fd0a3-5c71-73b8-9a44-8f21be0d47c5"
 
 
 def _mapped_unindexed_codex_supervisor(*, tmp_path):
@@ -42,15 +44,28 @@ def _mapped_unindexed_codex_supervisor(*, tmp_path):
     host = fake_host(
         comms={9000: codex_sessions.CODEX_COMM},
         cwds={9000: str(repo)},
-        fds={9000: [fake_rollout(session_id=ID_B)]},
     )
+
+    def rollout_fds(*, pid):
+        """The rollout THIS pane's Codex holds — a different one once it is restarted.
+
+        A wrap-up restart launches a FRESH session, so the successor holds its own
+        rollout. It is unindexed like its predecessor, which is exactly the point of
+        this module: the store-bound binding, not a `session_index` thread name, is
+        what keeps it adoptable in the very next tick.
+        """
+        if pid != 9000:
+            return []
+        restarted = any(call[0] == "respawn" for call in fake.calls)
+        return [fake_rollout(session_id=ID_C if restarted else ID_B)]
+
     sup = make_supervisor(
         tmp_path=tmp_path,
         fake=fake,
         watch_repos=[str(repo)],
         codex_home=str(codex_home),
         codex_pids_of_comm=host["pids_of_comm"],
-        codex_fd_targets_of=host["fd_targets_of"],
+        codex_fd_targets_of=rollout_fds,
         codex_cwd_of=host["cwd_of"],
         ppid_of=lambda *, pid: {9000: 7001}.get(pid),
     )
@@ -193,7 +208,8 @@ def test_mapped_unindexed_codex_track_gets_wrapup_and_ready_restart(tmp_path):
     ]
     assert any("Declare your state by writing ONE line" in text for text in fake.paste_texts())
 
-    fake.on_paste = None
+    # `on_paste` stays armed through the restart: the fresh session's resume line is a
+    # PASTE now, and Codex confirms a submit only by going busy.
     fake.panes[registry.tmux_id(repo=str(repo), topic=topic)] = codex_idle_capture(
         ctx=40, topic=topic
     )
@@ -206,7 +222,12 @@ def test_mapped_unindexed_codex_track_gets_wrapup_and_ready_restart(tmp_path):
     assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
     respawn_commands = [call[3] for call in fake.calls if call[0] == "respawn"]
     assert len(respawn_commands) == 1
-    assert f"codex resume --dangerously-bypass-approvals-and-sandbox {ID_B}" in respawn_commands[0]
+    # A wrap-up restart launches a FRESH session — no `resume`, no prior rollout id — and
+    # the successor is re-adopted through the STORE-BOUND binding within the same tick,
+    # which is what keeps an unindexed Codex track trackable across its own restart.
+    assert respawn_commands[0] == "codex --dangerously-bypass-approvals-and-sandbox"
+    assert ID_B not in respawn_commands[0]
+    assert sup.live_codex[(registry.tmux_id(repo=str(repo), topic=topic), topic)].session_id == ID_C
 
 
 def test_mapped_unindexed_codex_adoption_uses_a_real_tmux_session(tmp_path):
@@ -253,7 +274,42 @@ def test_mapped_unindexed_codex_adoption_uses_a_real_tmux_session(tmp_path):
         _close_private_tmux(tmp_path=tmp_path)
 
 
+def _model_a_fresh_codex_across_the_respawn(*, tmp_path, fake, topic):
+    """The host and index behaviour a wrap-up restart of an INDEXED Codex track produces.
+
+    Two halves, and the test is only honest with both: the codex process holds a
+    DIFFERENT rollout once it has been respawned (it is a fresh session, not a resume),
+    and `/rename <topic>` appends a `session_index` record for that new id — which is what
+    `/rename` actually does, and the durable evidence the adoption join reads.
+    """
+
+    def rollout_fds(*, pid):
+        if pid != 9000:
+            return []
+        if any(call[0] == "respawn" for call in fake.calls):
+            return [fake_rollout(session_id=ID_D)]  # the FRESH session's own rollout
+        return [fake_rollout(session_id=ID_C), fake_rollout(session_id=ID_A)]
+
+    def paste_effects(paste_session, text):
+        if text == f"/rename {topic}":
+            _ = fake_index(tmp_path=tmp_path, records=[(ID_A, topic), (ID_D, topic)])
+        else:
+            fake.panes[paste_session] = codex_busy_capture(ctx=95)
+
+    fake.on_paste = paste_effects
+    return rollout_fds
+
+
 def test_indexed_rollout_fd_makes_track_codex_and_routes_ready_restart(tmp_path):
+    """The thread-name adoption join, driven across a wrap-up restart.
+
+    A wrap-up restart launches a FRESH Codex session, so the successor holds a rollout
+    the index has never heard of — which would make it unadoptable. The daemon closes
+    that itself: it submits `/rename <topic>`, Codex appends a `session_index` record for
+    the new id, and the ordinary join resolves the topic to the SUCCESSOR's rollout
+    within the same tick. The test fails if either the rename or the re-observation is
+    dropped.
+    """
     repo, topic = make_plan(tmp_path=tmp_path, topic="critical-path")
     session = registry.tmux_id(repo=str(repo), topic=topic)
     codex_home = fake_index(tmp_path=tmp_path, records=[(ID_A, topic)])
@@ -262,11 +318,8 @@ def test_indexed_rollout_fd_makes_track_codex_and_routes_ready_restart(tmp_path)
         session=session, repo=repo, capture=codex_idle_capture(ctx=40, topic=topic), cmd="bun"
     )
     fake.pane_pids = {7001: session}
-    host = fake_host(
-        comms={9000: codex_sessions.CODEX_COMM},
-        cwds={9000: str(repo)},
-        fds={9000: [fake_rollout(session_id=ID_C), fake_rollout(session_id=ID_A)]},
-    )
+    host = fake_host(comms={9000: codex_sessions.CODEX_COMM}, cwds={9000: str(repo)})
+    rollout_fds = _model_a_fresh_codex_across_the_respawn(tmp_path=tmp_path, fake=fake, topic=topic)
 
     sup = make_supervisor(
         tmp_path=tmp_path,
@@ -274,7 +327,7 @@ def test_indexed_rollout_fd_makes_track_codex_and_routes_ready_restart(tmp_path)
         watch_repos=[str(repo)],
         codex_home=str(codex_home),
         codex_pids_of_comm=host["pids_of_comm"],
-        codex_fd_targets_of=host["fd_targets_of"],
+        codex_fd_targets_of=rollout_fds,
         codex_cwd_of=host["cwd_of"],
         ppid_of=lambda *, pid: {9000: 7001}.get(pid),
     )
@@ -299,5 +352,10 @@ def test_indexed_rollout_fd_makes_track_codex_and_routes_ready_restart(tmp_path)
     assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
     respawn_commands = [call[3] for call in fake.calls if call[0] == "respawn"]
     assert len(respawn_commands) == 1
-    assert f"codex resume --dangerously-bypass-approvals-and-sandbox {ID_A}" in respawn_commands[0]
-    assert ID_C not in respawn_commands[0]
+    assert respawn_commands[0] == "codex --dangerously-bypass-approvals-and-sandbox"
+    assert ID_A not in respawn_commands[0] and ID_C not in respawn_commands[0]
+    assert f"/rename {topic}" in fake.paste_texts()  # the successor is NAMED, durably
+    # ...and the ordinary thread-name join now resolves the topic to the FRESH rollout,
+    # which is what lets the very next tick keep tracking it.
+    assert sup.live_codex[(session, topic)].session_id == ID_D
+    assert codex_sessions.read_thread_names(codex_home=str(codex_home))[ID_D] == topic

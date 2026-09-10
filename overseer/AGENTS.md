@@ -283,8 +283,9 @@ diagram is drawn Claude-first, but **a Codex track is a full citizen
 (maintainer-declared 2026-07-17)** and flows through the SAME branches with
 runtime-appropriate mechanics: `is_codex_idle_input` (not Claude's `❯` box) drives its
 `idle`, the wrap-up and keep-going nudge are pasted with a Codex submit-verify (the pane
-goes busy, not an emptied `❯` box), and `restarting` dispatches to `codex resume <id>`
-rather than the claude launch command (see invariant 7 and the load-bearing mechanics).
+goes busy, not an emptied `❯` box), and `restarting` dispatches to a FRESH `codex`
+session rather than the claude launch command (see invariant 7 and the load-bearing
+mechanics; `codex resume <id>` is the CRASH-RECOVERY arm, not this one).
 Discovery's live-session adoption is split into `_supervisor_discovery_adoption.py`,
 and liveness attention keeps observation in `_supervisor_attention_observe.py` while
 `_supervisor_attention.py` owns the status decision surface; keep those boundaries
@@ -548,24 +549,57 @@ for the marker's edge-triggered lifecycle.
 
    **The Codex arm (`_do_codex_restart`) is the ONE place the destructive bug lives,
    and the dispatch is what prevents it.** `claude -n <topic>` aimed at a codex pane
-   would REPLACE the codex session with a claude one; so a Codex track respawns
-   `codex resume --dangerously-bypass-approvals-and-sandbox <session-id> "<resume line>"`
-   (`_codex_launch_command`) instead — NEVER the claude command. The
+   would REPLACE the codex session with a claude one; so a Codex track respawns a Codex
+   command instead — NEVER the claude command. The
    `--dangerously-bypass-approvals-and-sandbox` flag is the codex twin of the Claude arm's
    REQUIRED `--dangerously-skip-permissions` (maintainer-declared 2026-07-17): without it
-   the resumed session uses codex's default INTERACTIVE approval and stalls at a `› 1.`
+   the successor uses codex's default INTERACTIVE approval and stalls at a `› 1.`
    approval picker on its first tool call, so the restart is not hands-off (codex documents
    the flag as "solely for externally-sandboxed environments", which this local-only host
-   is). It is otherwise SIMPLER than the Claude arm (proven live 2026-07-17): `codex resume`
-   takes the kick as an ARGUMENT and AUTO-SUBMITS it, so there is no separate paste (no
-   `_submit_prompt`) and no fresh-TUI submit race; and it resumes by the exact UUID, which
-   reattaches the SAME rollout so the `thread_name` — hence adoptability — survives by
-   construction. The await polls `pane_is_codex` (`_await_pane`) not `pane_is_claude`, and
-   the round is closed (`_clear_state`) only after the await CONFIRMS the codex pane came up
-   — a failed respawn or await keeps the `ready` marker so the restart retries (B5, pinned
-   by the codex marker-kept tests). The sabotage-verified guard test
+   is). The await polls `pane_is_codex` (`_await_pane`) not `pane_is_claude`, and
+   the round is closed (`_clear_state`) only after every post-respawn proof lands
+   — a failed respawn, await, naming or submit keeps the `ready` marker so the restart
+   retries (B5, pinned by the codex marker-kept tests). The sabotage-verified guard test
    (`…never_issues_the_claude_command`) pins that the routing holds; if you touch this
    area, re-sabotage (route codex → the claude command) and confirm it goes red.
+
+   **WHICH Codex command, though, is the thing that changed — and it was WRONG in a way
+   that read as correct for months (`overseer-pyh4j7`, 2026-09-10).** The wrap-up arm used
+   to respawn
+   `codex resume --dangerously-bypass-approvals-and-sandbox <session-id> "<resume line>"`,
+   the SAME command crash recovery uses. That looked ideal: `codex resume` takes the kick
+   as an ARGUMENT and auto-submits it (no separate paste, no fresh-TUI submit race), and it
+   reattaches the exact rollout so the `thread_name` — hence adoptability — survived by
+   construction. Every one of those properties is real. **They are also all properties of
+   NOT RESTARTING.** `resume` reattaches the rollout AND the context that rollout
+   accumulated, so a restart authorised by a `ready` declaration CONSUMED the declaration
+   and handed the successor back the same nearly-exhausted window its predecessor had just
+   wound down out of. Measured live on `fix-git-email` 2026-09-10: one rollout id resumed
+   FOUR times while remaining context fell 50% → 17%, until Codex compacted itself. The
+   Claude arm never had this bug because `claude … -n <topic>` is a new session and the
+   restart has never passed `--resume`; the Codex arm's convenience was the whole defect.
+
+   So the wrap-up arm now respawns a FRESH `codex` session
+   (`codex_fresh_launch_plan`: no `resume` subcommand, no positional id, no argv prompt),
+   and pays for the two conveniences it gave up:
+
+   - **Naming.** A fresh rollout carries no `thread_name`, so the daemon submits
+     `/rename <topic>` — the same idiom the attended supervisor charter (referenced from
+     the repo-root `AGENTS.md`) already prescribes for a fresh Codex launch — which is
+     what appends the durable `session_index.jsonl` record adoption joins on. The
+     confirmation is the ADOPTION JOIN, not the pane going busy: a slash command asks the
+     model for nothing, so Codex's submit-confirm signal never fires for it.
+   - **The kick.** With no argv prompt, the ledger-grounded resume line is pasted and
+     submit-verified exactly as on the Claude arm.
+
+   **The post-respawn proof is what keeps this honest**: the round closes only once
+   discovery reports this topic on a rollout whose id DIFFERS from the one that was live
+   before the respawn, in this repository. That id change is the only evidence available
+   that the window actually reset, which is why the prior UUID is still an interlock input
+   (`canonical_codex_session_id`) even though it is no longer a command argument. Recovery
+   is deliberately untouched — `_supervisor_codex_recovery` still resumes the exact
+   persisted rollout, because restoring the conversation a crash interrupted IS the goal
+   there. `tests/test_codex_fresh_restart_versus_resume.py` pins both ends of that split.
 
    **DELIBERATE DEAD-TRACK RECOVERY IS RUNTIME-DISPATCHED ON EVIDENCE, AND BOTH ENTRY
    POINTS SHARE ONE CLASSIFIER (`_supervisor_dead_track.classify_dead_track`).** The
@@ -954,7 +988,10 @@ for the marker's edge-triggered lifecycle.
   and `test_idle_pane_with_resume_pending_closes_the_round_instead_of_respawning`). The flag
   is round-scoped by construction: `clear_injection_stamp` (round close) and
   `write_injection_stamp` (fresh round) both drop it, so it can never outlive its round.
-  Codex never sets it (`codex resume` auto-submits its kick, no separate paste). Harden:
+  Codex never sets it: its restart submit-verifies inline and, on failure, keeps the
+  `ready` marker rather than opening a retry round — a fresh Codex session holds nothing
+  worth preserving across a re-respawn, which is exactly why the Claude arm cannot do the
+  same. Harden:
   `_await_input_box` waits for the box to render before the FIRST paste so most restarts
   never need the retry at all.
 - **Claude identity gate `topic in names` parity + stale-mapping re-point

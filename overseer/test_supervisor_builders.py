@@ -33,6 +33,9 @@ from test_supervisor_capture_builders import (
     idle_capture as idle_capture,
 )
 from test_supervisor_codex_builders import (
+    FRESH_CODEX_SESSION_ID as FRESH_CODEX_SESSION_ID,
+)
+from test_supervisor_codex_builders import (
     adopt_codex_ready as adopt_codex_ready,
 )
 from test_supervisor_codex_builders import (

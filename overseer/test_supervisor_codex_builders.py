@@ -97,14 +97,23 @@ def adopt_sup(*, tmp_path, fake, sessions_dir, ppid, starttimes, **kwargs):
     )
 
 
+FRESH_CODEX_SESSION_ID = "019f7b2f-3771-7ad3-9fc3-26fda0435ca9"
+
+
 def adopt_codex_ready(*, tmp_path):
     """A codex track adopted in `live_codex`, at a valid `ready`, on an idle Codex pane.
 
-    The shared fixture for the two restart-routing guards below: a `bun` pane showing the
-    real idle Codex shape, a live CodexSession in the map (as `_refresh_codex_sessions`
-    builds each tick), and a genuinely-valid `ready` (stamp + newer marker) so evaluation
-    reaches the restart branch — the branch where a runtime-misrouted restart would fire
-    the claude command at a codex pane.
+    The shared fixture for the restart-routing guards: a `bun` pane showing the real idle
+    Codex shape, a live CodexSession in the map (as `_refresh_codex_sessions` builds each
+    tick), and a genuinely-valid `ready` (stamp + newer marker) so evaluation reaches the
+    restart branch — the branch where a runtime-misrouted restart would fire the claude
+    command at a codex pane.
+
+    Discovery is modelled ACROSS the respawn, because a wrap-up restart launches a FRESH
+    Codex session rather than resuming the prior rollout. Before the respawn the topic
+    resolves to the predecessor's rollout; afterwards it resolves to
+    `FRESH_CODEX_SESSION_ID` — the successor the daemon's `/rename <topic>` made
+    adoptable — which is exactly the id CHANGE the restart's post-respawn proof requires.
     """
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
@@ -112,24 +121,23 @@ def adopt_codex_ready(*, tmp_path):
     fake.serve(
         session=session, repo=repo, capture=codex_idle_capture(ctx=40), cmd="bun"
     )  # a codex pane
+    fake.codex_busy_frame = codex_busy_capture(ctx=95)  # the fresh session takes the resume
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
     sup = adopt_sup(tmp_path=tmp_path, fake=fake, sessions_dir=sessions_dir, ppid={}, starttimes={})
     session_id = "019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
-    sup.live_codex = {
-        (session, topic): codex_sessions.CodexSession(
-            pid=4242, name=topic, cwd=str(repo), session_id=session_id
-        )
-    }
 
-    def keep_seeded_codex_session() -> None:
+    def seeded_codex_session() -> None:
+        respawned = any(call[0] == "respawn" for call in fake.calls)
+        live_id = FRESH_CODEX_SESSION_ID if respawned else session_id
         sup.live_codex = {
             (session, topic): codex_sessions.CodexSession(
-                pid=4242, name=topic, cwd=str(repo), session_id=session_id
+                pid=4242, name=topic, cwd=str(repo), session_id=live_id
             )
         }
 
-    sup._refresh_codex_sessions = keep_seeded_codex_session
+    seeded_codex_session()
+    sup._refresh_codex_sessions = seeded_codex_session
     assert sup._is_codex_track(
         session=session, repo=str(repo), topic=topic, target=session
     )  # the precondition holds

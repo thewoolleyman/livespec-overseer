@@ -86,8 +86,9 @@ def test_node_fronted_codex_track_uses_exact_launcher_identity_for_runtime_and_r
     assert view.runtime == "codex"
     assert view.status == "restarting"
     assert respawn_commands
-    assert "codex resume " in respawn_commands[0]
-    assert _CODEX_SESSION_ID in respawn_commands[0]
+    assert respawn_commands[0].startswith("codex ")
+    assert " resume " not in respawn_commands[0]  # a wrap-up restart is a FRESH session
+    assert _CODEX_SESSION_ID not in respawn_commands[0]
     assert "claude" not in respawn_commands[0]
 
 
