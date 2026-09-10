@@ -391,14 +391,37 @@ keyword flags. (`<cmd>` is one of `list` / `add` / `remove` / `unassign` /
   the tmux session is **never force-killed** — surface-only.
 - **`start --repo <repo> --topic <topic>`** — the **SURFACE-ONLY, user-initiated
   launch** for an existing plan directory: create the tmux session if missing, launch
-  `claude --dangerously-skip-permissions -n <topic>` in the repo, paste the resume
-  line, and map it. **The daemon NEVER auto-spawns a session for an unassigned
-  plan** — the FIRST launch of a plan is a deliberate act (the maintainer, via
-  you). An already-tracked session is restarted automatically, but ONLY once it
-  declares itself `ready` (the cardinal rule above). Pass
+  the track's own runtime in the repo, and map it. **The daemon NEVER auto-spawns a
+  session for an unassigned plan** — the FIRST launch of a plan is a deliberate act
+  (the maintainer, via you). An already-tracked session is restarted automatically,
+  but ONLY once it declares itself `ready` (the cardinal rule above). Pass
   `--force` only to respawn a session that is already running a live Claude
   (kills it) — otherwise `start` upserts the mapping and leaves the session
   alone.
+
+  **`start` is RUNTIME-DISPATCHED, on evidence, BEFORE it creates anything.** The
+  track is classified first, from the durable session identity the daemon recorded
+  while the process was alive:
+
+  - a brand-new mapped plan, and a track whose recorded identity is a Claude one,
+    launch `claude --dangerously-skip-permissions -n <topic>` and get the resume line
+    pasted, exactly as before;
+  - a track whose recorded `codex:<uuid>` identity, Codex index entry and surviving
+    rollout all agree resumes ITS OWN session with
+    `codex resume --dangerously-bypass-approvals-and-sandbox <uuid> "<resume line>"`,
+    so a Codex track is never replaced by a Claude one;
+  - anything else — a same-topic Codex namesake with no recorded identity behind it,
+    a pruned rollout, an identifier the index maps to another thread, an identity
+    naming no supported runtime — is **AMBIGUOUS**: `start` exits non-zero with
+    `reason=ambiguous_runtime`, having created no tmux session and respawned nothing.
+    Relay that line to the maintainer; runtime identity is never guessed from a topic
+    name.
+
+  A Codex `start` is reported successful only once live process evidence matches the
+  target tmux session, the plan topic, the exact session UUID and the repository cwd,
+  AND the auto-submitted resume kick is observed. Otherwise it reports
+  `reason=codex_resume_picker`, `reason=codex_live_process_missing` or
+  `reason=codex_resume_kick_unconfirmed` and maps nothing.
 
   Automatic restarts after a session-written `ready` preserve the recorded launch
   profile. A mapping row with NO recorded `model_profile` keeps the bare
@@ -571,9 +594,13 @@ so it is never stale.
   daemon); it never spawns a session on its own. For each mapped plan whose
   session (the bare topic, or `<repo-slug>-<topic>` on a cross-repo collision) is
   gone, relaunch it with a deliberate `start --repo <repo> --topic <topic>` (which
-  recreates the tmux session, relaunches `claude -n <topic>`, and pastes the resume
-  line). **`--repo` MUST be the full absolute path** (`/data/projects/livespec`),
-  never the bare slug — see the restart-learnings note in `AGENTS.md`.
+  recreates the tmux session and relaunches the track under the runtime its recorded
+  identity establishes — `claude -n <topic>` plus a pasted resume line, or
+  `codex resume <uuid>` reattaching that session's own rollout). A track whose runtime
+  is ambiguous is REPORTED rather than launched; say so to the maintainer instead of
+  retrying it as Claude. **`--repo` MUST be the full absolute path**
+  (`/data/projects/livespec`), never the bare slug — see the restart-learnings note in
+  `AGENTS.md`.
 - The mapping survives the overseer process; a fresh `overseerd` re-attaches its
   table to the same tracks with no hand-re-registration, and `start` re-launches
   any whose session is gone.

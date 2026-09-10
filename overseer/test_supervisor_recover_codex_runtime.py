@@ -13,11 +13,13 @@ import registry
 import supervisor
 from test_supervisor_builders import (
     TEST_EPIC,
+    codex_dead_track,
     codex_home_with,
     idle_capture,
     make_plan,
     make_supervisor,
     mapped_track,
+    verify_codex_respawn,
 )
 from test_supervisor_fakes import (
     FakeTmux,
@@ -186,7 +188,7 @@ def test_recover_skips_when_new_session_fails(*, tmp_path):
 
 
 def test_recover_resumes_a_codex_track_via_codex_resume(*, tmp_path):
-    """Option (c): a dead track whose topic is in the codex index WITH its rollout on disk is
+    """Option (c): a dead track whose RECORDED identity, index entry and rollout all agree is
     resumed by `codex resume <id>` (reattaching the SAME rollout), NEVER the claude command."""
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
@@ -198,8 +200,10 @@ def test_recover_resumes_a_codex_track_via_codex_resume(*, tmp_path):
         codex_home=str(codex_home_with(tmp_path=tmp_path, topic=topic, session_id=sid)),
     )
     registry.append_mapping(
-        track=mapped_track(repo=repo, topic=topic, session=session), store_path=sup.store_path
+        track=codex_dead_track(repo=repo, topic=topic, session=session, session_id=sid),
+        store_path=sup.store_path,
     )
+    verify_codex_respawn(sup=sup, fake=fake, plan=(repo, topic, session), session_id=sid)
 
     recovered = sup.recover_missing_sessions()
     assert recovered == [session]
@@ -225,8 +229,8 @@ def test_recover_resumes_a_codex_track_via_codex_resume(*, tmp_path):
 
 
 def test_recover_skips_and_surfaces_a_codex_track_whose_rollout_is_gone(*, tmp_path, capsys):
-    """Option (b): the topic is in the codex index but its rollout was pruned — codex resume
-    cannot reattach, so recovery SKIPS and surfaces it, NEVER recreating it as Claude."""
+    """Option (b): the recorded identity is indexed but its rollout was pruned — codex resume
+    cannot reattach, so the runtime is AMBIGUOUS: surfaced, never recreated as Claude."""
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     sid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
@@ -239,7 +243,8 @@ def test_recover_skips_and_surfaces_a_codex_track_whose_rollout_is_gone(*, tmp_p
         ),
     )
     registry.append_mapping(
-        track=mapped_track(repo=repo, topic=topic, session=session), store_path=sup.store_path
+        track=codex_dead_track(repo=repo, topic=topic, session=session, session_id=sid),
+        store_path=sup.store_path,
     )
 
     recovered = sup.recover_missing_sessions()
@@ -249,4 +254,4 @@ def test_recover_skips_and_surfaces_a_codex_track_whose_rollout_is_gone(*, tmp_p
         method="respawn"
     )  # ...and never launched anything (no mis-recreate as Claude)
     err = capsys.readouterr().err
-    assert topic in err and "rollout is gone" in err and "re-adopt" in err
+    assert topic in err and "ambiguous runtime" in err and "rollout for session" in err

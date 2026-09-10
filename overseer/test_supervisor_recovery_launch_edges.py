@@ -9,6 +9,7 @@ modules below the LLOC margin while preserving the recovery fail-soft scenarios.
 import pytest
 import registry
 from test_supervisor_builders import (
+    codex_dead_track,
     codex_home_with,
     idle_capture,
     make_plan,
@@ -83,7 +84,8 @@ def test_recover_codex_skips_when_new_session_does_not_create_the_session(*, tmp
         codex_home=str(codex_home_with(tmp_path=tmp_path, topic=topic, session_id=sid)),
     )
     registry.append_mapping(
-        track=mapped_track(repo=repo, topic=topic, session=session), store_path=sup.store_path
+        track=codex_dead_track(repo=repo, topic=topic, session=session, session_id=sid),
+        store_path=sup.store_path,
     )
 
     assert sup.recover_missing_sessions() == []
@@ -107,7 +109,8 @@ def test_recover_codex_surfaces_when_the_codex_resume_launch_fails(*, tmp_path, 
         codex_home=str(codex_home_with(tmp_path=tmp_path, topic=topic, session_id=sid)),
     )
     registry.append_mapping(
-        track=mapped_track(repo=repo, topic=topic, session=session), store_path=sup.store_path
+        track=codex_dead_track(repo=repo, topic=topic, session=session, session_id=sid),
+        store_path=sup.store_path,
     )
 
     assert sup.recover_missing_sessions() == []

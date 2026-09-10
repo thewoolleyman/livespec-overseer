@@ -5,8 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import _supervisor_recovery
 import registry
 import tmuxio
+from _supervisor_dead_track import LaunchableRuntime
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -21,10 +23,25 @@ class StartLaunchMessage:
 
 
 def launch_attempt_message(
-    *, sup: Supervisor, io: tmuxio.PaneDriver, track: registry.Track, session: str
+    *,
+    sup: Supervisor,
+    io: tmuxio.PaneDriver,
+    track: registry.Track,
+    session: str,
+    runtime: LaunchableRuntime,
 ) -> StartLaunchMessage:
+    """Launch the track as its ESTABLISHED runtime and describe the outcome.
+
+    ``runtime`` comes from :func:`_supervisor_dead_track.classify_dead_track`, which the
+    caller ran before creating any session, so this never enters the Claude path for a
+    track with a proven Codex identity. The ``resume_submit_unverified`` retry below is
+    Claude-only by construction: ``codex resume`` carries its kick as an argument and
+    auto-submits it, so there is no separate paste that could strand.
+    """
     del io
-    result = sup.do_launch_result(track=track, session=session, start=True)
+    result = _supervisor_recovery.dead_track_launch_result(
+        sup=sup, track=track, session=session, runtime=runtime, start=True
+    )
     if result.launched:
         if result.reason == "resume_submit_unverified":
             sup.refresh_claude_status()
@@ -43,4 +60,4 @@ def launch_attempt_message(
         return StartLaunchMessage(
             message=f"started {track.repo}::{track.topic} in tmux session {session}"
         )
-    return StartLaunchMessage(message=None, reason=result.reason or "claude_launch_failed")
+    return StartLaunchMessage(message=None, reason=result.reason or "launch_failed")

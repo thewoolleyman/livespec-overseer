@@ -567,25 +567,46 @@ for the marker's edge-triggered lifecycle.
    (`…never_issues_the_claude_command`) pins that the routing holds; if you touch this
    area, re-sabotage (route codex → the claude command) and confirm it goes red.
 
-   **Reboot recovery is RUNTIME-DISPATCHED (defect #5, 2026-07-18).** `recover_missing_sessions`
-   (startup only) no longer always launches the claude command. A dead codex process is absent
-   from the live `self.live_codex` map (no rollout fd at cold start), so the runtime is derived from
-   the PERSISTENT codex index instead — `session_index.jsonl` SURVIVES the session's death. If
-   the track's TOPIC names a session there (`codex_sessions.latest_session_for_thread_name`, the
-   most-recent by `updated_at`), the track is CODEX: `_recover_codex_track` resumes the SAME
-   rollout via `codex resume <id>` (option c) when it still exists on disk
-   (`codex_sessions.rollout_exists`), else skips + surfaces (option b) — NEVER mis-recreating it
-   as claude (rollout-orphaning). A topic absent from the index is a Claude track and recovers as
-   before. The `session_exists` gate still means only a genuinely ABSENT session is recreated, so
-   no live session is killed. Verified live 2026-07-18: `codex resume` reattached a 26-day-old
-   session with its thread_name intact (so the daemon re-adopts it); the reverse-index + rollout
-   gate resolve correctly against the real `~/.codex`; the latest-by-`updated_at` pick is
-   unambiguous (distinct timestamps per id in real index data). Two interstitials seen live and
-   both self-healing (a `› N.` gate → `blocked:human` → operator clears): codex's directory-trust
-   prompt appears only for a repo codex has NOT trusted — in recovery `track.repo` is where the
-   codex session originally ran, so it is already trusted and the resume is clean; and the
-   working-dir picker appears only when the pane cwd ≠ the session's recorded cwd — recovery sets
-   cwd to `track.repo`, which matches. See the `recover_missing_sessions` docstring.
+   **DELIBERATE DEAD-TRACK RECOVERY IS RUNTIME-DISPATCHED ON EVIDENCE, AND BOTH ENTRY
+   POINTS SHARE ONE CLASSIFIER (`_supervisor_dead_track.classify_dead_track`).** The
+   operator `start` surface and the callable `recover_missing_sessions` both ask it, so
+   they cannot grow competing answers. A dead codex process is absent from the live
+   `self.live_codex` map (no rollout fd at cold start), so the runtime comes from the
+   durable `observed_session_identity` the daemon RECORDED while the process was alive —
+   exact process evidence that outlived the process. The persisted
+   `session_index.jsonl` and the rollout on disk only CORROBORATE that recorded
+   identifier; neither may nominate a candidate of its own. A track whose recorded
+   `codex:<uuid>`, index entry for that exact id, and surviving rollout all agree is
+   CODEX and resumes the SAME rollout via `codex resume <uuid>`; a `claude:` identity,
+   or no identity and no same-topic Codex namesake, is CLAUDE and launches exactly as
+   before. Everything else — a same-topic namesake with no recorded identity behind it,
+   a pruned rollout, an id the index maps to another thread, an identity naming no
+   supported runtime — is AMBIGUOUS: surfaced, with NO session created and nothing
+   launched. The `session_exists` gate still means only a genuinely ABSENT session is
+   recreated, so no live session is killed.
+
+   **This REPLACED a topic-keyed lookup that violated the stale-namesake rule.** The
+   retired code called a track CODEX whenever its TOPIC named any session in the global
+   index (`codex_sessions.latest_session_for_thread_name`, most-recent by `updated_at`)
+   — the exact guess the "codex index can hold a STALE NAMESAKE" entry in this file
+   records live, where `autonomous-mode` sat in the index as a six-day-old namesake of a
+   real Claude track. It also counted a Codex pane command as success: a deterministic
+   execution returned True with an EMPTY `live_codex` map, having proved neither the
+   resumed UUID, nor the repository cwd, nor that the resume kick submitted. The Codex
+   arm now lives in `_supervisor_codex_recovery` and reports success only on live process
+   evidence matching the target tmux session, the plan topic, the exact session UUID and
+   the repository cwd, plus the pane going busy (the Codex submit-confirm signal). If you
+   find yourself re-deriving a runtime from a topic name, stop — that is the defect.
+
+   Still true from the 2026-07-18 live verification: `codex resume` reattached a
+   26-day-old session with its thread_name intact (so the daemon re-adopts it), and the
+   rollout gate resolves correctly against the real `~/.codex`. Two interstitials seen
+   live and both self-healing (a `› N.` gate → `blocked:human` → operator clears):
+   codex's directory-trust prompt appears only for a repo codex has NOT trusted — in
+   recovery `track.repo` is where the codex session originally ran, so it is already
+   trusted and the resume is clean; and the working-dir picker appears only when the pane
+   cwd ≠ the session's recorded cwd — recovery sets cwd to `track.repo`, which matches.
+   See the `recover_missing_sessions` docstring.
 
    The abrupt kill is safe **because of** the declaration: the session asserted it
    is at a clean stopping point, and `respawn-pane -k` replaces the PROCESS — every
@@ -1852,9 +1873,11 @@ the registry, or is deliberately left waiting on the maintainer" is.
 
 ### Known gap worth closing — now CLAUDE-only (codex is closed)
 
-For **codex**, `recover_missing_sessions` now DOES restore the live conversation: it
-resumes by `codex resume <id>`, the id recovered from the surviving codex index by plan
-topic (defect #5, 2026-07-18). For **claude**, the gap remains — `start` /
+For **codex**, `recover_missing_sessions` and the deliberate `start` surface DO restore
+the live conversation: they resume by `codex resume <uuid>`, the uuid taken from the
+track's own recorded `observed_session_identity` and corroborated against the surviving
+index and rollout. (It USED to be looked up by plan TOPIC; that was the stale-namesake
+defect, retired — see invariant 7.) For **claude**, the gap remains — `start` /
 `recover_missing_sessions` relaunch fresh + paste a resume prompt rather than `--resume`. If
 native "restore the live CLAUDE conversation after a crash" is wanted, that is where it
 would go: a `claude --resume <id>` arm that looks the topic's id up by `customTitle` in
@@ -1900,7 +1923,11 @@ does not re-learn it. Append here — do NOT scatter these.
   cluster; the index entry was a 6-day-old namesake. Cross-check the index hit's
   `updated_at` against the Claude transcript cluster and prefer the crash-moment
   evidence. Conversely, a topic NAMED for codex is not a codex track:
-  `codex-yolo-sandbox` is a Claude session whose SUBJECT is codex.
+  `codex-yolo-sandbox` is a Claude session whose SUBJECT is codex. **The overseer's own
+  code no longer makes this mistake** — `_supervisor_dead_track.classify_dead_track`
+  accepts only the recorded `observed_session_identity` as evidence and REFUSES a
+  topic-only hit — but this runbook is driven by a human reading an index by hand, so
+  the caution still applies to you.
 - **A mapped track may have NEVER LAUNCHED — that needs `start`, not `--resume`.**
   `cockpit-ux-docs-release` was in `~/.livespec-overseer.jsonl` but had no transcript
   with that `customTitle` ANYWHERE on the host (and its repo had been untouched for

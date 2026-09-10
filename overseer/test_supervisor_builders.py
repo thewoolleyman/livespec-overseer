@@ -39,7 +39,13 @@ from test_supervisor_codex_builders import (
     adopt_sup as adopt_sup,
 )
 from test_supervisor_codex_builders import (
+    codex_dead_track as codex_dead_track,
+)
+from test_supervisor_codex_builders import (
     codex_home_with as codex_home_with,
+)
+from test_supervisor_codex_builders import (
+    verify_codex_respawn as verify_codex_respawn,
 )
 from test_supervisor_core_builders import make_supervisor as make_supervisor
 from test_supervisor_fakes import FakeTmux as FakeTmux
