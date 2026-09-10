@@ -21,6 +21,7 @@ from test_supervisor_builders import (
     make_plan,
     make_supervisor,
     mapped_track,
+    on_respawn,
 )
 from test_supervisor_fakes import (
     FakeTmux,
@@ -150,17 +151,25 @@ def test_a_codex_restart_keeps_the_ready_marker_when_the_pane_never_becomes_code
 
 
 def test_a_codex_restart_keeps_ready_when_the_resume_kick_is_not_observed(*, tmp_path):
-    """A Codex TUI alone is insufficient: the daemon must observe its kick too."""
+    """A live Codex process parked on a picker is not a successfully resumed session."""
     repo, topic, session, _session_id, fake, sup = adopt_codex_ready(tmp_path=tmp_path)
-    # The fake models a Codex pane after respawn, but it did not receive the argv
-    # prompt.  A bare picker has the same runtime process shape, so only the exact
-    # kick observation distinguishes it from a useful successor.
+    # The fake models a Codex process that came up without accepting the positional
+    # session id and resume prompt.  The numbered chooser is the structural signal;
+    # the daemon must not consume ready merely because the process is live.
     fake.respawn_shows_command = False
+    on_respawn(
+        fake=fake,
+        after=lambda target: fake.panes.__setitem__(
+            target,
+            "Resume a previous session\n\n› 1. Choose a session\n  2. Start a new session\n",
+        ),
+    )
 
     with contextlib.redirect_stderr(_io.StringIO()):
         sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
 
     assert fake.has(method="respawn")
+    assert signals.is_structured_gate(capture_text=fake.panes[session])
     assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
 
 
