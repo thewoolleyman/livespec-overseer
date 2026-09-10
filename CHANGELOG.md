@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.4.6](https://github.com/thewoolleyman/livespec-overseer/compare/v5.4.5...v5.4.6) (2026-09-10)
+
+
+### Bug Fixes
+
+* declare canonical git author policy ([70b4ad5](https://github.com/thewoolleyman/livespec-overseer/commit/70b4ad50faeebcb36488b33b6c2c4651515d8ea1))
+
 ## [5.4.5](https://github.com/thewoolleyman/livespec-overseer/compare/v5.4.4...v5.4.5) (2026-09-10)
 
 
