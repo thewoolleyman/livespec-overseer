@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.4.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.4.1...v5.4.2) (2026-09-10)
+
+
+### Bug Fixes
+
+* **overseer:** accept structurally resumed Codex sessions ([43cd7a0](https://github.com/thewoolleyman/livespec-overseer/commit/43cd7a01c0136e6e2388b6666c679a8c55f7ce4f))
+
 ## [5.4.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.4.0...v5.4.1) (2026-09-10)
 
 
