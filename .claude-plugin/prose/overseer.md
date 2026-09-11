@@ -528,10 +528,11 @@ are fixed by construction:
        — and say so when you do, because anything older than generation 7 is gone by
        design. `overseerd --help` states the same bound and procedure.
      - A `daemon.log` that was already over the bound when the daemon started is
-       **migrated, not discarded**: its newest whole records become `daemon.log.1` and a
-       fresh active file is opened, which the daemon records as a
-       `daemon-log-migrated` event. Nothing is truncated underneath a writer that still
-       holds the old file open.
+       **migrated, not discarded**: it becomes `daemon.log.1` whole, then the daemon keeps
+       its newest records and reclaims the rest once it holds its singleton lock, which it
+       records as a `daemon-log-reclaimed` event naming the bytes freed. So if the
+       maintainer asks why the history is shorter than they expect, that event is the
+       answer — and nothing was truncated underneath a writer still holding the old file.
 
    Three kinds of track alert concern you:
    - **`blocked:human`** — a tracked session hit a structured gate (permission

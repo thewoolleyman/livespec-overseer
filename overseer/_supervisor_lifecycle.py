@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 import _supervisor_discovery
 import _supervisor_runtime_rollback
 import _supervisor_state_watch
+import daemon_log
 import registry
 from _supervisor_config import LOOP_INTERVAL_SECONDS
 
@@ -194,6 +195,22 @@ def run_loop(
         )
         return
     try:
+        # The singleton lock is this daemon's proof that no OTHER overseerd is writing
+        # this event history, and that is the precondition for reclaiming an over-bound
+        # retained generation: trimming one releases its inode, so doing it any earlier
+        # could leave a live sibling appending to an unlinked file. Rotation has already
+        # done the safe half by the time this runs — `streams.write_stderr` enforces the
+        # bound on the active file from the first write, with no lock needed.
+        reclaimed = daemon_log.reclaim_over_bound_history()
+        if reclaimed:
+            sup.log(
+                event="daemon-log-reclaimed",
+                message=(
+                    f"reclaimed {reclaimed} bytes from over-bound retained daemon "
+                    "history; its newest records were kept"
+                ),
+                fields={"reclaimed_bytes": reclaimed},
+            )
         sup.log_claude_build(phase="startup")
         if recover:
             _ = sup.recover_missing_sessions()

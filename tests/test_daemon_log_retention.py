@@ -229,46 +229,50 @@ def test_a_process_whose_stderr_is_not_the_live_history_never_rotates(
         handle.close()
 
 
-def test_salvaging_an_over_bound_log_keeps_its_newest_whole_records(*, tmp_path: Path) -> None:
-    """The migration must preserve recoverable history, starting at a record boundary."""
+def test_trimming_an_over_bound_generation_keeps_its_newest_whole_records(
+    *,
+    tmp_path: Path,
+) -> None:
+    """Reclaiming must preserve recoverable history, starting at a record boundary."""
     module = _daemon_log()
     log_path = tmp_path / "daemon.log"
-    log_path.write_text(
+    retention = module.Retention(max_active_bytes=256, retained_generations=2)
+    generation = module.generation_path(log_path=log_path, generation=2)
+    generation.write_text(
         "".join(f"old record {index:05d}\n" for index in range(400)), encoding="utf-8"
     )
-    retention = module.Retention(max_active_bytes=256, retained_generations=2)
+    original_size = generation.stat().st_size
 
-    salvaged = module.salvage_oversized_history(log_path=log_path, retention=retention)
+    reclaimed = module.trim_over_bound_generations(log_path=log_path, retention=retention)
 
-    preserved = module.generation_path(log_path=log_path, generation=1).read_text(encoding="utf-8")
-    assert 0 < salvaged <= retention.max_active_bytes
-    assert not log_path.exists(), "the over-bound file must stop being the active path"
+    preserved = generation.read_text(encoding="utf-8")
+    assert reclaimed == original_size - generation.stat().st_size
+    assert generation.stat().st_size <= retention.max_active_bytes
     assert preserved.startswith("old record "), "a partial leading record must be dropped"
     assert "old record 00399\n" in preserved, "the newest history must be recoverable"
     assert "old record 00000" not in preserved
 
 
-def test_salvage_keeps_a_single_over_bound_record_whole(*, tmp_path: Path) -> None:
+def test_trimming_keeps_a_single_over_bound_record_whole(*, tmp_path: Path) -> None:
     """A tail with no record boundary in it is one long record, not a partial one."""
     module = _daemon_log()
     log_path = tmp_path / "daemon.log"
-    log_path.write_text("z" * 600, encoding="utf-8")
     retention = module.Retention(max_active_bytes=256, retained_generations=2)
+    generation = module.generation_path(log_path=log_path, generation=1)
+    generation.write_text("z" * 600, encoding="utf-8")
 
-    assert module.salvage_oversized_history(log_path=log_path, retention=retention) == 256
-    assert (
-        module.generation_path(log_path=log_path, generation=1).read_text(encoding="utf-8")
-        == "z" * 256
-    )
+    assert module.trim_over_bound_generations(log_path=log_path, retention=retention) == 344
+    assert generation.read_text(encoding="utf-8") == "z" * 256
 
 
-def test_an_already_bounded_log_needs_no_salvage(*, tmp_path: Path) -> None:
-    """Starting a daemon must not rotate a history that is still inside its bound."""
+def test_generations_already_inside_the_bound_are_never_rewritten(*, tmp_path: Path) -> None:
+    """An absent generation and a small one are both left exactly as they are."""
     module = _daemon_log()
     log_path = tmp_path / "daemon.log"
-    log_path.write_text("small\n", encoding="utf-8")
     retention = module.Retention(max_active_bytes=256, retained_generations=2)
+    generation = module.generation_path(log_path=log_path, generation=2)
+    generation.write_text("small\n", encoding="utf-8")
 
-    assert module.salvage_oversized_history(log_path=log_path, retention=retention) == 0
-    assert log_path.read_text(encoding="utf-8") == "small\n"
+    assert module.trim_over_bound_generations(log_path=log_path, retention=retention) == 0
+    assert generation.read_text(encoding="utf-8") == "small\n"
     assert not module.generation_path(log_path=log_path, generation=1).exists()

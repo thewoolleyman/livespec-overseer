@@ -143,21 +143,15 @@ def main(*, argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     # The daemon OWNS its event history for the life of the process: this takes
-    # `sys.stderr` and the stderr descriptor, migrates a pre-existing over-bound log,
-    # and keeps every later write inside the finite retention bound. A bare manual
-    # bounce therefore preserves the history with no shell redirect of its own, and the
-    # launcher's `2>>` redirect is superseded rather than depended on.
-    with daemon_log.bounded_daemon_history(log_path=_default_daemon_log_path()) as salvaged:
+    # `sys.stderr` and the stderr DESCRIPTOR, so every later write — a subprocess's
+    # stderr and the interpreter's own crash traceback included — stays inside the
+    # finite retention bound and follows every rotation. A bare manual bounce therefore
+    # preserves the history with no shell redirect of its own, and the launcher's `2>>`
+    # redirect is superseded rather than depended on. Retiring a pre-existing
+    # over-bound log is deliberately NOT done here: it is destructive, so it waits for
+    # the run loop's singleton lock to prove this is the only daemon writing the file.
+    with daemon_log.bounded_daemon_history(log_path=_default_daemon_log_path()):
         _supervisor_diagnostics.log(message="daemon log opened")
-        if salvaged:
-            _supervisor_diagnostics.log(
-                event="daemon-log-migrated",
-                message=(
-                    f"migrated an over-bound daemon log: salvaged {salvaged} bytes of its "
-                    "newest records into daemon.log.1"
-                ),
-                fields={"salvaged_bytes": salvaged},
-            )
         return supervisor.run_daemon(
             warn_percent=args.warn_percent, idle_nudge=args.idle_nudge == "on"
         )

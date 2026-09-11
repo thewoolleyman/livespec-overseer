@@ -9,12 +9,13 @@ helper:
   `overseerd 2>> …/daemon.log` redirect, every subprocess the daemon spawns, and the
   interpreter's own crash traceback all write through fd 2 and cannot be told a rotation
   happened, so a rotation that left fd 2 behind would be half a rotation;
-* it MIGRATES a `daemon.log` that is already over the bound. The live file was
-  8,622,275,412 bytes when retention was introduced (measured 2026-09-11) and the
-  launcher's redirect still held that inode open, so the migration may neither discard
-  the history nor truncate the file underneath its own writer;
 * it states the bound, the retained generations and the recovery procedure in `--help`,
-  which is the only place a source-free operator can find them.
+  which is the only place a source-free operator can find them;
+* it names ONE history file with the retention policy that bounds it.
+
+Retiring a `daemon.log` that is ALREADY over the bound is deliberately not startup's
+job — it is destructive and waits for the run loop's singleton lock, so it lives in
+`test_daemon_log_migration_gate.py`.
 """
 
 from __future__ import annotations
@@ -106,16 +107,20 @@ def test_the_daemon_owns_its_stderr_descriptor_across_a_rotation(
         assert json.loads(line)["severity"] == "info"
 
 
-def test_a_pre_existing_over_bound_log_is_migrated_at_startup(
+def test_startup_bounds_an_over_bound_log_without_destroying_anything(
     *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`held` stands in for the launcher redirect that still has the old inode open."""
-    module = _daemon_log()
+    """Startup does the SAFE half of the migration, and only that half.
+
+    `held` stands in for the launcher redirect, or a sibling daemon, that still has the
+    oversized inode open. The first write rotates the file out of the active path — a
+    rename, which the descriptor follows — so the active file is bounded immediately and
+    not one byte of the old history is lost. RECLAIMING it needs the singleton lock, which
+    startup has not attempted yet; `test_daemon_log_migration_gate.py` owns that half.
+    """
     log_path = tmp_path / "tmp" / "overseer" / "daemon.log"
     log_path.parent.mkdir(parents=True)
-    log_path.write_text(
-        "".join(f"old record {index:05d}\n" for index in range(400)), encoding="utf-8"
-    )
+    log_path.write_text("".join(f"old {index:05d}\n" for index in range(400)), encoding="utf-8")
     original_size = log_path.stat().st_size
     held = os.open(log_path, os.O_WRONLY | os.O_APPEND)
     inode_before = os.fstat(held).st_ino
@@ -125,14 +130,11 @@ def test_a_pre_existing_over_bound_log_is_migrated_at_startup(
     held_size = os.fstat(held).st_size
     os.close(held)
 
+    generation = _daemon_log().generation_path(log_path=log_path, generation=1)
     assert held_size == original_size, "the file a live daemon holds open was truncated"
-    assert log_path.stat().st_ino != inode_before, "the active file must be a fresh inode"
-    events = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()]
-    migrated = [event for event in events if event["event"] == "daemon-log-migrated"]
-    assert len(migrated) == 1, "the migration must be recorded as an event, not done silently"
-    assert 0 < migrated[0]["salvaged_bytes"] <= bound
-    preserved = module.generation_path(log_path=log_path, generation=1).read_text(encoding="utf-8")
-    assert "old record 00399\n" in preserved, "the newest history must stay recoverable"
+    assert generation.stat().st_ino == inode_before, "the old inode must survive, renamed"
+    assert generation.stat().st_size == original_size, "startup must not reclaim history"
+    assert log_path.stat().st_size <= bound, "the active file must be bounded immediately"
 
 
 def test_help_states_the_bound_the_generations_and_the_recovery_procedure(
