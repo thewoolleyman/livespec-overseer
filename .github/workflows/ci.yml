@@ -133,7 +133,7 @@ jobs:
     # red-in-sandbox drift this epic exists to remove, on either lane.
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.64.1
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.86.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -219,7 +219,7 @@ jobs:
     name: check-per-file-coverage
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.64.1
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.86.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -301,7 +301,7 @@ jobs:
     needs: check-per-file-coverage
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.64.1
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.86.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -377,7 +377,7 @@ jobs:
     name: check-python-batch
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.64.1
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.86.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -445,7 +445,7 @@ jobs:
     # Self-hosted in the baked image, same rationale as check-python above.
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.64.1
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.86.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -566,7 +566,7 @@ jobs:
     # preserved).
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.64.1
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.86.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -631,7 +631,7 @@ jobs:
     name: check-metadata-batch
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.64.1
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.86.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -678,12 +678,15 @@ jobs:
           failed=""
           just check-aggregate-completeness || failed="$failed check-aggregate-completeness"
           just check-handoff-dispatch-routing || failed="$failed check-handoff-dispatch-routing"
+          just check-heading-coverage-debt-register || failed="$failed check-heading-coverage-debt-register"
           just check-hook-trees-not-io-exempt || failed="$failed check-hook-trees-not-io-exempt"
           just check-local-memory-drift-audit || failed="$failed check-local-memory-drift-audit"
+          just check-marketplace-ref-release-only || failed="$failed check-marketplace-ref-release-only"
           just check-no-direct-destructive-cli || failed="$failed check-no-direct-destructive-cli"
           just check-no-shadow-ledger-body-identical || failed="$failed check-no-shadow-ledger-body-identical"
           just check-no-shadow-ledger-body-typechecks || failed="$failed check-no-shadow-ledger-body-typechecks"
           just check-plan-anchor-declared || failed="$failed check-plan-anchor-declared"
+          just check-plan-no-live-handoff-file || failed="$failed check-plan-no-live-handoff-file"
           just check-plan-no-tombstone || failed="$failed check-plan-no-tombstone"
           just check-primary-checkout-commit-refuse-hook-installed || failed="$failed check-primary-checkout-commit-refuse-hook-installed"
           just check-claude-md-coverage || failed="$failed check-claude-md-coverage"
