@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.4.10](https://github.com/thewoolleyman/livespec-overseer/compare/v5.4.9...v5.4.10) (2026-09-11)
+
+
+### Bug Fixes
+
+* use runtime-specific defaults in restart-model status snapshots ([a117a27](https://github.com/thewoolleyman/livespec-overseer/commit/a117a27d92b7c3c54fa241d7657bb729c14c94dc))
+
 ## [5.4.9](https://github.com/thewoolleyman/livespec-overseer/compare/v5.4.8...v5.4.9) (2026-09-11)
 
 
