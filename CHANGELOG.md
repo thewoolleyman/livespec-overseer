@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.4.7](https://github.com/thewoolleyman/livespec-overseer/compare/v5.4.6...v5.4.7) (2026-09-11)
+
+
+### Bug Fixes
+
+* launch a fresh Codex rollout for wrap-up restarts ([f1ac84c](https://github.com/thewoolleyman/livespec-overseer/commit/f1ac84ccbc549ad05411ec84be86f644b0c8a091))
+
 ## [5.4.6](https://github.com/thewoolleyman/livespec-overseer/compare/v5.4.5...v5.4.6) (2026-09-10)
 
 
