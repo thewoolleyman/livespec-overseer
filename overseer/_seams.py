@@ -34,10 +34,12 @@ name its parameter identically, because the caller passes it by keyword.
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 from typing import Protocol
 
 __all__: list[str] = [
+    "CodexStateModelReader",
     "CommToPidList",
     "EpicLookup",
     "MappingRowPredicate",
@@ -90,6 +92,23 @@ class CommToPidList(Protocol):
     """List the live process ids whose comm matches (empty when none or unreadable)."""
 
     def __call__(self, *, comm: str) -> list[int]: ...
+
+
+class CodexStateModelReader(Protocol):
+    """Read a Codex thread's model token from its state database, or None when absent.
+
+    Takes the ALREADY-ESTABLISHED live session identity rather than choosing one: a
+    substitute is handed the exact id and repository the caller proved from process
+    evidence, so it can neither widen the identity nor read a rollout body to obtain one.
+    """
+
+    def __call__(
+        self,
+        *,
+        codex_home: str | os.PathLike[str] | None,
+        session_id: str,
+        cwd: str,
+    ) -> str | None: ...
 
 
 class RepoPredicate(Protocol):
