@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.5.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.5.2...v5.5.3) (2026-09-11)
+
+
+### Bug Fixes
+
+* fit overseer table to terminal width ([25e01dc](https://github.com/thewoolleyman/livespec-overseer/commit/25e01dcc52c70b7c0b7b98ca899fb40a54dc9554))
+
 ## [5.5.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.5.1...v5.5.2) (2026-09-11)
 
 
