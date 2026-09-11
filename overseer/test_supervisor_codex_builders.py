@@ -24,13 +24,24 @@ RESET = "\x1b[0m"
 _ANCHORED_HANDOFF = f"HANDOFF v1\n\n**Ledger anchor:** `{TEST_EPIC}`\n".encode()
 
 
-def codex_home_with(*, tmp_path, topic, session_id, rollout=True):
-    """A fake ~/.codex naming `session_id` for `topic`, optionally with its rollout on disk."""
+def codex_home_with(*, tmp_path, topic, session_id, rollout=True, renamed_to=None):
+    """A fake ~/.codex naming `session_id` for `topic`, optionally with its rollout on disk.
+
+    `renamed_to` appends the SECOND record a `/rename <topic>` writes once a wrap-up
+    restart has replaced that session with a fresh rollout. It carries a later
+    `updated_at`, because "which rollout does this topic name NOW?" is the question the
+    restart's naming proof asks, and the index answers it by recency.
+    """
     home = tmp_path / "codex-home"
     home.mkdir(exist_ok=True)
+    records = [(session_id, "2026-07-18T00:00:00Z")]
+    if renamed_to is not None:
+        records.append((renamed_to, "2026-07-18T00:01:00Z"))
     (home / "session_index.jsonl").write_text(
-        json.dumps({"id": session_id, "thread_name": topic, "updated_at": "2026-07-18T00:00:00Z"})
-        + "\n",
+        "".join(
+            json.dumps({"id": indexed, "thread_name": topic, "updated_at": updated}) + "\n"
+            for indexed, updated in records
+        ),
         encoding="utf-8",
     )
     if rollout:
@@ -114,6 +125,11 @@ def adopt_codex_ready(*, tmp_path):
     resolves to the predecessor's rollout; afterwards it resolves to
     `FRESH_CODEX_SESSION_ID` — the successor the daemon's `/rename <topic>` made
     adoptable — which is exactly the id CHANGE the restart's post-respawn proof requires.
+
+    The `session_index` is modelled the same way and for the same reason: the rename
+    appends a DURABLE record for the successor, and that record — not the fd-gated live
+    join — is what the restart confirms the name from while the successor is still idle.
+    A test that wants the post-rename discovery gap itself drives its own index.
     """
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
@@ -124,8 +140,23 @@ def adopt_codex_ready(*, tmp_path):
     fake.codex_busy_frame = codex_busy_capture(ctx=95)  # the fresh session takes the resume
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
-    sup = adopt_sup(tmp_path=tmp_path, fake=fake, sessions_dir=sessions_dir, ppid={}, starttimes={})
     session_id = "019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
+    sup = adopt_sup(
+        tmp_path=tmp_path,
+        fake=fake,
+        sessions_dir=sessions_dir,
+        ppid={},
+        starttimes={},
+        codex_home=str(
+            codex_home_with(
+                tmp_path=tmp_path,
+                topic=topic,
+                session_id=session_id,
+                rollout=False,
+                renamed_to=FRESH_CODEX_SESSION_ID,
+            )
+        ),
+    )
 
     def seeded_codex_session() -> None:
         respawned = any(call[0] == "respawn" for call in fake.calls)
