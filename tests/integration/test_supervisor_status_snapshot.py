@@ -17,6 +17,7 @@ from overseer import (
     supervisor,
 )
 from overseer.test_supervisor_builders import (
+    codex_idle_capture,
     declare,
     idle_capture,
     make_plan,
@@ -43,7 +44,7 @@ def restart_model_module():
     return importlib.import_module("_supervisor_restart_model_snapshot")
 
 
-def append_profile_baseline(*, sup, repo, topic, model, statusline_model):
+def append_profile_baseline(*, sup, repo, topic, model, statusline_model, harness="claude"):
     registry.append_mapping(
         track=registry.PlanTrack(
             repo=str(repo),
@@ -51,7 +52,7 @@ def append_profile_baseline(*, sup, repo, topic, model, statusline_model):
             tmux=f"{topic}-baseline",
             epic=f"overseer-{topic}",
             model_profile={
-                "harness": "claude",
+                "harness": harness,
                 "model": model,
                 "wrapper": None,
                 "statusline_model": statusline_model,
@@ -77,10 +78,17 @@ def test_current_default_statusline_model_resolver_uses_only_recorded_profile_ev
     )
 
     assert (
-        module.current_default_statusline_model_from_store(sup=object(), current_default="opus[1m]")
+        module.current_default_statusline_model_from_store(
+            sup=object(), current_default="opus[1m]", harness="claude"
+        )
         is None
     )
-    assert module.current_default_statusline_model_from_store(sup=sup, current_default=None) is None
+    assert (
+        module.current_default_statusline_model_from_store(
+            sup=sup, current_default=None, harness="claude"
+        )
+        is None
+    )
     append_profile_baseline(
         sup=sup,
         repo=empty_repo,
@@ -96,8 +104,14 @@ def test_current_default_statusline_model_resolver_uses_only_recorded_profile_ev
         statusline_model="Opus 5 (1M context)",
     )
 
-    assert sup.current_default_statusline_model(current_default="opus[1m]") == "Opus 5 (1M context)"
-    assert sup.current_default_statusline_model(current_default="sonnet") is None
+    assert (
+        sup.current_default_statusline_model(current_default="opus[1m]", harness="claude")
+        == "Opus 5 (1M context)"
+    )
+    assert sup.current_default_statusline_model(current_default="sonnet", harness="claude") is None
+    # The recorded evidence is CLAUDE evidence, so it answers no other harness: a Codex
+    # row asking for the same token gets nothing rather than a Claude rendering.
+    assert sup.current_default_statusline_model(current_default="opus[1m]", harness="codex") is None
 
 
 def test_only_canonical_snapshot_writer_module_exists():
@@ -534,6 +548,324 @@ def test_snapshot_restart_model_fails_soft_for_malformed_default_settings(*, tmp
 
     assert malformed["current_default"] is None
     assert non_object["current_default"] is None
+
+
+def runtime_row(*, topic, repo, tmux, runtime, status="idle"):
+    """A row in the shape `evaluate` projects for a LIVE MANAGED pane of RUNTIME."""
+    return supervisor.RowView(
+        topic=topic,
+        repo=str(repo),
+        tmux=tmux,
+        runtime=runtime,
+        ctx=73,
+        status=status,
+    )
+
+
+def write_contradictory_defaults(
+    *, tmp_path, monkeypatch, module, codex_config='model = "gpt-5.5"\n'
+):
+    """A host whose Claude and Codex defaults DISAGREE, plus its isolated codex home.
+
+    The disagreement is the point: with one default readable per runtime, a payload that
+    reports the other runtime's default is visible as a wrong VALUE rather than only as a
+    wrong source.
+    """
+    home = tmp_path / "home"
+    settings_path = home / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text(json.dumps({"model": "opus[1m]"}), encoding="utf-8")
+    monkeypatch.setattr(module.Path, "home", lambda: home)
+    codex_home = tmp_path / "codex-home"
+    codex_home.mkdir()
+    (codex_home / "config.toml").write_text(codex_config, encoding="utf-8")
+    return codex_home
+
+
+def test_restart_model_payload_reports_each_row_runtime_own_default(*, tmp_path, monkeypatch):
+    module = restart_model_module()
+    codex_home = write_contradictory_defaults(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        module=module,
+    )
+    claude_repo, claude_topic = make_plan(
+        tmp_path=tmp_path,
+        repo_name="claude-repo",
+        topic="claude-track",
+    )
+    codex_repo, codex_topic = make_plan(
+        tmp_path=tmp_path,
+        repo_name="codex-repo",
+        topic="codex-track",
+    )
+    fake = FakeTmux()
+    fake.serve(session="claude-pane", repo=claude_repo, capture=idle_capture(ctx=73))
+    fake.serve(
+        session="codex-pane",
+        repo=codex_repo,
+        capture=codex_idle_capture(ctx=73, topic=codex_topic),
+    )
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, codex_home=str(codex_home))
+    # The DECOY is why the harness scope is load-bearing, and it is recorded FIRST so an
+    # unscoped search reaches it first. A Claude track launched through the local-llm
+    # wrapper legitimately records a non-Anthropic model token, so a search that ignores
+    # the harness answers the CODEX default with THIS row's Claude rendering.
+    decoy_repo, _decoy_topic = make_plan(
+        tmp_path=tmp_path,
+        repo_name="decoy-baseline-repo",
+        topic="decoy-baseline",
+    )
+    append_profile_baseline(
+        sup=sup,
+        repo=decoy_repo,
+        topic="decoy-baseline",
+        model="gpt-5.5",
+        statusline_model="Sonnet 4.5",
+    )
+    claude_baseline_repo, _claude_baseline_topic = make_plan(
+        tmp_path=tmp_path,
+        repo_name="claude-baseline-repo",
+        topic="claude-baseline",
+    )
+    append_profile_baseline(
+        sup=sup,
+        repo=claude_baseline_repo,
+        topic="claude-baseline",
+        model="opus[1m]",
+        statusline_model="Opus 4.8 (1M context)",
+    )
+    codex_baseline_repo, _codex_baseline_topic = make_plan(
+        tmp_path=tmp_path,
+        repo_name="codex-baseline-repo",
+        topic="codex-baseline",
+    )
+    append_profile_baseline(
+        sup=sup,
+        repo=codex_baseline_repo,
+        topic="codex-baseline",
+        model="gpt-5.5",
+        statusline_model="gpt-5.5 high",
+        harness="codex",
+    )
+
+    claude_payload = module.restart_model_payload(
+        sup=sup,
+        row=runtime_row(
+            topic=claude_topic,
+            repo=claude_repo,
+            tmux="claude-pane",
+            runtime="claude",
+        ),
+    )
+    codex_payload = module.restart_model_payload(
+        sup=sup,
+        row=runtime_row(
+            topic=codex_topic,
+            repo=codex_repo,
+            tmux="codex-pane",
+            runtime="codex",
+        ),
+    )
+
+    assert claude_payload == {
+        "verdict": "no-op",
+        "reason": "matches-current-default",
+        "current_default": "opus[1m]",
+        "current_default_statusline_model": "Opus 4.8 (1M context)",
+        "rendered_statusline_model": "Opus 4.8 (1M context)",
+        "recorded_statusline_model": None,
+    }
+    assert codex_payload == {
+        "verdict": "no-op",
+        "reason": "matches-current-default",
+        "current_default": "gpt-5.5",
+        "current_default_statusline_model": "gpt-5.5 high",
+        "rendered_statusline_model": "gpt-5.5 high",
+        "recorded_statusline_model": None,
+    }
+
+
+def test_restart_model_payload_reports_a_codex_specific_unreadable_default(
+    *, tmp_path, monkeypatch
+):
+    module = restart_model_module()
+    write_contradictory_defaults(tmp_path=tmp_path, monkeypatch=monkeypatch, module=module)
+    repo, topic = make_plan(tmp_path=tmp_path, repo_name="codex-repo", topic="codex-track")
+    fake = FakeTmux()
+    fake.serve(session="codex-pane", repo=repo, capture=codex_idle_capture(ctx=73, topic=topic))
+    sup = make_supervisor(
+        tmp_path=tmp_path,
+        fake=fake,
+        codex_home=str(tmp_path / "absent-codex-home"),
+    )
+
+    payload = module.restart_model_payload(
+        sup=sup,
+        row=runtime_row(topic=topic, repo=repo, tmux="codex-pane", runtime="codex"),
+    )
+
+    # The CLAUDE default is readable on this host and deliberately not reported here: an
+    # unreadable Codex default names the Codex source it failed to read, so an operator
+    # is sent to the file that actually governs this row.
+    assert payload["current_default"] is None
+    assert payload["verdict"] == "unknown"
+    assert payload["reason"] == "codex-default-unreadable"
+
+
+def test_restart_model_payload_reads_only_the_codex_root_table_model(*, tmp_path, monkeypatch):
+    module = restart_model_module()
+    cases = {
+        'model = "gpt-5.6-sol"\n': "gpt-5.6-sol",
+        "# the fleet default\nmodel_reasoning_effort = 'xhigh'\nmodel = 'gpt-5.5'\n": "gpt-5.5",
+        # A key under a TABLE belongs to that table, not to the root default.
+        '[profiles.local]\nmodel = "local-only"\n': None,
+        'model_reasoning_effort = "high"\n': None,
+        'model = ""\n': None,
+    }
+    codex_home = write_contradictory_defaults(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        module=module,
+    )
+    repo, topic = make_plan(tmp_path=tmp_path, repo_name="codex-repo", topic="codex-track")
+    fake = FakeTmux()
+    fake.serve(session="codex-pane", repo=repo, capture=codex_idle_capture(ctx=73, topic=topic))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, codex_home=str(codex_home))
+    row = runtime_row(topic=topic, repo=repo, tmux="codex-pane", runtime="codex")
+
+    read = {}
+    for config, expected in cases.items():
+        (codex_home / "config.toml").write_text(config, encoding="utf-8")
+        read[config] = (module.restart_model_payload(sup=sup, row=row)["current_default"], expected)
+
+    assert all(actual == expected for actual, expected in read.values()), read
+
+
+def test_restart_model_payload_falls_back_to_the_real_codex_home(*, tmp_path, monkeypatch):
+    module = restart_model_module()
+    home = tmp_path / "home"
+    (home / ".codex").mkdir(parents=True)
+    (home / ".codex" / "config.toml").write_text('model = "gpt-5.6-sol"\n', encoding="utf-8")
+    monkeypatch.setattr(module.Path, "home", lambda: home)
+    row = supervisor.RowView(
+        topic="codex-track",
+        repo="/repo",
+        tmux=None,
+        runtime="codex",
+        ctx=80,
+        status="idle",
+    )
+
+    payload = module.restart_model_payload(sup=object(), row=row)
+
+    assert payload["current_default"] == "gpt-5.6-sol"
+    # `pane-absent` keeps its documented meaning for a Codex row: there is no pane to
+    # read, whatever the default resolved to.
+    assert payload["verdict"] == "unknown"
+    assert payload["reason"] == "pane-absent"
+
+
+def test_codex_rows_retain_the_documented_comparison_verdicts(*, tmp_path, monkeypatch):
+    module = restart_model_module()
+    codex_home = write_contradictory_defaults(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        module=module,
+        codex_config='model = "gpt-5.6-sol"\n',
+    )
+    repo, topic = make_plan(tmp_path=tmp_path, repo_name="codex-repo", topic="codex-track")
+    covered_repo, covered_topic = make_plan(
+        tmp_path=tmp_path,
+        repo_name="codex-covered-repo",
+        topic="codex-covered",
+    )
+    fake = FakeTmux()
+    fake.serve(session="codex-pane", repo=repo, capture=codex_idle_capture(ctx=73, topic=topic))
+    fake.serve(session="codex-covered-pane", repo=covered_repo, capture="picker overlay")
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, codex_home=str(codex_home))
+    row = runtime_row(topic=topic, repo=repo, tmux="codex-pane", runtime="codex")
+
+    unresolved = module.restart_model_payload(sup=sup, row=row)
+    baseline_repo, _baseline_topic = make_plan(
+        tmp_path=tmp_path,
+        repo_name="codex-baseline-repo",
+        topic="codex-baseline",
+    )
+    append_profile_baseline(
+        sup=sup,
+        repo=baseline_repo,
+        topic="codex-baseline",
+        model="gpt-5.6-sol",
+        statusline_model="gpt-5.6-sol xhigh",
+        harness="codex",
+    )
+    diverged = module.restart_model_payload(sup=sup, row=row)
+    unreadable = module.restart_model_payload(
+        sup=sup,
+        row=runtime_row(
+            topic=covered_topic,
+            repo=covered_repo,
+            tmux="codex-covered-pane",
+            runtime="codex",
+        ),
+    )
+
+    assert unresolved["verdict"] == "unknown"
+    assert unresolved["reason"] == "default-statusline-unresolved"
+    assert diverged == {
+        "verdict": "would-change",
+        "reason": "differs-from-current-default",
+        "current_default": "gpt-5.6-sol",
+        "current_default_statusline_model": "gpt-5.6-sol xhigh",
+        "rendered_statusline_model": "gpt-5.5 high",
+        "recorded_statusline_model": None,
+    }
+    assert unreadable["verdict"] == "unknown"
+    assert unreadable["reason"] == "statusline-unreadable"
+
+
+def test_codex_row_with_a_recorded_profile_is_still_profile_preserved(*, tmp_path, monkeypatch):
+    module = restart_model_module()
+    codex_home = write_contradictory_defaults(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        module=module,
+    )
+    repo, topic = make_plan(tmp_path=tmp_path, repo_name="codex-repo", topic="codex-track")
+    fake = FakeTmux()
+    fake.serve(session="codex-pane", repo=repo, capture=codex_idle_capture(ctx=73, topic=topic))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, codex_home=str(codex_home))
+    registry.append_mapping(
+        track=registry.PlanTrack(
+            repo=str(repo),
+            topic=topic,
+            tmux="codex-pane",
+            epic="overseer-codex-track",
+            model_profile={
+                "harness": "codex",
+                "model": "gpt-5.5",
+                "wrapper": None,
+                "statusline_model": "gpt-5.5 high",
+            },
+        ),
+        store_path=sup.store_path,
+        added_at="2026-08-22T00:00:00Z",
+    )
+
+    payload = module.restart_model_payload(
+        sup=sup,
+        row=runtime_row(topic=topic, repo=repo, tmux="codex-pane", runtime="codex"),
+    )
+
+    assert payload == {
+        "verdict": "profile-preserved",
+        "reason": "recorded-profile",
+        "current_default": "gpt-5.5",
+        "current_default_statusline_model": "gpt-5.5 high",
+        "rendered_statusline_model": "gpt-5.5 high",
+        "recorded_statusline_model": "gpt-5.5 high",
+    }
 
 
 def test_snapshot_reports_daemon_package_provenance(*, tmp_path):

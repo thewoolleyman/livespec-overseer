@@ -381,10 +381,12 @@ class Supervisor:
     def refresh_claude_status(self) -> None:
         return self._refresh_claude_status()
 
-    def current_default_statusline_model(self, *, current_default: str | None) -> str | None:
-        """Resolve the settings default alias through recorded live launch evidence."""
+    def current_default_statusline_model(
+        self, *, current_default: str | None, harness: str
+    ) -> str | None:
+        """Resolve the default alias through recorded live launch evidence for HARNESS."""
         return _supervisor_restart_model_snapshot.current_default_statusline_model_from_store(
-            sup=self, current_default=current_default
+            sup=self, current_default=current_default, harness=harness
         )
 
     def build_rows(self, *, act: bool = True) -> list[registry.Track]:
