@@ -15,6 +15,12 @@ The daemon's TABLE render does not come through here — it writes to the
 ``Supervisor.out`` stream, which is injectable for exactly the same reason and
 predates this module.
 
+Being the ONE stderr funnel is also why the daemon history's retention bound is
+enforced here rather than at the structured-event writer: everything that lands in
+``tmp/overseer/daemon.log`` — structured records, ``overseer[SURFACE]`` alerts, the
+launcher's own progress lines — arrives through :func:`write_stderr`, so bounding it
+here bounds the whole file. See :mod:`daemon_log`.
+
 Stdlib-only, like every module in this folder.
 """
 
@@ -22,6 +28,8 @@ from __future__ import annotations
 
 import sys
 from typing import TextIO
+
+import daemon_log
 
 __all__: list[str] = ["write_stderr", "write_stdout"]
 
@@ -36,5 +44,13 @@ def write_stdout(*, text: str) -> None:
 
 
 def write_stderr(*, text: str) -> None:
-    """Write ``text`` to stderr verbatim. The caller supplies any newline."""
+    """Write ``text`` to stderr verbatim. The caller supplies any newline.
+
+    Keeps the daemon's append-only event history inside its finite retention bound:
+    ``daemon_log`` rotates the active file BEFORE ``text`` lands when the write would
+    breach the bound, and is a no-op for any process whose stderr is not that file.
+    ``sys.stderr`` is read AFTER that call so the write reaches the file a rotation
+    just opened rather than the generation it just closed.
+    """
+    _ = daemon_log.bound_stderr_history(chunk=text)
     _write(stream=sys.stderr, text=text)
