@@ -128,7 +128,7 @@ So the two surfaces have strictly separate jobs, and you must not confuse them:
 | Question | Surface | Why |
 |---|---|---|
 | **"What needs attention *right now*?"** | the **top pane's `NEEDS YOU` block** | rebuilt every tick from live captures, so a track the maintainer resolves DISAPPEARS from it; costs no tokens, so it can refresh forever |
-| **"What *happened*, and *when*?"** | **`tmp/overseer/daemon.log`** — read it and answer | an append-only event history; the thing an LLM is actually good for |
+| **"What *happened*, and *when*?"** | **`tmp/overseer/daemon.log`** plus its retained `daemon.log.1` … `daemon.log.7` generations — read them and answer | an append-only event history, bounded to a finite retained set; the thing an LLM is actually good for |
 
 - **Point the maintainer at the top pane** for current state. Do not re-render the
   table into your transcript "for convenience" — that manufactures a second, decaying
@@ -512,7 +512,26 @@ are fixed by construction:
      whether it *still* is, read the top pane's `NEEDS YOU` block. (Alerts used to repeat
      every tick, which buried the history under thousands of identical lines *and* invited
      exactly the stale-report bug above.)
-   - The log is truncated when the daemon starts, so it covers the current daemon's life.
+   - **The log is NOT truncated when the daemon starts** — it is appended to, and it
+     survives every bounce, so it spans many daemon lifetimes. (This line used to claim
+     the opposite, and the claim was measurably false: on 2026-09-11 a live daemon's
+     `daemon.log` spanned 45 days and 8,622,275,412 bytes. An agent answering "how far
+     back does this go?" from the old sentence under-reported the history by weeks.)
+   - **It IS bounded, and it is a SET of files rather than one.** The active file rotates
+     once the next write would take it past **128 MiB**: `daemon.log` becomes
+     `daemon.log.1`, each retained generation shifts one older, and the generation past
+     **7 retained generations** is deleted — a hard 1 GiB ceiling, roughly five days of
+     fleet history at the observed rate. Generation **1 is the NEWEST** retained file.
+     - **Recovery / reading further back:** `daemon.log` alone is only the newest slice.
+       To answer a question that predates it, read the generations oldest-first —
+       `cat tmp/overseer/daemon.log.7 … tmp/overseer/daemon.log.1 tmp/overseer/daemon.log`
+       — and say so when you do, because anything older than generation 7 is gone by
+       design. `overseerd --help` states the same bound and procedure.
+     - A `daemon.log` that was already over the bound when the daemon started is
+       **migrated, not discarded**: its newest whole records become `daemon.log.1` and a
+       fresh active file is opened, which the daemon records as a
+       `daemon-log-migrated` event. Nothing is truncated underneath a writer that still
+       holds the old file open.
 
    Three kinds of track alert concern you:
    - **`blocked:human`** — a tracked session hit a structured gate (permission

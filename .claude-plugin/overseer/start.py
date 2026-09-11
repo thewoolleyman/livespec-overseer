@@ -20,6 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import daemon_log
 import runtime_prefix
 import streams
 import supervisor
@@ -78,7 +79,7 @@ def _running_under_supported_agent() -> bool:
 
 def _default_daemon_log_path() -> Path:
     """Default daemon log location beside the daemon import root."""
-    return _default_core_root() / "tmp" / "overseer" / "daemon.log"
+    return _default_core_root() / "tmp" / "overseer" / daemon_log.HISTORY_FILENAME
 
 
 def _is_checkout_root(*, path: Path) -> bool:
@@ -121,6 +122,12 @@ def daemon_command(
     redirected to the daemon log the bottom pane reads for alerts. The redirect
     target is absolute so the daemon launch never depends on the repo where the
     operator invoked ``/overseer``.
+
+    The redirect only NAMES the file; it does not keep it finite. The daemon takes
+    ownership of that descriptor at startup and holds the history inside
+    :data:`daemon_log.DEFAULT_RETENTION` from then on (``overseerd --help`` states the
+    bound, the retained generations, and the recovery procedure), which is why this
+    command and the retention policy resolve the filename from the same constant.
     """
     base = shlex.quote(str(daemon_executable)) if daemon_executable is not None else "overseerd"
     if warn_percent is not None:
@@ -147,7 +154,7 @@ def _start_daemon_pane(
     warn_percent: int | None,
     daemon_executable: Path,
 ) -> bool:
-    log_path = core / "tmp" / "overseer" / "daemon.log"
+    log_path = core / "tmp" / "overseer" / daemon_log.HISTORY_FILENAME
     log_path.parent.mkdir(parents=True, exist_ok=True)
     command = daemon_command(
         warn_percent=warn_percent,
