@@ -650,6 +650,46 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: The Codex launch profile captures a mid-session model change from its state database",
+    "test": "TODO",
+    "reason": "Ratified ahead of implementation. Integration-tier coverage is required because the scenario must exercise the real adoption and wrap-up profile-refresh boundaries while a Codex-owned state row changes model; ready plan child overseer-yfwnb3 owns replacing this TODO with the exact test it lands.",
+    "work_item": "overseer-yfwnb3"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A same-base Codex database model preserves the launch-token variant",
+    "test": "TODO",
+    "reason": "Ratified ahead of implementation. Integration-tier coverage is required because the same live profile-capture boundary must prove that a Codex state token cannot erase a same-base launch variant; ready plan child overseer-yfwnb3 owns replacing this TODO with the exact test it lands.",
+    "work_item": "overseer-yfwnb3"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unavailable or mismatched Codex state row fails soft",
+    "test": "TODO",
+    "reason": "Ratified ahead of implementation. Integration-tier coverage is required to exercise the daemon's profile capture with unavailable SQLite and a wrong-repository row while proving supervision continues; ready plan child overseer-yfwnb3 owns replacing this TODO with the exact test it lands.",
+    "work_item": "overseer-yfwnb3"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Codex runtime-model capture never reads a rollout body",
+    "test": "TODO",
+    "reason": "Ratified ahead of implementation. Integration-tier coverage is required to drive exact live-session identity and database capture with a rollout-body reader that fails if called; ready plan child overseer-yfwnb3 owns replacing this TODO with the exact test it lands.",
+    "work_item": "overseer-yfwnb3"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An ambiguous rollout set cannot lend another Codex session's model",
+    "test": "TODO",
+    "reason": "Ratified ahead of implementation. Integration-tier coverage is required to exercise the established live-identity join across multiple rollout candidates and carrier boundaries; ready plan child overseer-yfwnb3 owns replacing this TODO with the exact test it lands.",
+    "work_item": "overseer-yfwnb3"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A restart re-asserts a local-llm track's wrapper and env",
     "test": "tests.integration.test_model_preserving_restarts.test_scenario_restart_reasserts_a_local_llm_wrapper_and_env",
     "reason": "Integration-tier: opens a real wrap-up round for a wrapper-profiled Claude track, declares ready, and asserts the respawn invokes the recorded wrapper with the autonomy flags and sets ANTHROPIC_MODEL to the recorded model while explicitly scrubbing the other controlled env vars.",
