@@ -31,6 +31,7 @@ from pathlib import Path
 import _supervisor_reexec
 import _supervisor_release_runtime
 import _supervisor_runtime_rollback
+import _supervisor_snapshot
 from test_supervisor_builders import make_supervisor
 from test_supervisor_fakes import FakeTmux
 
@@ -286,3 +287,26 @@ def test_the_package_the_switched_process_resolves_is_what_ends_the_reexec_cycle
 
     assert switches_again(running_version=_resolved_version(package=shadowed)) is True
     assert switches_again(running_version=_resolved_version(package=isolated)) is False
+
+
+def test_the_published_snapshot_names_the_package_the_daemon_actually_imported(*, tmp_path):
+    """The operator reads the SNAPSHOT, so pin what that payload is derived from.
+
+    While the defect was live every snapshot reported version 5.4.9 and a `package_dir`
+    under the prior plugin cache. That was correct reporting of a wrong import, and it is
+    what made the loop legible at all. It only stays that way while both fields are
+    derived from the package the process actually imported: a `package_dir` taken from
+    one source and a `version` from another would report a switch that never happened.
+    """
+    sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux(), status_path=tmp_path / "status.json")
+
+    _supervisor_snapshot.write_status_snapshot(sup=sup, rows=[])
+
+    document = json.loads((tmp_path / "status.json").read_text(encoding="utf-8"))
+    package = document["daemon_package"]
+    package_dir = Path(package["package_dir"])
+    assert package_dir == Path(_supervisor_snapshot.__file__).resolve().parent
+    assert (
+        json.loads((package_dir / "version.json").read_text(encoding="utf-8"))["version"]
+        == package["version"]
+    )
