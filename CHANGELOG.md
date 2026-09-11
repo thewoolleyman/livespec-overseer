@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.5.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.5.1...v5.5.2) (2026-09-11)
+
+
+### Bug Fixes
+
+* register Claude 2.1.269 idle canary ([627398e](https://github.com/thewoolleyman/livespec-overseer/commit/627398e2cb76afc365948519fe1ad4d75a193a1d))
+
 ## [5.5.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.5.0...v5.5.1) (2026-09-11)
 
 
