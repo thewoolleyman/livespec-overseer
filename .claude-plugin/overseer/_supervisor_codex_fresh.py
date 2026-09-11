@@ -41,6 +41,17 @@ before the respawn.
 
 Every failure here is fail-closed: it returns False having ALERTED, and the caller keeps
 the ``ready`` declaration so the next tick retries rather than stranding the track.
+
+**A failure here is no longer the end of the attempt, though, and that is the second
+half of the same live control.** Once the successor is NAMED its canonical rollout id
+is known, so the round records what it launched
+(:func:`_registry_codex_restart.record_codex_fresh_restart`) before it submits the
+resume and before it takes the bounded live-adoption proof — the two steps that can
+time out. That record is what lets an ordinary later tick recognise the same successor
+when discovery finally reports it and finish the round
+(:mod:`_supervisor_codex_late_adoption`), instead of leaving the declaration to age out
+to expiry as it did on 2026-09-11. It is written at NAMING time precisely because a
+record written only on success would never exist when it is needed.
 """
 
 from __future__ import annotations
@@ -48,159 +59,21 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import _supervisor_launch
-import codex_sessions
 import registry
-import signals
-from _supervisor_config import RESTART_POLL_INTERVAL, RESTART_POLL_MAX, SUBMIT_MAX_ENTERS
-from _supervisor_launch_profile import CodexLaunchPlan, codex_fresh_launch_plan
-from _supervisor_statusline_model import (
-    restart_blocked_by_statusline_mismatch as statusline_mismatch,
+from _supervisor_codex_respawn import alert_fresh_restart, fresh_codex_pane
+from _supervisor_codex_successor import (
+    fresh_rollout_indexed,
+    fresh_rollout_live,
+    named_successor_rollout,
+    record_fresh_restart_attempt,
+    rename_command,
 )
+from _supervisor_config import RESTART_POLL_INTERVAL, RESTART_POLL_MAX, SUBMIT_MAX_ENTERS
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
-__all__: list[str] = [
-    "bring_up_fresh_codex_session",
-    "fresh_rollout_indexed",
-    "fresh_rollout_live",
-    "rename_command",
-]
-
-
-def rename_command(*, topic: str) -> str:
-    """The Codex TUI slash command that persists ``topic`` as the session's thread name.
-
-    ``/rename`` is what appends a ``thread_name`` record to ``session_index.jsonl``, and
-    that record is the DURABLE half of the successor's identity: it outlives the process,
-    so a daemon that is itself restarted still joins the rollout back to its plan topic.
-    The live half — the mapping row already binding this tmux session — is what makes the
-    fresh session adoptable within the very next tick even before the index is re-read.
-    """
-    return f"/rename {topic}"
-
-
-def fresh_rollout_indexed(*, sup: Supervisor, track: registry.Track, prior_session_id: str) -> bool:
-    """True once ``session_index`` names THIS topic on a rollout that is not the prior one.
-
-    The naming proof that is available in the phase the naming happens: ``/rename`` appends
-    the record, and the record does not depend on any process still being alive — let alone
-    on one holding its rollout open, which is the fd evidence the idle successor does not
-    yet supply. Among the ids the index finally names ``topic``, the most-recently-updated
-    one wins, so the answer flips exactly when the rename lands on a NEW rollout rather
-    than on any older namesake of the same topic.
-
-    The id is required to be a canonical UUID for the same reason the predecessor's is
-    (:func:`_supervisor_codex_restart._prior_session_id`): an id that cannot be compared
-    cannot discriminate "the rollout changed" from "nothing happened".
-    """
-    indexed = codex_sessions.latest_session_for_thread_name(
-        thread_name=track.topic, codex_home=sup.codex_home
-    )
-    return (
-        indexed is not None
-        and indexed != prior_session_id
-        and _supervisor_launch.canonical_codex_session_id(value=indexed) is not None
-    )
-
-
-def fresh_rollout_live(
-    *, sup: Supervisor, track: registry.Track, session: str, prior_session_id: str
-) -> bool:
-    """True once discovery reports THIS topic on a rollout that is not the prior one.
-
-    Three facts at once, which is why it is the round's post-respawn proof: the topic
-    resolves to a live Codex process (so the launch took), the session id DIFFERS from
-    the one that was live before the respawn (so the rollout really is new and the
-    context window really did reset), and its cwd is inside the repository.
-    """
-    live = sup.live_codex.get((session, track.topic))
-    return (
-        live is not None
-        and live.session_id != prior_session_id
-        and signals.path_in_repo(pane_current_path=live.cwd, repo=track.repo)
-    )
-
-
-def _alert(
-    *,
-    sup: Supervisor,
-    track: registry.Track,
-    session: str,
-    target: str,
-    message: str,
-    condition: str,
-) -> None:
-    sup.alert(
-        repo=track.repo,
-        topic=track.topic,
-        session=session,
-        pane=target,
-        message=message,
-        condition=condition,
-    )
-
-
-def _launch_plan(
-    *, sup: Supervisor, track: registry.Track, target: str, session: str
-) -> CodexLaunchPlan | None:
-    launch = codex_fresh_launch_plan(track=track, daemon_restart=True)
-    if not isinstance(launch, CodexLaunchPlan):
-        _alert(
-            sup=sup,
-            track=track,
-            session=session,
-            target=target,
-            message=f"{launch.message}; keeping the ready declaration so it retries",
-            condition="stale-launch-profile",
-        )
-        return None
-    if statusline_mismatch(sup=sup, track=track, target=target, session=session):
-        return None
-    return launch
-
-
-def _fresh_pane(*, sup: Supervisor, track: registry.Track, target: str, session: str) -> bool:
-    """Respawn the pane onto a brand-new Codex session and wait for it to accept input."""
-    launch = _launch_plan(sup=sup, track=track, target=target, session=session)
-    if launch is None:
-        return False
-    if not sup.tmux.respawn_pane(
-        session=target,
-        cwd=track.repo,
-        command=launch.command,
-        env=launch.env,
-    ):
-        _alert(
-            sup=sup,
-            track=track,
-            session=session,
-            target=target,
-            message="restart respawn FAILED; keeping the ready declaration so it retries",
-            condition="codex-restart-respawn-failed",
-        )
-        return False
-    if not _supervisor_launch.await_pane(sup=sup, target=target, is_ready=signals.pane_is_codex):
-        _alert(
-            sup=sup,
-            track=track,
-            session=session,
-            target=target,
-            message="respawned pane never became Codex; keeping the ready declaration",
-            condition="codex-post-respawn-not-ready",
-        )
-        return False
-    if signals.is_structured_gate(capture_text=sup.tmux.capture_pane(session=target)):
-        _alert(
-            sup=sup,
-            track=track,
-            session=session,
-            target=target,
-            message="fresh Codex pane is on a structured picker; keeping the ready declaration",
-            condition="codex-fresh-picker-after-restart",
-        )
-        return False
-    return True
+__all__: list[str] = ["bring_up_fresh_codex_session"]
 
 
 def _named(
@@ -273,7 +146,7 @@ def bring_up_fresh_codex_session(
     resume: str,
 ) -> bool:
     """Replace this pane with a fresh, named, kicked Codex session. False (alerted) on any miss."""
-    if not _fresh_pane(sup=sup, track=track, target=target, session=session):
+    if not fresh_codex_pane(sup=sup, track=track, target=target, session=session):
         return False
     if not _named(
         sup=sup,
@@ -282,7 +155,7 @@ def bring_up_fresh_codex_session(
         target=target,
         prior_session_id=prior_session_id,
     ):
-        _alert(
+        alert_fresh_restart(
             sup=sup,
             track=track,
             session=session,
@@ -294,8 +167,20 @@ def bring_up_fresh_codex_session(
             condition="codex-fresh-session-unnamed",
         )
         return False
+    successor = named_successor_rollout(
+        sup=sup, track=track, session=session, prior_session_id=prior_session_id
+    )
+    if successor is not None:
+        record_fresh_restart_attempt(
+            sup=sup,
+            track=track,
+            pane=target,
+            prior_session_id=prior_session_id,
+            successor=successor,
+            resume=resume,
+        )
     if not _supervisor_launch.submit_prompt(sup=sup, target=target, text=resume, expect_codex=True):
-        _alert(
+        alert_fresh_restart(
             sup=sup,
             track=track,
             session=session,
@@ -304,8 +189,14 @@ def bring_up_fresh_codex_session(
             condition="codex-fresh-resume-unsubmitted",
         )
         return False
+    # The kick is delivered. Recording that against the attempt is what keeps a later
+    # reconciliation from pasting a second copy of it into a successor already working
+    # on the first; a no-op when this attempt could not name a comparable successor.
+    registry.mark_codex_fresh_restart_resume_submitted(
+        repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path
+    )
     if not _adopted(sup=sup, track=track, session=session, prior_session_id=prior_session_id):
-        _alert(
+        alert_fresh_restart(
             sup=sup,
             track=track,
             session=session,

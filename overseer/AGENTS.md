@@ -625,6 +625,47 @@ for the marker's edge-triggered lifecycle.
    `codex-fresh-resume-unsubmitted`, `codex-fresh-session-unadopted`.
    `tests/test_codex_fresh_restart_post_rename_gap.py` drives the measured sequence.
 
+   **KEEPING THE DECLARATION IS NOT THE END OF THE ATTEMPT — AN ORDINARY LATER TICK
+   FINISHES IT (`overseer-bdhxhx`, the residual half of the same 2026-09-11 control).**
+   The live-adoption proof is BOUNDED, and on that control it ran out at 00:20:04Z with
+   `codex-fresh-session-unadopted`. That refusal was correct. What followed was not: the
+   successor became live, ordinary discovery adopted it — precisely the proof the round
+   had been waiting for — and nothing reconciled the two, so the stale declaration stood
+   until it EXPIRED at 03:51:31Z, the expiry notice reset the idle episode, and a human
+   relayed the plan-resume line by hand at 03:56:59Z.
+
+   So the restart now RECORDS what it launched, the moment the successor is named and
+   therefore before either step that can time out: predecessor rollout, canonical
+   successor rollout, tmux session, pane, repository, the resume line and whether it has
+   been delivered (`_registry_codex_restart`, a round-scoped member of the
+   injection-stamp entry, so `write_injection_stamp` / `clear_injection_stamp` bound its
+   life to the round exactly as they do `resume_pending`). An ordinary later tick
+   re-proves that record against live discovery and completes the round
+   (`_supervisor_codex_late_adoption`): it delivers a still-undelivered resume ONCE,
+   consumes the declaration, closes the round and resets the per-round and idle-nudge
+   state.
+
+   **The RECORDED SUCCESSOR ID is what makes that safe, and a bare "the identity
+   changed" test would not have been.** A pane whose Codex identity changed out-of-band
+   — hand-restarted, operator-`/rename`d, crash-recovered — presents the same canonical,
+   in-repo, different-rollout evidence. It proves a change happened; it does not prove
+   the DAEMON made it, and a `ready` declaration is the cardinal rule's SOLE
+   authorization. Every candidate that is missing, is the predecessor, carries an
+   uncomparable id, names another topic, sits in another pane or tmux session, is bound
+   to another repository, runs outside the repository, or is simply a different
+   canonical rollout is REFUSED with the declaration and round untouched
+   (`tests/test_codex_late_successor_safety.py`); the recovery itself is driven by
+   `tests/test_codex_late_successor_reconciliation.py`.
+
+   **The reconciliation runs BEFORE the tick's observation, not as a cascade leg**, and
+   that ordering is load-bearing for the same reason the cascade's own order is: the
+   guards decide on facts gathered in phase 1, so a declaration consumed afterwards would
+   still read as armed and could drive a SECOND respawn — killing the very successor the
+   reconciliation just proved. The three-way split of the arm's mechanics follows the
+   same cohesion seam: `_supervisor_codex_respawn` brings the pane up,
+   `_supervisor_codex_successor` proves and records WHO the successor is, and
+   `_supervisor_codex_fresh` runs the sequence over both.
+
    **DELIBERATE DEAD-TRACK RECOVERY IS RUNTIME-DISPATCHED ON EVIDENCE, AND BOTH ENTRY
    POINTS SHARE ONE CLASSIFIER (`_supervisor_dead_track.classify_dead_track`).** The
    operator `start` surface and the callable `recover_missing_sessions` both ask it, so

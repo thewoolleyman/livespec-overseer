@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import _supervisor_codex_late_adoption
 import _supervisor_evaluate_active
 import _supervisor_evaluate_attention
 import _supervisor_evaluate_idle
@@ -75,6 +76,17 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
         return resolved
     repo, topic = resolved.repo, resolved.topic
     session, key, target = resolved.session, resolved.key, resolved.pane
+
+    # Phase 0 — RECONCILE. A fresh-Codex restart whose bounded live-adoption proof ran
+    # out left its round open and its declaration armed; if discovery now reports the
+    # very successor that restart recorded launching, the round is COMPLETED here.
+    # It must happen before the observation below rather than as a cascade leg: the
+    # cascade decides on facts gathered at that line, so a declaration consumed
+    # afterwards would still read as armed and could drive a second respawn that kills
+    # the successor. Reconciling first means this same tick observes the closed round.
+    _ = _supervisor_codex_late_adoption.reconcile_late_codex_successor(
+        sup=sup, track=track, session=session, target=target, act=act
+    )
 
     # Phase 1 — OBSERVE. Every fact the guard cascade below decides on is
     # gathered in one place, so the cascade reads as a single top-to-bottom
