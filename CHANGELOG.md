@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.4.9](https://github.com/thewoolleyman/livespec-overseer/compare/v5.4.8...v5.4.9) (2026-09-11)
+
+
+### Bug Fixes
+
+* reconcile a late fresh Codex successor after adoption timeout ([9ac4c60](https://github.com/thewoolleyman/livespec-overseer/commit/9ac4c60f80c0e0503c70584a631b00f1628f2488))
+
 ## [5.4.8](https://github.com/thewoolleyman/livespec-overseer/compare/v5.4.7...v5.4.8) (2026-09-11)
 
 
