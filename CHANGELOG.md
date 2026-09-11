@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.4.11](https://github.com/thewoolleyman/livespec-overseer/compare/v5.4.10...v5.4.11) (2026-09-11)
+
+
+### Bug Fixes
+
+* isolate daemon runtime switches from an inherited PYTHONPATH ([4659542](https://github.com/thewoolleyman/livespec-overseer/commit/465954266fecd36292903ab62146630ebe2a13d9))
+
 ## [5.4.10](https://github.com/thewoolleyman/livespec-overseer/compare/v5.4.9...v5.4.10) (2026-09-11)
 
 
