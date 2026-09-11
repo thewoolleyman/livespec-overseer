@@ -587,8 +587,8 @@ for the marker's edge-triggered lifecycle.
      `/rename <topic>` — the same idiom the attended supervisor charter (referenced from
      the repo-root `AGENTS.md`) already prescribes for a fresh Codex launch — which is
      what appends the durable `session_index.jsonl` record adoption joins on. The
-     confirmation is the ADOPTION JOIN, not the pane going busy: a slash command asks the
-     model for nothing, so Codex's submit-confirm signal never fires for it.
+     confirmation is never the pane going busy: a slash command asks the model for
+     nothing, so Codex's submit-confirm signal never fires for it.
    - **The kick.** With no argv prompt, the ledger-grounded resume line is pasted and
      submit-verified exactly as on the Claude arm.
 
@@ -600,6 +600,30 @@ for the marker's edge-triggered lifecycle.
    is deliberately untouched — `_supervisor_codex_recovery` still resumes the exact
    persisted rollout, because restoring the conversation a crash interrupted IS the goal
    there. `tests/test_codex_fresh_restart_versus_resume.py` pins both ends of that split.
+
+   **WHICH proof is taken in WHICH phase is itself load-bearing, and the first cut had it
+   backwards (`overseer-hymhx3`, 2026-09-11).** Naming used to be confirmed through that
+   same fd-gated adoption join, and the resume submit was reachable ONLY through it. But
+   the join requires a live process holding the successor's rollout OPEN, and in the idle
+   seconds right after the rename it can come back EMPTY even though the new carrier, its
+   canonical rollout id, its cwd and the durable index record all exist. Measured on the
+   arm's first natural live control: carrier at 00:19:33Z, binary at 00:19:42Z,
+   `session_index.jsonl` recording the rename at 00:19:46Z — and the round still gave up
+   at 00:20:04Z with `codex-fresh-session-unadopted`, keeping the predecessor's `ready`
+   and never calling `submit_prompt` at all. The surviving rollout took its first user
+   turn over three hours later, by hand.
+
+   So each proof now comes from evidence that exists in its own phase
+   (`_supervisor_codex_fresh`): **name** from the durable index record
+   (`fresh_rollout_indexed` — written while the successor is idle, and it outlives the
+   process), then **submit**, then the **different-rollout live join**
+   (`fresh_rollout_live`) while Codex is EXECUTING the resume turn, which is exactly when
+   a live process holds its rollout open. The live join stays the second answer in the
+   naming phase for the one shape the index cannot speak for — a successor Codex never
+   indexes, tracked through its store-bound binding. Each of the three failures keeps the
+   `ready` declaration under its own diagnostic: `codex-fresh-session-unnamed`,
+   `codex-fresh-resume-unsubmitted`, `codex-fresh-session-unadopted`.
+   `tests/test_codex_fresh_restart_post_rename_gap.py` drives the measured sequence.
 
    **DELIBERATE DEAD-TRACK RECOVERY IS RUNTIME-DISPATCHED ON EVIDENCE, AND BOTH ENTRY
    POINTS SHARE ONE CLASSIFIER (`_supervisor_dead_track.classify_dead_track`).** The
