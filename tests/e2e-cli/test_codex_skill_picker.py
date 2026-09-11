@@ -68,7 +68,13 @@ import jsoncomment  # noqa: E402  — vendor-path-aware import after sys.path in
 
 __all__: list[str] = []
 
-pytestmark = pytest.mark.skipif(
+# A PER-TEST MARK, NOT A MODULE-LEVEL `pytestmark`, AND THE DIFFERENCE IS THE POINT.
+# Only the LIVE picker exercise needs a codex binary and an authenticated host; the
+# terminal-contract regression below is pure logic. A module-level mark would have
+# skipped that regression everywhere except the one host that can run the live TUI —
+# i.e. it would be absent from exactly the ordinary `just check` runs that are supposed
+# to notice the contract breaking again.
+_LIVE_CODEX_PICKER_ONLY = pytest.mark.skipif(
     os.environ.get("LIVESPEC_CODEX_SKILL_PICKER") != "1",
     reason="live Codex TUI picker acceptance runs only via just check-codex-skill-picker",
 )
@@ -91,6 +97,10 @@ _GIT_HOOK_ENV_VARS = (
     "GIT_ALTERNATE_OBJECT_DIRECTORIES",
 )
 _HOST_CODEX_HOME = Path.home() / ".codex"
+_FALLBACK_TERM = "xterm-256color"
+# TERMINAL TYPES THAT CANNOT DRIVE A TUI, distinguished from a MISSING one because
+# conflating the two is the bug this set was added to close. See `_tui_capable_term`.
+_TUI_INCAPABLE_TERMS = frozenset({"", "dumb"})
 
 # The materialized plugin tree this run reads. Defaults to the host's, which is what
 # the check asserts in normal operation.
@@ -206,6 +216,39 @@ def _has_main_prompt(*, plain: str) -> bool:
 
 def _has_trust_prompt(*, plain: str) -> bool:
     return "doyoutrust" in _squashed(text=plain)
+
+
+def _tui_capable_term(*, inherited: str | None) -> str:
+    """Return the `TERM` the spawned Codex gets, given whatever the caller exported.
+
+    THE PTY IS OURS, SO THE TERMINAL CONTRACT IS OURS TO STATE. This test builds its
+    own 40x120 pseudoterminal and answers codex's OSC colour queries itself, so the
+    terminal codex talks to is a known, fully capable one regardless of what the
+    INVOKER happened to be attached to. Passing the invoker's `TERM` through therefore
+    describes the wrong terminal.
+
+    THE BUG THIS FIXES (`overseer-m7jty7`). The previous expression was
+    `env.get("TERM", "xterm-256color")` — a fallback for ABSENCE only. lefthook runs
+    its commands with `TERM=dumb`, which is PRESENT, so the fallback never fired;
+    codex saw a terminal it cannot render into, stopped at its terminal warning, and
+    `_open_skills_list` timed out waiting for a `/skills` row that was never going to
+    appear. Every other target in the same pre-push aggregate passed. The gate thus
+    MEANT DIFFERENT THINGS depending on who invoked it: red under lefthook, green from
+    an interactive shell running the identical command. A gate whose verdict tracks its
+    caller's environment is not evidence about the surface it claims to check.
+
+    `dumb` is the value POSIX reserves for "no capabilities", and an empty `TERM` is
+    the same statement spelled differently; both are replaced. A caller-supplied
+    CAPABLE value is passed through untouched, so a `screen-256color` or `tmux-256color`
+    invoker still exercises its own terminal type rather than a substituted one.
+
+    NOTE WHAT THIS DOES NOT DO: it does not weaken, skip or soften the live picker
+    assertion. The assertion is unchanged — only the environment it runs against stops
+    varying by caller.
+    """
+    if inherited is None or inherited in _TUI_INCAPABLE_TERMS:
+        return _FALLBACK_TERM
+    return inherited
 
 
 def _prepare_pty(*, master_fd: int, slave_fd: int) -> None:
@@ -452,6 +495,17 @@ def _exercise_skills_picker(*, master_fd: int, plugin: str, skill: str) -> str:
     )
 
 
+@pytest.mark.parametrize("inherited", [None, "", "dumb"])
+def test_a_tui_incapable_caller_terminal_is_replaced_for_the_spawned_codex(inherited) -> None:
+    assert _tui_capable_term(inherited=inherited) == _FALLBACK_TERM
+
+
+@pytest.mark.parametrize("inherited", ["xterm-256color", "screen-256color", "tmux-256color"])
+def test_a_capable_caller_terminal_reaches_the_spawned_codex_unchanged(inherited) -> None:
+    assert _tui_capable_term(inherited=inherited) == inherited
+
+
+@_LIVE_CODEX_PICKER_ONLY
 def test_skills_picker_renders_the_declared_codex_canonical_command() -> None:
     plugin, skill = _declared_codex_command(repo_root=_REPO_ROOT)
     codex = shutil.which("codex")
@@ -461,7 +515,7 @@ def test_skills_picker_renders_the_declared_codex_canonical_command() -> None:
     master_fd, slave_fd = pty.openpty()
     _prepare_pty(master_fd=master_fd, slave_fd=slave_fd)
     env = os.environ.copy()
-    env["TERM"] = env.get("TERM", "xterm-256color")
+    env["TERM"] = _tui_capable_term(inherited=env.get("TERM"))
     env["COLUMNS"] = "120"
     env["LINES"] = "40"
     env["NO_COLOR"] = "1"
