@@ -23,13 +23,17 @@ plus the three mechanics that honour it:
   daemon spawns, and the interpreter's own crash traceback all write through fd 2, and
   none of them can be told that a rotation happened. Re-pointing fd 2 tells all of them
   at once.
-* **Migration.** A ``daemon.log`` already past the bound before any of this existed
-  cannot simply BECOME a retained generation — that would carry the unbounded file
-  across the very bound being introduced — and it must NOT be truncated or unlinked
-  while a live daemon still holds it open. So :func:`salvage_oversized_history` copies
-  its newest WHOLE records into generation 1 and a fresh active file is opened; the
-  oversized inode is released by the descriptor re-point, never truncated underneath
-  its own writer.
+* **Migration, in two halves split by what each may destroy.** A ``daemon.log`` already
+  past the bound before any of this existed must NOT be truncated or unlinked while a
+  live daemon still holds it open. The SAFE half needs no special handling and no
+  special permission: ordinary rotation fires on the very first write, because the file
+  is already over the bound, and renames it to ``daemon.log.1`` INTACT — so the active
+  path is bounded from then on and anything still holding that inode keeps a reachable
+  file. What is left is a retained generation many times the bound, and reclaiming that
+  means releasing its inode. That half — :func:`trim_over_bound_generations`, reached
+  through :func:`reclaim_over_bound_history` — may run ONLY once the caller holds the
+  daemon's SINGLETON LOCK, because owning a descriptor proves which file this process
+  writes, not that it is the only writer.
 
 Stdlib-only, like every module in this folder, and it imports no sibling: it sits
 BELOW ``streams``, which consults it on every stderr write.
@@ -55,9 +59,10 @@ __all__: list[str] = [
     "bound_stderr_history",
     "bounded_daemon_history",
     "generation_path",
+    "reclaim_over_bound_history",
     "retained_generation_paths",
     "rotate_generations",
-    "salvage_oversized_history",
+    "trim_over_bound_generations",
 ]
 
 # The one name of the daemon's event history, owned here because this module is what
@@ -155,23 +160,29 @@ def _keep_newest_bytes(*, path: Path, keep: int) -> int:
     return len(salvaged)
 
 
-def salvage_oversized_history(*, log_path: Path, retention: Retention) -> int:
-    """Retire a pre-existing over-bound history file, keeping its newest records.
+def trim_over_bound_generations(*, log_path: Path, retention: Retention) -> int:
+    """Trim any RETAINED generation a pre-retention history left over the bound.
 
-    The operator-safe migration path for the 8.6 GiB file that motivated this module.
-    Returns the number of bytes salvaged into generation 1, or 0 when the active file
-    was already within the bound and nothing needed migrating.
+    Returns the bytes reclaimed, 0 when every generation was already inside the bound.
 
-    Call this BEFORE taking ownership of the stderr descriptor: the oversized inode may
-    still be held open by the launcher's ``2>>`` redirect, and re-pointing that
-    descriptor at the fresh active file is what releases it. Nothing here truncates or
-    unlinks a file out from under a live writer.
+    This is the second half of the migration, and the destructive one. Ordinary rotation
+    does the first half on its own and does it SAFELY: the over-bound ``daemon.log``
+    becomes ``daemon.log.1`` by rename, intact, so the active path is bounded from the
+    next write onward and anything still holding that inode keeps a reachable file. What
+    remains is a retained generation many times the bound — the 8.6 GiB measured on
+    2026-09-11 — and reclaiming it means releasing that inode, which is why this is the
+    half that needs the exclusivity precondition :func:`reclaim_over_bound_history`
+    carries. The active file is never touched here, so no descriptor is re-pointed.
     """
-    if active_history_size(log_path=log_path) <= retention.max_active_bytes:
-        return 0
-    rotate_generations(log_path=log_path, retention=retention)
-    oversized = generation_path(log_path=log_path, generation=1)
-    return _keep_newest_bytes(path=oversized, keep=retention.max_active_bytes)
+    reclaimed = 0
+    for path in retained_generation_paths(log_path=log_path, retention=retention):
+        if not path.is_file():
+            continue
+        size = path.stat().st_size
+        if size <= retention.max_active_bytes:
+            continue
+        reclaimed += size - _keep_newest_bytes(path=path, keep=retention.max_active_bytes)
+    return reclaimed
 
 
 def _open_active_history(*, log_path: Path) -> TextIO:
@@ -197,19 +208,28 @@ def _active_history_path() -> Path | None:
     return candidate
 
 
-def _rotate_stderr_history(*, log_path: Path, retention: Retention) -> None:
-    """Close the active history, shift the generations, and reopen a fresh active file.
+def _reopen_active_history(*, log_path: Path) -> None:
+    """Install a fresh active history in place of the one ``sys.stderr`` holds.
 
     ``sys.stderr`` is never left closed or unset: the outgoing handle is flushed (so no
-    buffered record spills into the wrong generation), the generations shift while that
-    handle still holds the renamed inode, the fresh file is installed, and only THEN is
-    the outgoing handle closed.
+    buffered record spills into the wrong file), the fresh file is installed, and only
+    THEN is the outgoing handle closed.
     """
     closing = sys.stderr
     _ = closing.flush()
-    rotate_generations(log_path=log_path, retention=retention)
     sys.stderr = _open_active_history(log_path=log_path)
     _ = closing.close()
+
+
+def _rotate_stderr_history(*, log_path: Path, retention: Retention) -> None:
+    """Shift the generations under the live writer and reopen a fresh active file.
+
+    The generations shift while the outgoing handle still holds the renamed inode — a
+    rename moves a NAME, not an open file — so no write can be lost between the two
+    steps.
+    """
+    rotate_generations(log_path=log_path, retention=retention)
+    _reopen_active_history(log_path=log_path)
 
 
 def bound_stderr_history(*, chunk: str) -> bool:
@@ -236,21 +256,50 @@ def bound_stderr_history(*, chunk: str) -> bool:
     return True
 
 
+def reclaim_over_bound_history() -> int:
+    """Reclaim over-bound retained history. ONLY for a caller holding the daemon lock.
+
+    Returns the bytes reclaimed, or 0 when there was nothing over the bound — including
+    for any process whose stderr is not the daemon's history file at all.
+
+    **The precondition is the whole point.** Trimming a generation releases its inode, so
+    running it while ANOTHER ``overseerd`` still has that inode open would leave that
+    daemon appending to an unlinked file and silently losing its history. Owning fd 2
+    cannot answer "am I the only writer?"; the per-store singleton lock can, and already
+    exists to answer exactly that for the rest of the daemon. A live sibling daemon holds
+    that lock, so a second daemon is refused it and leaves the sibling's history alone.
+
+    That is also why this is not startup's job: at startup no lock has been attempted
+    yet, so a second daemon would reclaim before learning it is not the owner.
+
+    The active file is rotated here rather than left to the next write, so the result does
+    not depend on whether anything has been logged yet. That rotation is the SAFE half
+    either way — a rename the descriptor follows — and doing it explicitly is what makes
+    the reclaim total: a log that is over the bound is always fully migrated by the time
+    this returns, whether or not the daemon has emitted its first event.
+    """
+    log_path = _active_history_path()
+    if log_path is None:
+        return 0
+    retention = DEFAULT_RETENTION
+    if active_history_size(log_path=log_path) > retention.max_active_bytes:
+        _rotate_stderr_history(log_path=log_path, retention=retention)
+    return trim_over_bound_generations(log_path=log_path, retention=retention)
+
+
 @contextmanager
-def bounded_daemon_history(*, log_path: Path) -> Iterator[int]:
+def bounded_daemon_history(*, log_path: Path) -> Iterator[None]:
     """Own the daemon's event history under :data:`DEFAULT_RETENTION` for this block.
 
-    Migrates a pre-existing over-bound log, takes ownership of ``sys.stderr`` AND the
-    stderr descriptor, and restores both on exit. Yields the number of bytes salvaged by
-    the migration, so the caller can record it as the first event of the fresh history.
+    Takes ownership of ``sys.stderr`` AND the stderr descriptor and restores both on
+    exit. Migrating a pre-existing over-bound log is deliberately NOT done here — see
+    :func:`migrate_active_history` for why that needs the singleton lock first.
     """
-    retention = DEFAULT_RETENTION
-    salvaged = salvage_oversized_history(log_path=log_path, retention=retention)
     original = sys.stderr
     saved_fd = os.dup(_STDERR_FD)
     sys.stderr = _open_active_history(log_path=log_path)
     try:
-        yield salvaged
+        yield
     finally:
         installed = sys.stderr
         sys.stderr = original

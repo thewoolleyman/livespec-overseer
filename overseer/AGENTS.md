@@ -852,14 +852,30 @@ for the marker's edge-triggered lifecycle.
         write through fd 2 and cannot be told a rotation happened; re-pointing tells them
         all at once. Without it a rotation would be half a rotation, and the migration
         below could not free the oversized inode at all.
-      - **A pre-existing over-bound log is MIGRATED, never truncated.** It cannot simply
-        become generation 1 — that carries the unbounded file across the bound being
-        introduced — and it must not be truncated or unlinked while a live daemon holds it
-        open. So its newest WHOLE records are copied into `daemon.log.1` (one seek plus
-        one bounded read, so file size does not matter), a fresh active file is opened,
-        and the hand-off of fd 2 is what releases the old inode. The partial leading
-        record is dropped deliberately: a history whose first line is half a JSON record
-        is worse than one record shorter.
+      - **A pre-existing over-bound log is MIGRATED in two halves, split by what each
+        half may DESTROY.** It must not be truncated or unlinked while a live daemon holds
+        it open, and the two halves differ exactly on that.
+
+        The SAFE half needs no permission and is just ordinary rotation: the file is
+        already over the bound, so the first write renames it to `daemon.log.1` INTACT.
+        The active path is bounded from then on, and anything still holding that inode —
+        the launcher's `2>>` redirect, or a sibling daemon — keeps a reachable file.
+
+        The UNSAFE half is reclaiming that oversized generation, because trimming it
+        RELEASES the inode. `daemon_log.reclaim_over_bound_history` does it, keeping the
+        newest whole records (one seek plus one bounded read, so file size does not
+        matter; the partial leading record is dropped deliberately — a history whose first
+        line is half a JSON record is worse than one record shorter). **It runs from
+        inside the run loop's SINGLETON LOCK, and it must stay there.** Owning fd 2 proves
+        which file this process writes, not that it is the only WRITER; the per-store lock
+        proves the latter and already exists to answer exactly that. A live sibling daemon
+        holds that lock, so a second daemon is refused it and leaves the sibling's history
+        alone — whereas reclaiming at startup would run *before* that refusal and leave the
+        sibling appending to an unlinked file, losing its history silently. That ordering
+        was wrong in the first cut of this work; both sides of the gate are now pinned by
+        `tests/test_daemon_log_migration_gate.py`. The reclaim rotates the active file
+        itself rather than waiting for the next write, so the outcome does not depend on
+        whether anything has been logged yet.
 
       `daemon_log.bound_stderr_history` is a NO-OP for any process whose stderr is not
       that file, which is how the one-shot track CLI, `overseer-start` and the whole test
