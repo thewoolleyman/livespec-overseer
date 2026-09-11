@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.4.8](https://github.com/thewoolleyman/livespec-overseer/compare/v5.4.7...v5.4.8) (2026-09-11)
+
+
+### Bug Fixes
+
+* confirm a fresh Codex name before proving its live join ([fe34de3](https://github.com/thewoolleyman/livespec-overseer/commit/fe34de3d7722a102a53890be75c8e8d084d69768))
+
 ## [5.4.7](https://github.com/thewoolleyman/livespec-overseer/compare/v5.4.6...v5.4.7) (2026-09-11)
 
 
