@@ -28,13 +28,12 @@ from __future__ import annotations
 
 import argparse
 import sys
-from collections.abc import Iterator
-from contextlib import contextmanager
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import _supervisor_diagnostics
+import daemon_log
 import start
 import supervisor  # intentionally after the sys.path pin above
 
@@ -54,20 +53,7 @@ def _default_daemon_log_path() -> Path:
 
 def default_daemon_log_path() -> Path:
     """Default daemon event-history log beside the operator checkout when present."""
-    return start.default_core_root() / "tmp" / "overseer" / "daemon.log"
-
-
-@contextmanager
-def _native_daemon_stderr(*, log_path: Path) -> Iterator[None]:
-    """Append daemon stderr to its event-history log for bare manual bounces."""
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    previous_stderr = sys.stderr
-    with log_path.open("a", encoding="utf-8", buffering=1) as log_file:
-        sys.stderr = log_file
-        try:
-            yield
-        finally:
-            sys.stderr = previous_stderr
+    return start.default_core_root() / "tmp" / "overseer" / daemon_log.HISTORY_FILENAME
 
 
 def _warn_percent(value: str) -> int:
@@ -86,6 +72,8 @@ def _warn_percent(value: str) -> int:
 
 def _help_epilog() -> str:
     log_path = _default_daemon_log_path()
+    retention = daemon_log.DEFAULT_RETENTION
+    oldest = retention.retained_generations
     return f"""\
 Daemon event history:
   default log path: {log_path}
@@ -93,6 +81,20 @@ Daemon event history:
   checkout tmp/overseer/daemon.log, not the caller's current directory. If this
   help output disagrees with the acting daemon, the status file's
   daemon_package.package_dir names the checkout that daemon is actually running.
+
+Event-history retention:
+  The log is BOUNDED, not append-forever. The active file is rotated once the next
+  write would take it past {retention.max_active_bytes} bytes; daemon.log becomes
+  daemon.log.1, every retained generation shifts one older, and the generation past
+  the bound is deleted. {oldest} retained generations are kept, so the whole history
+  occupies at most {retention.total_bytes} bytes — roughly five days at the growth
+  rate measured on 2026-09-11 (~190 MB/day).
+  Recovery: generation 1 is the NEWEST retained history and daemon.log.{oldest} the
+  oldest, so `cat daemon.log.{oldest} ... daemon.log.1 daemon.log` replays the whole
+  retained history oldest-first. A daemon.log that is ALREADY over the bound when the
+  daemon starts is migrated rather than discarded: its newest whole records are copied
+  into daemon.log.1 and a fresh active file is opened, so the oversized file is
+  released by that hand-off and never truncated underneath a writer still holding it.
 
 OpenTelemetry export:
   OTEL_EXPORTER_OTLP_ENDPOINT
@@ -140,8 +142,22 @@ def main(*, argv: list[str] | None = None) -> int:
         ),
     )
     args = parser.parse_args(argv)
-    with _native_daemon_stderr(log_path=_default_daemon_log_path()):
+    # The daemon OWNS its event history for the life of the process: this takes
+    # `sys.stderr` and the stderr descriptor, migrates a pre-existing over-bound log,
+    # and keeps every later write inside the finite retention bound. A bare manual
+    # bounce therefore preserves the history with no shell redirect of its own, and the
+    # launcher's `2>>` redirect is superseded rather than depended on.
+    with daemon_log.bounded_daemon_history(log_path=_default_daemon_log_path()) as salvaged:
         _supervisor_diagnostics.log(message="daemon log opened")
+        if salvaged:
+            _supervisor_diagnostics.log(
+                event="daemon-log-migrated",
+                message=(
+                    f"migrated an over-bound daemon log: salvaged {salvaged} bytes of its "
+                    "newest records into daemon.log.1"
+                ),
+                fields={"salvaged_bytes": salvaged},
+            )
         return supervisor.run_daemon(
             warn_percent=args.warn_percent, idle_nudge=args.idle_nudge == "on"
         )

@@ -819,6 +819,55 @@ for the marker's edge-triggered lifecycle.
       answer questions with its data"). What it must not do is answer *"what needs
       attention?"* from it.
 
+      **History is APPEND-ONLY but FINITE — it is now a rotating set of files, not one
+      file, and a reader that only opens `daemon.log` sees the newest slice.** The policy
+      lives in `daemon_log.py`: the active file is rotated once the next write would take
+      it past `MAX_ACTIVE_BYTES` (128 MiB), `daemon.log` becomes `daemon.log.1`, each
+      retained generation shifts one older, and the generation past
+      `RETAINED_GENERATIONS` (7) is deleted — a hard 1 GiB ceiling on the whole history.
+      Generation 1 is always the NEWEST retained file, so
+      `cat daemon.log.7 … daemon.log.1 daemon.log` replays everything oldest-first; that
+      is the recovery procedure, and `overseerd --help` states it too.
+
+      **Why it was unbounded until 2026-09-11, and why "append-only" was never the
+      reason.** The launcher and the daemon both deliberately preserve ONE operator
+      history, and that is still true — but nothing ever closed it. Measured that day:
+      the live `overseerd` held `daemon.log` open at **8,622,275,412 bytes** spanning
+      2026-07-28 to 2026-09-11, its newest 64 MiB carrying ~157,100 structured records
+      (~190 MB/day). The filesystem still had 268 GiB free, so this was a latent
+      exhaustion hazard rather than an outage — which is exactly why it survived: a
+      growing file looks like a working file.
+
+      Three mechanics make the bound hold, and each exists for a reason worth keeping:
+
+      - **The bound is enforced in `streams.write_stderr`, not in the structured-event
+        writer.** Everything that lands in the file — structured records,
+        `overseer[SURFACE]` alerts, the launcher's own progress lines — arrives through
+        that one funnel, so bounding it there bounds the whole file. Bounding
+        `_supervisor_diagnostics._write_event` instead would leave every non-event write
+        outside the policy.
+      - **The DESCRIPTOR is re-pointed, not just `sys.stderr`.** `bounded_daemon_history`
+        and every rotation `dup2` the fresh file onto fd 2. The launcher's `2>>` redirect,
+        every subprocess the daemon spawns, and the interpreter's own crash traceback all
+        write through fd 2 and cannot be told a rotation happened; re-pointing tells them
+        all at once. Without it a rotation would be half a rotation, and the migration
+        below could not free the oversized inode at all.
+      - **A pre-existing over-bound log is MIGRATED, never truncated.** It cannot simply
+        become generation 1 — that carries the unbounded file across the bound being
+        introduced — and it must not be truncated or unlinked while a live daemon holds it
+        open. So its newest WHOLE records are copied into `daemon.log.1` (one seek plus
+        one bounded read, so file size does not matter), a fresh active file is opened,
+        and the hand-off of fd 2 is what releases the old inode. The partial leading
+        record is dropped deliberately: a history whose first line is half a JSON record
+        is worse than one record shorter.
+
+      `daemon_log.bound_stderr_history` is a NO-OP for any process whose stderr is not
+      that file, which is how the one-shot track CLI, `overseer-start` and the whole test
+      suite avoid rotating the live daemon's log out from under it. Do not replace that
+      test with "am I the daemon?" state — there is no module-level mutable state here on
+      purpose, and the question a rotation actually needs answered is which file the
+      writer holds.
+
     Consequences that are load-bearing, not cosmetic:
 
     - **Every log line is timestamped** (`log` / `surface` prefix `iso_now()`) — a
@@ -1230,8 +1279,11 @@ for the marker's edge-triggered lifecycle.
 - **Stdlib-only Python, host-only.** No third-party imports; **eight** substantive
   module SURFACES (`registry.py`, `signals.py`, `tmuxio.py`, `supervisor.py`, `jsonio.py`,
   `start.py`, plus the session readers `claude_sessions.py` and
-  `codex_sessions.py`) plus `__init__.py` / `daemon.py` / `streams.py` /
-  `version.py` and the beside-tests. **(Corrected 2026-07-26: this said "six
+  `codex_sessions.py`) plus `__init__.py` / `daemon.py` / `daemon_log.py` /
+  `streams.py` /
+  `version.py` and the beside-tests. `daemon_log.py` is deliberately NOT a ninth
+  surface: it has no consumer but `streams` / `daemon` / `start`, imports no sibling,
+  and exists only to keep the daemon's event history finite. **(Corrected 2026-07-26: this said "six
   modules" and omitted `jsonio.py` and `start.py`. Eight is also the count the
   repo-root `.claude/CLAUDE.md` states, so the two documents now agree.)**
   **Two of those eight surfaces are FAÇADES over a group of private collaborator
