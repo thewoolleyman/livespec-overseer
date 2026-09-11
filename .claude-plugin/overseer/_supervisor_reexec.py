@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import _supervisor_reexec_env
 import _supervisor_runtime_rollback
 from _supervisor_view import RESUME_PENDING_NOTE, RowView
 
@@ -22,6 +23,10 @@ def maybe_reexec(*, sup: Supervisor, rows: list[RowView]) -> None:
     safety point: do not exec while any session restart interlock is represented
     in the just-rendered tick, and do not repeatedly try the same operation in a
     tight loop if the target keeps being offered.
+
+    The successor is started under an import-isolated environment rather than the
+    inherited one, so a plugin-cache or checkout `PYTHONPATH` cannot override the
+    package belonging to the runtime this tick selected.
     """
     target = sup.reexec_target()
     if target is None:
@@ -38,7 +43,11 @@ def maybe_reexec(*, sup: Supervisor, rows: list[RowView]) -> None:
     _supervisor_runtime_rollback.begin_adoption(
         sup=sup, target=target, previous=Path(sup.argv()[0])
     )
-    sup.execv(path=str(target), argv=argv)
+    sup.execve(
+        path=str(target),
+        argv=argv,
+        env=_supervisor_reexec_env.runtime_exec_env(env=sup.environ()),
+    )
 
 
 def _restart_interlock_pending(*, rows: list[RowView]) -> bool:

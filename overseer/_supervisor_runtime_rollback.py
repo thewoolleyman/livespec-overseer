@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import _supervisor_reexec_env
 import jsonio
 
 if TYPE_CHECKING:
@@ -87,7 +88,14 @@ def rollback_after_startup_failure(*, sup: Supervisor, exc: BaseException) -> No
         event="daemon-runtime-rollback",
         fields={"failed_runtime": current, "previous_runtime": str(target)},
     )
-    sup.execv(path=str(target), argv=argv)
+    # The prior runtime is an immutable selection exactly as the failed one was, so the
+    # rollback owes the same import rule: without it a successor could roll back to the
+    # right executable and still import whatever an inherited PYTHONPATH points at.
+    sup.execve(
+        path=str(target),
+        argv=argv,
+        env=_supervisor_reexec_env.runtime_exec_env(env=sup.environ()),
+    )
 
 
 def _current_executable(*, sup: Supervisor) -> str:

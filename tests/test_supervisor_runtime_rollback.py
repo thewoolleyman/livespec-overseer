@@ -47,7 +47,7 @@ def test_reexec_records_the_prior_runtime_before_adopting_a_release(*, tmp_path)
         fake=FakeTmux(),
         reexec_target=lambda: target,
         argv=lambda: [str(current), "--warn-percent", "40"],
-        execv=lambda *, path, argv: execs.append((path, argv)),
+        execve=lambda *, path, argv, env: execs.append((path, argv)),
         runtime_state_path=state_path,
     )
 
@@ -78,7 +78,7 @@ def test_runtime_that_dies_before_its_first_tick_rolls_back_and_is_rejected(*, t
         tmp_path=tmp_path,
         fake=FakeTmux(),
         argv=lambda: [str(current), "--warn-percent", "45"],
-        execv=lambda *, path, argv: execs.append((path, argv)),
+        execve=lambda *, path, argv, env: execs.append((path, argv)),
         runtime_state_path=state_path,
     )
 
@@ -117,7 +117,7 @@ def test_runtime_rollback_terminates_when_the_prior_runtime_is_absent(*, tmp_pat
         tmp_path=tmp_path,
         fake=FakeTmux(),
         argv=lambda: [str(current)],
-        execv=lambda *, path, argv: execs.append((path, argv)),
+        execve=lambda *, path, argv, env: execs.append((path, argv)),
         runtime_state_path=state_path,
     )
 
@@ -154,7 +154,7 @@ def test_rejected_runtime_is_not_reattempted_but_a_different_release_is_adopted(
         fake=FakeTmux(),
         reexec_target=lambda: offered.pop(0),
         argv=lambda: [str(current)],
-        execv=lambda *, path, argv: execs.append((path, argv)),
+        execve=lambda *, path, argv, env: execs.append((path, argv)),
         runtime_state_path=state_path,
     )
 

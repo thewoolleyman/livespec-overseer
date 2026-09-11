@@ -55,7 +55,7 @@ def build_live_supervisor(
     sup.proc_root = str(tmp_path)
     sup.which = lambda _name: "/usr/bin/tmux"
     sup.gitignore_check = lambda repo: True
-    sup.execv = lambda *, path, argv: None
+    sup.execve = lambda *, path, argv, env: None
     registry.upsert_mapping(
         track=mapped_track(repo=str(repo), topic="alpha", session="alpha"),
         store_path=sup.store_path,
@@ -128,7 +128,7 @@ def test_wired_reexec_target_reaches_the_tick_safe_point(*, monkeypatch, tmp_pat
     )
     sup = build_live_supervisor(tmp_path=tmp_path, adapter=adapter)
     executed: list[tuple[str, list[str]]] = []
-    sup.execv = lambda *, path, argv: executed.append((path, argv))
+    sup.execve = lambda *, path, argv, env: executed.append((path, argv))
     sup.argv = lambda: ["overseerd", "--warn-percent", "40"]
 
     _supervisor_reexec.maybe_reexec(

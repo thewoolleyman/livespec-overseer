@@ -27,14 +27,14 @@ def _supervisor_with_publish_recorders(*, tmp_path, monkeypatch):
     def write_snapshot(*, sup, rows) -> None:
         published.append(("snapshot", len(rows)))
 
-    def execv(*, path: str, argv: list[str]) -> None:
-        published.append(("execv_path", Path(path).name))
-        published.append(("execv_argv", argv))
+    def execve(*, path: str, argv: list[str], env: dict[str, str]) -> None:
+        published.append(("execve_path", Path(path).name))
+        published.append(("execve_argv", argv))
 
     sup.build_rows = build_no_rows
     sup.status_snapshot_writer = write_snapshot
     sup.reexec_target = lambda: target
-    sup.execv = execv
+    sup.execve = execve
     sup.argv = lambda: ["overseerd", "--warn-percent", "30"]
     monkeypatch.setattr(_supervisor_render, "refresh_window_name", refresh_window_name)
     return sup, published
@@ -65,7 +65,7 @@ def test_acting_tick_performs_all_daemon_only_publish_writes(*, tmp_path, monkey
     assert published == [
         ("window", 0),
         ("snapshot", 0),
-        ("execv_path", "overseerd"),
-        ("execv_argv", [str(tmp_path / "runtime" / "bin" / "overseerd"), "--warn-percent", "30"]),
+        ("execve_path", "overseerd"),
+        ("execve_argv", [str(tmp_path / "runtime" / "bin" / "overseerd"), "--warn-percent", "30"]),
     ]
     assert sup.tick_generation == 1

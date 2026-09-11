@@ -38,11 +38,11 @@ def test_reexec_waits_for_a_restart_interlock_then_runs_at_the_next_clean_tick(*
         ],
     ]
 
-    def execv(*, path: str, argv: list[str]) -> None:
+    def execve(*, path: str, argv: list[str], env: dict[str, str]) -> None:
         executed.append((path, argv))
 
     sup.reexec_target = lambda: target
-    sup.execv = execv
+    sup.execve = execve
     sup.argv = lambda: ["overseerd", "--warn-percent", "30"]
 
     _supervisor_reexec.maybe_reexec(sup=sup, rows=rows.pop(0))
@@ -64,12 +64,12 @@ def test_reexec_attempts_are_rate_limited_even_when_the_release_keeps_flapping(*
     def build_no_rows(*, act: bool):
         return []
 
-    def execv(*, path: str, argv: list[str]) -> None:
+    def execve(*, path: str, argv: list[str], env: dict[str, str]) -> None:
         executed.append((path, argv))
 
     sup.build_rows = build_no_rows
     sup.reexec_target = lambda: target
-    sup.execv = execv
+    sup.execve = execve
     sup.argv = lambda: ["overseerd"]
     sup.reexec_min_interval_seconds = 60.0
 
@@ -92,12 +92,12 @@ def test_read_only_tick_never_reexecs(*, tmp_path):
     def build_no_rows(*, act: bool):
         return []
 
-    def execv(*, path: str, argv: list[str]) -> None:
+    def execve(*, path: str, argv: list[str], env: dict[str, str]) -> None:
         raise AssertionError("read-only list tick must not re-exec")
 
     sup.build_rows = build_no_rows
     sup.reexec_target = lambda: Path("/tmp/overseerd")
-    sup.execv = execv
+    sup.execve = execve
 
     assert supervisor.Supervisor.tick(sup, act=False) == []
 
@@ -117,15 +117,15 @@ def test_an_acting_tick_publishes_its_snapshot_before_replacing_the_process_imag
     def build_no_rows(*, act: bool):
         return []
 
-    def execv(*, path: str, argv: list[str]) -> None:
-        order.append("execv")
+    def execve(*, path: str, argv: list[str], env: dict[str, str]) -> None:
+        order.append("execve")
 
     sup.build_rows = build_no_rows
     sup.status_snapshot_writer = lambda *, sup, rows: order.append("snapshot")
     sup.reexec_target = lambda: target
-    sup.execv = execv
+    sup.execve = execve
     sup.argv = lambda: ["overseerd"]
 
     _ = sup.tick(act=True)
 
-    assert order == ["snapshot", "execv"]
+    assert order == ["snapshot", "execve"]

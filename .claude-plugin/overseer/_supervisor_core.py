@@ -111,8 +111,10 @@ __all__: list[str] = ["Supervisor"]
 CodexSessionMap = dict[tuple[str, str], codex_sessions.CodexSession]
 
 
-def _process_execv(*, path: str, argv: list[str]) -> None:  # pragma: no cover
-    os.execv(path, argv)  # noqa: S606
+def _process_execve(
+    *, path: str, argv: list[str], env: Mapping[str, str]
+) -> None:  # pragma: no cover
+    os.execve(path, argv, env)  # noqa: S606
 
 
 # --------------------------------------------------------------------------- #
@@ -146,7 +148,13 @@ class Supervisor:
     currency_check: Callable[[], Mapping[str, object] | None] | None = None
     reexec_target: Callable[[], Path | None] = field(default_factory=lambda: lambda: None)
     argv: Callable[[], list[str]] = field(default_factory=lambda: lambda: sys.argv)
-    execv: Callable[..., None] = _process_execv
+    # The process-image replacement seam carries the ENVIRONMENT as well as the argv,
+    # because which `overseer` package the successor imports is decided by the
+    # environment rather than by the executable named on the command line. It was
+    # `os.execv` until an inherited plugin-cache `PYTHONPATH` silently overrode a
+    # correctly-selected runtime; see `_supervisor_reexec_env` for the measurement.
+    execve: Callable[..., None] = _process_execve
+    environ: Callable[[], dict[str, str]] = field(default_factory=lambda: lambda: dict(os.environ))
     reexec_min_interval_seconds: float = 3600.0
     extra_repos: list[str] = field(default_factory=list)
     # Daemon-wide default warn threshold (remaining-% at which the FIRST wrap-up
