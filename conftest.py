@@ -19,6 +19,7 @@ if str(_PACKAGE_DIR) not in sys.path:
 # hermetic by default; OTEL-specific tests opt in with monkeypatch.setenv.
 os.environ.pop("OTEL_EXPORTER_OTLP_ENDPOINT", None)
 
+import _registry_codex_restart  # noqa: E402
 import _registry_core  # noqa: E402
 import _registry_rounds  # noqa: E402
 import _registry_rows_io  # noqa: E402
@@ -52,6 +53,7 @@ _REAL_HOST_PATHS: frozenset[Path] = frozenset(
 # the guard has to wrap each BINDING site. This is the same resolution subtlety that
 # `isolate_store` documents for `DEFAULT_STORE_PATH`.
 _WRITE_BINDING_SITES = (
+    _registry_codex_restart,
     _registry_core,
     _registry_rounds,
     _registry_rows_io,

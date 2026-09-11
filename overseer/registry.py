@@ -45,6 +45,12 @@ siblings cannot stay underscore-named once it moves out of one file.
 
 from __future__ import annotations
 
+from _registry_codex_restart import CodexFreshRestart as CodexFreshRestart
+from _registry_codex_restart import (
+    mark_codex_fresh_restart_resume_submitted as mark_codex_fresh_restart_resume_submitted,
+)
+from _registry_codex_restart import read_codex_fresh_restart as read_codex_fresh_restart
+from _registry_codex_restart import record_codex_fresh_restart as record_codex_fresh_restart
 from _registry_core import DEFAULT_CTX_THRESHOLD as DEFAULT_CTX_THRESHOLD
 from _registry_core import DEFAULT_STAMP_PATH as DEFAULT_STAMP_PATH
 from _registry_core import DEFAULT_STORE_PATH as DEFAULT_STORE_PATH
@@ -114,6 +120,7 @@ __all__: list[str] = [
     "DEFAULT_STAMP_PATH",
     "DEFAULT_STORE_PATH",
     "DEFAULT_WATCH_SET_PATH",
+    "CodexFreshRestart",
     "MappingEntry",
     "MappingInvalid",
     "MappingValid",
@@ -137,9 +144,11 @@ __all__: list[str] = [
     "epic_is_resolved",
     "file_lock",
     "join",
+    "mark_codex_fresh_restart_resume_submitted",
     "mark_expiry_notice_sent",
     "norm",
     "plan_liveness_topic",
+    "read_codex_fresh_restart",
     "read_injection_stamp",
     "read_launch_statusline_baseline",
     "read_mapping",
@@ -151,6 +160,7 @@ __all__: list[str] = [
     "read_round_record",
     "read_shell_episode",
     "read_valid_mapping",
+    "record_codex_fresh_restart",
     "record_derived_epic",
     "record_launch_statusline_baseline",
     "record_model_profile",
