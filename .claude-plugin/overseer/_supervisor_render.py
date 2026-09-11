@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 import registry
 from _supervisor_config import WINDOW_NAME, iso_now
 from _supervisor_surface_attention import SurfaceAttention
+from _supervisor_table_layout import fit_line, render_lines, terminal_columns
 from _supervisor_view import (
     ANSI_RESET,
     MAX_NOTE_IN_TABLE,
@@ -47,6 +48,8 @@ __all__: list[str] = [
     "render_table",
 ]
 
+_TABLE_PREAMBLE_LINES = 2  # header + separator
+
 
 def render_table(
     *, sup: Supervisor, rows: Iterable[RowView], surface_attention: SurfaceAttention | None = None
@@ -66,15 +69,13 @@ def render_table(
     """
     rows = list(rows)
     lines: list[str] = []
-    lines.append(f"overseer — {iso_now()} — {len(rows)} track(s) - {APP_VERSION}")
-    header = ("Status", "Topic", "tmux", "Ctx%", "Repo")
-    table: list[tuple[str, ...]] = [header]
+    table_rows: list[tuple[str, ...]] = []
     for row in rows:
         # Elide the session-authored note so an over-long / multi-line value cannot
         # blow up the Status column width or break the row (the full note still
         # reaches the NEEDS YOU block above).
         note = elide(text=row.note, limit=MAX_NOTE_IN_TABLE) if row.note else None
-        table.append(
+        table_rows.append(
             (
                 row.status if not note else f"{row.status} ({note})",
                 row.topic,
@@ -90,18 +91,18 @@ def render_table(
                 registry.repo_slug(repo=row.repo),
             )
         )
-    widths = [max(len(r[i]) for r in table) for i in range(len(header))]
     isatty = getattr(sup.out, "isatty", None)
     use_color = bool(isatty) and isatty()
-    for i, cells in enumerate(table):
-        line = "  ".join(cell.ljust(widths[j]) for j, cell in enumerate(cells))
-        if i == 0:
+    columns = terminal_columns(out=sup.out) if use_color else None
+    title = f"overseer — {iso_now()} — {len(rows)} track(s) - {APP_VERSION}"
+    lines.append(fit_line(text=title, columns=columns))
+    for i, line in enumerate(render_lines(rows=table_rows, columns=columns)):
+        if i < _TABLE_PREAMBLE_LINES:
             lines.append(line)
-            lines.append("  ".join("-" * widths[j] for j in range(len(header))))
             continue
-        # table[i] for i >= 1 is the projection of rows[i - 1]; tint by its raw
+        # rendered table lines after header + rule project rows[i - 2]; tint by raw
         # status (not the note-decorated cell text).
-        color = row_color(status=rows[i - 1].status) if use_color else ""
+        color = row_color(status=rows[i - _TABLE_PREAMBLE_LINES].status) if use_color else ""
         lines.append(f"{color}{line}{ANSI_RESET}" if color else line)
     attention = attention_lines(rows=rows, surface_attention=surface_attention)
     # Clear scrollback + screen + home, then the NEEDS YOU block, then the table. The
