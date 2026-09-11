@@ -651,40 +651,40 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The Codex launch profile captures a mid-session model change from its state database",
-    "test": "TODO",
-    "reason": "Ratified ahead of implementation. Integration-tier coverage is required because the scenario must exercise the real adoption and wrap-up profile-refresh boundaries while a Codex-owned state row changes model; ready plan child overseer-yfwnb3 owns replacing this TODO with the exact test it lands.",
+    "test": "tests.integration.test_codex_state_database_runtime_model.test_scenario_codex_profile_captures_a_mid_session_model_change_from_the_database",
+    "reason": "Integration-tier: drives the real adoption capture path (sup.adopt_sessions()) against a genuine on-disk state database whose exact thread row names gpt-5.6-luna while the argv launched gpt-5.6-terra, then changes that row to gpt-5.6-sol and drives the real wrap-up refresh (refresh_launch_profile_at_wrapup), asserting the persisted model_profile follows each change and that a later fresh-launch plan re-asserts -m gpt-5.6-sol.",
     "work_item": "overseer-yfwnb3"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A same-base Codex database model preserves the launch-token variant",
-    "test": "TODO",
-    "reason": "Ratified ahead of implementation. Integration-tier coverage is required because the same live profile-capture boundary must prove that a Codex state token cannot erase a same-base launch variant; ready plan child overseer-yfwnb3 owns replacing this TODO with the exact test it lands.",
+    "test": "tests.integration.test_codex_state_database_runtime_model.test_scenario_a_same_base_codex_database_model_preserves_the_launch_variant",
+    "reason": "Integration-tier: drives the same live profile-capture boundary with a state-database token naming the same base model as the launch argv variant gpt-5.6-sol[1m], and asserts the persisted model_profile retains the [1m] launch token rather than dropping the variant.",
     "work_item": "overseer-yfwnb3"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unavailable or mismatched Codex state row fails soft",
-    "test": "TODO",
-    "reason": "Ratified ahead of implementation. Integration-tier coverage is required to exercise the daemon's profile capture with unavailable SQLite and a wrong-repository row while proving supervision continues; ready plan child overseer-yfwnb3 owns replacing this TODO with the exact test it lands.",
+    "test": "tests.integration.test_codex_state_database_runtime_model.test_scenario_an_unavailable_or_mismatched_codex_state_row_fails_soft",
+    "reason": "Integration-tier: captures two tracks independently — one whose active state_2.sqlite is unreadable while a lower-numbered state_1.sqlite retains the exact row, one whose active-database row records another repository as its cwd — and asserts each profile falls back to its argv launch model, both adoptions still complete, and the stale lower-numbered token is never used.",
     "work_item": "overseer-yfwnb3"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Codex runtime-model capture never reads a rollout body",
-    "test": "TODO",
-    "reason": "Ratified ahead of implementation. Integration-tier coverage is required to drive exact live-session identity and database capture with a rollout-body reader that fails if called; ready plan child overseer-yfwnb3 owns replacing this TODO with the exact test it lands.",
+    "test": "tests.integration.test_codex_state_database_runtime_model.test_scenario_codex_runtime_model_capture_never_reads_a_rollout_body",
+    "reason": "Integration-tier: the live session id is present only in the filename of a real rollout held open by the carrier, the exact state-database row carries a usable token and the supervised cwd, and builtins.open/io.open are replaced with a guard that raises for any rollout- basename; the capture still records the state-database token, so no rollout body was opened.",
     "work_item": "overseer-yfwnb3"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An ambiguous rollout set cannot lend another Codex session's model",
-    "test": "TODO",
-    "reason": "Ratified ahead of implementation. Integration-tier coverage is required to exercise the established live-identity join across multiple rollout candidates and carrier boundaries; ready plan child overseer-yfwnb3 owns replacing this TODO with the exact test it lands.",
+    "test": "tests.integration.test_codex_state_database_runtime_model.test_scenario_an_ambiguous_rollout_set_cannot_lend_another_codex_model",
+    "reason": "Integration-tier: one carrier exposes two rollout candidates while a second carrier holds another session whose state row shares the same repository cwd; the capture uses only the indexed exact identity's row. The second half drives a carrier with no indexed candidate, asserting no session is adopted, codex_model_source declines to bind an identity-free source, and apply_runtime_model retains the argv launch model.",
     "work_item": "overseer-yfwnb3"
   },
   {

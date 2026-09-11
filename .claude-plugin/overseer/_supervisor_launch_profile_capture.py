@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from _seams import PidToOptionalBytes, PidToOptionalInt, PidToOptionalStr
+from _supervisor_launch_profile_sources import CodexModelSource
 
 __all__: list[str] = [
     "LaunchProfileProblem",
@@ -62,11 +63,12 @@ def _base_model(*, token: str) -> str:
 
 
 def _preferred_model(*, runtime: str | None, launch: str | None) -> str | None:
-    """Prefer the transcript token only when it names a DIFFERENT base model.
+    """Prefer the runtime token only when it names a DIFFERENT base model.
 
-    Where the transcript names the same base model as the launch source, the launch
+    Where the runtime source names the same base model as the launch source, the launch
     token is retained so a context-window or other launch-token variant is never
-    silently dropped by a source that does not carry it.
+    silently dropped by a source that does not carry it. One rule, applied to both
+    permitted runtime sources: the Claude transcript and the Codex state database.
     """
     if runtime is None:
         return launch
@@ -132,26 +134,54 @@ def _closed_profile(
     return {"harness": harness, "model": model, "wrapper": wrapper}
 
 
+def _codex_state_model(*, codex_identity: CodexModelSource | None) -> str | None:
+    """The Codex state database's token for an established identity, else ``None``.
+
+    ``None`` for every track with no single established live Codex session identity —
+    the specification's unusable case — which is exactly when :func:`codex_model_source`
+    declines to build one.
+    """
+    if codex_identity is None:
+        return None
+    return codex_identity.read(
+        codex_home=codex_identity.codex_home,
+        session_id=codex_identity.session_id,
+        cwd=codex_identity.cwd,
+    )
+
+
 def apply_runtime_model(
     *,
     profile: dict[str, str | None] | LaunchProfileProblem,
     harness: str,
     pid: int,
     runtime_model_of: PidToOptionalStr,
+    codex_identity: CodexModelSource | None = None,
 ) -> dict[str, str | None] | LaunchProfileProblem:
-    """Prefer the Claude transcript's runtime model over the captured launch model.
+    """Prefer a harness's runtime model over the launch model captured from the process.
 
-    For a Claude-harness track the session's conversation transcript is an additional
-    permitted source for the model: its latest top-level assistant-message token is
-    preferred over the launch model captured by :func:`read_launch_profile` when it
-    names a DIFFERENT base model (a mid-session ``/model`` switch), and ignored when it
-    names the same base model so a launch-token variant such as ``[1m]`` is retained.
-    The transcript source is fail-soft, and this is a no-op for any other harness (a
-    Codex rollout body is never read here) or for an errored profile.
+    Each harness has exactly ONE additional permitted source, and they do not cross. For
+    a CLAUDE track it is the session's conversation transcript (its latest top-level
+    assistant-message token); for a CODEX track it is ``threads.model`` in the live
+    session's own Codex state database, read for the exact established session identity
+    — never a rollout body, which is never opened. Either token is preferred over the
+    launch model when it names a DIFFERENT base model (a mid-session model change), and
+    ignored when it names the same base model so a launch-token variant such as ``[1m]``
+    is retained. Both sources are fail-soft, and this is a no-op for any other harness or
+    for an errored profile.
     """
-    if isinstance(profile, LaunchProfileProblem) or harness != "claude":
+    if isinstance(profile, LaunchProfileProblem):
         return profile
-    profile["model"] = _preferred_model(runtime=runtime_model_of(pid=pid), launch=profile["model"])
+    if harness == "claude":
+        profile["model"] = _preferred_model(
+            runtime=runtime_model_of(pid=pid),
+            launch=profile["model"],
+        )
+    elif harness == "codex":
+        profile["model"] = _preferred_model(
+            runtime=_codex_state_model(codex_identity=codex_identity),
+            launch=profile["model"],
+        )
     return profile
 
 

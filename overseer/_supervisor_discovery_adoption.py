@@ -19,6 +19,7 @@ from _supervisor_launch_profile import (
 )
 from _supervisor_launch_profile_sources import (
     LaunchProfileSource,
+    codex_model_source,
     live_profile_sources,
 )
 from _supervisor_statusline_model import rendered_statusline_model as statusline_model
@@ -55,6 +56,11 @@ def profile_for_adoption(
         harness=source.harness,
         pid=source.pid,
         runtime_model_of=sup.runtime_model_of,
+        codex_identity=codex_model_source(
+            source=source,
+            environ_of=sup.environ_of,
+            codex_home=sup.codex_home,
+        ),
     )
     if isinstance(profile, LaunchProfileProblem):
         sup.log(message=profile.message)
