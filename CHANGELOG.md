@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.5.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.5.0...v5.5.1) (2026-09-11)
+
+
+### Bug Fixes
+
+* bound the append-only overseer daemon history log ([3047201](https://github.com/thewoolleyman/livespec-overseer/commit/3047201c8e0bdac2d6f2a0d3bdd71ed58a6c0781))
+* gate over-bound history reclamation on the daemon singleton lock ([67f0a61](https://github.com/thewoolleyman/livespec-overseer/commit/67f0a6102e2d94133ab583d107bd7e6d1255d3ba))
+* have overseerd own its bounded history at startup ([f8a44fc](https://github.com/thewoolleyman/livespec-overseer/commit/f8a44fc7801135ef33216c065d67265a2f16b53e))
+
 ## [5.5.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.4.11...v5.5.0) (2026-09-11)
 
 
