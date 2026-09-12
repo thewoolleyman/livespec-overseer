@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.7.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.6.0...v5.7.0) (2026-09-12)
+
+
+### Features
+
+* **lpm:** selection lifecycle, failure reports, cache and leases (overseer-fb7usz) ([08cc8c8](https://github.com/thewoolleyman/livespec-overseer/commit/08cc8c825688f62e7c3180881efaf914cf59b1a9))
+
 ## [5.6.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.5.3...v5.6.0) (2026-09-12)
 
 
