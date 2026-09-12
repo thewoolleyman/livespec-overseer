@@ -88,6 +88,7 @@ def threshold(*, request: ThresholdRequest) -> ThresholdDecision:
             threshold=request.threshold,
             is_codex=obs.is_codex,
             blocker=_supervisor_threshold_expiry.busy_evidence_blocker(obs=obs),
+            compaction_latched_at=_supervisor_compaction.rearm_instant(compaction=obs.compaction),
         )
         _supervisor_observe.advance_condition(
             episode=obs.istate.winddown_starved_episode,

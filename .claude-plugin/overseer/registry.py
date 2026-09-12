@@ -86,6 +86,7 @@ from _registry_mapping_read import read_valid_mapping as read_valid_mapping
 from _registry_null_epic_audit import NullEpicAuditRow as NullEpicAuditRow
 from _registry_null_epic_audit import audit_null_epics as audit_null_epics
 from _registry_rounds import RoundRecord as RoundRecord
+from _registry_rounds import mark_compaction_rearmed as mark_compaction_rearmed
 from _registry_rounds import mark_expiry_notice_sent as mark_expiry_notice_sent
 from _registry_rounds import read_round_open_identity as read_round_open_identity
 from _registry_rounds import read_round_record as read_round_record
@@ -150,6 +151,7 @@ __all__: list[str] = [
     "file_lock",
     "join",
     "mark_codex_fresh_restart_resume_submitted",
+    "mark_compaction_rearmed",
     "mark_expiry_notice_sent",
     "norm",
     "plan_liveness_topic",

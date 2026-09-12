@@ -22,6 +22,28 @@ __all__: list[str] = [
 wrapup_message_provider = _default_wrapup_message
 
 
+def armed_bands(*, record: registry.RoundRecord, compaction_latched_at: float | None) -> set[int]:
+    """The bands this round counts as notified, as delivery stands RIGHT NOW.
+
+    Ordinarily that is simply what the round recorded. A COMPACTION re-arms them: the
+    bands it recorded were delivered to a context generation that has been thrown away
+    and summarized, so counting them as notified leaves the wind-down undelivered for
+    good — the round already holds its threshold band, and a latched track's band
+    selection is floored at that same threshold (`_supervisor_compaction.injection_ctx`),
+    so nothing lower is ever due either. That is the whole defect: a healthy-looking
+    post-compaction percentage, a standing obligation, and silence.
+
+    The re-arm is bounded to once per LATCH by the round's ``compaction_rearmed_at``,
+    which the caller records only after a re-armed delivery actually lands. Nothing is
+    cleared from the sidecar here: the round keeps its ``at`` (so the certification
+    floor a `ready` must beat does not move) and keeps its recorded bands (so a paste
+    that fails to submit is retried rather than being silently forgotten).
+    """
+    if compaction_latched_at is not None and record.compaction_rearmed_at != compaction_latched_at:
+        return set()
+    return set(record.bands)
+
+
 def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of these facts
     *,
     sup: Supervisor,
@@ -31,6 +53,7 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
     threshold: int,
     is_codex: bool = False,
     blocker: str | None = None,
+    compaction_latched_at: float | None = None,
 ) -> None:
     """Escalating, spam-proof wrap-up injection: warn once per crossed band.
 
@@ -54,14 +77,19 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
     ``blocker`` names concrete busy evidence the caller observed for this track in the
     same guarded re-read that authorized the paste; when set it is surfaced in the
     wrap-up so the session reaps the real obstacle before declaring ``ready``.
+
+    ``compaction_latched_at`` is the standing context-compaction latch's instant, or
+    None for an unlatched track. It RE-ARMS this round's bands exactly once (see
+    :func:`armed_bands`) so a compaction inside an already-warned round still reaches
+    the session; it authorizes nothing else, and the cardinal rule is untouched.
     """
     repo, topic = track.repo, track.topic
     bands = sorted({threshold} | {b for b in (40, 30, 20, 10) if b < threshold}, reverse=True)
-    notified = set(registry.read_notified_bands(repo=repo, topic=topic, stamp_path=sup.stamp_path))
+    round_record = registry.read_round_record(repo=repo, topic=topic, stamp_path=sup.stamp_path)
+    notified = armed_bands(record=round_record, compaction_latched_at=compaction_latched_at)
     due = [b for b in bands if eff_ctx <= b and b not in notified]
     if not due:
         return
-    round_record = registry.read_round_record(repo=repo, topic=topic, stamp_path=sup.stamp_path)
     opened_now = round_record.at is None or round_record.malformed_reason is not None
     state = signals.read_state(repo=repo, topic=topic)
     if (
@@ -121,6 +149,16 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
     ):
         for b in due:
             registry.add_notified_band(repo=repo, topic=topic, band=b, stamp_path=sup.stamp_path)
+        if compaction_latched_at is not None:
+            # Unconditionally, not only when this delivery re-armed anything: a round
+            # OPENED by a latched track resets its bands (and this mark with them), so
+            # leaving it unwritten there would re-arm again on the very next tick.
+            registry.mark_compaction_rearmed(
+                repo=repo,
+                topic=topic,
+                latched_at=compaction_latched_at,
+                stamp_path=sup.stamp_path,
+            )
         sup.log(message=f"injected wrap-up into {repo}::{topic} (ctx {eff_ctx}%, bands {due})")
     else:
         if opened_now:

@@ -70,6 +70,7 @@ __all__: list[str] = [
     "compaction_note",
     "injection_ctx",
     "observe_compaction",
+    "rearm_instant",
     "wind_down_owed",
 ]
 
@@ -192,6 +193,24 @@ def injection_ctx(*, compaction: CompactionTransition, eff_ctx: int, threshold: 
     if not compaction.restart_required:
         return eff_ctx
     return min(eff_ctx, threshold)
+
+
+def rearm_instant(*, compaction: CompactionTransition) -> float | None:
+    """The latch a re-armed wind-down delivery is keyed on, or None when unlatched.
+
+    A latch does not merely say the wind-down is owed; it says the bands the CURRENT
+    round has already notified were delivered to a generation that no longer exists. So
+    the injection path re-arms delivery inside that open round — see
+    :func:`injection_ctx` for why the floored percentage alone selects no band, and
+    `_supervisor_wrapup_injection` for the re-arm itself.
+
+    It is the latch INSTANT rather than a boolean because it identifies WHICH
+    compaction was answered, which is what lets the answer be recorded once and not
+    repeated every tick. It never re-dates: :func:`observe_compaction` keeps the FIRST
+    compaction's evidence while an obligation stands, so a second compaction inside one
+    standing latch does not re-arm a delivery the session has already been sent.
+    """
+    return compaction.record.latched_at
 
 
 def compaction_note(*, compaction: CompactionTransition) -> str | None:

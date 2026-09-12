@@ -12,6 +12,7 @@ from _registry_core import atomic_write, file_lock, norm, resolve_stamp_store, w
 
 __all__: list[str] = [
     "RoundRecord",
+    "mark_compaction_rearmed",
     "mark_expiry_notice_sent",
     "read_round_open_identity",
     "read_round_record",
@@ -27,6 +28,12 @@ class RoundRecord:
     session_identity: str | None
     malformed_reason: str | None
     expiry_notice_sent: bool = False
+    # The ``latched_at`` instant of the context compaction this round has ALREADY
+    # re-armed its wind-down delivery for, if any. A compaction re-arms the bands
+    # inside the round that is already open (see `_supervisor_wrapup_injection`), and
+    # this is what bounds that to once per LATCH rather than once per tick. The latch
+    # INSTANT rather than a flag, because it names WHICH compaction was answered.
+    compaction_rearmed_at: float | None = None
 
     @property
     def certification_floor(self) -> float | None:
@@ -115,6 +122,7 @@ def _dict_record(*, entry: dict[str, object]) -> RoundRecord:
             session_identity=session_identity,
         ),
         expiry_notice_sent=entry.get("expiry_notice_sent") is True,
+        compaction_rearmed_at=jsonio.as_float(value=entry.get("compaction_rearmed_at")),
     )
 
 
@@ -185,6 +193,37 @@ def record_ready_expiry(
         data[key] = entry
         atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")
         return True
+
+
+def mark_compaction_rearmed(
+    *,
+    repo: str,
+    topic: str,
+    latched_at: float,
+    stamp_path: str | os.PathLike[str] | None = None,
+) -> None:
+    """Record which compaction latch this round has already re-armed delivery for.
+
+    Written only AFTER a re-armed wind-down has actually landed in the pane, so a paste
+    that never submitted leaves the re-arm still due and the next guarded opportunity
+    retries it — the same fail-open shape the notified bands themselves have.
+
+    Round-scoped by construction, exactly like ``resume_pending`` and
+    ``expiry_notice_sent``: ``clear_injection_stamp`` deletes the whole key and
+    ``write_injection_stamp`` replaces the dict, so this can never outlive its round.
+    That matters in both directions — a round that OPENS on a latched track resets the
+    bands wholesale and must be re-marked, which is why the caller marks on every
+    successful latched delivery rather than only on the ones that cleared bands.
+    """
+    path = resolve_stamp_store(stamp_path=stamp_path)
+    with file_lock(target=path):
+        data = _read_stamp_data(path=path)
+        key = _stamp_key(repo=repo, topic=topic)
+        existing = jsonio.as_object(value=data.get(key))
+        entry: dict[str, object] = dict(existing) if existing is not None else {}
+        entry["compaction_rearmed_at"] = float(latched_at)
+        data[key] = entry
+        atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")
 
 
 def mark_expiry_notice_sent(
