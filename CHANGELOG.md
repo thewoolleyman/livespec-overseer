@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.9.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.9.1...v5.9.2) (2026-09-12)
+
+
+### Bug Fixes
+
+* **overseer:** stop completed prose impersonating the busy spinner (overseer-27bqgt) ([eed752f](https://github.com/thewoolleyman/livespec-overseer/commit/eed752f2edcf1fdaf3797ad6189c932a0828ea3b))
+
 ## [5.9.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.9.0...v5.9.1) (2026-09-12)
 
 
