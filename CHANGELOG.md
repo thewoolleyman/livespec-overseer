@@ -1,5 +1,15 @@
 # Changelog
 
+## [5.9.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.8.0...v5.9.0) (2026-09-12)
+
+
+### Features
+
+* **lpm:** legacy CLAUDE_CODE_OAUTH_TOKEN migration tooling (overseer-dykjx4) ([25b74fc](https://github.com/thewoolleyman/livespec-overseer/commit/25b74fcccb7b86a5ede721eb3af3607dc861c6bf))
+* **lpm:** the Anthropic setup-token validation probe (overseer-dykjx4) ([93671e7](https://github.com/thewoolleyman/livespec-overseer/commit/93671e707d4560c7d927feea487dcb14a5a21b67))
+* **lpm:** the isolated-run provisioning target adapter (overseer-dykjx4) ([ed333cd](https://github.com/thewoolleyman/livespec-overseer/commit/ed333cd646a74ae463f2b50c6d1a650776b764d1))
+* **lpm:** the provisioning command boundary and its receipt (overseer-dykjx4) ([30615fa](https://github.com/thewoolleyman/livespec-overseer/commit/30615fa6e4efed719afc7b93cd0a09e472abd480))
+
 ## [5.8.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.7.1...v5.8.0) (2026-09-12)
 
 
