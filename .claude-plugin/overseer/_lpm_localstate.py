@@ -46,6 +46,7 @@ __all__: list[str] = [
     "ensure_state_directory",
     "read_local_record",
     "read_local_text",
+    "write_local_bytes",
     "write_local_record",
     "write_local_text",
 ]
@@ -92,14 +93,19 @@ def read_local_record(*, path: Path, owner_uid: int) -> Result[object | None, Ma
     return Success(parsed.unwrap())
 
 
-def write_local_text(*, path: Path, text: str, owner_uid: int) -> Result[None, ManagerError]:
-    """Atomically replace one local file with `text`.
+def write_local_bytes(*, path: Path, payload: bytes, owner_uid: int) -> Result[None, ManagerError]:
+    """Atomically replace one local file with exactly `payload`.
 
     The replacement is staged in the destination's own directory and renamed over it, so
     a crash leaves either the prior bytes or the whole new content — never a torn suffix.
     The staged file is created mode `0600`; an EXISTING destination with broader
     permissions is refused rather than rewritten, because rewriting it would expose the
     new content through the very permissions that made the old one unsafe.
+
+    THE BYTES ARE WRITTEN VERBATIM. SPECIFICATION/contracts.md requires a provisioned
+    credential to reach its target with NO added encoding, framing or trailing newline, so
+    the payload crosses this boundary as bytes rather than as text something downstream
+    might re-encode or line-terminate on its behalf.
     """
     directory = ensure_state_directory(path=path.parent, owner_uid=owner_uid)
     if isinstance(directory, Failure):
@@ -107,7 +113,12 @@ def write_local_text(*, path: Path, text: str, owner_uid: int) -> Result[None, M
     defect = _file_defect(path=path, owner_uid=owner_uid)
     if defect is not None:
         return Failure(store_unavailable(message=defect))
-    return _atomic_replace(path=path, payload=text.encode("utf-8"))
+    return _atomic_replace(path=path, payload=payload)
+
+
+def write_local_text(*, path: Path, text: str, owner_uid: int) -> Result[None, ManagerError]:
+    """Atomically replace one local file with the UTF-8 encoding of `text`."""
+    return write_local_bytes(path=path, payload=text.encode("utf-8"), owner_uid=owner_uid)
 
 
 def write_local_record(*, path: Path, value: object, owner_uid: int) -> Result[None, ManagerError]:
