@@ -36,6 +36,11 @@ def _prereq():
     return importlib.import_module("_lpm_prereq")
 
 
+def _trust_fixture_owner(*, monkeypatch, module):
+    """Treat the invoking user as root only for synthetic safe-host fixtures."""
+    monkeypatch.setattr(module, "_ROOT_UID", os.geteuid())
+
+
 def _host(*, root: pathlib.Path, machine_id: str = f"{_MACHINE_ID}\n", mode: int = 0o444):
     (root / "proc/self").mkdir(parents=True)
     (root / "proc/self/stat").write_text("1 (init) S", encoding="utf-8")
@@ -57,8 +62,11 @@ def _bin(*, root: pathlib.Path, name: str = "op") -> pathlib.Path:
     return directory
 
 
-def test_every_base_prerequisite_present_yields_the_digest_and_the_retained_executable(tmp_path):
+def test_every_base_prerequisite_present_yields_the_digest_and_the_retained_executable(
+    tmp_path, monkeypatch
+):
     module = _prereq()
+    _trust_fixture_owner(monkeypatch=monkeypatch, module=module)
     _host(root=tmp_path)
     directory = _bin(root=tmp_path)
 
@@ -90,8 +98,11 @@ def test_an_absent_procfs_or_keyctl_refuses_before_anything_else_is_inspected(tm
     )
 
 
-def test_an_unsafe_machine_id_source_is_store_unavailable_by_type_owner_mode_or_content(tmp_path):
+def test_an_unsafe_machine_id_source_is_store_unavailable_by_type_owner_mode_or_content(
+    tmp_path, monkeypatch
+):
     module = _prereq()
+    _trust_fixture_owner(monkeypatch=monkeypatch, module=module)
 
     def _refusal(*, machine_id: str = f"{_MACHINE_ID}\n", mode: int = 0o444) -> str:
         root = tmp_path / f"host-{machine_id[:4]}-{mode}"
@@ -120,8 +131,9 @@ def test_an_unsafe_machine_id_source_is_store_unavailable_by_type_owner_mode_or_
     )
 
 
-def test_a_present_host_with_no_backend_executable_still_refuses(tmp_path):
+def test_a_present_host_with_no_backend_executable_still_refuses(tmp_path, monkeypatch):
     module = _prereq()
+    _trust_fixture_owner(monkeypatch=monkeypatch, module=module)
     _host(root=tmp_path)
     binary = tmp_path / "etc/machine-id-binary"
     binary.write_bytes(b"\xff\xfe")
@@ -169,9 +181,9 @@ def test_a_symlinked_directory_or_non_root_owned_machine_id_is_refused(tmp_path)
     )
     if os.geteuid() == 0:
         os.chown(real, 1, 1)
-        assert module.machine_id_defect(path=real).failure().message == (
-            "/etc/machine-id is not root-owned"
-        )
+    assert module.machine_id_defect(path=real).failure().message == (
+        "/etc/machine-id is not root-owned"
+    )
 
 
 def test_the_backend_executable_is_the_first_on_the_path_resolved_through_its_symlinks(tmp_path):
