@@ -87,11 +87,25 @@ _WAITING_RE = re.compile(r"Waiting for \d+ background", re.IGNORECASE)
 # ``✻ Brewed for 25s`` (no parenthetical, no token counter, and `for Ns` rather
 # than the `· Ns ·` dot-delimited elapsed form). Glyph-independent, so a
 # rotating spinner glyph can't break it.
+#
+# The hook-phase alternative is NARROWED to the `hook`/`hooks` the live indicator
+# always names inside that same parenthetical (`overseer-27bqgt`, 2026-09-12). It
+# used to be a prose-wide ``\(\s*running\b``, and a COMPLETED assistant sentence
+# reading ``(running gqmtwa.4, as designed)`` matched it — so a structurally idle
+# pane (empty prompt, Claude registry `idle`, watcher stopped) classified BUSY for
+# as long as that historical text stayed on screen. That is NOT the harmless
+# direction the docstring below describes: the active-decision `working` branch
+# PRECEDES the settled-idle ready branch, so the false busy HELD a valid restart
+# authorization until `READY_ARM_MAX_AGE` rewrote it as `ready-expired`, and
+# re-declaring `ready` reproduced the same hold. Prose can still contrive a match
+# by naming a hook inside a parenthetical; the alternative is NARROWED rather than
+# deleted because a hook phase can carry no OTHER evidence (no dot-delimited
+# elapsed, no token counter), and losing a real busy read is the worse direction.
 _BUSY_ACTIVE_RE = re.compile(
     r"esc to interrupt"  # kept: older/other layouts may still show it
     r"|[↓↑]\s*[\d.]+\s*k?\s*tokens"  # streaming token counter (active only)
     r"|·\s*\d+\s*s\s*[·)]"  # `· 24s ·` / `· 24s)` dot-delimited elapsed
-    r"|\(\s*running\b",  # `(running … hook…` phase
+    r"|\(\s*running\b[^)\n]*\bhooks?\b",  # `(running stop hooks…` phase
     re.IGNORECASE,
 )
 
