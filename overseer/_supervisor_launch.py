@@ -248,7 +248,8 @@ def submit_prompt_result(
       started responding" is (verified live 2026-07-17 — busy within ~1s of Enter).
       Caveat (adversarial review 2026-07-17): the Codex confirm reads `is_busy` over
       the whole capture, so a payload the daemon PASTES must not itself contain a
-      busy-marker substring (`esc to interrupt`, `· Ns ·`, `↓ N tokens`, `(running`),
+      busy-marker substring (`esc to interrupt`, `· Ns ·`, `↓ N tokens`,
+      `(running … hooks…`),
       or an UNSUBMITTED payload sitting in the composer would false-read as submitted.
       The current wrap-up / nudge / resume texts are all clear of these; keep them so.
 
