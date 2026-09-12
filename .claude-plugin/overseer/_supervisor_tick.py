@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import _supervisor_archived_live
 import _supervisor_attention
 import _supervisor_discovery
 import _supervisor_dispatch_quiet
@@ -44,7 +45,11 @@ def run_tick(*, sup: Supervisor, act: bool = True) -> list[RowView]:
             row = _supervisor_mapping_health.apply_mapping_health(
                 track=track, row=row, null_added_at_keys=null_added_at_keys
             )
-        views.append(row)
+        # Projected AFTER evaluation, never inside it: retention is a fact about why the
+        # row is in this tick's set at all, not a judgment the cascade makes about the
+        # track. `build_rows` above refreshed the set both acting and read-only, so the
+        # `list` table and the daemon's snapshot mark the same rows.
+        views.append(_supervisor_archived_live.mark_row(row=row, retained=sup.archived_live))
         supervisor_view = _supervisor_pair.evaluate_supervisor_pair(sup=sup, track=track, act=act)
         if supervisor_view is not None:
             views.append(supervisor_view)

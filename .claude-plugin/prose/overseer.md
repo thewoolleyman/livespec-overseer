@@ -650,6 +650,17 @@ so it is never stale.
 - The mapping survives the overseer process; a fresh `overseerd` re-attaches its
   table to the same tracks with no hand-re-registration, and `start` re-launches
   any whose session is gone.
+- **Archiving a plan does NOT terminate supervision of its live session**
+  (maintainer ruling 2026-09-12). Archival ends live-plan *discovery*; a
+  previously mapped plan whose directory has moved under `plan/archive/` stays in
+  the table and the status snapshot, and stays eligible for the ordinary
+  context/wrap-up/declaration/restart cascade with its `epic` locator and launch
+  profile intact, for as long as its recorded tmux session exists — a successor
+  the daemon launches included. The row is marked as retained on purpose
+  (`archived-live-retained` in the log, `archived_live: true` in the snapshot), so
+  do NOT report it as a stale unarchived plan row. The mapping and its derivable
+  sidecars are cleaned up only once the recorded session is genuinely gone; an
+  archived plan that was never mapped, with no live session, shows no row at all.
 
 ---
 

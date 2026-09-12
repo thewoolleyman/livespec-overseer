@@ -20,6 +20,7 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING
 
+import _supervisor_archived_live
 import _supervisor_codex_adoption
 import claude_sessions
 import registry
@@ -158,6 +159,13 @@ def build_rows(*, sup: Supervisor, act: bool = True) -> list[registry.Track]:
     # agree on which topics must be repo-qualified. Set ABOVE the `not act` return so
     # the read-only `list` path derives display names identically.
     sup.colliding_topics = registry.colliding_topics(discovered=discovered)
+    # Re-admit every previously-mapped plan whose directory is archived but whose recorded
+    # runtime is still live (maintainer ruling 2026-09-12). Deliberately AFTER the
+    # collision set is computed from LIVE discovery alone: a retained row already carries
+    # its own recorded `tmux` name, so letting an archived topic into the collision set
+    # could only rename some OTHER repo's live session. Run on BOTH paths so the
+    # read-only `list` shows the same rows the acting daemon supervises.
+    discovered = _supervisor_archived_live.extend_discovery(sup=sup, discovered=discovered, act=act)
     if not act:
         return registry.join(
             discovered=discovered, mapping=registry.read_valid_mapping(store_path=sup.store_path)
