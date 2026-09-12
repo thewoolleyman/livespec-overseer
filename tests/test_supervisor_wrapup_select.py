@@ -21,6 +21,7 @@ def _extras() -> RowExtras:
         observed_session_identity=None,
         added_at=None,
         model_profile=None,
+        context_compaction=None,
     )
 
 

@@ -16,6 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import _supervisor_compaction
 import _supervisor_ready
 import claude_sessions
 import registry
@@ -325,6 +326,17 @@ def observe(
         runtime=runtime,
         declared=declared,
     )
+    # The context GENERATION fold, beside the reading it folds. It is pure here — the
+    # transition is computed, never written — because `observe` also runs on the
+    # read-only `list` path and on the guarded pre-paste re-reads. `evaluate` persists
+    # it once per acting tick (`_supervisor_evaluate_observation`), on exactly the same
+    # terms as the observed session identity beside it.
+    compaction = _supervisor_compaction.observe_compaction(
+        stored=track.context_compaction,
+        session_identity=round_obs.live_session_identity,
+        current_ctx=current_ctx,
+        now=now,
+    )
     return Observation(
         capture=capture,
         busy=busy,
@@ -343,6 +355,7 @@ def observe(
         injection_stamp=round_obs.record.at,
         round_record=round_obs.record,
         session_identity=round_obs.session_identity,
+        compaction=compaction,
         ready_uncertifiable_reason=round_obs.ready_uncertifiable_reason,
         istate=istate,
         observed_at=now,

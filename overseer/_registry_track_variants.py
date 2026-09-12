@@ -8,6 +8,8 @@ from typing import Literal, TypeAlias, overload
 
 __all__: list[str] = [
     "LEGACY_UNRESOLVED_EPIC_PREFIX",
+    "NO_CONTEXT_COMPACTION",
+    "ContextCompaction",
     "ModelProfile",
     "PlanTrack",
     "SupervisorSeat",
@@ -37,6 +39,56 @@ def unresolved_plan_epic(*, topic: str) -> str:
 
 def epic_is_resolved(*, epic: str | None) -> bool:
     return epic is not None and not epic.startswith(LEGACY_UNRESOLVED_EPIC_PREFIX)
+
+
+@dataclass(frozen=True, kw_only=True)
+class ContextCompaction:
+    """What this daemon knows about a track's context GENERATION, and its latch.
+
+    A supervised session's remaining-context percentage falls monotonically inside one
+    context generation. It can only RISE by the generation being thrown away and
+    replaced with a summary — an in-place compaction — and the maintainer ruled
+    (2026-09-12) that such a summarized state is a FAILED generation rather than a
+    clean continuation. So a rise observed under an unchanged live session identity is
+    the compaction, and ``latched_at`` records that the track now owes a cooperative
+    wind-down and a fresh-session restart however healthy its percentage later reads.
+
+    ``watermark_ctx`` is the LOWEST reading taken under ``session_identity`` since the
+    record was opened — the floor a later reading is compared against. It is kept (and
+    the whole record is kept) in the mapping store rather than in memory, because the
+    obligation has to outlive a daemon bounce: a latch a restart resets would be no
+    latch at all on exactly the long-lived tracks this exists for.
+
+    ``session_identity`` is the record's OWNER, and it is what clears the latch. A
+    reading taken under a DIFFERENT identity is a different generation entirely — the
+    successor of a completed restart — so the record is reopened against it with no
+    latch, which is why "a new session identity with a replenished window" is a
+    completed restart and not a compaction. See `_supervisor_compaction`, which owns
+    the transition; this record only holds it.
+    """
+
+    session_identity: str | None = None
+    watermark_ctx: int | None = None
+    latched_at: float | None = None
+    from_ctx: int | None = None
+    to_ctx: int | None = None
+
+    @property
+    def restart_required(self) -> bool:
+        """Whether a detected compaction still owes a fresh-session restart.
+
+        A durable OBLIGATION, never an authorization: it decides that the wind-down is
+        still owed, and nothing here weakens the cardinal rule that only the session's
+        own fresh `ready` may reach the restart surface.
+        """
+        return self.latched_at is not None
+
+
+# The record for a track no compaction evidence has ever been taken on. Frozen, so one
+# shared instance is safe as a default — and the default deliberately claims NOTHING:
+# no owner, no watermark, no latch, so a construction that forgets to supply a record
+# can neither latch a restart nor clear one.
+NO_CONTEXT_COMPACTION = ContextCompaction()
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -89,6 +141,10 @@ class UnassignedPlan:
     def model_profile(self) -> None:
         return None
 
+    @property
+    def context_compaction(self) -> None:
+        return None
+
     @classmethod
     def make(cls, *, repo: str, topic: str) -> UnassignedPlan:
         return cls(repo=repo, topic=topic)
@@ -107,6 +163,7 @@ class PlanTrack:
     observed_session_identity: str | None = None
     added_at: str | None = None
     model_profile: ModelProfile | None = None
+    context_compaction: ContextCompaction | None = None
     kind: Literal["plan"] = field(default="plan", init=False)
 
     def __post_init__(self) -> None:
@@ -138,6 +195,7 @@ class SupervisorSeat:
     observed_session_identity: str | None = None
     added_at: str | None = None
     model_profile: ModelProfile | None = None
+    context_compaction: ContextCompaction | None = None
     kind: Literal["supervisor"] = field(default="supervisor", init=False)
 
     def __post_init__(self) -> None:

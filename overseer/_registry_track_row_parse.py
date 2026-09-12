@@ -9,6 +9,7 @@ from _registry_track_variants import (
     MISSING_EPIC,
     MISSING_SUPERVISED_TOPIC,
     MISSING_TMUX,
+    ContextCompaction,
     ModelProfile,
     PlanTrack,
     SupervisorSeat,
@@ -20,6 +21,7 @@ from _signals_topics import reserved_worker_kind, topic_supervised_worker
 
 __all__: list[str] = [
     "RowExtras",
+    "optional_context_compaction",
     "optional_model_profile",
     "require_str",
     "track_from_mapping_row",
@@ -54,6 +56,16 @@ def optional_model_profile(*, value: object) -> ModelProfile | None:
     return cast("ModelProfile", profile)
 
 
+def optional_context_compaction(*, value: object) -> ContextCompaction | None:
+    """Accept an ALREADY-TYPED compaction record, or nothing.
+
+    The direct-construction twin of :func:`_registry_row_fields.context_compaction_from_row`:
+    ``Track(**kwargs)`` is handed values by callers that already hold the record, so
+    there is nothing to decode here and anything else is not a record.
+    """
+    return value if isinstance(value, ContextCompaction) else None
+
+
 @dataclass(frozen=True, kw_only=True)
 class RowExtras:
     resume: str | None
@@ -63,6 +75,7 @@ class RowExtras:
     observed_session_identity: str | None
     added_at: str | None
     model_profile: ModelProfile | None
+    context_compaction: ContextCompaction | None
 
 
 def _row_kind(*, row: dict[str, object], topic: str) -> str:
@@ -93,6 +106,7 @@ def track_from_mapping_row(
             observed_session_identity=extras.observed_session_identity,
             added_at=extras.added_at,
             model_profile=extras.model_profile,
+            context_compaction=extras.context_compaction,
         )
     if kind == "supervisor":
         tmux = require_str(row=row, key="tmux")
@@ -113,6 +127,7 @@ def track_from_mapping_row(
             observed_session_identity=extras.observed_session_identity,
             added_at=extras.added_at,
             model_profile=extras.model_profile,
+            context_compaction=extras.context_compaction,
         )
     raise ValueError(f"unknown_kind:{kind}")
 
@@ -156,6 +171,9 @@ else:
                     ),
                     added_at=optional_str(row=kwargs, key="added_at"),
                     model_profile=optional_model_profile(value=kwargs.get("model_profile")),
+                    context_compaction=optional_context_compaction(
+                        value=kwargs.get("context_compaction")
+                    ),
                 ),
             )
 

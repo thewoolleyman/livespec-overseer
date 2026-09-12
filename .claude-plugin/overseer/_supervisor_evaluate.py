@@ -93,8 +93,10 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
     # precedence order. Unpacked into locals so each guard reads the same way
     # it always has.
     obs = _supervisor_observe.observe(sup=sup, track=track, session=session, target=target, key=key)
-    _supervisor_evaluate_observation.record_observed_session_identity(
-        sup=sup, track=track, obs=obs, act=act
+    _supervisor_evaluate_observation.record_tick_observations(
+        request=_supervisor_evaluate_observation.RecordObservationRequest(
+            sup=sup, track=track, obs=obs, session=session, pane=target, act=act
+        )
     )
     capture, busy, gate, idle = obs.capture, obs.busy, obs.gate, obs.idle
     codex_fallback = obs.codex_fallback
@@ -143,6 +145,7 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
             malformed=malformed,
             blocked=blocked,
             ctx_stale_age=ctx_stale_age,
+            compaction=obs.compaction,
             act=act,
         )
     )

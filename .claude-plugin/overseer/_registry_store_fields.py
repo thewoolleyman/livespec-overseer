@@ -5,15 +5,18 @@ from __future__ import annotations
 import os
 
 from _registry_core import (
+    ContextCompaction,
     file_lock,
     norm,
     resolve_store,
     warn,
 )
+from _registry_row_fields import context_compaction_row_value
 from _registry_rows_io import read_rows, write_rows
 from _registry_store_rows import validated_row
 
 __all__: list[str] = [
+    "record_context_compaction",
     "record_derived_epic",
     "record_model_profile",
     "record_observed_session_identity",
@@ -84,6 +87,31 @@ def record_observed_session_identity(
         topic=topic,
         field="observed_session_identity",
         value=session_identity,
+        store_path=store_path,
+    )
+
+
+def record_context_compaction(
+    *,
+    repo: str,
+    topic: str,
+    record: ContextCompaction,
+    store_path: str | os.PathLike[str] | None = None,
+) -> bool:
+    """Persist this track's context-generation watermark and compaction latch.
+
+    DURABLE on purpose. The obligation a latch records has to outlive a daemon bounce:
+    the in-memory ``InjectState`` is discarded by a restart, and a latch discarded with
+    it would be no latch at all on exactly the long-running tracks that compact. Like
+    every field-scoped update here it writes only when the value actually changed, so a
+    steady-state tick — where the watermark is already the lowest reading — never
+    rewrites the store.
+    """
+    return _update_matching_field(
+        repo=repo,
+        topic=topic,
+        field="context_compaction",
+        value=context_compaction_row_value(record=record),
         store_path=store_path,
     )
 

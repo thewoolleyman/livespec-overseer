@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import _supervisor_compaction
 import _supervisor_liveness
 import registry
 import signals
@@ -39,6 +40,7 @@ class PrepareNotesRequest:
     malformed: bool
     blocked: str | None
     ctx_stale_age: float | None
+    compaction: _supervisor_compaction.CompactionTransition
     act: bool
 
 
@@ -51,6 +53,14 @@ def prepare_evaluation_notes(*, request: PrepareNotesRequest) -> EvaluationNotes
     # the SOLE reason the pane isn't idle, so the operator can see WHY.
     note: str | None = _supervisor_liveness.blocked_note(
         blocked=request.blocked, blocked_age_label=blocked_age_label
+    )
+    # A latched compaction rides the note rather than the status, because the status it
+    # produces IS the ordinary escalating wind-down and must stay that way — the latch
+    # changes why the wind-down is owed, never which protocol runs. Appended rather than
+    # substituted so a `blocked:` reason, which is a human's business, still leads.
+    note = _supervisor_liveness.append_note(
+        note=note,
+        extra=_supervisor_compaction.compaction_note(compaction=request.compaction),
     )
     ctx_stale_note = (
         f"ctx unreadable ({_supervisor_liveness.age_label(seconds=request.ctx_stale_age)})"

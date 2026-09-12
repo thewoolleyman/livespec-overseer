@@ -228,6 +228,19 @@ def test_tick_writes_round_trippable_status_snapshot(*, tmp_path, monkeypatch):
             "target_session": session,
         },
         "model_profile": None,
+        # ADDITIVE, like the ctx-provenance keys above and for the same reason: a
+        # reader that does not know this key ignores it. A record is OPENED the first
+        # time the daemon can pair a live session identity with a reading, so a
+        # never-compacted track carries one with no latch rather than a null — which
+        # is what makes `restart_required: false` a measurement rather than a default.
+        "context_compaction": {
+            "restart_required": False,
+            "session_identity": "claude:101:12345:topic",
+            "latched_at": None,
+            "from_ctx": None,
+            "to_ctx": None,
+            "watermark_ctx": 73,
+        },
         "restart_model": {
             "verdict": "unknown",
             "reason": "default-unreadable",

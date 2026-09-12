@@ -552,6 +552,25 @@ are fixed by construction:
      void. A human clear is only the remedy for a track that has genuinely never been
      in a round, has a malformed round record, or shows a different/undeterminable
      session identity.
+   - **`context-compaction-latched`** — the daemon caught a track's context being
+     **compacted in place**: its remaining-context percentage ROSE under an unchanged
+     live session identity. Maintainer ruling 2026-09-12: a compacted generation is a
+     **failed, exhausted** one, not a recovery, because its summarized state is not
+     acceptable as clean continuation. So the track stays **restart-required** for
+     both runtimes — Codex and Claude alike — however healthy its percentage later
+     reads, until it completes the ordinary wind-down and a fresh-session restart
+     succeeds. The alert names the session identity and the `from%` → `to%`
+     transition; a later `context-compaction latch cleared` line says the successor
+     was adopted and the obligation is discharged.
+
+     **Relay it as a defect report, not as an action item.** The daemon keeps
+     delivering the ordinary escalating wrap-up and still restarts on nothing but a
+     fresh certifiable `ready` — the latch changes WHY the wind-down is owed, never
+     which protocol runs, and it never licences killing a busy or undeclared session.
+     Its row renders as an ordinary `warned`, which is exactly why this alert exists:
+     without it an operator seeing "warned at 82% context" would reasonably read the
+     daemon as broken. The same evidence rides the row's note and the status
+     snapshot's `context_compaction` object.
    - **malformed state file** — the session wrote a value that is not one of
      `ready` / `blocked` / `winding-down`. It is treated as **no declaration** and
      reported; relay it the same way.
