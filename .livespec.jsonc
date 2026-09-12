@@ -198,23 +198,6 @@
       // Bootstrap placeholder; the first successful cross-repo fan-out
       // rewrites this to a livespec release tag.
       "pinned": "v0.39.0"
-    },
-    // Network decision for overseer-hgq4wi.19: a bounded GitHub workflow-runs
-    // query for the release-tag lane is permitted because the operator surface is
-    // where the maintainer already looks and the scheduled CI detector is
-    // deliberately not a transport. A caller that cannot measure emits an UNKNOWN
-    // attention item and includes the last successful local cache timestamp when
-    // present; it never treats an unreachable forge as healthy.
-    //
-    // NO READER as of the foreman-seat retirement (SPECIFICATION v047): the key's
-    // only consumer was the deleted foreman gather loop. `overseer/release_lane_watch.py`
-    // and `scripts/release-lane-watch.py` survive and take their bounds by argument,
-    // so this block is retained as the recorded network decision, not as live config.
-    "release_lane_watch": {
-      "enabled": true,
-      "workflow": "release-tag.yml",
-      "label": "release-tag",
-      "cache_path": "tmp/overseer/release-lane-watch.json"
     }
   },
   "livespec-orchestrator-beads-fabro": {
