@@ -15,7 +15,7 @@ from typing import cast
 import registry
 from _supervisor_launch_profile_capture import (
     LaunchProfileProblem,
-    apply_runtime_model,
+    complete_launch_profile,
     read_launch_profile,
 )
 from _supervisor_statusline_model import rendered_statusline_model
@@ -28,10 +28,10 @@ __all__: list[str] = [
     "ClaudeLaunchPlan",
     "CodexLaunchPlan",
     "LaunchProfileProblem",
-    "apply_runtime_model",
     "claude_launch_plan",
     "codex_fresh_launch_plan",
     "codex_launch_plan",
+    "complete_launch_profile",
     "preflight_launch_command",
     "read_launch_profile",
     "rendered_statusline_model",

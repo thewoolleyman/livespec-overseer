@@ -402,7 +402,7 @@ def test_scenario_an_ambiguous_rollout_set_cannot_lend_another_codex_model(*, tm
         )
         is None
     )
-    assert capture.apply_runtime_model(
+    assert capture.complete_launch_profile(
         profile={"harness": "codex", "model": "gpt-5.6-terra", "wrapper": None},
         harness="codex",
         pid=CARRIER_PID,
@@ -637,7 +637,7 @@ def test_codex_model_source_binds_an_established_identity_and_the_carriers_home(
     assert bound.cwd == str(tmp_path)
     assert bound.codex_home == "/carrier/.codex"
     assert (
-        capture.apply_runtime_model(
+        capture.complete_launch_profile(
             profile={"harness": "codex", "model": "gpt-5.6-terra", "wrapper": None},
             harness="codex",
             pid=CARRIER_PID,
@@ -669,12 +669,12 @@ def test_codex_model_source_is_none_without_a_complete_established_identity(*, t
     assert bind(session_id=SESSION_ID, cwd=str(tmp_path)) is not None
 
 
-# --- apply_runtime_model: the two sources stay apart --------------------------------
+# --- complete_launch_profile: the two sources stay apart --------------------------------
 
 
-def test_apply_runtime_model_leaves_a_third_harness_untouched():
+def test_completing_a_profile_leaves_a_third_harness_model_untouched():
     """Neither permitted source applies to a harness that declares neither."""
-    profile = capture.apply_runtime_model(
+    profile = capture.complete_launch_profile(
         profile={"harness": "pi", "model": "macmini/qwen3", "wrapper": None},
         harness="pi",
         pid=CARRIER_PID,
@@ -701,7 +701,7 @@ def test_the_codex_source_does_not_change_claude_capture(*, tmp_path):
         read=lambda *, codex_home, session_id, cwd: "gpt-5.6-leaked",
     )
 
-    profile = capture.apply_runtime_model(
+    profile = capture.complete_launch_profile(
         profile={"harness": "claude", "model": "claude-opus-4-8[1m]", "wrapper": None},
         harness="claude",
         pid=CARRIER_PID,

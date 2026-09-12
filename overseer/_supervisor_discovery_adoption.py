@@ -14,7 +14,7 @@ from _supervisor_codex_adoption import codex_host_readers
 from _supervisor_config import iso_now
 from _supervisor_launch_profile import (
     LaunchProfileProblem,
-    apply_runtime_model,
+    complete_launch_profile,
     read_launch_profile,
 )
 from _supervisor_launch_profile_sources import (
@@ -44,7 +44,7 @@ def profile_for_adoption(
 ) -> dict[str, str | None] | None:
     if source is None:
         return None
-    profile = apply_runtime_model(
+    profile = complete_launch_profile(
         profile=read_launch_profile(
             pid=source.pid,
             harness=source.harness,

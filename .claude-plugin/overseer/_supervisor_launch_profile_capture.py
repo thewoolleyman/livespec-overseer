@@ -11,7 +11,7 @@ from _supervisor_launch_profile_sources import CodexModelSource
 
 __all__: list[str] = [
     "LaunchProfileProblem",
-    "apply_runtime_model",
+    "complete_launch_profile",
     "read_launch_profile",
 ]
 
@@ -125,12 +125,18 @@ def _wrapper_from_local_router(
     )
 
 
-def _closed_profile(
+def _candidate_profile(
     *,
     harness: str,
-    model: str,
+    model: str | None,
     wrapper: str | None,
 ) -> dict[str, str | None]:
+    """A profile CANDIDATE: the harness and wrapper facts, with a possibly-absent model.
+
+    The model is the only half that can still be supplied by another source, so it is the
+    only half allowed to arrive absent. Harness and wrapper are read from the proven live
+    process and are final by the time this is built.
+    """
     return {"harness": harness, "model": model, "wrapper": wrapper}
 
 
@@ -150,15 +156,30 @@ def _codex_state_model(*, codex_identity: CodexModelSource | None) -> str | None
     )
 
 
-def apply_runtime_model(
+def _runtime_model(
     *,
-    profile: dict[str, str | None] | LaunchProfileProblem,
+    harness: str,
+    pid: int,
+    runtime_model_of: PidToOptionalStr,
+    codex_identity: CodexModelSource | None,
+) -> str | None:
+    """The ONE additional model source this harness permits, or ``None``."""
+    if harness == "claude":
+        return runtime_model_of(pid=pid)
+    if harness == "codex":
+        return _codex_state_model(codex_identity=codex_identity)
+    return None
+
+
+def complete_launch_profile(
+    *,
+    profile: dict[str, str | None],
     harness: str,
     pid: int,
     runtime_model_of: PidToOptionalStr,
     codex_identity: CodexModelSource | None = None,
 ) -> dict[str, str | None] | LaunchProfileProblem:
-    """Prefer a harness's runtime model over the launch model captured from the process.
+    """Close a candidate against the harness's runtime model, or reject it as unusable.
 
     Each harness has exactly ONE additional permitted source, and they do not cross. For
     a CLAUDE track it is the session's conversation transcript (its latest top-level
@@ -167,22 +188,37 @@ def apply_runtime_model(
     — never a rollout body, which is never opened. Either token is preferred over the
     launch model when it names a DIFFERENT base model (a mid-session model change), and
     ignored when it names the same base model so a launch-token variant such as ``[1m]``
-    is retained. Both sources are fail-soft, and this is a no-op for any other harness or
-    for an errored profile.
+    is retained. Both sources are fail-soft, and any other harness has no second source
+    at all.
+
+    **The rejection lives HERE, after the second source has spoken, and that placement is
+    the whole point (`overseer-phz7te`).** It used to live in :func:`read_launch_profile`,
+    which refused the moment argv and the environ carried no model token — so a process
+    launched BARE was declared unreadable before the runtime source it was entitled to
+    was ever consulted. Measured live 2026-09-12: a bare Codex carrier with a perfectly
+    usable exact-identity ``threads.model`` row emitted ``has no model token``, the
+    track's stale Claude profile was therefore never replaced, and 95 consecutive restart
+    attempts refused because harness ``claude`` cannot relaunch a Codex pane. A candidate
+    is only unusable once BOTH sources have failed to name a model.
     """
-    if isinstance(profile, LaunchProfileProblem):
-        return profile
-    if harness == "claude":
-        profile["model"] = _preferred_model(
-            runtime=runtime_model_of(pid=pid),
-            launch=profile["model"],
+    model = _preferred_model(
+        runtime=_runtime_model(
+            harness=harness,
+            pid=pid,
+            runtime_model_of=runtime_model_of,
+            codex_identity=codex_identity,
+        ),
+        launch=profile["model"],
+    )
+    if model is None:
+        return LaunchProfileProblem(
+            message=(
+                f"launch profile for pid {pid} has no usable model token: neither the "
+                f"{harness} launch argv/environment nor its permitted runtime model "
+                "source named one"
+            )
         )
-    elif harness == "codex":
-        profile["model"] = _preferred_model(
-            runtime=_codex_state_model(codex_identity=codex_identity),
-            launch=profile["model"],
-        )
-    return profile
+    return {**profile, "model": model}
 
 
 def read_launch_profile(
@@ -193,19 +229,19 @@ def read_launch_profile(
     cmdline_of: PidToOptionalBytes,
     environ_of: PidToOptionalBytes,
     ppid_of: PidToOptionalInt,
-) -> dict[str, str | None] | LaunchProfileProblem:
-    """Read a live process's restart launch profile from ``/proc`` seams.
+) -> dict[str, str | None]:
+    """Assemble a launch-profile CANDIDATE for a live process from ``/proc`` seams.
 
-    This captures the LAUNCH model (``--model`` in argv, else ``ANTHROPIC_MODEL``). A
-    Claude track's runtime model — the model it is actually running after a mid-session
-    ``/model`` switch — is layered on by :func:`apply_runtime_model` at the capture
-    call sites.
+    This captures the harness and wrapper facts in full, plus the LAUNCH model
+    (``--model`` in argv, else ``ANTHROPIC_MODEL``). A process launched BARE names no
+    launch model, which is not an error here: the runtime model — the model the session
+    is actually running after a mid-session ``/model`` switch, and the only model a bare
+    launch ever had — is layered on by :func:`complete_launch_profile`, which is also
+    where a candidate neither source could complete is rejected.
     """
     argv = _split_nul_bytes(data=cmdline_of(pid=pid))
     env = _env_from_bytes(data=environ_of(pid=pid))
-    model = _model_from_argv(argv=argv) or env.get("ANTHROPIC_MODEL")
-    if not model:
-        return LaunchProfileProblem(message=f"launch profile for pid {pid} has no model token")
+    model = _model_from_argv(argv=argv) or env.get("ANTHROPIC_MODEL") or None
     wrapper = (
         _wrapper_from_local_router(
             env=env,
@@ -217,4 +253,4 @@ def read_launch_profile(
         if _non_anthropic_base_url(base_url=env.get("ANTHROPIC_BASE_URL"))
         else None
     )
-    return _closed_profile(harness=harness, model=model, wrapper=wrapper)
+    return _candidate_profile(harness=harness, model=model, wrapper=wrapper)
