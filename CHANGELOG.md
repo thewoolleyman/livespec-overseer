@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.9.4](https://github.com/thewoolleyman/livespec-overseer/compare/v5.9.3...v5.9.4) (2026-09-12)
+
+
+### Bug Fixes
+
+* relocate release-lane watcher to shared workflow ([56fcbcf](https://github.com/thewoolleyman/livespec-overseer/commit/56fcbcfa3241cd2f7e5f27730acefa09b9816511))
+
 ## [5.9.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.9.2...v5.9.3) (2026-09-12)
 
 
