@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.9.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.9.0...v5.9.1) (2026-09-12)
+
+
+### Bug Fixes
+
+* **overseer:** re-arm the post-compaction wind-down inside the open round (overseer-hmkg3i) ([63ce15c](https://github.com/thewoolleyman/livespec-overseer/commit/63ce15c2bcb6cde672966fba9e9bd8fd097589fc))
+
 ## [5.9.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.8.0...v5.9.0) (2026-09-12)
 
 
