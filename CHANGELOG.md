@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.7.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.7.0...v5.7.1) (2026-09-12)
+
+
+### Bug Fixes
+
+* **overseer:** keep archived-plan sessions supervised while live (overseer-esvzyp) ([a1a7ff8](https://github.com/thewoolleyman/livespec-overseer/commit/a1a7ff80f0db33020b1e182369db79a47a17a11f))
+
 ## [5.7.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.6.0...v5.7.0) (2026-09-12)
 
 
