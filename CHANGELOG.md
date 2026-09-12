@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.8.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.7.1...v5.8.0) (2026-09-12)
+
+
+### Features
+
+* **overseer:** latch a detected context compaction as restart-required work ([6795a40](https://github.com/thewoolleyman/livespec-overseer/commit/6795a406c3d036572d125223f71fea856088a9af))
+
 ## [5.7.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.7.0...v5.7.1) (2026-09-12)
 
 
