@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.9.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.9.2...v5.9.3) (2026-09-12)
+
+
+### Bug Fixes
+
+* **overseer:** complete a bare Codex launch profile from its state database (overseer-phz7te) ([1247af8](https://github.com/thewoolleyman/livespec-overseer/commit/1247af8d3d6bd3a08a3faaaa2e9f941e294c0520))
+
 ## [5.9.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.9.1...v5.9.2) (2026-09-12)
 
 
