@@ -464,23 +464,40 @@ question comes up, finish and land it rather than discarding sunk, verified
 progress purely to redo it via the factory — the preference governs the NEXT
 piece of work, not a reflexive abort of work already done.
 
-## Every dispatch is a PLAN CHILD, and the plan's timeline must say so BEFORE launch
+## Prefer anchoring a dispatch under a plan, and record it in the plan's timeline BEFORE launch
 
-Maintainer-directed 2026-08-23. Two obligations, and the second is the one that
-actually gets skipped.
+Maintainer-directed 2026-08-23; the hard-gate framing CORRECTED 2026-09-12
+(`overseer-uaw8`). Anchoring a dispatch under a plan-anchor epic is a strong
+TRACKING DISCIPLINE — not a mechanical precondition for dispatch.
 
-**1. Dispatch only a child of a plan-anchor epic.** An item with no plan parent has
-no scope event that admitted it, no archive gate that will force a reckoning with
-it, and no timeline a fresh session can read. Dispatching one is the "one-off
-dispatching" this rule exists to stop. A CARRIER EPIC IS NOT A PLAN: it has no plan
-directory, no scope event and no archive gate by construction. Check for
-`plan_slug` metadata on the parent rather than assuming any epic is a thread.
+**A ready work item is dispatchable whether or not it has a plan parent.** The
+dispatcher (`drive --action impl:<id>` / the drive skill) launches any ready,
+dispatch-safe item regardless of parentage; nothing refuses a plan-less item, and a
+maintainer-directed freeform item is dispatched as it stands. An earlier version of
+this section said the OPPOSITE — "Dispatch only a child of a plan-anchor epic", an
+item with "no plan parent" being the "one-off dispatching this rule exists to stop"
+— and it was **absolutely wrong**: it read as a hard gate, so a session met a
+legitimately-ready, dispatch-safe, maintainer-directed freeform item and refused to
+dispatch it until it invented a plan to anchor it under (measured 2026-09-12, this
+very item). If you find yourself treating the absence of a plan parent as a reason a
+dispatch *cannot* happen, stop — that is the reintroduced defect.
 
-**2. Append a handoff entry to that plan's epic BEFORE you launch**, naming the
-item, the route (`impl:<id>` or Dispatcher drain) and what you expect back.
-Handoffs are ledger-held comments on the plan epic — that is the plan's only state.
-A dispatch absent from the timeline is invisible to everyone reading the plan,
-including the next session on that thread and the maintainer.
+**1. PREFER a plan child, for what the plan gives the work — do not REQUIRE one.** An
+item anchored under a plan-anchor epic gains a scope event that admitted it, an
+archive gate that will force a reckoning with it, and a timeline a fresh session can
+read; a plan-less "one-off dispatch" has none of those, so anchoring is the better
+default WHEN a fitting plan exists. It is a recommendation weighed against the work,
+never a blocker: when no fitting plan exists, or the maintainer directs a specific
+item, dispatch it directly rather than manufacturing a plan to satisfy a rule that
+does not exist. A CARRIER EPIC IS NOT A PLAN: it has no plan directory, no scope
+event and no archive gate by construction. Check for `plan_slug` metadata on the
+parent rather than assuming any epic is a thread.
+
+**2. WHEN the item is plan-anchored, append a handoff entry to that plan's epic
+BEFORE you launch**, naming the item, the route (`impl:<id>` or Dispatcher drain) and
+what you expect back. Handoffs are ledger-held comments on the plan epic — that is
+the plan's only state. A dispatch absent from the timeline is invisible to everyone
+reading the plan, including the next session on that thread and the maintainer.
 
 **Why BEFORE, not after.** Measured 2026-08-22: three items were dispatched from a
 debug pane and merged as PRs #1587, #1592 and #1597. Every one had a correct plan
