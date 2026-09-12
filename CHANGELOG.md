@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.6.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.5.3...v5.6.0) (2026-09-12)
+
+
+### Features
+
+* **lpm:** canonical bytes, configuration closure and registries (overseer-osb7as) ([b457c8a](https://github.com/thewoolleyman/livespec-overseer/commit/b457c8a70d2e2f72d25a053d0fe14eed9af21e4e))
+* **lpm:** credential records, owner-only local state and audit (overseer-osb7as) ([f3b563c](https://github.com/thewoolleyman/livespec-overseer/commit/f3b563cec2cd7a432bbb1bea19ce0beff6920653))
+* **lpm:** SecretStore boundary, OnePassword backend and role launcher (overseer-osb7as) ([2f3c129](https://github.com/thewoolleyman/livespec-overseer/commit/2f3c1293a993bdf2be6df67184819f35b1f2cc8a))
+
 ## [5.5.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.5.2...v5.5.3) (2026-09-11)
 
 
