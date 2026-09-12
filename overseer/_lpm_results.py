@@ -40,7 +40,9 @@ __all__: list[str] = [
     "error_object",
     "exit_status_for",
     "internal_bug",
+    "invalid_report",
     "invalid_request",
+    "retryable_exhaustion",
     "store_unavailable",
 ]
 
@@ -98,6 +100,28 @@ def error_object(*, error: ManagerError) -> dict[str, object]:
 def invalid_request(*, message: str) -> ManagerError:
     """The pre-access refusal every configuration, registry and input check returns."""
     return ManagerError(error_type=INVALID_REQUEST, message=message)
+
+
+def invalid_report(*, message: str) -> ManagerError:
+    """The refusal every consumer failure-report validation returns.
+
+    It shares `invalid-request`'s exit `2` and is deliberately a SEPARATE spelling: the
+    contract states the report boundary's refusals as `invalid-report` throughout, and a
+    consumer distinguishing "my report was malformed" from "my provisioning request was
+    malformed" reads the `error_type`, not the exit status.
+    """
+    return ManagerError(error_type=INVALID_REPORT, message=message)
+
+
+def retryable_exhaustion(*, message: str) -> ManagerError:
+    """The typed exhaustion an empty eligible pool or a contended lease returns.
+
+    This is the one refusal in the vocabulary that ASKS TO BE RETRIED: every eligible
+    account is leased to another run, or the pool holds nothing fresh right now. It is not
+    `provisioning-failed` — nothing was written and the target is untouched — and it is
+    not `store-unavailable` — the store answered, and its answer was "none available".
+    """
+    return ManagerError(error_type=RETRYABLE_EXHAUSTION, message=message)
 
 
 def store_unavailable(*, message: str) -> ManagerError:
