@@ -1055,6 +1055,21 @@ for the marker's edge-triggered lifecycle.
     healthy reading. It never reaches `_do_restart`: the cardinal rule is unchanged,
     and `test_supervisor_compaction_safety.py` pins zero respawns while a latched track
     is busy or undeclared.
+  - **THE FLOOR IS ONLY HALF AN ANSWER — a latch also RE-ARMS the round's notified
+    bands (`overseer-hmkg3i`).** A round's bands are durable so a band fires at most
+    once per round, which means a track that crossed its threshold NORMALLY before
+    compacting already holds the threshold band — and the floored figure selects
+    nothing lower, so `maybe_inject` computes an EMPTY due set and injects nothing at
+    the next safe settled opportunity. The latch is set, the round is open, every guard
+    passes, and the session is never told. So `_supervisor_wrapup_injection.armed_bands`
+    treats a latched round's bands as unnotified ONCE PER LATCH, keyed on the latch
+    instant recorded into the round's `compaction_rearmed_at` only after a re-armed
+    wind-down has actually landed (so a failed paste retries, and a round OPENED by a
+    latched delivery — which resets the bands and this mark with them — is re-marked
+    rather than re-arming every tick). It clears NOTHING: the round keeps its `at`, so
+    the certification floor a `ready` must beat does not move, and the durable latch is
+    untouched. `test_supervisor_compaction_rearm.py` drives it on both runtimes and
+    carries the unlatched control.
 
   The resulting row is an ordinary `warned` **deliberately** — the protocol is the
   ordinary one — so the discriminating evidence lives on the row NOTE, a

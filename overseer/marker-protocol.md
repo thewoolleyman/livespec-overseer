@@ -300,6 +300,21 @@ post-compaction reading no longer closes it as recovered. Because its percentage
 legitimately high, band selection floors it at the threshold so the first band fires
 (a latched track that is ALSO genuinely low keeps its real, sharper band).
 
+**And it RE-ARMS delivery inside a round that already warned (`overseer-hmkg3i`).**
+The floor above is only half an answer. A round records the bands it has notified,
+durably, so a band fires at most once per round and a daemon bounce cannot re-spam it —
+which means a track that crossed its threshold NORMALLY *before* compacting already
+holds the threshold band, and the floored figure selects nothing lower. Measured
+sequence: warned at 50%, drained to 6%, compacted in place back to 82% under the same
+identity. The latch was set, the round stayed open, every guard passed — and the next
+safe settled opportunity injected **nothing**, because no band was due. So a standing
+latch re-arms the round's bands **once per latch**, keyed on the latch instant the
+round records once a re-armed wind-down has actually landed. The round itself is NOT
+reopened: its `at` is preserved, so the certification floor a `ready` must beat does
+not move and the session can answer the fresh instruction with a new `winding-down`
+and then a certifiable `ready`. A track with no latch is untouched — an ordinary
+crossing still notifies each band exactly once.
+
 **The cardinal rule is untouched.** Restart-required is an OBLIGATION to deliver the
 wind-down and obtain a fresh certifiable `ready` — never a licence to kill a busy or
 undeclared session. A latched track that is busy is left alone; a latched track that
