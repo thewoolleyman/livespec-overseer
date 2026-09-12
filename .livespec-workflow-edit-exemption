@@ -1,5 +1,5 @@
 # Per-change workflow edit exemption. One exemption, one reviewed change.
 # Consumed by scripts/check-no-workflow-edits.sh, which requires this file to be
 # authored in THIS branch's own diff rather than inherited from master.
-work_item=livespec-citqsd
-reason=Retire the zero-.py CI gate skip per plan pr-gate-master-parity R3 — PR gate == master gate; attended maintainer-authorized workflow edit. Deletes the setup/detect-py-changes job and every gating job's `needs: setup` + `py_changed` step conditions, and relocates check-ci-gate-parity into check-metadata-batch with LIVESPEC_FAIL_IF_CI_GATE_PARITY_GAPS_EXIST armed. Edits step/job/needs lines, outside the mechanical pin/reconciler allowance, so declared here.
+work_item=overseer-6iex
+reason=Relocate criterion 4 of plan carrier livespec-n33rwg.5. Replaces this repo's private release-lane-watch fork with a thin shim onto livespec-dev-tooling reusable-release-lane-watch.yml (pinned v1.80.0), watching release-tag.yml + release-readiness.yml and granting issues:write so the shared watcher reconciles this repo's durable release-lane-red issue that livespec Signal 9 Shape C reads; no secrets:inherit. Deletes scripts/release-lane-watch.py + overseer/release_lane_watch.py + tests/test_release_lane_watch.py and drops the now-moot release_lane_watch .livespec.jsonc block; relocate, do not duplicate. Maintainer-authorized this workflow edit via the approval:workflow-edit label on overseer-6iex.

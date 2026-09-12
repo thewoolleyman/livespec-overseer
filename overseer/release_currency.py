@@ -27,9 +27,9 @@ within a day. `eligible` answers "adopt this?"; `blocked` answers "does a human
 need to know?". The routine no-op is the one ineligible verdict that is not
 blocked.
 
-The rule is a pure function of values the caller supplies. As with
-``release_lane_watch``, the forge call lives entirely in the caller, so no
-network reaches the enforcement aggregate.
+The rule is a pure function of values the caller supplies: the forge call
+lives entirely in the caller, so no network reaches the enforcement
+aggregate.
 """
 
 from __future__ import annotations
