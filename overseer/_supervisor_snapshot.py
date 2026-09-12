@@ -141,6 +141,11 @@ def row_payload(*, sup: Supervisor, row: RowView) -> dict[str, object]:
         "parked_delivery_sender": _snapshot_parked_delivery_sender(row=row),
         "stall_seconds": row.stall_seconds,
         "supervisor_state_stale": row.supervisor_state_stale,
+        # True when the daemon is deliberately supervising this track past its own plan's
+        # archival because its session is still running. Carried so a snapshot consumer
+        # can distinguish that retention from a stale unarchived plan row WITHOUT reading
+        # prose out of `note`, which is bounded at a display width.
+        "archived_live": row.archived_live,
         "session_identity": session_identity(sup=sup, row=row),
         "latest_input_provenance": latest_input_provenance(sup=sup, row=row),
         "model_profile": model_profile,

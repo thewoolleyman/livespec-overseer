@@ -194,6 +194,15 @@ class RowView:
     on the wording of the day. It is set exactly when this tick observed a queued
     delivery; a parked pane with a picker and no delivery leaves it ``None``.
 
+    ``archived_live`` marks a track the daemon is supervising PAST its own plan's
+    archival, because the session that plan started is still running (maintainer ruling
+    2026-09-12). It is its own machine-readable field rather than a note for the reason
+    ``picker_open`` and ``parked_delivery_sender`` are: a note is elided at a DISPLAY
+    width, so the distinction between an intentionally retained archived row and a stale
+    unarchived one would survive or vanish on the wording of the day. It is set exactly
+    for a row this tick's retention set holds, and is False for every other row —
+    including an ordinary row whose plan directory is simply still there.
+
     ``ctx`` is the reported remaining-context percent and ``ctx_source`` /
     ``ctx_age_seconds`` are the provenance that makes it judgeable — see
     :class:`_supervisor_records.CtxReading`, which is where the three are derived
@@ -219,6 +228,7 @@ class RowView:
     stall_seconds: int = 0
     supervisor_state_stale: bool = False
     parked_delivery_sender: str | None = None
+    archived_live: bool = False
 
 
 def needs_attention(*, row: RowView) -> bool:

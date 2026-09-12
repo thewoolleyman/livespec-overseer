@@ -216,6 +216,10 @@ def test_tick_writes_round_trippable_status_snapshot(*, tmp_path, monkeypatch):
         "parked_delivery_sender": None,
         "stall_seconds": 0,
         "supervisor_state_stale": False,
+        # False here is the ordinary case, and the discriminating one: this plan's
+        # directory is live, so the row is in the snapshot through ordinary discovery
+        # rather than through archived-live retention (`overseer-esvzyp`).
+        "archived_live": False,
         "round_open": False,
         "acked": False,
         "session_identity": "claude:101:12345:topic",

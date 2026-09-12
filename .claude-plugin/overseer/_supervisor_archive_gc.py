@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import _supervisor_archived_live
 import registry
 
 if TYPE_CHECKING:
@@ -23,7 +24,17 @@ def _liveness_topic_for_row(*, row: dict[str, object], topic: str) -> str | None
 
 
 def archive_gc(*, sup: Supervisor) -> int:
-    """Drop mapping rows whose ``<repo>/plan/<topic>/`` is archived or gone."""
+    """Drop mapping rows whose ``<repo>/plan/<topic>/`` is archived or gone AND dead.
+
+    Archival alone is no longer sufficient (maintainer ruling 2026-09-12): a plan row
+    whose recorded runtime is still LIVE is retained, because archival ends live-plan
+    discovery and not supervision of a running session. Only once
+    :func:`_supervisor_archived_live.row_runtime_is_live` reports the recorded session
+    gone does this pass drop the row — and then it also clears the track's stamp-sidecar
+    entry, whose whole content (injection round, notified bands, picker-stall and shell
+    episodes, launch baselines, the codex restart record) is derivable supervision state
+    for a track that no longer exists.
+    """
 
     def keep(*, row: dict[str, object]) -> bool:
         repo = row.get("repo")
@@ -40,7 +51,10 @@ def archive_gc(*, sup: Supervisor) -> int:
             sup.surface(message=f"repo root missing for {repo}::{topic}; keeping mapping row")
             return True
         if registry.archived_or_gone(repo=repo, topic=liveness_topic):
+            if _supervisor_archived_live.row_runtime_is_live(sup=sup, row=row, topic=topic):
+                return True  # archived, but still RUNNING — supervision outlives archival
             sup.log(message=f"archive-GC dropping mapping row {repo}::{topic}")
+            registry.clear_injection_stamp(repo=repo, topic=topic, stamp_path=sup.stamp_path)
             return False
         return True
 

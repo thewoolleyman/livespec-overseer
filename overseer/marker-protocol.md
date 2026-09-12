@@ -86,6 +86,32 @@ Because the state file lives under `tmp/` (gitignored), the overseer never
 dirties a tracked tree; the daemon `git check-ignore`-validates each watched
 repo's `tmp/overseer/` at startup and refuses to run if any is not ignored.
 
+## Archiving a plan does NOT end supervision of its live session
+
+Discovery enumerates `plan/*/` and deliberately skips `plan/archive/**`, so
+archiving a plan ends its **live-plan discovery**. It does **not** end
+**supervision** of the session that plan started (maintainer ruling
+2026-09-12). A previously mapped plan whose directory has moved under
+`plan/archive/` stays tracked, stays in the daemon's table and status
+snapshot, and stays eligible for the ordinary context observation, wrap-up
+injection, filesystem declaration, ready-certification and fresh-session
+restart cascade — with its existing `epic` locator and launch profile intact —
+for exactly as long as its RECORDED tmux session exists. A successor the
+daemon then launches is supervised under that same retained mapping until the
+successor itself exits.
+
+The retained row is marked as such: the daemon's event history records it once,
+on entry (`archived-live-retained`), and the status snapshot carries
+`archived_live: true`, so an operator can tell an intentionally retained
+archived row from a stale unarchived plan row without reading prose.
+
+**Cleanup is gated on runtime evidence, not on the archive move.** Archive-GC
+drops the mapping row — and clears the track's derivable supervision sidecars
+with it — only once the recorded session is genuinely gone. Until then the row
+is held, because a running session with no tracked row is a session the daemon
+cannot observe, cannot wind down, and cannot restart. An archived plan that was
+never mapped, and has no live session, produces no row at all.
+
 ## What the daemon injects at threshold — an ESCALATING wrap-up
 
 When a tracked session's **remaining context** falls to or below its threshold

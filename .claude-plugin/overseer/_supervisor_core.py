@@ -284,6 +284,12 @@ class Supervisor:
     # direct-`evaluate` beside-tests that don't run `build_rows` — which yields the
     # bare-topic name, the correct default for a single-repo fixture.
     colliding_topics: frozenset[str] = field(default_factory=frozenset, init=False)
+    # `(normalized repo, topic)` for every mapped plan row whose plan directory is
+    # archived while its recorded runtime is still live — recomputed beside
+    # `colliding_topics` and used to re-admit those rows to the tick's discovery set.
+    # See `_supervisor_archived_live`, which also reads the PRIOR pass's value here to
+    # keep the retention event edge-triggered.
+    archived_live: frozenset[tuple[str, str]] = field(default_factory=frozenset, init=False)
     # ----------------------------------------------------------------- #
     # Diagnostics.
     # ----------------------------------------------------------------- #
