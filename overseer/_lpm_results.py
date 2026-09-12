@@ -42,6 +42,7 @@ __all__: list[str] = [
     "internal_bug",
     "invalid_report",
     "invalid_request",
+    "provisioning_failed",
     "retryable_exhaustion",
     "store_unavailable",
 ]
@@ -122,6 +123,19 @@ def retryable_exhaustion(*, message: str) -> ManagerError:
     not `store-unavailable` — the store answered, and its answer was "none available".
     """
     return ManagerError(error_type=RETRYABLE_EXHAUSTION, message=message)
+
+
+def provisioning_failed(*, message: str) -> ManagerError:
+    """The refusal for a target write that DEFINITIVELY did not commit.
+
+    It is the narrowest of the three non-success answers about a write and the only one
+    that asserts the destination is unchanged on the adapter's own authority. An adapter
+    that could not even determine its commit status returns `in-progress`, which is
+    `retryable-exhaustion`; a backend the manager could not reach is `store-unavailable`.
+    Reporting either of those as this type would tell a consumer a write definitely did
+    not happen when nobody knows whether it did.
+    """
+    return ManagerError(error_type=PROVISIONING_FAILED, message=message)
 
 
 def store_unavailable(*, message: str) -> ManagerError:
