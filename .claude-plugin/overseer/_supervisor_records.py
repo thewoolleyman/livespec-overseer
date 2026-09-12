@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 
 import registry
 import signals
+from _supervisor_compaction import NO_COMPACTION_TRANSITION, CompactionTransition
 
 __all__: list[str] = [
     "CTX_SOURCE_LIVE",
@@ -202,6 +203,11 @@ class Observation:
     injection_stamp: float | None
     round_record: registry.RoundRecord
     session_identity: str | None
+    # The durable context-generation record this observation folds into, plus the two
+    # edges that fold produced. `_supervisor_compaction` owns the transition; the
+    # cascade reads `compaction.restart_required` to decide that a wind-down is still
+    # owed, and nothing here authorizes a restart.
+    compaction: CompactionTransition = NO_COMPACTION_TRANSITION
     ready_uncertifiable_reason: str | None
     istate: InjectState
     observed_at: float

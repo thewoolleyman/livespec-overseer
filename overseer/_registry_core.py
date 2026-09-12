@@ -27,6 +27,8 @@ import signals
 import streams
 from _registry_track_row_parse import Track
 from _registry_track_variants import (
+    NO_CONTEXT_COMPACTION,
+    ContextCompaction,
     ModelProfile,
     PlanTrack,
     SupervisorSeat,
@@ -42,7 +44,9 @@ __all__: list[str] = [
     "DEFAULT_STAMP_PATH",
     "DEFAULT_STORE_PATH",
     "DEFAULT_WATCH_SET_PATH",
+    "NO_CONTEXT_COMPACTION",
     "ROW_KEYS",
+    "ContextCompaction",
     "ModelProfile",
     "PlanTrack",
     "SupervisorSeat",
@@ -131,6 +135,7 @@ ROW_KEYS = (
     "observed_session_identity",
     "added_at",
     "model_profile",
+    "context_compaction",
 )
 
 

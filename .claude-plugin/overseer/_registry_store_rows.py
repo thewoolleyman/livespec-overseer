@@ -5,6 +5,8 @@ from __future__ import annotations
 from _registry_core import SupervisorSeat, Track
 from _registry_resume import normalize_resume_override
 from _registry_row_fields import (
+    context_compaction_from_row,
+    context_compaction_row_value,
     ctx_threshold_from_row,
     idle_nudge_from_row,
     model_profile_from_row,
@@ -54,6 +56,11 @@ def track_to_row(*, track: Track) -> dict[str, object]:
         row["idle_nudge"] = track.idle_nudge
     if track.model_profile is not None:
         row["model_profile"] = track.model_profile
+    # Omitted when absent on the same terms, and for a reason that matters more here
+    # than for an override: a row WITHOUT the key has had no compaction evidence taken,
+    # which is exactly what a never-compacted track should be indistinguishable from.
+    if track.context_compaction is not None:
+        row["context_compaction"] = context_compaction_row_value(record=track.context_compaction)
     if isinstance(track, SupervisorSeat):
         row["supervised_topic"] = track.supervised_topic
     _ = normalize_resume_override(row=row)
@@ -73,6 +80,11 @@ def validated_row(*, row: dict[str, object]) -> dict[str, object]:
             observed_session_identity=opt_str_from_row(row=row, key="observed_session_identity"),
             added_at=opt_str_from_row(row=row, key="added_at"),
             model_profile=model_profile_from_row(
+                row=row,
+                repo=repo if isinstance(repo, str) else "",
+                topic=topic if isinstance(topic, str) else "",
+            ),
+            context_compaction=context_compaction_from_row(
                 row=row,
                 repo=repo if isinstance(repo, str) else "",
                 topic=topic if isinstance(topic, str) else "",

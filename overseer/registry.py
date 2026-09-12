@@ -55,6 +55,8 @@ from _registry_core import DEFAULT_CTX_THRESHOLD as DEFAULT_CTX_THRESHOLD
 from _registry_core import DEFAULT_STAMP_PATH as DEFAULT_STAMP_PATH
 from _registry_core import DEFAULT_STORE_PATH as DEFAULT_STORE_PATH
 from _registry_core import DEFAULT_WATCH_SET_PATH as DEFAULT_WATCH_SET_PATH
+from _registry_core import NO_CONTEXT_COMPACTION as NO_CONTEXT_COMPACTION
+from _registry_core import ContextCompaction as ContextCompaction
 from _registry_core import PlanTrack as PlanTrack
 from _registry_core import SupervisorSeat as SupervisorSeat
 from _registry_core import Track as Track
@@ -106,6 +108,7 @@ from _registry_stamps import record_post_respawn as record_post_respawn
 from _registry_stamps import set_resume_pending as set_resume_pending
 from _registry_stamps import write_injection_stamp as write_injection_stamp
 from _registry_store import append_mapping as append_mapping
+from _registry_store import record_context_compaction as record_context_compaction
 from _registry_store import record_derived_epic as record_derived_epic
 from _registry_store import record_model_profile as record_model_profile
 from _registry_store import record_observed_session_identity as record_observed_session_identity
@@ -120,7 +123,9 @@ __all__: list[str] = [
     "DEFAULT_STAMP_PATH",
     "DEFAULT_STORE_PATH",
     "DEFAULT_WATCH_SET_PATH",
+    "NO_CONTEXT_COMPACTION",
     "CodexFreshRestart",
+    "ContextCompaction",
     "MappingEntry",
     "MappingInvalid",
     "MappingValid",
@@ -161,6 +166,7 @@ __all__: list[str] = [
     "read_shell_episode",
     "read_valid_mapping",
     "record_codex_fresh_restart",
+    "record_context_compaction",
     "record_derived_epic",
     "record_launch_statusline_baseline",
     "record_model_profile",

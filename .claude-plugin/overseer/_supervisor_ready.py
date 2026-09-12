@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 __all__: list[str] = [
     "RoundObservation",
+    "live_session_identity",
     "round_observation",
     "session_identity",
 ]
@@ -23,8 +24,34 @@ __all__: list[str] = [
 class RoundObservation:
     record: registry.RoundRecord
     session_identity: str | None
+    live_session_identity: str | None
     ready_uncertifiable_reason: str | None
     ready: bool
+
+
+def live_session_identity(
+    *,
+    sup: Supervisor,
+    session: str,
+    topic: str,
+    runtime: str,
+) -> str | None:
+    """The identity of the PROCESS this daemon can prove is in the pane, or None.
+
+    Strictly the resolved answer: no fallback, no synthesis. That is what separates it
+    from :func:`session_identity`, and the separation is load-bearing for
+    `_supervisor_compaction`, which uses a CHANGE of identity as its only evidence that
+    a restart completed. The Claude fallback below is constant across a real restart in
+    one tmux session, so a consumer reasoning about session CHANGE must never see it —
+    None ("this daemon cannot say") is the honest answer there, and it is the answer
+    that makes that consumer fail closed.
+    """
+    if runtime == "codex":
+        live = sup.live_codex.get((session, topic))
+        return f"codex:{live.session_id}" if live is not None else None
+    if runtime == "claude":
+        return sup.claude_identity_by_session.get((session, topic))
+    return None
 
 
 def session_identity(
@@ -35,13 +62,10 @@ def session_identity(
     runtime: str,
 ) -> str | None:
     """The certification identity token for the live session in this pane."""
-    if runtime == "codex":
-        live = sup.live_codex.get((session, topic))
-        return f"codex:{live.session_id}" if live is not None else None
-    if runtime == "claude":
-        identity = sup.claude_identity_by_session.get((session, topic))
-        return identity if identity is not None else f"claude:{session}:{topic}"
-    return None
+    identity = live_session_identity(sup=sup, session=session, topic=topic, runtime=runtime)
+    if identity is None and runtime == "claude":
+        return f"claude:{session}:{topic}"
+    return identity
 
 
 def round_observation(
@@ -76,6 +100,9 @@ def round_observation(
     return RoundObservation(
         record=record,
         session_identity=identity,
+        live_session_identity=live_session_identity(
+            sup=sup, session=session, topic=topic, runtime=runtime
+        ),
         ready_uncertifiable_reason=ready_uncertifiable_reason,
         ready=(
             ready_uncertifiable_reason is None

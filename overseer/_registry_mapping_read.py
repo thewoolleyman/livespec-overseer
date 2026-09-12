@@ -9,6 +9,7 @@ from typing import TypeAlias
 from _registry_core import Track, file_lock, resolve_store, warn
 from _registry_resume import normalize_rows
 from _registry_row_fields import (
+    context_compaction_from_row,
     ctx_threshold_from_row,
     idle_nudge_from_row,
     model_profile_from_row,
@@ -64,6 +65,7 @@ def _track_from_record(*, record: RawMappingRow) -> MappingEntry:
                 ),
                 added_at=opt_str_from_row(row=row, key="added_at"),
                 model_profile=model_profile_from_row(row=row, repo=repo, topic=topic),
+                context_compaction=context_compaction_from_row(row=row, repo=repo, topic=topic),
             ),
         )
     except ValueError as exc:

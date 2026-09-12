@@ -222,6 +222,72 @@ untruth ("you will be restarted regardless") will reason its way around it.
 Naming the epic is still POINTING at the state, exactly as the resume line does;
 the overseer never reads those entries.
 
+## A CONTEXT COMPACTION is an exhausted generation, and it LATCHES the restart
+
+**Maintainer ruling 2026-09-12 (`overseer-nb7ok7`).** A session that never idles can
+cross its wind-down threshold with no injection window ever opening, be compacted **in
+place** by its own runtime, and come back **above** the threshold under the **same**
+session id. `llm-provider-manager` did exactly that, repeatedly, on 2026-09-11.
+
+Every fact the daemon read was correct and its conclusion was wrong. The replenished
+percentage read as recovery: the below-threshold branch was not entered, the
+wind-down starvation episode closed, and the recovered-round check took the healthy
+reading as proof the round was no longer current. What no surface could say was that
+the healthy number belonged to a **different, summarized** context generation than the
+one being wound down.
+
+The ruling is that a compacted generation is **FAILED and EXHAUSTED**: its summarized
+state is not acceptable as clean continuation. So once the daemon detects a
+compaction, the track is **restart-required** — for Codex and for Claude alike —
+regardless of what its context percentage later reads, until it completes the ordinary
+cooperative wind-down and a fresh-session restart succeeds.
+
+**How the detection works, and why it is runtime-neutral.** Remaining context falls
+monotonically inside one generation, so a RISE is impossible as ordinary progress. It
+has exactly two causes — the generation was replaced in place, or the SESSION was
+replaced — and the reading alone cannot tell them apart. The discriminator is the
+**live session identity** the reading was taken under:
+
+| Reading | Live session identity | Reading |
+|---|---|---|
+| rises past the tolerance band | **unchanged** | an in-place COMPACTION → latch restart-required |
+| rises (or anything else) | **changed** | the successor of a COMPLETED RESTART → the latch is cleared |
+| unreadable, or identity unprovable | — | nothing changes, in either direction |
+
+The identity must be the one this daemon can PROVE is in the pane: a Claude session it
+cannot resolve in the registry has a synthesized fallback identity that is constant
+across a real restart, and reasoning about session CHANGE from that would read a
+genuine successor as a compaction AND never clear.
+
+**The obligation is DURABLE.** It rides the mapping store's `context_compaction`
+record — the owning session identity, the lowest reading seen under it, and (once
+latched) the instant and the `from%` → `to%` transition. A daemon bounce discards
+in-memory per-track state, which is exactly the event a latch must survive on the
+long-running tracks that compact in the first place.
+
+**What the latch changes, and what it emphatically does not.** A latched track is
+routed into the SAME below-threshold branch an ordinary crossing enters, so it
+receives the normal escalating wrap-up at its next guarded, settled input opportunity
+— every identity, idle-input, settle, gate, generating, sub-agent, declaration and
+human-wait guard unchanged. Its supervision round stays current: a healthy
+post-compaction reading no longer closes it as recovered. Because its percentage is
+legitimately high, band selection floors it at the threshold so the first band fires
+(a latched track that is ALSO genuinely low keeps its real, sharper band).
+
+**The cardinal rule is untouched.** Restart-required is an OBLIGATION to deliver the
+wind-down and obtain a fresh certifiable `ready` — never a licence to kill a busy or
+undeclared session. A latched track that is busy is left alone; a latched track that
+is idle and silent is REPORTED, exactly as any other is; and the only thing that
+reaches the restart surface is still the session's own fresh, certifiable `ready`.
+
+**How an operator tells it from an ordinary warning.** The row is an ordinary `warned`
+— deliberately, because the protocol is the ordinary one — so the discriminating
+evidence rides three other surfaces: the row NOTE (`context compaction 6%->78%;
+restart required`), a once-per-compaction `overseer[SURFACE]` alert naming the session
+identity and the transition, and the status snapshot's `context_compaction` object.
+The clearing edge is logged too, so an operator who saw the alert can see the
+obligation discharged rather than merely vanish.
+
 ## The keep-going nudge — what the daemon injects when a session idles WITH context left
 
 The wrap-up above fires when context runs LOW. The opposite failure is a session
@@ -232,8 +298,11 @@ single **keep-going nudge**, the inverse of the wrap-up.
 
 When a tracked session is idle, still **above** its `ctx_threshold`, **not**
 waiting on a human (its Claude registry status is not `waiting`), has made
-**no** `ready` / `blocked` / `winding-down` declaration of its own, **AND has been
-continuously idle for at least one hour** (`IDLE_NUDGE_AFTER`), the daemon:
+**no** `ready` / `blocked` / `winding-down` declaration of its own, carries **no
+latched context compaction** (see the section above — a latched track is above its
+threshold and still owes a wind-down, so nudging it to keep going would be the exact
+opposite instruction), **AND has been continuously idle for at least one hour**
+(`IDLE_NUDGE_AFTER`), the daemon:
 
 1. bracketed-pastes ONE nudge message telling it to keep going (below), and
 2. writes `idle-with-context-left` to the state file **as a note to itself**, so

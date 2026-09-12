@@ -250,6 +250,7 @@ def test_track_from_mapping_row_rejects_unknown_and_malformed_reserved_kinds():
         observed_session_identity=None,
         added_at=None,
         model_profile=None,
+        context_compaction=None,
     )
     with pytest.raises(ValueError, match="missing_supervised_topic"):
         row_parse.track_from_mapping_row(

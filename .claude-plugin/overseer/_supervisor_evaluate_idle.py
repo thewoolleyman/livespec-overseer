@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import _supervisor_compaction
 import _supervisor_evaluate_ctx_stale
 import _supervisor_evaluate_restart
 import _supervisor_evaluate_threshold
@@ -176,7 +177,17 @@ def idle_decision(*, request: IdleRequest) -> IdleDecision:
         status = "ready-uncertifiable"
         note, ready_conditions = request.uncertifiable_ready
         active_conditions.update(ready_conditions)
-    elif request.obs.eff_ctx is not None and request.obs.eff_ctx <= request.threshold:
+    elif _supervisor_compaction.wind_down_owed(
+        compaction=request.obs.compaction,
+        eff_ctx=request.obs.eff_ctx,
+        threshold=request.threshold,
+    ):
+        # Below threshold, OR carrying a latched compaction at any percentage. The
+        # second arm is the whole of `overseer-nb7ok7`: a compacted session recovers
+        # ABOVE the line and would otherwise fall to the idle-with-room leg below,
+        # where it collects a keep-going nudge instead of the wind-down it owes. It
+        # enters the SAME branch an ordinary crossing does — the latch changes why the
+        # wind-down is owed, never which protocol delivers it.
         threshold = _supervisor_evaluate_threshold.idle_threshold_decision(
             request=_supervisor_evaluate_threshold.IdleThresholdRequest(
                 sup=request.sup,

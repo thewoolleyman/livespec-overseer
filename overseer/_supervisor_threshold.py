@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import _supervisor_compaction
 import _supervisor_nudge
 import _supervisor_observe
 import _supervisor_restart
@@ -43,9 +44,18 @@ class ThresholdRequest:
 
 
 def _fresh_threshold_observation(*, request: ThresholdRequest) -> Observation | None:
-    """Re-read every paste authorization input immediately before opening a round."""
+    """Re-read every paste authorization input immediately before opening a round.
+
+    The below-threshold requirement is dropped for a LATCHED track, and only that one:
+    a compacted session's percentage is legitimately above the line, so insisting on it
+    here would refuse the guarded observation forever and the wind-down would never be
+    delivered. Every OTHER guard in that predicate — identity, idle-input, settle, gate,
+    generating, sub-agent, declaration, human-wait — is untouched, so the paste still
+    lands only at a genuinely safe input opportunity.
+    """
     return _supervisor_threshold_expiry.fresh_guarded_paste_observation(
-        request=request, require_below_threshold=True
+        request=request,
+        require_below_threshold=not request.obs.compaction.restart_required,
     )
 
 
@@ -72,7 +82,9 @@ def threshold(*, request: ThresholdRequest) -> ThresholdDecision:
             sup=request.sup,
             track=request.track,
             target=request.target,
-            eff_ctx=eff_ctx,
+            eff_ctx=_supervisor_compaction.injection_ctx(
+                compaction=obs.compaction, eff_ctx=eff_ctx, threshold=request.threshold
+            ),
             threshold=request.threshold,
             is_codex=obs.is_codex,
             blocker=_supervisor_threshold_expiry.busy_evidence_blocker(obs=obs),

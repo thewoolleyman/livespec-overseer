@@ -57,8 +57,20 @@ def _round_closure_common_permits(*, request: RecoveryRequest, obs: Observation)
 
 
 def _observation_permits_recovery(*, request: RecoveryRequest, obs: Observation) -> bool:
+    """Whether an above-threshold reading proves this round is no longer current.
+
+    A LATCHED compaction is the one case where it proves nothing (`overseer-nb7ok7`).
+    This arm reasons that a healthy percentage means the track climbed back out of the
+    band its round was opened in — true when the percentage describes the SAME context
+    generation that round was opened against, and false when that generation was thrown
+    away and replaced by a summary. Closing here was the measured failure: the round
+    shut, the starvation episode closed, and the restart the compaction owed was never
+    opened. The identity-reset arm below is deliberately NOT gated — a changed identity
+    means the successor is already live, and that same change clears the latch.
+    """
     return (
         _round_closure_common_permits(request=request, obs=obs)
+        and not obs.compaction.restart_required
         and obs.eff_ctx is not None
         and obs.eff_ctx > request.threshold
     )

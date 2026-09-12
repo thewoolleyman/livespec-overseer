@@ -115,6 +115,28 @@ def _track_for_row(*, sup: Supervisor, row: RowView) -> registry.Track | None:
     return None
 
 
+def _snapshot_context_compaction(*, track: registry.Track | None) -> dict[str, object] | None:
+    """The compaction failure and its latch, as an operator can act on them.
+
+    A latched track renders an ordinary `warned` row, so the snapshot is where a
+    consumer tells the two apart. It carries the SESSION IDENTITY the compaction
+    happened under and the context transition that proved it, because "ctx is 78% and
+    the daemon is still warning" reads as a daemon bug until you can see that the 78%
+    belongs to a summarized generation the 6% one was replaced by.
+    """
+    record = None if track is None else track.context_compaction
+    if record is None:
+        return None
+    return {
+        "restart_required": record.restart_required,
+        "session_identity": record.session_identity,
+        "latched_at": record.latched_at,
+        "from_ctx": record.from_ctx,
+        "to_ctx": record.to_ctx,
+        "watermark_ctx": record.watermark_ctx,
+    }
+
+
 def row_payload(*, sup: Supervisor, row: RowView) -> dict[str, object]:
     track = _track_for_row(sup=sup, row=row)
     model_profile = None if track is None else track.model_profile
@@ -144,6 +166,7 @@ def row_payload(*, sup: Supervisor, row: RowView) -> dict[str, object]:
         "session_identity": session_identity(sup=sup, row=row),
         "latest_input_provenance": latest_input_provenance(sup=sup, row=row),
         "model_profile": model_profile,
+        "context_compaction": _snapshot_context_compaction(track=track),
         "restart_model": restart_model_payload(sup=sup, row=row),
     }
 

@@ -1013,6 +1013,56 @@ for the marker's edge-triggered lifecycle.
   value and NEVER counts as a threshold crossing. This is the one coupling: if
   the statusline stops emitting `Ctx: N% left`, ctx reads unknown and the daemon
   degrades safely (the table shows a dash).
+- **A RISING Ctx% is an in-place CONTEXT COMPACTION, and it latches a restart
+  (`_supervisor_compaction`; maintainer ruling 2026-09-12, `overseer-nb7ok7`).**
+  Remaining context falls monotonically inside one context generation, so a rise
+  cannot be ordinary progress. It has exactly two causes — the generation was
+  replaced in place, or the SESSION was replaced — and the reading alone cannot tell
+  them apart. The discriminator is the **live session identity** the reading was taken
+  under: unchanged identity + a rise past `COMPACTION_CTX_RISE` is a compaction and
+  LATCHES `restart-required`; a CHANGED identity is the successor of a completed
+  restart and CLEARS the latch; an unprovable identity or an unreadable statusline
+  changes nothing in either direction.
+
+  **Why it exists.** Measured live on 2026-09-11 (`llm-provider-manager`): a session
+  that never idled crossed its threshold with no injection window, compacted, and
+  reappeared ABOVE the threshold under the same id. Every downstream surface then read
+  healthy — the below-threshold branch was not entered, the starvation episode closed,
+  and `_supervisor_round_recovery` took the replenished reading as proof the round was
+  no longer current. No fact was wrong; the daemon simply had no way to say that the
+  healthy number described a DIFFERENT, summarized generation. The maintainer ruled
+  such a generation FAILED and EXHAUSTED, so the obligation now stands at any later
+  percentage until the ordinary protocol produces a fresh certifiable `ready` and a
+  successor.
+
+  **Three things about it are load-bearing; do not relax any of them.**
+  - **It keys on `_supervisor_ready.live_session_identity`, never on
+    `session_identity`.** The latter synthesizes `claude:<session>:<topic>` when a
+    Claude session cannot be resolved in the registry, and that fallback is CONSTANT
+    across a real restart in the same tmux session — so feeding it here would read a
+    genuine successor as a compaction of its own predecessor AND could never clear,
+    because the identity that has to change could not. `live_session_identity` is None
+    exactly when the daemon cannot prove which process it is looking at, and None
+    changes nothing. Fail-closed both ways.
+  - **The record is DURABLE (`registry.record_context_compaction`, the mapping row's
+    `context_compaction` key), not `InjectState`.** A daemon bounce discards in-memory
+    per-track state, which is precisely the event a latch must survive on the
+    long-running tracks that compact at all. If you move it, you have deleted it.
+  - **It is an OBLIGATION, never an authorization.** It routes the track into the SAME
+    below-threshold branch an ordinary crossing enters (band selection floors a latched
+    track at its threshold so the first band fires, via `min` — a latched track that is
+    also genuinely low keeps its sharper band) and holds the round open against a
+    healthy reading. It never reaches `_do_restart`: the cardinal rule is unchanged,
+    and `test_supervisor_compaction_safety.py` pins zero respawns while a latched track
+    is busy or undeclared.
+
+  The resulting row is an ordinary `warned` **deliberately** — the protocol is the
+  ordinary one — so the discriminating evidence lives on the row NOTE, a
+  once-per-compaction edge-triggered alert naming identity and transition, and the
+  snapshot's `context_compaction` object. `test_supervisor_compaction_codex.py` and
+  `test_supervisor_compaction_claude.py` drive the whole arc on each runtime; the
+  Claude one is deliberately free of Codex statusline text so the runtime neutrality is
+  visible rather than asserted.
 - **Busy detection (`signals.is_busy` + the daemon's settled-delta).** The live
   TUI (verified 2026-07-13) renders NO persistent busy string while streaming
   tokens — the input box looks idle and the response accumulates above it — so

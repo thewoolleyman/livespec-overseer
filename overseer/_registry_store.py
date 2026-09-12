@@ -19,6 +19,7 @@ from _registry_core import (
 )
 from _registry_rows_io import read_rows, write_rows
 from _registry_store_fields import (
+    record_context_compaction,
     record_derived_epic,
     record_model_profile,
     record_observed_session_identity,
@@ -34,6 +35,7 @@ _DEFAULT_UPSERT_UPDATE_FIELDS = frozenset({"tmux"})
 
 __all__: list[str] = [
     "append_mapping",
+    "record_context_compaction",
     "record_derived_epic",
     "record_model_profile",
     "record_observed_session_identity",
