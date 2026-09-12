@@ -684,7 +684,7 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An ambiguous rollout set cannot lend another Codex session's model",
     "test": "tests.integration.test_codex_state_database_runtime_model.test_scenario_an_ambiguous_rollout_set_cannot_lend_another_codex_model",
-    "reason": "Integration-tier: one carrier exposes two rollout candidates while a second carrier holds another session whose state row shares the same repository cwd; the capture uses only the indexed exact identity's row. The second half drives a carrier with no indexed candidate, asserting no session is adopted, codex_model_source declines to bind an identity-free source, and apply_runtime_model retains the argv launch model.",
+    "reason": "Integration-tier: one carrier exposes two rollout candidates while a second carrier holds another session whose state row shares the same repository cwd; the capture uses only the indexed exact identity's row. The second half drives a carrier with no indexed candidate, asserting no session is adopted, codex_model_source declines to bind an identity-free source, and completing the profile retains the argv launch model.",
     "work_item": "overseer-yfwnb3"
   },
   {

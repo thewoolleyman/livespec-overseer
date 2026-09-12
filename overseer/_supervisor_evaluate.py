@@ -166,14 +166,20 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
     # edge-triggers (invariant 10) instead of re-arming every tick, and hand it to the
     # expiry pass so a declaration it holds is not silently expired out from under an
     # unblocked worker.
-    standing_statusline_veto = (
-        _supervisor_statusline_model.statusline_model_disagreement(
-            capture=capture, model_profile=track.model_profile
-        )
-        is not None
+    disagreement = _supervisor_statusline_model.statusline_model_disagreement(
+        capture=capture, model_profile=track.model_profile
     )
-    if standing_statusline_veto:
+    if disagreement is not None:
         active_conditions.add(_supervisor_statusline_model.STATUSLINE_MISMATCH_CONDITION)
+    # The EXPIRY suspension is narrower than the disagreement, and scoping it is what
+    # closes the cross-runtime deadlock: a disagreement this runtime's restart path never
+    # reaches is not what is refusing the restart, so it must not hold the declaration
+    # open either. See `statusline_veto_applies` for the measured incident.
+    standing_statusline_veto = disagreement is not None and (
+        _supervisor_statusline_model.statusline_veto_applies(
+            model_profile=track.model_profile, runtime=obs.runtime
+        )
+    )
 
     # A profiled track with no statusline baseline is unverified for as long as the
     # baseline is missing, so its restart-time alert is registered ACTIVE on the same

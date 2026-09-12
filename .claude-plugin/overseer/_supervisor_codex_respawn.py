@@ -22,6 +22,7 @@ import _supervisor_launch
 import registry
 import signals
 from _supervisor_launch_profile import CodexLaunchPlan, codex_fresh_launch_plan
+from _supervisor_profile_self_heal import heal_cross_runtime_profile
 from _supervisor_statusline_model import (
     restart_blocked_by_statusline_mismatch as statusline_mismatch,
 )
@@ -56,6 +57,14 @@ def _launch_plan(
 ) -> CodexLaunchPlan | None:
     launch = codex_fresh_launch_plan(track=track, daemon_restart=True)
     if not isinstance(launch, CodexLaunchPlan):
+        # A row whose stored profile names the WRONG runtime refuses here forever: the
+        # round is already open, so nothing else re-reads the profile, and every later
+        # tick produces this same refusal (95 of them, measured 2026-09-12). Recapture
+        # it from the live process first. A heal returns here regardless, because the
+        # restart must act on a profile the daemon has OBSERVED rather than on one this
+        # pass wrote moments ago; the declaration is kept either way.
+        if heal_cross_runtime_profile(sup=sup, track=track, session=session, target=target):
+            return None
         alert_fresh_restart(
             sup=sup,
             track=track,

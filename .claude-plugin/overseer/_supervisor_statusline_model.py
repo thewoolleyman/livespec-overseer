@@ -19,6 +19,7 @@ __all__: list[str] = [
     "restart_blocked_by_statusline_mismatch",
     "statusline_baseline_absent",
     "statusline_model_disagreement",
+    "statusline_veto_applies",
 ]
 
 # The alert condition a standing recorded-vs-rendered disagreement raises. Named so
@@ -89,6 +90,36 @@ def statusline_model_disagreement(
     if not recorded or rendered is None or rendered == recorded:
         return None
     return recorded, rendered
+
+
+def statusline_veto_applies(
+    *,
+    model_profile: Mapping[str, str | None] | None,
+    runtime: str,
+) -> bool:
+    """True only when the DETECTED runtime's restart path can actually reach the veto.
+
+    The veto is taken inside each arm's launch planning, AFTER the recorded profile has
+    been resolved into a launch plan — so a profile whose harness is not this runtime's
+    never reaches it: the planner refuses the cross-runtime profile first, and the
+    statusline comparison is never made.
+
+    That matters because the veto also SUSPENDS ready expiry, on the reasoning that the
+    daemon itself is what is refusing the restart and expiring the declaration would
+    strand an unblocked worker. The reasoning holds only where the veto is what is
+    refusing. Measured live 2026-09-12 (`overseer-phz7te`): a Codex track carrying a
+    stale CLAUDE profile compared that profile's Claude baseline against the Codex
+    statusline, called the inevitable cross-runtime disagreement a standing veto, and
+    suspended expiry — while the restart was in fact being refused several steps earlier,
+    for a reason the suspension could not clear. The row reported its declaration too old
+    and kept the same declaration forever.
+
+    A row with NO recorded profile relaunches bare, so nothing refuses it ahead of the
+    veto and the veto applies on its own terms (it has no recorded baseline to disagree
+    with either, so this is the harmless case).
+    """
+    harness = None if model_profile is None else model_profile.get("harness")
+    return harness is None or harness == runtime
 
 
 def _recorded_statusline_model(*, model_profile: Mapping[str, str | None] | None) -> str | None:

@@ -14,7 +14,6 @@ import codex_sessions
 import registry
 import signals
 from _supervisor_launch_profile import (
-    LaunchProfileProblem,
     read_launch_profile,
     rendered_statusline_model,
 )
@@ -91,17 +90,17 @@ def test_reader_uses_parent_wrapper_for_custom_local_harness_and_reports_missing
     )
 
     assert profile == {"harness": "pi", "model": "macmini/qwen3-coder-next", "wrapper": wrapper}
-    assert isinstance(
-        read_launch_profile(
-            pid=400,
-            harness="claude",
-            pane_pid=None,
-            cmdline_of=lambda *, pid: _nul(argv=["claude"]) if pid == 400 else None,
-            environ_of=lambda *, pid: b"",
-            ppid_of=lambda *, pid: None,
-        ),
-        LaunchProfileProblem,
-    )
+    # A bare launch is a CANDIDATE with no model, not a rejection: the harness's own
+    # runtime source has not been consulted yet, and rejecting here is the defect
+    # `overseer-phz7te` closes.
+    assert read_launch_profile(
+        pid=400,
+        harness="claude",
+        pane_pid=None,
+        cmdline_of=lambda *, pid: _nul(argv=["claude"]) if pid == 400 else None,
+        environ_of=lambda *, pid: b"",
+        ppid_of=lambda *, pid: None,
+    ) == {"harness": "claude", "model": None, "wrapper": None}
     assert rendered_statusline_model(capture="body without a footer") is None
 
 
@@ -368,7 +367,7 @@ def test_wrapup_refresh_without_source_and_with_unreadable_profile(*, tmp_path):
             capture=idle_capture(ctx=40),
         )
 
-    assert "launch profile for pid 200 has no model token" in err.getvalue()
+    assert "launch profile for pid 200 has no usable model token" in err.getvalue()
 
 
 def test_wrapup_refresh_uses_track_profile_and_skips_unchanged_store_write(*, tmp_path):

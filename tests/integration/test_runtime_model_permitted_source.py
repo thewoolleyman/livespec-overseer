@@ -99,7 +99,7 @@ def test_scenario_a_same_base_transcript_model_retains_the_launch_token_variant(
     assert profile["model"] == "claude-opus-4-8[1m]"
 
 
-# --- apply_runtime_model + the base-model preference rule ----------------------------
+# --- complete_launch_profile + the base-model preference rule ------------------------
 
 
 def _profile(*, model: str):
@@ -107,7 +107,7 @@ def _profile(*, model: str):
 
 
 def test_transcript_token_is_preferred_over_a_differing_base_launch_model():
-    profile = capture.apply_runtime_model(
+    profile = capture.complete_launch_profile(
         profile=_profile(model="claude-opus-4-8"),
         harness="claude",
         pid=200,
@@ -117,7 +117,7 @@ def test_transcript_token_is_preferred_over_a_differing_base_launch_model():
 
 
 def test_transcript_token_with_the_same_base_retains_the_launch_variant():
-    profile = capture.apply_runtime_model(
+    profile = capture.complete_launch_profile(
         profile=_profile(model="claude-opus-4-8[1m]"),
         harness="claude",
         pid=200,
@@ -127,7 +127,7 @@ def test_transcript_token_with_the_same_base_retains_the_launch_variant():
 
 
 def test_an_absent_transcript_token_leaves_the_launch_model():
-    profile = capture.apply_runtime_model(
+    profile = capture.complete_launch_profile(
         profile=_profile(model="claude-opus-4-8[1m]"),
         harness="claude",
         pid=200,
@@ -136,8 +136,8 @@ def test_an_absent_transcript_token_leaves_the_launch_model():
     assert profile["model"] == "claude-opus-4-8[1m]"
 
 
-def test_apply_runtime_model_is_a_no_op_for_a_non_claude_harness():
-    profile = capture.apply_runtime_model(
+def test_completing_a_profile_is_a_no_op_on_the_model_for_a_non_claude_harness():
+    profile = capture.complete_launch_profile(
         profile=_profile(model="gpt-x"),
         harness="codex",
         pid=200,
@@ -146,15 +146,18 @@ def test_apply_runtime_model_is_a_no_op_for_a_non_claude_harness():
     assert profile["model"] == "gpt-x"
 
 
-def test_apply_runtime_model_passes_a_launch_profile_problem_through_unchanged():
-    problem = capture.LaunchProfileProblem(message="no model token")
-    result = capture.apply_runtime_model(
-        profile=problem,
+def test_a_candidate_neither_source_can_complete_is_rejected_as_unusable():
+    """The rejection is the LAST word, not the first: both sources have already spoken."""
+    result = capture.complete_launch_profile(
+        profile={"harness": "claude", "model": None, "wrapper": None},
         harness="claude",
         pid=200,
-        runtime_model_of=_reader(model="claude-fable-5-1"),
+        runtime_model_of=_reader(model=None),
     )
-    assert result is problem
+
+    assert isinstance(result, capture.LaunchProfileProblem)
+    assert "no usable model token" in result.message
+    assert "pid 200" in result.message
 
 
 def test_preferred_model_supplies_the_runtime_token_when_the_launch_model_is_absent():
