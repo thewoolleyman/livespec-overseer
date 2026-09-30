@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-__all__: list[str] = ["parse_ctx_remaining", "strip_ansi"]
+__all__: list[str] = ["is_available_prompt", "parse_ctx_remaining", "strip_ansi"]
 
 # --------------------------------------------------------------------------- #
 # ANSI stripping (terminal escape sequences corrupt naive substring matching).
@@ -16,10 +16,22 @@ _ANSI_RE = re.compile(
     r"|\x1b[@-Z\\-_]"  # two-char escapes (e.g. ESC c)
 )
 
+_ANSI_SGR = r"(?:\x1b\[[0-9;]*m)*"
+_DIM_TRY_PLACEHOLDER_RE = re.compile(
+    rf'^{_ANSI_SGR}❯[ \xa0]+{_ANSI_SGR}\x1b\[2mTry "[^"\r\n]+"\x1b\[0m{_ANSI_SGR}$'
+)
+
 
 def strip_ansi(*, text: str) -> str:
     """Remove ANSI/VT escape sequences from captured pane text."""
     return _ANSI_RE.sub("", text)
+
+
+def is_available_prompt(*, raw_line: str, plain_line: str) -> bool:
+    """True for an empty prompt or Claude's ANSI-proven generated placeholder."""
+    return (plain_line.startswith("❯") and not plain_line[1:].strip()) or (
+        _DIM_TRY_PLACEHOLDER_RE.fullmatch(raw_line.strip()) is not None
+    )
 
 
 # --------------------------------------------------------------------------- #

@@ -224,7 +224,7 @@ stateDiagram-v2
 
     state cIdle <<choice>>
     cIdle --> settling: not idle-prompt
-    cIdle --> cStream: empty idle prompt
+    cIdle --> cStream: available idle prompt
 
     state cStream <<choice>>
     cStream --> working: still streaming (act)
@@ -765,7 +765,7 @@ for the marker's edge-triggered lifecycle.
    the session has been CONTINUOUSLY idle for at least `IDLE_NUDGE_AFTER` (1 hour;
    maintainer-declared 2026-07-18: it was "too aggressive, TOO SOON" and interrupted
    sessions merely between turns).** The continuous-idle clock is in-memory
-   (`InjectState.idle_since`), stamped on the first cleanly-idle tick (empty prompt AND
+   (`InjectState.idle_since`), stamped on the first cleanly-idle tick (available prompt AND
    not busy — `busy` folds in Claude's registry `busy`/`shell`, so a sub-agent or
    background command resets it) and cleared the moment the session is non-idle; a daemon
    restart resets it, which only ever DELAYS a nudge (the safe direction). The row still
@@ -1132,10 +1132,13 @@ for the marker's edge-triggered lifecycle.
   fake them. Above threshold, when it is the SOLE reason a track isn't idle, the row
   `note` is `"background shell"`.
 - **Idle-input detection (`signals.is_idle_input`).** The real idle prompt is an
-  EMPTY `❯` between two horizontal rule lines (`────…`), statusline + hint below
-  — NOT a `╭─╮` box with `? for shortcuts` (verified live 2026-07-13). Detect
-  that structural shape (glyph/hint-independent); require the prompt EMPTY so the
-  daemon never injects over existing input; gate with not-busy + not-gate.
+  available `❯` between two horizontal rule lines (`────…`), statusline + hint below
+  — NOT a `╭─╮` box with `? for shortcuts` (verified live 2026-07-13).
+  Claude 2.1.286 may render generated ``Try "..."`` text there instead of a
+  visually empty line; it counts only when `tmux capture-pane -e` proves the
+  text carries Claude's measured dim SGR styling. Identical undimmed text is
+  user input and suppresses action. Detect that structural shape and gate it
+  with not-busy + not-gate.
 - **State-file declaration (`signals.read_state` / `valid_token` /
   `ready_valid`).** The ONE state file lives at
   `<repo>/tmp/overseer/<topic>/.overseer-state` (the repo's gitignored temp dir —

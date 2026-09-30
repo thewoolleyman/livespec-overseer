@@ -226,7 +226,7 @@ def test_capture_script_captures_tmux_pane_text() -> None:
     capture_canary = _load_capture_canary()
 
     def fake_run(*, argv):
-        assert argv == ["tmux", "capture-pane", "-t", "s", "-p", "-S", "-200"]
+        assert argv == ["tmux", "capture-pane", "-e", "-t", "s", "-p", "-S", "-200"]
         return subprocess.CompletedProcess(args=argv, returncode=0, stdout="pane", stderr="")
 
     capture_canary._run = fake_run

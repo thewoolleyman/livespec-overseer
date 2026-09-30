@@ -151,8 +151,8 @@ class TmuxIO:
     # ----------------------------------------------------------------- #
 
     def capture_pane(self, *, session: str) -> str:
-        """``tmux capture-pane -p -t <session>`` → visible pane text (``""`` on error)."""
-        completed = self._call(args=["capture-pane", "-p", "-t", session])
+        """``tmux capture-pane -e -p -t <session>`` → styled pane text (``""`` on error)."""
+        completed = self._call(args=["capture-pane", "-e", "-p", "-t", session])
         if not self._ok(completed=completed):
             return ""
         return completed.stdout

@@ -125,7 +125,8 @@ with this low-context paste. For Claude that means the adopted session's
 registry status is exactly `shell`; for Codex that means the descendant-shell
 fallback is the only busy evidence. It does not make the shell safe to kill,
 does not authorize a restart, and does not weaken the input guard: Claude still
-needs a positively empty input box, Codex still needs its structural prompt and
+needs a positively available input box (empty, or a generated placeholder proven
+by its dim terminal styling), Codex still needs its structural prompt and
 statusline with no picker or generating marker, and the daemon re-reads the
 pane identity, runtime/busy evidence, capture, declaration/ACK/gate state, and
 input predicate immediately before opening the round. Any change, unknown
