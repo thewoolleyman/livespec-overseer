@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.10.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.10.0...v5.10.1) (2026-09-30)
+
+
+### Bug Fixes
+
+* **overseer:** refresh styled idle and Codex canaries ([26b7171](https://github.com/thewoolleyman/livespec-overseer/commit/26b71715308bd6f70bec48d1116fce017c2e390c))
+
 ## [5.10.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.9.4...v5.10.0) (2026-09-30)
 
 
