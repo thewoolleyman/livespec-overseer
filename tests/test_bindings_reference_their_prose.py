@@ -26,6 +26,7 @@ OPERATIONS = (
     "overseer",
     "caam-anthropic-loop",
     "drain-backlog",
+    "llm-provider-manager",
 )
 
 

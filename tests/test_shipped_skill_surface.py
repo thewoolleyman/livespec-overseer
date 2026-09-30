@@ -1,4 +1,4 @@
-"""Guard that this repo ships EXACTLY the three operator skills, in every harness.
+"""Guard that this repo ships EXACTLY the four operator skills, in every harness.
 
 The three ``test_*_seat_removed.py`` guards each pin the NEGATIVE for one
 retired seat: no ``foreman``/``grooming``/``supervise-plan`` surface survives.
@@ -18,11 +18,26 @@ retired — the three SEATS — is untouched by it; only the count of shipped
 operations changed, and the closed-set property this test exists for is exactly
 what forced the reversal to be explicit.
 
+The count moved again on 2026-09-30, three to FOUR, when `llm-provider-manager`
+shipped its operator surface. That addition differs in KIND from drain-backlog's
+and the difference is the reason it is recorded separately: drain-backlog's move
+was a maintainer ruling that reopened D5's count, whereas this operation is a
+`SPECIFICATION/` commitment — contracts.md requires it to ship as a first-class
+operator operation with one visible binding per supported harness. So the closed
+set below did not merely admit another member by permission; it was obliged to.
+What D5 RETIRED is still untouched by either change: the three seats stay gone,
+and what has moved twice now is the COUNT of shipped operations.
+
 So this test asserts set EQUALITY, not membership, across all four shipped
 trees — the Claude skills, the nested Codex bindings, the pi bindings, and the
 harness-neutral prose both harnesses read — plus the manifests' own advertising
 text. A new seat cannot be added to any one tree without this failing, which is
 the property the per-seat guards cannot give.
+
+Note the division of labour with `test_lpm_operator_surface.py`, which covers the
+same operation: set equality is satisfied by a DIRECTORY, so this gate cannot
+tell whether any particular operation is completely wired. That is the other
+module's question, and this one deliberately stays a closed-set gate.
 """
 
 from __future__ import annotations
@@ -36,8 +51,16 @@ ROOT = Path(__file__).resolve().parent.parent
 PLUGIN = ROOT / ".claude-plugin"
 
 # The whole shipped operator surface: D5 bucket 1, plus the drain-backlog
-# operation the maintainer moved in on 2026-09-09 (`overseer-f4664u`).
-SHIPPED_SKILLS = ("caam-anthropic-loop", "drain-backlog", "overseer")
+# operation the maintainer moved in on 2026-09-09 (`overseer-f4664u`), plus the
+# llm-provider-manager credential operation, which unlike drain-backlog is a
+# SPECIFICATION commitment rather than a maintainer-ruled move — see the
+# docstring above.
+SHIPPED_SKILLS = (
+    "caam-anthropic-loop",
+    "drain-backlog",
+    "llm-provider-manager",
+    "overseer",
+)
 
 # The pi bindings namespace each skill with the plugin name.
 PI_PREFIX = "livespec-overseer-"
