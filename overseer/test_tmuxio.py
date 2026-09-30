@@ -24,7 +24,7 @@ __all__: list[str] = []
 def test_capture_pane_argv_and_output():
     io, fake = _io(stdout="pane text here\n")
     assert io.capture_pane(session="livespec:topic") == "pane text here\n"
-    assert fake.calls[0]["argv"] == ["tmux", "capture-pane", "-p", "-t", "livespec:topic"]
+    assert fake.calls[0]["argv"] == ["tmux", "capture-pane", "-e", "-p", "-t", "livespec:topic"]
 
 
 def test_capture_pane_empty_on_error():

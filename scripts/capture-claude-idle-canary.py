@@ -55,7 +55,7 @@ def _installed_version() -> str | None:
 
 
 def _tmux_capture(*, session: str) -> str:
-    completed = _run(argv=["tmux", "capture-pane", "-t", session, "-p", "-S", "-200"])
+    completed = _run(argv=["tmux", "capture-pane", "-e", "-t", session, "-p", "-S", "-200"])
     if completed.returncode != 0:
         return ""
     return completed.stdout

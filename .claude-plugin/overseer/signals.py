@@ -21,7 +21,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from _signals_context import parse_ctx_remaining, strip_ansi
+from _signals_context import is_available_prompt, parse_ctx_remaining, strip_ansi
 from _signals_delivery import queued_cross_session_delivery_sender
 from _signals_pane_identity import pane_is_claude, pane_is_codex, pane_is_shell, path_in_repo
 from _signals_topics import (
@@ -155,8 +155,8 @@ def is_structured_gate(*, capture_text: str) -> bool:
     return "do you want to proceed" in tail.lower()
 
 
-# The live idle input box is an EMPTY `❯` prompt line sandwiched between two
-# horizontal rule lines (`────…`), with the statusline + footer hint below it
+# The live idle input box is an available `❯` prompt line sandwiched between
+# two horizontal rule lines (`────…`), with the statusline + footer hint below it
 # (verified live 2026-07-13 — NOT a `╭─╮` rounded box with `? for shortcuts`).
 # We detect that structural shape: it is stable across idle and busy and is
 # independent of the footer-hint wording and the spinner glyph.
@@ -181,39 +181,37 @@ def _is_border(*, line: str) -> bool:
     return _BORDER_RE.match(line) is not None
 
 
-def _is_empty_prompt(*, line: str) -> bool:
-    """True if ``line`` is the empty idle prompt: the `❯` glyph with nothing after."""
-    return line.startswith("❯") and not line[1:].strip()
-
-
 def _input_box_present(*, text: str) -> bool:
-    """True if an EMPTY `❯` prompt sits between two box-border lines.
+    """True if an available `❯` prompt sits between two box-border lines.
 
-    Scans the non-empty lines and requires an empty `❯` with a border line
-    immediately before and after it. The border above MAY carry the `-n <topic>`
-    title (`─── mytopic ──` on Claude Code 2.1.235, `─── mytopic ─` on 2.1.237);
-    the border below is a pure rule. The empty-prompt requirement means a box
-    that already holds typed/pasted input is NOT treated as idle (the daemon
-    must never inject over existing input). A numbered-option
+    Scans the non-empty lines and requires either an empty `❯` or Claude's
+    generated ``Try "..."`` placeholder with its measured dim SGR styling,
+    immediately between border lines. The border above MAY carry the
+    `-n <topic>` title (`─── mytopic ──` on Claude Code 2.1.235,
+    `─── mytopic ─` on 2.1.237); the border below is a pure rule.
+    An identical undimmed line remains typed input, so the daemon never injects
+    over user-authored text. A numbered-option
     gate (`❯ 1.`) is not empty and not border-bracketed, so it is excluded here
     (and by :func:`is_structured_gate`).
     """
-    ne = [stripped for raw in text.splitlines() if (stripped := strip_ansi(text=raw).strip())]
-    for i, line in enumerate(ne):
-        if not _is_empty_prompt(line=line):
+    ne = [
+        (raw.strip(), plain) for raw in text.splitlines() if (plain := strip_ansi(text=raw).strip())
+    ]
+    for i, (raw_line, plain_line) in enumerate(ne):
+        if not is_available_prompt(raw_line=raw_line, plain_line=plain_line):
             continue
-        above = i >= 1 and _is_border(line=ne[i - 1])
-        below = i + 1 < len(ne) and _is_border(line=ne[i + 1])
+        above = i >= 1 and _is_border(line=ne[i - 1][1])
+        below = i + 1 < len(ne) and _is_border(line=ne[i + 1][1])
         if above and below:
             return True
     return False
 
 
 def is_idle_input(*, capture_text: str) -> bool:
-    """True only for a VERIFIED normal, EMPTY input state.
+    """True only for a VERIFIED normal, available input state.
 
-    An empty `❯` prompt box (positive structural marker) is present AND the pane
-    is not busy AND not a structured gate. "Not busy" alone is NOT idle-input
+    An empty `❯` prompt or ANSI-proven generated placeholder is present AND
+    the pane is not busy AND not a structured gate. "Not busy" alone is NOT idle-input
     (see design.md, signal sources) — a blank / frozen / booting pane has no
     input box and is therefore not idle.
     """
@@ -225,7 +223,7 @@ def is_idle_input(*, capture_text: str) -> bool:
 
 
 def input_box_ready(*, capture_text: str) -> bool:
-    """True if the EMPTY `❯` input box is present (regardless of busy/gate).
+    """True if the available `❯` input box is present (regardless of busy/gate).
 
     Unlike :func:`is_idle_input`, this does NOT require not-busy — it is the
     "the prompt cleared" signal the daemon uses to confirm a pasted prompt

@@ -98,6 +98,7 @@ _GIT_HOOK_ENV_VARS = (
 )
 _HOST_CODEX_HOME = Path.home() / ".codex"
 _FALLBACK_TERM = "xterm-256color"
+_CODEX_TEST_MODEL = "gpt-5.6-sol"
 # TERMINAL TYPES THAT CANNOT DRIVE A TUI, distinguished from a MISSING one because
 # conflating the two is the bug this set was added to close. See `_tui_capable_term`.
 _TUI_INCAPABLE_TERMS = frozenset({"", "dumb"})
@@ -143,13 +144,13 @@ _PLUGINS_ROOT = Path(
 # `harnesses.codex.status = "supported"` actually makes. It is not a test that a
 # fresh clone can register the marketplace from scratch.
 _CODEX_TEST_CONFIG = f"""
-model = "gpt-5.5"
+model = "{_CODEX_TEST_MODEL}"
 
 [tui.model_availability_nux]
-"gpt-5.5" = 4
+"{_CODEX_TEST_MODEL}" = 4
 
 [notice.model_migrations]
-"gpt-5.4" = "gpt-5.5"
+"gpt-5.5" = "{_CODEX_TEST_MODEL}"
 
 [projects."{_REPO_ROOT}"]
 trust_level = "trusted"
@@ -205,10 +206,10 @@ def _squashed(*, text: str) -> str:
 def _has_main_prompt(*, plain: str) -> bool:
     squashed = _squashed(text=plain)
     return (
-        ("model:gpt-5.5" in squashed and "/modeltochange" in squashed)
+        (f"model:{_CODEX_TEST_MODEL}" in squashed and "/modeltochange" in squashed)
         or (
             f"{_CODEX_PROMPT_MARKER}explainthiscodebase" in squashed
-            and "gpt-5.5default" in squashed
+            and f"{_CODEX_TEST_MODEL}default" in squashed
         )
         or "tip:" in squashed
     )
@@ -528,7 +529,14 @@ def test_skills_picker_renders_the_declared_codex_canonical_command() -> None:
         _prepare_codex_home(codex_home=codex_home)
         env["CODEX_HOME"] = str(codex_home)
         proc = subprocess.Popen(  # noqa: S603  — argv is a resolved codex binary, not a shell.
-            [codex, "--no-alt-screen", "--dangerously-bypass-hook-trust", "-C", str(_REPO_ROOT)],
+            [
+                codex,
+                "--no-daemon",
+                "--no-alt-screen",
+                "--dangerously-bypass-hook-trust",
+                "-C",
+                str(_REPO_ROOT),
+            ],
             stdin=slave_fd,
             stdout=slave_fd,
             stderr=slave_fd,
