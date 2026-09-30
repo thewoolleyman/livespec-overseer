@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.10.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.9.4...v5.10.0) (2026-09-30)
+
+
+### Features
+
+* **lpm:** close the operator invocation layer to two argument shapes ([8702c0d](https://github.com/thewoolleyman/livespec-overseer/commit/8702c0d1fb0ed3f8f5c62616139104a570e0f33c))
+* **lpm:** give every manager binding one shared implementation entrypoint ([61579d4](https://github.com/thewoolleyman/livespec-overseer/commit/61579d409cb1f48936682a49a29ec7d25380fd1c))
+* **lpm:** validate the plugin root before a manager binding trusts it ([cf953d4](https://github.com/thewoolleyman/livespec-overseer/commit/cf953d4ec08c39b5ea70f5917850bee29ab43958))
+
 ## [5.9.4](https://github.com/thewoolleyman/livespec-overseer/compare/v5.9.3...v5.9.4) (2026-09-12)
 
 
