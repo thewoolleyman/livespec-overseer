@@ -46,6 +46,7 @@ __all__: list[str] = [
     "ensure_state_directory",
     "read_local_record",
     "read_local_text",
+    "remove_local_record",
     "write_local_bytes",
     "write_local_record",
     "write_local_text",
@@ -127,6 +128,31 @@ def write_local_record(*, path: Path, value: object, owner_uid: int) -> Result[N
     if isinstance(encoded, Failure):
         return Failure(internal_bug(message=f"record is {encoded.failure().reason}"))
     return write_local_text(path=path, text=encoded.unwrap(), owner_uid=owner_uid)
+
+
+def remove_local_record(*, path: Path, owner_uid: int) -> Result[None, ManagerError]:
+    """Remove one local record. An already-absent path is the committed postcondition.
+
+    The safety checks run FIRST and unchanged: a symlinked, non-regular, wrongly owned or
+    more broadly accessible path is refused rather than unlinked, because the contract's
+    no-reset-no-mutation rule covers deletion too — an unsafe path is evidence, and removing
+    it destroys the evidence while also being the one action that cannot be taken back.
+
+    Idempotence is the point. Deletion is how this operation expresses "no lease", "no
+    operation" and "fence resolved", and each of those unlinks sits in a crash window; the
+    contract therefore defines absence after a delete effect's required predecessor as the
+    committed postcondition rather than as an error to report.
+    """
+    defect = _file_defect(path=path, owner_uid=owner_uid)
+    if defect is not None:
+        return Failure(store_unavailable(message=defect))
+    try:
+        path.unlink(missing_ok=True)
+        _sync_directory(path=path.parent)
+    except OSError as failure:
+        reason = _named(failure=failure)
+        return Failure(store_unavailable(message=f"{path.name} was not removed: {reason}"))
+    return Success(None)
 
 
 def ensure_state_directory(*, path: Path, owner_uid: int) -> Result[None, ManagerError]:
