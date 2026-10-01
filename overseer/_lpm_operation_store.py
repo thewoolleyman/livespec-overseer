@@ -26,7 +26,6 @@ forward and offers no way to supply a new one.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
 
@@ -38,6 +37,7 @@ from _lpm_operation import (
     operation_from_object,
     operation_object,
 )
+from _lpm_operation_plan import PlanContext, next_phase, ordered_effects_for
 from _lpm_paths import local_record_path
 from _lpm_results import ManagerError, internal_bug
 
@@ -47,10 +47,10 @@ _ = VENDOR_PATHS_INSTALLED
 
 __all__: list[str] = [
     "checkpoint_step",
+    "finish_operation",
     "operation_path",
     "read_operation",
-    "remove_operation",
-    "replace_phase",
+    "transition_operation",
     "write_operation",
 ]
 
@@ -108,22 +108,44 @@ def checkpoint_step(
     return _validated_write(path=path, operation=advanced, owner_uid=owner_uid)
 
 
-def replace_phase(
+def transition_operation(
     *,
     path: Path,
     operation: OperationRecord,
-    phase: str,
-    ordered_effects: Sequence[str],
+    condition: str,
+    context: PlanContext,
     terminal_result: dict[str, object] | None,
     owner_uid: int,
-) -> Result[OperationRecord, ManagerError]:
-    """Atomically rewrite `operation` into `phase` with that phase's complete plan.
+) -> Result[OperationRecord | None, ManagerError]:
+    """Apply the ratified transition `condition` names, or finish the operation.
 
-    The five identity and input members are carried over verbatim and `completed_step`
-    returns to `-1`, so the replacement is the SAME operation in a new phase rather than a
-    new operation — which is what keeps a retry resolving the same path and what gives every
-    effect of the replacement an identifier distinct from every prior attempt's.
+    THE CALLER NAMES A CONDITION, NEVER A PHASE AND NEVER AN EFFECT ARRAY. That is the whole
+    point of this surface: the contract's transition table decides which phase follows, and the
+    plan tables decide that phase's complete effect array, so there is no public path by which a
+    caller can install a phase the contract does not reach from here or a plan it does not state.
+    An earlier shape took `phase` and `ordered_effects` directly and was exactly that hole.
+
+    `Success(None)` is the every-effect-committed case: the record is REMOVED as terminal
+    housekeeping rather than rewritten, and the removal goes through the same finished-plan
+    precondition as `finish_operation`.
+
+    The five identity and input members are carried over verbatim and `completed_step` returns
+    to `-1`, so a replacement is the SAME operation in a new phase rather than a new operation —
+    which is what keeps a retry resolving the same path and what gives every effect of the
+    replacement an identifier distinct from every prior attempt's.
     """
+    following = next_phase(phase=operation.phase, condition=condition)
+    if isinstance(following, Failure):
+        return following
+    phase = following.unwrap()
+    if phase is None:
+        finished = finish_operation(path=path, operation=operation, owner_uid=owner_uid)
+        if isinstance(finished, Failure):
+            return finished
+        return Success(None)
+    effects = ordered_effects_for(command=operation.command, phase=phase, context=context)
+    if isinstance(effects, Failure):
+        return effects
     replacement = OperationRecord(
         operation_id=operation.operation_id,
         command=operation.command,
@@ -132,19 +154,35 @@ def replace_phase(
         accepted_at=operation.accepted_at,
         normalized_input=operation.normalized_input,
         terminal_result=terminal_result,
-        ordered_effects=tuple(ordered_effects),
+        ordered_effects=effects.unwrap(),
         completed_step=UNSTARTED_STEP,
     )
     return _validated_write(path=path, operation=replacement, owner_uid=owner_uid)
 
 
-def remove_operation(*, path: Path, owner_uid: int) -> Result[None, ManagerError]:
-    """Remove a finished operation record; an already-absent path is the committed outcome.
+def finish_operation(
+    *, path: Path, operation: OperationRecord, owner_uid: int
+) -> Result[None, ManagerError]:
+    """Remove a FINISHED operation record; an already-absent path is the committed outcome.
 
-    Removal is terminal HOUSEKEEPING rather than an ordered effect, so it carries no
-    `effect_id` and no audit line — and it is idempotent, because the crash window between
-    the last checkpoint and this unlink is survived by simply doing it again.
+    The finished-plan precondition is the half that matters. Removal is terminal housekeeping
+    and is not itself an ordered effect, but the contract permits it only after EVERY ordered
+    effect commits — so a record whose `completed_step` is not its last index is refused here
+    rather than silently discarding the pending effects a later replay would have performed.
+
+    Removal is idempotent, because the crash window between the last checkpoint and this unlink
+    is survived by simply doing it again.
     """
+    last = len(operation.ordered_effects) - 1
+    if operation.completed_step != last:
+        return Failure(
+            internal_bug(
+                message=(
+                    "an operation is removable only once every ordered effect commits; "
+                    f"completed_step is {operation.completed_step} of {last}"
+                )
+            )
+        )
     return remove_local_record(path=path, owner_uid=owner_uid)
 
 
