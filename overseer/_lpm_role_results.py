@@ -73,14 +73,17 @@ def _shape(*, status: str, members: tuple[str, ...] = ()) -> ClosedResult:
 
 # A commit status plus `store-unavailable`, shared by final provisioning and the tokenless
 # `target-status` role because the contract gives them the same answer vocabulary: the
-# target adapter's secret-free commit-status shape, or that one closed failure. The
-# `committed_at` member rides `committed` ALONE — the contract makes it non-null exactly
-# there, so an `in-progress` carrying it is not a shape this boundary recognizes.
+# target adapter's secret-free commit-status shape, or that one closed failure.
+#
+# `committed_at` is a member of ALL THREE commit shapes, not just `committed`. The contract
+# fixes it as "a nullable `committed_at` that is non-null exactly for `committed`", and
+# `_lpm_target.CommitOutcome` carries it unconditionally as `str | None` — so the shape a
+# real adapter produces for a definitive no-change is `uncommitted` WITH `committed_at:
+# null`. Giving the member to `committed` alone rejected exactly that, collapsing the
+# distinction the three words exist to draw. Whether the value may be null is a separate
+# rule, enforced below rather than by the member set.
 _COMMIT_RESULTS: Final = (
-    *(
-        _shape(status=status, members=("committed_at",) if status == COMMITTED else ())
-        for status in COMMIT_STATUSES
-    ),
+    *(_shape(status=status, members=("committed_at",)) for status in COMMIT_STATUSES),
     _shape(status=_STORE_UNAVAILABLE),
 )
 
@@ -110,6 +113,24 @@ CLOSED_ROLE_RESULTS: Final[dict[tuple[str, str | None], tuple[ClosedResult, ...]
 }
 
 
+def _commit_dating_defect(*, status: object, members: Mapping[str, object]) -> str | None:
+    """Whether `committed_at` is non-null exactly for `committed`, or None when not applicable.
+
+    A `committed` with a null stamp claims a commit while withholding the fence sample that
+    dates it; a non-null stamp on any other status dates a commit that did not happen. The
+    member being PRESENT is a shape question and lives in the table; whether it may hold a
+    value is this rule, because the same member name is legal either way.
+    """
+    if "committed_at" not in members or status not in COMMIT_STATUSES:
+        return None
+    committed = status == COMMITTED
+    if committed and members["committed_at"] is None:
+        return "a committed result with no commit time"
+    if not committed and members["committed_at"] is not None:
+        return "a non-committed result carrying a commit time"
+    return None
+
+
 def closed_result_defect(
     *, role_name: str, mode: str | None, members: Mapping[str, object]
 ) -> str | None:
@@ -126,6 +147,9 @@ def closed_result_defect(
     recognized = tuple(shape for shape in shapes if shape.status == status)
     if not recognized:
         return "a status outside its closed vocabulary"
+    dated = _commit_dating_defect(status=status, members=members)
+    if dated is not None:
+        return dated
     if not any(shape.members == present for shape in recognized):
         # `status` is quoted only HERE, after the table recognized it: by this point the
         # word came from `CLOSED_ROLE_RESULTS`, not from the child.

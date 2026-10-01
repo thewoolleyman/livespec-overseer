@@ -281,6 +281,16 @@ def _inherited_descriptors(
     return Success(tuple(role_input.descriptor_fds[name] for name in allowed))
 
 
+def _is_version_one(*, value: object) -> bool:
+    """Whether `value` is the INTEGER one, rejecting the two look-alikes Python admits.
+
+    `True == 1` and `1.0 == 1`, so a bare equality check accepts JSON `true` and `1.0` as a
+    version-1 result. Neither is the integer the contract names, and `bool` has to be
+    excluded explicitly because it is a subclass of `int`.
+    """
+    return isinstance(value, int) and not isinstance(value, bool) and value == ROLE_RESULT_VERSION
+
+
 def _requested_mode(*, role_request: Mapping[str, object]) -> str | None:
     """The `mode` this call itself asked for, when the role's input carries one.
 
@@ -327,7 +337,7 @@ def _closed_role_object(*, stdout: bytes) -> Result[dict[str, object], str]:
     if not isinstance(value, dict):
         return Failure("output that is not a JSON object")
     members: dict[str, object] = value
-    if members.get("version") != ROLE_RESULT_VERSION:
+    if not _is_version_one(value=members.get("version")):
         return Failure("output whose version is not 1")
     if not isinstance(members.get("status"), str):
         return Failure("output that carries no status")

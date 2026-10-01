@@ -88,6 +88,33 @@ def _run_against(tmp_path, *, body):
     )
 
 
+def _run_with_answer(runner, *, payload):
+    """Drive the public boundary against a launch that answers with exactly `payload`.
+
+    An injected launch rather than a real child here: the bytes under test are the point,
+    and a real child would be a second place that had to produce them exactly.
+    """
+    role = _roles().credential_role(name="metadata-reader")
+
+    def _launch(*, argv, environ, request_bytes, timeout_seconds, inherited_fds):
+        return runner.RoleCompletion(stdout=payload, exit_status=0, timed_out=False)
+
+    return runner.run_credential_role(
+        role_input=_child().ClosedRoleInput(
+            role_name="metadata-reader",
+            key_description=role.key_description,
+            descriptors=role.descriptors,
+        ),
+        companion=_roles().PackagedCompanion(
+            python_executable="/usr/bin/python3", packaged_companion="/pkg/_lpm_role_main.py"
+        ),
+        role_request={"version": 1, "mode": "get", "record_id": "r", "op_executable": "/op"},
+        environ={"PATH": "/usr/bin"},
+        timeout_seconds=5.0,
+        launch=_launch,
+    )
+
+
 def test_an_extra_member_is_refused_end_to_end_and_never_reaches_the_caller(tmp_path):
     """The headline leak: a real child adds one member to an otherwise perfect answer.
 
@@ -118,9 +145,9 @@ def test_an_extra_member_is_refused_end_to_end_and_never_reaches_the_caller(tmp_
 def test_every_closed_shape_this_slice_covers_is_accepted():
     """The accept side, so the refusals below cannot pass by rejecting everything.
 
-    `committed_at` rides only the `committed` commit status, which is the one member-level
-    distinction the contract draws inside a single role's vocabulary -- a `committed`
-    without it, or an `in-progress` with it, is not that shape.
+    `committed_at` is a member of EVERY commit shape and null on all but `committed`, so a
+    definitive no-change answer carries the member with a null value. Its presence is a
+    shape question; whether it may hold a value is a separate rule, exercised below.
     """
     results = _results()
     envelope = {"item_id": "rev-1", "record": {}}
@@ -142,9 +169,9 @@ def test_every_closed_shape_this_slice_covers_is_accepted():
             None,
             {"version": 1, "status": "committed", "committed_at": "2026-09-12T10:00:00Z"},
         ),
-        ("final-provisioning", None, {"version": 1, "status": "in-progress"}),
+        ("final-provisioning", None, {"version": 1, "status": "in-progress", "committed_at": None}),
         ("final-provisioning", None, {"version": 1, "status": "store-unavailable"}),
-        ("target-status", None, {"version": 1, "status": "uncommitted"}),
+        ("target-status", None, {"version": 1, "status": "uncommitted", "committed_at": None}),
         ("target-status", None, {"version": 1, "status": "store-unavailable"}),
     ):
         assert (
@@ -179,11 +206,22 @@ def test_an_unregistered_status_or_member_set_is_refused_without_quoting_child_b
             {"version": 1, "status": "ok", "item": None},
             "closed vocabulary",
         ),
-        ("final-provisioning", None, {"version": 1, "status": "committed"}, "exact members"),
+        (
+            "final-provisioning",
+            None,
+            {"version": 1, "status": "committed", "committed_at": None},
+            "no commit time",
+        ),
         (
             "target-status",
             None,
             {"version": 1, "status": "in-progress", "committed_at": "2026-09-12T10:00:00Z"},
+            "carrying a commit time",
+        ),
+        (
+            "final-provisioning",
+            None,
+            {"version": 1, "status": "uncommitted"},
             "exact members",
         ),
     ):
@@ -192,6 +230,77 @@ def test_an_unregistered_status_or_member_set_is_refused_without_quoting_child_b
         assert defect is not None, (role_name, members)
         assert fragment in defect, (role_name, members, defect)
         assert _LEAK not in defect
+
+
+def test_every_commit_status_carries_a_nullable_committed_at_non_null_only_for_committed():
+    """`committed_at` is a member of ALL three commit shapes, null except for `committed`.
+
+    The contract fixes commit status at `in-progress`, `committed` or `uncommitted` "plus a
+    nullable `committed_at` that is non-null exactly for `committed`", and `_lpm_target`'s
+    own `CommitOutcome` carries the field unconditionally as `str | None`. Treating it as
+    riding `committed` alone rejects the shape the real adapter actually produces -- an
+    `uncommitted` with `committed_at: null` -- which would turn every definitive no-change
+    answer into a nonconforming one and lose the distinction the three words exist for.
+
+    The value rule is the other half: a `committed` whose `committed_at` is null claims a
+    commit while withholding the fence sample that dates it, and a non-null one on any other
+    status dates a commit that did not happen.
+    """
+    results = _results()
+    stamp = "2026-09-12T10:00:00Z"
+
+    for status in ("in-progress", "uncommitted"):
+        assert (
+            results.closed_result_defect(
+                role_name="final-provisioning",
+                mode=None,
+                members={"version": 1, "status": status, "committed_at": None},
+            )
+            is None
+        ), status
+        assert results.closed_result_defect(
+            role_name="target-status",
+            mode=None,
+            members={"version": 1, "status": status, "committed_at": stamp},
+        ), f"{status} must not date a commit that did not happen"
+
+    assert (
+        results.closed_result_defect(
+            role_name="final-provisioning",
+            mode=None,
+            members={"version": 1, "status": "committed", "committed_at": stamp},
+        )
+        is None
+    )
+    assert results.closed_result_defect(
+        role_name="final-provisioning",
+        mode=None,
+        members={"version": 1, "status": "committed", "committed_at": None},
+    ), "a commit must carry the fence sample that dates it"
+
+
+def test_a_boolean_or_float_version_is_not_the_integer_one():
+    """`True == 1` and `1.0 == 1` in Python, so an equality check alone admits both.
+
+    JSON `true` and `1.0` are not the integer `1`, and a parent that accepted either would
+    be reading a version it was never sent. This is the cheapest shape confusion there is to
+    introduce and the hardest to notice, because every other assertion about the object
+    still passes. Driven through the public boundary rather than the private parse helper,
+    so what is pinned is what a caller can actually observe.
+    """
+    runner = _runner()
+
+    for literal in ("true", "1.0", '"1"', "null"):
+        payload = f'{{"version":{literal},"status":"unavailable"}}'.encode()
+        outcome = _run_with_answer(runner, payload=payload)
+
+        assert outcome.refusal_reason is not None, literal
+        assert "version is not 1" in outcome.refusal_reason, literal
+
+    accepted = _run_with_answer(runner, payload=b'{"version":1,"status":"unavailable"}')
+
+    assert accepted.refusal_reason is None
+    assert accepted.result_object == {"version": 1, "status": "unavailable"}
 
 
 def test_the_closed_table_covers_exactly_the_roles_this_slice_implements():
