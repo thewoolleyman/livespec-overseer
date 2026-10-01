@@ -86,6 +86,7 @@ class RoleLaunch(Protocol):
         environ: Mapping[str, str],
         request_bytes: bytes,
         timeout_seconds: float,
+        inherited_fds: tuple[int, ...],
     ) -> RoleCompletion: ...
 
 
@@ -116,8 +117,16 @@ def subprocess_role_launch(
     environ: Mapping[str, str],
     request_bytes: bytes,
     timeout_seconds: float,
+    inherited_fds: tuple[int, ...],
 ) -> RoleCompletion:
     """Run the closed role vector, streaming the role input over its standard input.
+
+    DESCRIPTOR INHERITANCE IS EXPLICIT IN BOTH DIRECTIONS, as the contract requires. Naming
+    `pass_fds` sets `close_fds` and clears close-on-exec for exactly those descriptors, so
+    the allowlisted ones survive the spawn AND the launcher's own `execve` into the role,
+    while every other descriptor this parent holds is closed. Relying on the default would
+    have closed the allowlisted ones too — which is how a validated allowlist comes to
+    grant nothing.
 
     The deadline TERMINATES the child rather than merely abandoning the wait. A role holds
     a service-account token and may hold a lock or a target-reference lock; one left running
@@ -140,6 +149,8 @@ def subprocess_role_launch(
             stderr=subprocess.DEVNULL,
             env=dict(environ),
             timeout=timeout_seconds,
+            close_fds=True,
+            pass_fds=inherited_fds,
             check=False,
         )
     except subprocess.TimeoutExpired:
@@ -178,6 +189,11 @@ def run_credential_role(
             launched=False,
             reason=f"{role.name} input is not canonical JSON: {request.failure().reason}",
         )
+    inherited = _inherited_descriptors(role_input=role_input, allowed=role.descriptors)
+    if isinstance(inherited, Failure):
+        return _substituted(
+            role_input=role_input, launched=False, reason=f"{role.name} {inherited.failure()}"
+        )
     completion = launch(
         argv=execution_vector_for(companion=companion, role=role),
         # The contract puts the complete closed scrub on whichever process ACTUALLY SPAWNS
@@ -190,6 +206,7 @@ def run_credential_role(
         environ=scrubbed_environment(environ=environ),
         request_bytes=request.unwrap(),
         timeout_seconds=timeout_seconds,
+        inherited_fds=inherited.unwrap(),
     )
     interpreted = _completion_meaning(
         role_name=role.name,
@@ -242,6 +259,26 @@ def _completion_meaning(
     if defect is not None:
         return Failure(f"returned {defect}")
     return Success(result)
+
+
+def _inherited_descriptors(
+    *, role_input: ClosedRoleInput, allowed: tuple[str, ...]
+) -> Result[tuple[int, ...], str]:
+    """The descriptors to inherit, in the registry's own order, or why they disagree.
+
+    Both directions refuse, and neither is cosmetic. A descriptor the registry does not
+    grant would hand the role authority it was never promised. A missing one would let final
+    provisioning start a write it cannot hold the target-reference lock for — the ambiguous
+    outcome that whole lock exists to prevent. Ordering follows the REGISTRY rather than the
+    caller's mapping so two callers offering the same names cannot produce different vectors.
+    """
+    offered = set(role_input.descriptor_fds)
+    if offered != set(allowed):
+        return Failure(
+            f"was offered descriptors {sorted(offered)} but may inherit exactly "
+            f"{sorted(allowed)}"
+        )
+    return Success(tuple(role_input.descriptor_fds[name] for name in allowed))
 
 
 def _requested_mode(*, role_request: Mapping[str, object]) -> str | None:
