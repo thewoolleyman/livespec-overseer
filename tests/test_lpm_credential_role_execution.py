@@ -21,6 +21,7 @@ testing convenience: a function that cannot return success cannot return a token
 from __future__ import annotations
 
 import importlib
+import os
 import pathlib
 
 import pytest
@@ -289,3 +290,29 @@ def test_every_other_keyring_step_failure_is_the_same_fail_closed_refusal():
         assert refusal.failure_object == {"version": 1, "status": "unavailable"}
         assert reason in refusal.reason
         assert refusal.reason.startswith("lifecycle-writer ")
+
+
+def test_the_host_primitives_are_a_real_uid_a_real_command_run_and_a_real_exec(tmp_path):
+    """The PRODUCTION seam, driven against real processes rather than against the double.
+
+    Three things the injected double structurally cannot prove. That `run` reports a real
+    exit status and the real bytes a `keyctl` vector wrote -- the double answers from a
+    table, so a seam that dropped the status or the output would pass every test above.
+    That `effective_uid` is THIS process's own uid, which is the value the owner check
+    compares against. And that a failed `execve` RETURNS instead of raising, because
+    returning is precisely the signal `launch_credential_role` reads as failure-to-exec: a
+    seam that let the `OSError` escape would turn that closed refusal into a crash.
+    """
+    child = _child()
+    assert "HostProcessOS" in child.__all__, "the production primitives are part of the surface"
+    host = child.HostProcessOS()
+    stub = tmp_path / "keyctl"
+    stub.write_text("#!/bin/sh\nprintf '884422\\n'\nexit 3\n", encoding="utf-8")
+    stub.chmod(0o755)
+
+    outcome = host.run(argv=(str(stub), "search"))
+
+    assert outcome.exit_status == 3
+    assert outcome.stdout == b"884422\n"
+    assert host.effective_uid() == os.geteuid()
+    assert host.replace_process(argv=(str(tmp_path / "absent"),), environ={}) is None

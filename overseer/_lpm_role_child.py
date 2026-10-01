@@ -27,6 +27,9 @@ requirement holds by construction rather than by review of each message.
 
 from __future__ import annotations
 
+import contextlib
+import os
+import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol
@@ -52,6 +55,7 @@ __all__: list[str] = [
     "ChildProcessOS",
     "ClosedRoleInput",
     "CommandOutcome",
+    "HostProcessOS",
     "LauncherRefusal",
     "launch_credential_role",
 ]
@@ -106,6 +110,44 @@ class ChildProcessOS(Protocol):
     def replace_process(self, *, argv: tuple[str, ...], environ: Mapping[str, str]) -> None:
         """Replace this process with `argv`. Returning at all means the exec FAILED."""
         ...
+
+
+@dataclass(frozen=True, kw_only=True)
+class HostProcessOS:
+    """The production primitives: this process's uid, a real `keyctl` run, a real exec.
+
+    It carries NO configuration, deliberately. The vectors it runs are built by
+    `_lpm_launcher` from the fixed `/usr/bin/keyctl` path, so there is nothing here for a
+    caller to point somewhere else — the injectability that makes the sequence testable
+    stops at the Protocol and never becomes a production knob.
+    """
+
+    def effective_uid(self) -> int:
+        """This process's effective uid, which the key's owner field must equal."""
+        return os.geteuid()
+
+    def run(self, *, argv: tuple[str, ...]) -> CommandOutcome:
+        """Run `argv` with no shell, capturing standard output only.
+
+        Standard error is deliberately NOT captured. One of these three calls prints a
+        credential payload, and a captured diagnostic is one more buffer that could end up
+        in a log; nothing the launcher decides on comes from `keyctl`'s stderr anyway.
+        """
+        completed = subprocess.run(  # noqa: S603 - fixed /usr/bin/keyctl vectors; never PATH
+            list(argv), stdout=subprocess.PIPE, check=False
+        )
+        return CommandOutcome(exit_status=completed.returncode, stdout=completed.stdout)
+
+    def replace_process(self, *, argv: tuple[str, ...], environ: Mapping[str, str]) -> None:
+        """Replace this process with `argv`; an `OSError` IS the failure, so it returns.
+
+        Suppressing it is not swallowing an error: a successful `execve` never comes back,
+        so coming back at all is already the complete report. Letting the `OSError` escape
+        would turn the contract's closed pre-exec failure object into a crash, and a
+        crashing launcher gives its parent an abnormal exit instead of a role result.
+        """
+        with contextlib.suppress(OSError):
+            os.execve(argv[0], list(argv), dict(environ))  # noqa: S606
 
 
 @dataclass(frozen=True, kw_only=True)
