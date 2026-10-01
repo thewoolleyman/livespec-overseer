@@ -58,6 +58,20 @@ _REQUEST = {
     "record_id": "rec-1",
     "op_executable": "/usr/bin/op",
 }
+# Final provisioning's input carries NO `mode` -- that member belongs to the reader's and
+# the writer's inputs. Reusing the reader's request here would hand this role a request
+# shape its own contract does not define.
+_PROVISIONING_REQUEST = {
+    "version": 1,
+    "target_ref": "tgt-0001",
+    "consumer_run_id": "run-a",
+    "record_id": "rec-1",
+    "value_generation": "0f9c0a1e-0000-4000-8000-000000000000",
+    "value_ref": "ref-1",
+    "lease_expires_at": "2026-09-13T10:00:00Z",
+    "external_call_timeout_seconds": 30,
+    "op_executable": "/usr/bin/op",
+}
 _READER_OK = '{"version":1,"status":"ok","item":{"item_id":"rev-1","record":{}}}'
 _COMMIT_OK = '{"version":1,"status":"committed","committed_at":"2026-09-12T10:00:00Z"}'
 
@@ -201,6 +215,7 @@ class _Scenario:
 
     role_name: str = "metadata-reader"
     variable: str = _READER_VARIABLE
+    role_request: dict = dataclasses.field(default_factory=lambda: dict(_REQUEST))
     descriptor_fds: dict = dataclasses.field(default_factory=dict)
     probe_fds: tuple = ()
     result: str = _READER_OK
@@ -245,7 +260,7 @@ def _run(tmp_path, scenario=None):
         companion=_module("_lpm_roles").PackagedCompanion(
             python_executable=sys.executable, packaged_companion=str(path)
         ),
-        role_request=_REQUEST,
+        role_request=scenario.role_request,
         # Carries an IMPOSTOR under the very name this role's token is installed as, so a
         # scrub that missed it would be caught by the digest rather than by an absence.
         environ={
@@ -291,7 +306,7 @@ def test_the_real_parent_launcher_exec_role_chain_joins_up(tmp_path, capfd):
     assert seen["no_site"] == 1
 
     # The request crossed the PIPE into the exec'd role, not the argument vector.
-    assert seen["request_sha256"] == hashlib.sha256(_canonical(_REQUEST)).hexdigest()
+    assert seen["request_sha256"] == hashlib.sha256(_canonical(dict(_REQUEST))).hexdigest()
 
     # A role declaring NO descriptors inherits none beyond stdio. The 4th is the one the
     # enumeration itself opens, and the control proves the count would move otherwise.
@@ -336,6 +351,7 @@ def test_the_allowlisted_descriptor_survives_into_the_role_and_an_unrelated_one_
             _Scenario(
                 role_name="final-provisioning",
                 variable=_VALUE_READER_VARIABLE,
+                role_request=_PROVISIONING_REQUEST,
                 descriptor_fds={"target-reference-lock": lock_fd},
                 probe_fds=(lock_fd, unrelated_fd),
                 result=_COMMIT_OK,
@@ -380,7 +396,7 @@ def test_a_descriptor_set_that_disagrees_with_the_allowlist_launches_nothing(tmp
             companion=_module("_lpm_roles").PackagedCompanion(
                 python_executable=sys.executable, packaged_companion="/nonexistent/companion.py"
             ),
-            role_request=_REQUEST,
+            role_request=_PROVISIONING_REQUEST if role_name == "final-provisioning" else _REQUEST,
             environ={"PATH": "/usr/bin:/bin"},
             timeout_seconds=5.0,
             launch=_record,
