@@ -332,7 +332,15 @@ def _closed_role_object(*, stdout: bytes) -> Result[dict[str, object], str]:
         return Failure("output that is not UTF-8")
     parsed = parse_canonical_json(text=text.strip())
     if isinstance(parsed, Failure):
-        return Failure(f"output that is not one JSON object: {parsed.failure().reason}")
+        # The parser's own reason is DISCARDED, not forwarded. It names the offending
+        # duplicate member — `duplicate member name: <name>` — and that name is chosen by
+        # the child, so embedding it put a token placed in a member name into this reason
+        # and from there into a manager log. The generic parser is right to name it; this
+        # boundary is simply not allowed to repeat it. Losing the malformed-versus-duplicate
+        # distinction is the price: both are the same closed failure object to the manager,
+        # and keeping it would mean auditing a SHARED parser's message text for secrets
+        # every time that parser changed.
+        return Failure("output that is not one JSON object")
     value = parsed.unwrap()
     if not isinstance(value, dict):
         return Failure("output that is not a JSON object")
