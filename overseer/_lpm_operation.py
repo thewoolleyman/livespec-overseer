@@ -35,6 +35,8 @@ from typing import Final, cast
 
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 from _lpm_canonical import is_sha256_hex
+from _lpm_operation_input import normalized_input_defect
+from _lpm_operation_plan import admissible_effect_arrays
 from _lpm_operation_terminal import terminal_result_defect
 from _lpm_record import is_uuid4
 from _lpm_results import ManagerError, store_unavailable
@@ -228,9 +230,9 @@ def _input_defect(*, source: dict[str, object]) -> str | None:
     accepted_at = source["accepted_at"]
     if not isinstance(accepted_at, str) or not is_canonical_timestamp(text=accepted_at):
         return "accepted_at must be a UTC RFC 3339-second timestamp"
-    if not isinstance(source["normalized_input"], dict):
-        return "normalized_input must be a JSON object"
-    return None
+    return normalized_input_defect(
+        command=str(source["command"]), normalized_input=source["normalized_input"]
+    )
 
 
 def _effects_defect(*, source: dict[str, object]) -> str | None:
@@ -240,6 +242,10 @@ def _effects_defect(*, source: dict[str, object]) -> str | None:
     for entry in cast("list[object]", effects):
         if entry not in EFFECT_NAMES:
             return "ordered_effects must name only ratified effects"
+    if tuple(cast("list[str]", effects)) not in admissible_effect_arrays(
+        command=str(source["command"]), phase=str(source["phase"])
+    ):
+        return "ordered_effects must be an effect array the contract admits for this phase"
     step = source["completed_step"]
     if isinstance(step, bool) or not isinstance(step, int):
         return "completed_step must be an integer"
