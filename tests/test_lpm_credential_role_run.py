@@ -89,12 +89,13 @@ def _role_input(*, role_name):
     )
 
 
-def _run(runner, *, companion, launch, role_request=None, role_input=None):
+def _run(runner, *, companion, launch, role_request=None, role_input=None, timeout_seconds=5.0):
     return runner.run_credential_role(
         role_input=_role_input(role_name="metadata-reader") if role_input is None else role_input,
         companion=companion,
         role_request=_REQUEST if role_request is None else role_request,
         environ=_INHERITED,
+        timeout_seconds=timeout_seconds,
         launch=launch,
     )
 
@@ -191,9 +192,11 @@ def test_the_parent_launches_nothing_when_the_role_input_or_request_is_not_close
     runner = _runner()
     launches = []
 
-    def _record(*, argv, environ, request_bytes):
-        launches.append((argv, dict(environ), request_bytes))
-        return runner.RoleCompletion(stdout=b'{"version":1,"status":"ok"}', exit_status=0)
+    def _record(*, argv, environ, request_bytes, timeout_seconds):
+        launches.append((argv, dict(environ), request_bytes, timeout_seconds))
+        return runner.RoleCompletion(
+            stdout=b'{"version":1,"status":"ok"}', exit_status=0, timed_out=False
+        )
 
     companion = _stub_companion(tmp_path / "pkg", body="exit 0\n")
     mismatched = _run(
@@ -217,3 +220,51 @@ def test_the_parent_launches_nothing_when_the_role_input_or_request_is_not_close
     assert "requires key description" in mismatched.refusal_reason
     assert unencodable.launched is False
     assert "not canonical JSON" in unencodable.refusal_reason
+
+
+def test_a_child_that_outlives_the_parent_deadline_is_terminated_and_never_read(tmp_path):
+    """A deadline is neither an abnormal exit nor absence: it is this role's closed failure.
+
+    Driven against a real sleeping child, because the property under test is that the PARENT
+    stops waiting and takes the child down with it -- against a double it would only be
+    asserting its own flag. The child's output is deliberately a PERFECTLY CONFORMING
+    object written AFTER the sleep, so a parent that merely waited longer would pass with a
+    success: the only way through is to have terminated the child before it got there.
+
+    The control alongside it writes the same marker INSIDE its deadline and answers
+    normally, which is what makes the missing marker above evidence of termination rather
+    than evidence that the write was unreachable.
+    """
+    runner = _runner()
+    assert (
+        "timed_out" in runner.RoleCompletion.__dataclass_fields__
+    ), "a completion must be able to say the parent's deadline terminated the child"
+    late = tmp_path / "late"
+    companion = _stub_companion(
+        tmp_path / "pkg",
+        body=(
+            "sleep 5\n"
+            f'printf "ran" > "{late}"\n'
+            'printf \'{"version":1,"status":"ok","item":null}\'\n'
+        ),
+    )
+
+    outcome = _run(
+        runner, companion=companion, launch=runner.subprocess_role_launch, timeout_seconds=0.25
+    )
+
+    assert outcome.result_object == {"version": 1, "status": "unavailable"}
+    assert outcome.launched is True
+    assert "deadline" in outcome.refusal_reason
+    assert not late.exists(), "the child must be terminated, not merely stopped waiting for"
+
+    mark = tmp_path / "inside"
+    control = _stub_companion(
+        tmp_path / "control",
+        body=(f'printf "ran" > "{mark}"\n' 'printf \'{"version":1,"status":"ok","item":null}\'\n'),
+    )
+
+    inside = _run(runner, companion=control, launch=runner.subprocess_role_launch)
+
+    assert inside.refusal_reason is None
+    assert mark.read_text(encoding="utf-8") == "ran"
