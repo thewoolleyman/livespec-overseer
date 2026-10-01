@@ -24,6 +24,7 @@ contract does not admit.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 from _lpm_canonical import length_prefixed_digest
@@ -35,9 +36,25 @@ from overseer._vendor.returns.result import Failure, Result, Success
 _ = VENDOR_PATHS_INSTALLED
 
 __all__: list[str] = [
+    "EffectPosition",
     "effect_id",
+    "effect_positions",
     "idempotency_key_for",
 ]
+
+
+@dataclass(frozen=True, kw_only=True)
+class EffectPosition:
+    """One position of a phase's plan: its index, its effect name and its derived identity.
+
+    The three travel together because an executor needs all three and must not re-derive the
+    identity from the name — two positions can hold the SAME name, and an identity re-derived
+    from a name would collide exactly where the collision is most harmful.
+    """
+
+    index: int
+    effect: str
+    effect_id: str
 
 
 def effect_id(*, operation: OperationRecord, index: int) -> Result[str, ManagerError]:
@@ -51,16 +68,23 @@ def effect_id(*, operation: OperationRecord, index: int) -> Result[str, ManagerE
         return Failure(
             internal_bug(message="effect index is outside the operation's ordered effects")
         )
-    return Success(
-        length_prefixed_digest(
-            values=(
-                operation.operation_id,
-                operation.command,
-                operation.idempotency_key,
-                operation.phase,
-                str(index),
-            )
+    return Success(_position_digest(operation=operation, index=index))
+
+
+def effect_positions(*, operation: OperationRecord) -> tuple[EffectPosition, ...]:
+    """Every position of `operation`'s current phase, each with its derived identity.
+
+    Total by construction, and deliberately not on the Result rail: the indices come from the
+    stored array itself, so the out-of-range case `effect_id` exists to refuse cannot arise
+    here, and a refusal channel would be dead code at every call site.
+    """
+    return tuple(
+        EffectPosition(
+            index=index,
+            effect=effect,
+            effect_id=_position_digest(operation=operation, index=index),
         )
+        for index, effect in enumerate(operation.ordered_effects)
     )
 
 
@@ -78,3 +102,15 @@ def idempotency_key_for(*, command: str, identity: Mapping[str, str]) -> Result[
     if missing:
         return Failure(internal_bug(message=f"{command} identity needs {', '.join(fields)}"))
     return Success(length_prefixed_digest(values=[identity[field] for field in fields]))
+
+
+def _position_digest(*, operation: OperationRecord, index: int) -> str:
+    return length_prefixed_digest(
+        values=(
+            operation.operation_id,
+            operation.command,
+            operation.idempotency_key,
+            operation.phase,
+            str(index),
+        )
+    )
