@@ -48,6 +48,7 @@ from _lpm_config import ManagerConfig
 from _lpm_eligibility import AccountObservation, EligibilityPolicy
 from _lpm_leases import lease_is_live, read_lease
 from _lpm_localstate import ensure_state_directory
+from _lpm_locks import HeldLock, take_lock
 from _lpm_paths import LOCAL_PATH_FAMILIES, SELECTION_STATE_NAME, local_record_path
 from _lpm_provision import CredentialValueReader
 from _lpm_record import CredentialRecord
@@ -61,6 +62,7 @@ __all__: list[str] = [
     "LOCK_DIRECTORY",
     "MANAGER_STATE_DIRECTORIES",
     "RESULT_VERSION",
+    "RUN_LOCK_FAMILY",
     "SUCCESS_STATUS",
     "TARGET_DIRECTORY",
     "TARGET_FILE_NAME",
@@ -75,6 +77,7 @@ __all__: list[str] = [
     "lease_survey",
     "manager_lock_path",
     "read_command_object",
+    "run_serialization",
     "selection_state_path",
     "success_outcome",
     "target_destination",
@@ -83,6 +86,7 @@ __all__: list[str] = [
 RESULT_VERSION: Final = 1
 SUCCESS_STATUS: Final = "ok"
 LOCK_DIRECTORY: Final = "locks"
+RUN_LOCK_FAMILY: Final = "run"
 TARGET_DIRECTORY: Final = "targets"
 TARGET_FILE_NAME: Final = "credential"
 
@@ -167,6 +171,30 @@ def establish_manager_state(*, state_dir: Path, owner_uid: int) -> Result[None, 
         if isinstance(ensured, Failure):
             return Failure(ensured.failure())
     return Success(None)
+
+
+def run_serialization(*, host: ManagerHost, consumer_run_id: str) -> Result[HeldLock, ManagerError]:
+    """Take the per-run lock every `consumer_run_id`-carrying command must hold.
+
+    SPECIFICATION/contracts.md: "a command carrying `consumer_run_id` MUST first take per-run
+    serialization and finish any pending ... operation". It is what makes the write-ahead records
+    below meaningful -- two concurrent invocations of the same run would otherwise read the same
+    pending operation and each resume it, applying every remaining effect twice. The bound is
+    `external_call_timeout_seconds`, and a contended lock is `store-unavailable` "without
+    substantive mutation", which is why it is taken before anything is written.
+    """
+    established = establish_manager_state(state_dir=host.state_dir, owner_uid=host.owner_uid)
+    if isinstance(established, Failure):
+        return Failure(established.failure())
+    return take_lock(
+        path=manager_lock_path(
+            state_dir=host.state_dir, family=RUN_LOCK_FAMILY, identity=[consumer_run_id]
+        ),
+        owner_uid=host.owner_uid,
+        timeout_seconds=float(host.config.external_call_timeout_seconds),
+        monotonic=host.monotonic,
+        sleep=host.sleep,
+    )
 
 
 def success_outcome(*, payload: dict[str, object]) -> CommandOutcome:

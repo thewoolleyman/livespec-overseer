@@ -1,0 +1,20 @@
+#!/usr/bin/env sh
+# The plugin executable the three harness bindings launch by absolute path.
+#
+# SPECIFICATION/contracts.md: "The plugin executable `<plugin-root>/bin/llm-provider-manager` MUST
+# ... resolve them only from `<plugin-root>/overseer/`, the shipped plugin mirror of that same
+# package, and MUST NOT import a separately installed `overseer`"; and it "MUST enter the same
+# isolated manager bootstrap" the installed console entry point enters.
+#
+# So it runs the bootstrap AS A SCRIPT out of its own plugin's mirror. That is what makes the
+# resolution structural: `python3 <plugin-root>/overseer/manager_bootstrap.py` puts no installed
+# package anywhere near the process, the bootstrap scrubs the credential-override set and
+# re-executes with `-I -S`, and the companion it hands over to loads the `__init__.py` sitting
+# beside it. No PYTHONPATH is exported, deliberately -- exporting one is precisely the thing that
+# could let a consumer's environment repoint this at another plugin's code.
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+PLUGIN_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
+
+exec python3 "$PLUGIN_ROOT/overseer/manager_bootstrap.py" "$@"

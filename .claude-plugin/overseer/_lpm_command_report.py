@@ -39,11 +39,12 @@ from _lpm_command_host import (
     CommandOutcome,
     ManagerHost,
     error_outcome,
-    establish_manager_state,
     read_command_object,
+    run_serialization,
     success_outcome,
 )
 from _lpm_leases import release_lease
+from _lpm_locks import release_lock
 from _lpm_paths import local_record_path
 from _lpm_record import CredentialRecord
 from _lpm_reports import (
@@ -70,6 +71,12 @@ __all__: list[str] = [
 REPORT_OPERATION: Final = "report"
 LEASE_FAMILY: Final = "lease"
 
+# Named rather than written as literals at the return sites: `Success(True)` is a boolean positional
+# that reads as a flag, and these two are the command's ANSWER -- whether this exact report had
+# already been accepted.
+_DUPLICATE: Final = True
+_ACCEPTED: Final = False
+
 
 def run_report_command(*, source: str, host: ManagerHost) -> CommandOutcome:
     """Validate, match the assignment, answer a replay from local state, else apply the effects."""
@@ -80,21 +87,35 @@ def run_report_command(*, source: str, host: ManagerHost) -> CommandOutcome:
     if isinstance(report, Failure):
         return error_outcome(error=report.failure())
     accepted = report.unwrap()
-    matched = _matched_assignment(report=accepted, host=host)
+    held = run_serialization(host=host, consumer_run_id=accepted.consumer_run_id)
+    if isinstance(held, Failure):
+        return error_outcome(error=held.failure())
+    try:
+        duplicate = _serialized(report=accepted, host=host)
+    finally:
+        release_lock(held=held.unwrap())
+    if isinstance(duplicate, Failure):
+        return error_outcome(error=duplicate.failure())
+    return success_outcome(payload={"operation": REPORT_OPERATION, "duplicate": duplicate.unwrap()})
+
+
+def _serialized(*, report: FailureReport, host: ManagerHost) -> Result[bool, ManagerError]:
+    """Answer a replay from local state, else carry this report's operation to completion."""
+    matched = _matched_assignment(report=report, host=host)
     if isinstance(matched, Failure):
-        return error_outcome(error=matched.failure())
+        return Failure(matched.failure())
     assignment, target_committed_at = matched.unwrap()
-    if stored_marker(report=accepted, markers=assignment.report_markers):
-        return success_outcome(payload={"operation": REPORT_OPERATION, "duplicate": True})
+    if stored_marker(report=report, markers=assignment.report_markers):
+        return Success(_DUPLICATE)
     applied = _applied(
-        report=accepted,
+        report=report,
         assignment=assignment,
         target_committed_at=target_committed_at,
         host=host,
     )
     if isinstance(applied, Failure):
-        return error_outcome(error=applied.failure())
-    return success_outcome(payload={"operation": REPORT_OPERATION, "duplicate": False})
+        return Failure(applied.failure())
+    return Success(_ACCEPTED)
 
 
 def _matched_assignment(
@@ -180,19 +201,38 @@ def _performed(
 ) -> Result[None, ManagerError]:
     """The credential transition first, then the lease, then the marker that records it happened.
 
-    The marker is written LAST on purpose. It is the evidence a replay reads, so writing it
-    before the effects it stands for would make a crash in between look -- to the very next
-    invocation -- like a report that had already been fully applied.
+        The marker is written LAST on purpose. It is the evidence a replay reads, so writing it
+        before the effects it stands for would make a crash in between look -- to the very next
+        invocation -- like a report that had already been fully applied.
 
-    THE LEASE RELEASE IS UNCONDITIONAL, and `effects.releases_lease` is deliberately not
-    consulted: every row of `_lpm_signal.CLASSIFICATION_HANDLING` sets it, so a guard here would
-    be a branch no input can take. `_lpm_report_markers`' sibling test asserts that invariant
-    directly, so adding a classification that does NOT release the lease fails there and sends
-    the next reader to this paragraph instead of to a silently wrong release.
+        THE LEASE RELEASE IS UNCONDITIONAL, and `effects.releases_lease` is deliberately not
+        consulted: every row of `_lpm_signal.CLASSIFICATION_HANDLING` sets it, so a guard here would
+        be a branch no input can take. A sibling test asserts that invariant directly, so adding a
+        classification that does NOT release the lease fails there and sends the next reader to this
+        paragraph instead of to a silently wrong release.
+
+    EXACTLY-ONCE IS BY AUTHORITATIVE POSTCONDITION, NOT BY A CHECKPOINT. The contract requires
+        each effect to "inspect authoritative state for that position's exact postcondition before
+        performing it" so that "an effect commit followed by a crash before `completed_step`
+        advancement replay as one logical effect". Each of the three here reconciles against its own
+        authoritative state, which is what makes a crash ANYWHERE in this sequence safe to retry --
+        including the window a checkpoint record could not cover, between an effect committing
+        and its
+        checkpoint being written:
+
+        * the credential status, because `_lpm_lifecycle.admitted_move` admits `report` only from
+          `valid` and `revalidating`. A credential already moved to `suspect` yields `next_status`
+          None on the retry, so the transition cannot be applied twice.
+        * the lease, because `release_lease` is conditioned on this run AND this record and answers
+          `absent` when there is nothing left to remove.
+        * the marker, because `markers_with` is total and `stored_marker` at the top of the command
+          answers a fully-applied report as a duplicate.
+
+        A ratified `apply`-phase write-ahead record is still OWED -- it is what orders these effects
+        and carries `normalized_close_time` for the `assignment-end-update` this command does
+        not yet
+        perform. It is not what makes them idempotent.
     """
-    established = establish_manager_state(state_dir=host.state_dir, owner_uid=host.owner_uid)
-    if isinstance(established, Failure):
-        return Failure(established.failure())
     if effects.next_status is not None:
         moved = host.write_status(record=record, next_status=effects.next_status, now=host.now)
         if isinstance(moved, Failure):

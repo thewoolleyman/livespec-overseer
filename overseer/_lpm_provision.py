@@ -85,6 +85,7 @@ __all__: list[str] = [
     "provision",
     "provision_request_from_object",
     "provision_request_object",
+    "provision_selected",
     "receipt_object",
 ]
 
@@ -141,7 +142,29 @@ def receipt_object(*, receipt: ProvisionReceipt) -> dict[str, object]:
 def provision(
     *, request: ProvisionRequest, context: ProvisionContext
 ) -> Result[ProvisionReceipt, ManagerError]:
-    """Select one validated credential and atomically write only it to the isolated target."""
+    """Select one validated credential and atomically write only it to the isolated target.
+
+    Exactly `provision_selected` with a selection in front of it, so the lease-and-commit path below
+    has one implementation rather than two that could drift.
+    """
+    selected = _selected(request=request, context=context)
+    if isinstance(selected, Failure):
+        return Failure(selected.failure())
+    return provision_selected(request=request, context=context, record=selected.unwrap())
+
+
+def provision_selected(
+    *, request: ProvisionRequest, context: ProvisionContext, record: CredentialRecord
+) -> Result[ProvisionReceipt, ManagerError]:
+    """Lease and commit ONE already-chosen credential, performing no selection of its own.
+
+    This is the seam a RESUMED provision needs. An identical retry whose durable prepared assignment
+    names the account the first attempt chose must not select again -- re-selecting could land on a
+    different account while the first one's target write may already have committed, which would
+    consume the run identity twice and leave two accounts leased to one run. So recovery reads the
+    record out of its prepared assignment and hands it here, and `provision` above is exactly this
+    function with a selection in front of it.
+    """
     destination = resolve_issuance(
         issuance=context.issuance,
         target_ref=request.target_ref,
@@ -151,11 +174,8 @@ def provision(
     )
     if isinstance(destination, Failure):
         return Failure(destination.failure())
-    selected = _selected(request=request, context=context)
-    if isinstance(selected, Failure):
-        return Failure(selected.failure())
     return _leased_commit(
-        request=request, context=context, record=selected.unwrap(), destination=destination.unwrap()
+        request=request, context=context, record=record, destination=destination.unwrap()
     )
 
 

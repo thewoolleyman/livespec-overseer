@@ -793,10 +793,10 @@ def test_an_unregistered_lease_family_is_an_internal_bug(
 def test_a_failed_assignment_write_is_store_unavailable_after_the_commit(
     *, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import _lpm_command_provision
+    import _lpm_assignment_lifecycle
 
     monkeypatch.setattr(
-        _lpm_command_provision,
+        _lpm_assignment_lifecycle,
         "write_assignment",
         lambda **_kwargs: _failure(message="the assignment record was not replaced"),
     )
