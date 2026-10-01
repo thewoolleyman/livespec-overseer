@@ -220,3 +220,72 @@ def test_an_exec_that_returns_is_itself_the_pre_exec_failure_that_role_must_emit
     assert "could not be replaced" in refusal.reason
     assert _TOKEN not in refusal.reason
     assert _TOKEN not in str(refusal.failure_object)
+
+
+def test_a_key_whose_description_is_not_an_exact_match_is_never_piped():
+    """`rdescribe` GATES the pipe, so the assertion that matters is the absence of `pipe`.
+
+    Every key below EXISTS and was found by the search; the launcher refuses to READ it.
+    Owning-user bits alone, another user's ownership, a key that is not a `user` key and a
+    description recognized only in part are each the same answer, because a key whose
+    identity was only partly recognized is not the key the role was promised -- and no
+    later check can un-read a payload.
+    """
+    child = _child()
+    expected = "lpm-op-metadata-reader"
+
+    for raw in (
+        f"user;{_UID};{_UID};3f010000;{expected}",
+        f"user;{_UID + 1};{_UID};3f0b0000;{expected}",
+        f"keyring;{_UID};{_UID};3f0b0000;{expected}",
+        f"user;{_UID};{_UID};3f0b0000;{expected} extra",
+    ):
+        process_os, arguments = _as_registered(
+            child,
+            role_name="metadata-reader",
+            answers={"rdescribe": child.CommandOutcome(exit_status=0, stdout=raw.encode())},
+        )
+
+        refusal = _launch(child, process_os, **arguments)
+
+        assert process_os.calls == ["search", "rdescribe"], f"piped on {raw!r}"
+        assert process_os.replaced == []
+        assert refusal.failure_object == {"version": 1, "status": "unavailable"}
+        assert "owner-only key" in refusal.reason
+
+
+def test_every_other_keyring_step_failure_is_the_same_fail_closed_refusal():
+    """Search, serial, description-read, pipe and decode failures all end before the exec.
+
+    They are driven together because the contract maps them to ONE outcome -- that role's
+    own closed failure object -- and what is worth pinning individually is HOW FAR each
+    got: a search that found no key must not be reported as a key whose payload could not
+    be read, or a later reader will reconcile against a key that was never there.
+    """
+    child = _child()
+    failed = child.CommandOutcome(exit_status=1, stdout=b"")
+
+    for answers, calls, reason in (
+        ({"search": failed}, ["search"], "not in the user keyring"),
+        (
+            {"search": child.CommandOutcome(exit_status=0, stdout=b"not-a-serial\n")},
+            ["search"],
+            "returned no serial",
+        ),
+        ({"rdescribe": failed}, ["search", "rdescribe"], "description could not be read"),
+        ({"pipe": failed}, ["search", "rdescribe", "pipe"], "payload could not be piped"),
+        (
+            {"pipe": child.CommandOutcome(exit_status=0, stdout=b"\xff\xfe")},
+            ["search", "rdescribe", "pipe"],
+            "payload is not UTF-8",
+        ),
+    ):
+        process_os, arguments = _as_registered(child, role_name="lifecycle-writer", answers=answers)
+
+        refusal = _launch(child, process_os, **arguments)
+
+        assert process_os.calls == calls
+        assert process_os.replaced == []
+        assert refusal.failure_object == {"version": 1, "status": "unavailable"}
+        assert reason in refusal.reason
+        assert refusal.reason.startswith("lifecycle-writer ")
