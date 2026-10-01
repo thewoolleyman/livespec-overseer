@@ -31,7 +31,7 @@ import contextlib
 import os
 import subprocess
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
@@ -70,11 +70,18 @@ class ClosedRoleInput:
     launched in, because that role's two modes have different closed failure objects. No
     executable, no argument and no credential value is in it, which is why a launcher that
     reads only this cannot be talked into running something else.
+
+    `descriptors` NAMES the allowlist and `descriptor_fds` carries what the caller actually
+    holds. The redundancy is the control: the names are checked against the registry, the
+    fds are checked against the names, and a validated allowlist that reached no process
+    would otherwise grant nothing at all — which is precisely the defect this pairing
+    closes for `final-provisioning`, whose target-reference lock must survive the exec.
     """
 
     role_name: str
     key_description: str | None
     descriptors: tuple[str, ...]
+    descriptor_fds: Mapping[str, int] = field(default_factory=dict)
     observer_mode: str | None = None
 
 
