@@ -34,6 +34,10 @@ import pathlib
 __all__: list[str] = []
 
 _LEAK = "sk-ant-oat0-must-not-be-logged"
+# The one mode each lifecycle writer's request carries. The contract says those three
+# "MUST receive exactly the latter conditional-set object", which is the one whose `mode` is
+# this -- so a writer result is keyed on it, never on no mode at all.
+_SET_MODE = "credential-conditional-set"
 
 
 def _results():
@@ -160,10 +164,10 @@ def test_every_closed_shape_this_slice_covers_is_accepted():
         ("metadata-reader", "get", {"version": 1, "status": "unavailable"}),
         ("metadata-reader", "list", {"version": 1, "status": "ok", "items": [], "invalid": []}),
         ("metadata-reader", "list", {"version": 1, "status": "unavailable"}),
-        ("lifecycle-writer", None, {"version": 1, "status": "committed"}),
-        ("report-writer", None, {"version": 1, "status": "condition-failed"}),
-        ("recovery-writer", None, {"version": 1, "status": "uncommitted"}),
-        ("recovery-writer", None, {"version": 1, "status": "unavailable"}),
+        ("lifecycle-writer", _SET_MODE, {"version": 1, "status": "committed"}),
+        ("report-writer", _SET_MODE, {"version": 1, "status": "condition-failed"}),
+        ("recovery-writer", _SET_MODE, {"version": 1, "status": "uncommitted"}),
+        ("recovery-writer", _SET_MODE, {"version": 1, "status": "unavailable"}),
         (
             "final-provisioning",
             None,
@@ -202,7 +206,7 @@ def test_an_unregistered_status_or_member_set_is_refused_without_quoting_child_b
         ("metadata-reader", "list", {"version": 1, "status": "ok", "items": []}, "exact members"),
         (
             "lifecycle-writer",
-            None,
+            _SET_MODE,
             {"version": 1, "status": "ok", "item": None},
             "closed vocabulary",
         ),
@@ -303,6 +307,126 @@ def test_a_boolean_or_float_version_is_not_the_integer_one():
     assert accepted.result_object == {"version": 1, "status": "unavailable"}
 
 
+def test_the_item_envelope_and_invalid_descriptor_are_themselves_closed():
+    """`item` and `invalid` are objects with their own exact shapes, not opaque payloads.
+
+    The contract gives the envelope "exactly non-empty `item_id` ... and `record`", and the
+    invalid-chain descriptor "exactly lowercase RFC 4122 UUIDv4 `record_id` and `reason`
+    from `gap`, `conflict`, `title-mismatch`, `predecessor-mismatch` or
+    `multiple-successors`". Leaving them unchecked reopens the hole the outer member set
+    closes: an extra member on the ENVELOPE carries just as well as one on the result, and a
+    reader cannot refuse what it never inspected.
+
+    `record` itself stays opaque here on purpose -- the contract has the manager apply the
+    credential-record field and invariant checks only after receiving the envelope, so
+    duplicating them would put one rule in two places that can disagree.
+    """
+    results = _results()
+    uuid = "0f9c0a1e-0000-4000-8000-000000000000"
+
+    def _get(item):
+        return results.closed_result_defect(
+            role_name="metadata-reader",
+            mode="get",
+            members={"version": 1, "status": "ok", "item": item},
+        )
+
+    def _invalid(descriptor):
+        return results.closed_result_defect(
+            role_name="metadata-reader",
+            mode="get",
+            members={"version": 1, "status": "invalid", "invalid": descriptor},
+        )
+
+    assert _get(None) is None, "authoritative absence stays legal"
+    assert _get({"item_id": "rev-1", "record": {"any": "canonical value"}}) is None
+    assert _get({"item_id": "rev-1", "record": {}, _LEAK: "x"}), "an extra envelope member"
+    assert _get({"item_id": "rev-1"}), "a missing record member"
+    assert _get({"item_id": "", "record": {}}), "an empty item_id"
+    assert _get({"item_id": 7, "record": {}}), "a non-string item_id"
+    assert _get(["rev-1"]), "an envelope that is not an object"
+
+    assert _invalid({"record_id": uuid, "reason": "gap"}) is None
+    assert _invalid({"record_id": uuid, "reason": "multiple-successors"}) is None
+    assert _invalid({"record_id": uuid, "reason": "invented-reason"}), "an unregistered reason"
+    assert _invalid({"record_id": uuid.upper(), "reason": "gap"}), "an uppercase record_id"
+    assert _invalid({"record_id": "not-a-uuid", "reason": "gap"}), "a non-UUIDv4 record_id"
+    assert _invalid({"record_id": uuid, "reason": "gap", "extra": 1}), "an extra member"
+    assert _invalid(["not-an-object"]), "a descriptor that is not an object"
+
+    listed = results.closed_result_defect(
+        role_name="metadata-reader",
+        mode="list",
+        members={
+            "version": 1,
+            "status": "ok",
+            "items": [{"item_id": "rev-1", "record": {}}],
+            "invalid": [{"record_id": uuid, "reason": "conflict"}],
+        },
+    )
+    assert listed is None
+    assert results.closed_result_defect(
+        role_name="metadata-reader",
+        mode="list",
+        members={"version": 1, "status": "ok", "items": [{"item_id": "rev-1"}], "invalid": []},
+    ), "a list must close the shape of every envelope it carries"
+    assert results.closed_result_defect(
+        role_name="metadata-reader",
+        mode="list",
+        members={"version": 1, "status": "ok", "items": {}, "invalid": []},
+    ), "items must be a list"
+    assert results.closed_result_defect(
+        role_name="metadata-reader",
+        mode="list",
+        members={"version": 1, "status": "ok", "items": [], "invalid": ["not-an-object"]},
+    ), "every descriptor inside a list is closed too"
+
+
+def test_an_unknown_mode_of_a_covered_role_fails_closed():
+    """An unrecognized mode must not fall through the not-covered success path.
+
+    `closed_result_defect` reports no defect for a role this slice does not implement, which
+    is right -- an always-failing role would be worse than an unvalidated one. But applying
+    that same fallback to an unknown MODE of a role that IS covered inverts it: the role
+    whose results are closed becomes the one whose results are waved through, and the
+    fallback that exists to avoid over-refusing starts under-refusing instead.
+    """
+    results = _results()
+
+    assert results.closed_result_defect(
+        role_name="metadata-reader",
+        mode="invented",
+        members={"version": 1, "status": "ok", "item": None},
+    ), "an unknown mode of a covered role must be refused"
+    assert results.closed_result_defect(
+        role_name="metadata-reader", mode=None, members={"version": 1, "status": "unavailable"}
+    ), "a covered role whose request named no mode must be refused"
+    assert (
+        results.closed_result_defect(
+            role_name="lifecycle-writer",
+            mode=_SET_MODE,
+            members={"version": 1, "status": "committed"},
+        )
+        is None
+    ), "the writer's one real mode is the key its results hang on"
+    assert results.closed_result_defect(
+        role_name="lifecycle-writer", mode=None, members={"version": 1, "status": "committed"}
+    ), "a writer keyed on no mode would bypass validation on every valid request it makes"
+    assert results.closed_result_defect(
+        role_name="report-writer",
+        mode="secret-value-set",
+        members={"version": 1, "status": "committed"},
+    ), "the acquisition writer's other mode is not a lifecycle writer's"
+    assert (
+        results.closed_result_defect(
+            role_name="final-provisioning",
+            mode=None,
+            members={"version": 1, "status": "store-unavailable"},
+        )
+        is None
+    ), "final provisioning and target-status really are modeless"
+
+
 def test_the_closed_table_covers_exactly_the_roles_this_slice_implements():
     """The gap is PINNED, so the next slice cannot inherit it without being told.
 
@@ -315,11 +439,11 @@ def test_the_closed_table_covers_exactly_the_roles_this_slice_implements():
 
     assert sorted(results.CLOSED_ROLE_RESULTS) == [
         ("final-provisioning", None),
-        ("lifecycle-writer", None),
+        ("lifecycle-writer", _SET_MODE),
         ("metadata-reader", "get"),
         ("metadata-reader", "list"),
-        ("recovery-writer", None),
-        ("report-writer", None),
+        ("recovery-writer", _SET_MODE),
+        ("report-writer", _SET_MODE),
         ("target-status", None),
     ]
     assert (

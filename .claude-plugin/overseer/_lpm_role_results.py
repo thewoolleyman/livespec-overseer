@@ -37,12 +37,16 @@ from dataclasses import dataclass
 from typing import Final
 
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
+from _lpm_record import is_uuid4
+from _lpm_revisions import INVALID_CHAIN_REASONS
 from _lpm_target import COMMIT_STATUSES, COMMITTED
 
 _ = VENDOR_PATHS_INSTALLED
 
 __all__: list[str] = [
     "CLOSED_ROLE_RESULTS",
+    "CONDITIONAL_SET_MODE",
+    "COVERED_ROLE_NAMES",
     "ENVELOPE_MEMBERS",
     "ClosedResult",
     "closed_result_defect",
@@ -87,6 +91,12 @@ _COMMIT_RESULTS: Final = (
     _shape(status=_STORE_UNAVAILABLE),
 )
 
+# The one mode each lifecycle writer's request carries. The contract has those three roles
+# receive "exactly the latter conditional-set object", whose `mode` is this, so their results
+# are keyed on it. Keying them on NO mode made every valid writer request miss the table
+# entirely and go unvalidated.
+CONDITIONAL_SET_MODE: Final = "credential-conditional-set"
+
 # A conditional set's four closed words. `condition-failed` is distinct from `uncommitted`
 # on purpose and both are distinct from `unavailable`; the three mean definitively-no-change
 # for a stated reason, definitively-no-change, and outcome-unknown.
@@ -105,12 +115,17 @@ CLOSED_ROLE_RESULTS: Final[dict[tuple[str, str | None], tuple[ClosedResult, ...]
         _shape(status="ok", members=("items", "invalid")),
         _shape(status=_UNAVAILABLE),
     ),
-    ("lifecycle-writer", None): _CONDITIONAL_SET_RESULTS,
-    ("report-writer", None): _CONDITIONAL_SET_RESULTS,
-    ("recovery-writer", None): _CONDITIONAL_SET_RESULTS,
+    ("lifecycle-writer", CONDITIONAL_SET_MODE): _CONDITIONAL_SET_RESULTS,
+    ("report-writer", CONDITIONAL_SET_MODE): _CONDITIONAL_SET_RESULTS,
+    ("recovery-writer", CONDITIONAL_SET_MODE): _CONDITIONAL_SET_RESULTS,
+    # Modeless by contract: the final-provisioning and `target-status` inputs are the exact
+    # objects their own paragraphs define, and neither carries a `mode` member.
     ("final-provisioning", None): _COMMIT_RESULTS,
     ("target-status", None): _COMMIT_RESULTS,
 }
+
+
+COVERED_ROLE_NAMES: Final = frozenset(name for name, _ in CLOSED_ROLE_RESULTS)
 
 
 def _commit_dating_defect(*, status: object, members: Mapping[str, object]) -> str | None:
@@ -131,6 +146,77 @@ def _commit_dating_defect(*, status: object, members: Mapping[str, object]) -> s
     return None
 
 
+_ITEM_ENVELOPE_MEMBERS: Final = frozenset({"item_id", "record"})
+_DESCRIPTOR_MEMBERS: Final = frozenset({"record_id", "reason"})
+
+# Which members carry a nested shape, and the checker that closes it. `record` is NOT in
+# here: the contract has the manager apply the credential-record field and invariant checks
+# only after receiving the envelope, so closing it twice would put one rule in two places.
+_NESTED_MEMBERS: Final = ("item", "invalid", "items")
+
+
+def _item_envelope_defect(*, value: object) -> str | None:
+    """Whether `value` is exactly a non-empty `item_id` plus a `record`, or null absence."""
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        return "an item that is not an object"
+    members: dict[str, object] = value
+    if frozenset(members) != _ITEM_ENVELOPE_MEMBERS:
+        return "an item envelope whose members are not exactly item_id and record"
+    item_id = members["item_id"]
+    if not isinstance(item_id, str) or not item_id:
+        return "an item envelope whose item_id is not a non-empty string"
+    return None
+
+
+def _descriptor_defect(*, value: object) -> str | None:
+    """Whether `value` is exactly a lowercase UUIDv4 `record_id` plus a registered `reason`."""
+    if not isinstance(value, dict):
+        return "an invalid-chain descriptor that is not an object"
+    members: dict[str, object] = value
+    if frozenset(members) != _DESCRIPTOR_MEMBERS:
+        return "an invalid-chain descriptor whose members are not exactly record_id and reason"
+    record_id = members["record_id"]
+    if not isinstance(record_id, str) or not is_uuid4(value=record_id):
+        return "an invalid-chain descriptor whose record_id is not a lowercase UUIDv4"
+    if members["reason"] not in INVALID_CHAIN_REASONS:
+        return "an invalid-chain descriptor whose reason is not a registered one"
+    return None
+
+
+def _nested_defect(*, name: str, value: object) -> str | None:
+    """Close whichever nested shape `name` carries, including every element of a list."""
+    if name == "item":
+        return _item_envelope_defect(value=value)
+    if name == "invalid" and not isinstance(value, list):
+        # `invalid` carries ONE descriptor on a get result and a LIST of them on a list
+        # result, so the member name alone does not say which; the list check does.
+        return _descriptor_defect(value=value)
+    if not isinstance(value, list):
+        return f"a {name} member that is not a list"
+    elements: list[object] = value
+    for element in elements:
+        defect = (
+            _item_envelope_defect(value=element)
+            if name == "items"
+            else _descriptor_defect(value=element)
+        )
+        if defect is not None:
+            return defect
+    return None
+
+
+def _nested_shapes_defect(*, members: Mapping[str, object]) -> str | None:
+    """The first nested-shape defect among the members that carry one, or None."""
+    for name in _NESTED_MEMBERS:
+        if name in members:
+            defect = _nested_defect(name=name, value=members[name])
+            if defect is not None:
+                return defect
+    return None
+
+
 def closed_result_defect(
     *, role_name: str, mode: str | None, members: Mapping[str, object]
 ) -> str | None:
@@ -140,21 +226,39 @@ def closed_result_defect(
     from this module's own words plus, at most, a status already found in the table.
     """
     shapes = CLOSED_ROLE_RESULTS.get((role_name, mode))
-    if shapes is None:
-        return None
+    if shapes is not None:
+        return _result_defect(shapes=shapes, members=members)
+    if role_name in COVERED_ROLE_NAMES:
+        # The not-covered answer below is right for a role this slice does not implement,
+        # where refusing everything would be worse than not validating. It is exactly WRONG
+        # for an unrecognized mode of a role that IS covered: that would make the role whose
+        # results are closed the one whose results are waved through, turning a guard against
+        # over-refusing into one that under-refuses.
+        return "a mode outside its closed inputs"
+    return None
+
+
+def _result_defect(
+    *, shapes: tuple[ClosedResult, ...], members: Mapping[str, object]
+) -> str | None:
+    """The first way `members` departs from `shapes`, checked outermost-first.
+
+    Status before members before nested shapes, because each answer is only meaningful once
+    the previous one holds: there is no "exact members for this status" until the status is
+    one this role has, and no envelope to close until the member carrying it is expected.
+    """
     status = members.get("status")
-    present = frozenset(members) - ENVELOPE_MEMBERS
     recognized = tuple(shape for shape in shapes if shape.status == status)
     if not recognized:
         return "a status outside its closed vocabulary"
     dated = _commit_dating_defect(status=status, members=members)
     if dated is not None:
         return dated
-    if not any(shape.members == present for shape in recognized):
+    if not any(shape.members == frozenset(members) - ENVELOPE_MEMBERS for shape in recognized):
         # `status` is quoted only HERE, after the table recognized it: by this point the
         # word came from `CLOSED_ROLE_RESULTS`, not from the child.
         return (
             f"a result with status {recognized[0].status} whose members "
             "are not that shape's exact members"
         )
-    return None
+    return _nested_shapes_defect(members=members)
