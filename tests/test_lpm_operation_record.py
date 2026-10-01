@@ -33,6 +33,19 @@ _OPERATION_ID = "1b4e28ba-2fa1-4d82-a4cc-3d9c5c0bb4a1"
 _RECORD_ID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301"
 _KEY = "b" * 64
 _ACCEPTED_AT = "2026-09-30T12:00:00Z"
+_NEXT_GENERATION = "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+
+
+def _acquire_input() -> dict[str, object]:
+    return {
+        "version": 1,
+        "provider": "anthropic",
+        "account_id": "acct-1",
+        "kind": "claude-code-oauth",
+        "purpose": "factory",
+        "record_id": _RECORD_ID,
+        "next_value_generation": _NEXT_GENERATION,
+    }
 
 
 def _module(name: str):
@@ -77,7 +90,7 @@ def _acquire_terminal_object() -> dict[str, object]:
         "phase": "terminal",
         "idempotency_key": _KEY,
         "accepted_at": _ACCEPTED_AT,
-        "normalized_input": {"record_id": _RECORD_ID},
+        "normalized_input": _acquire_input(),
         "terminal_result": {
             "outcome": "success",
             "validated_at": "2026-09-30T12:00:05Z",

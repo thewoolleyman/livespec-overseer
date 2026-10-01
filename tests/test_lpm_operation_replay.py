@@ -42,6 +42,20 @@ _OPERATION_ID = "9f8c7b6a-5d4e-4f3a-8b2c-1d0e9f8a7b6c"
 _RECORD_ID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301"
 _KEY = "c" * 64
 _ACCEPTED_AT = "2026-09-30T18:30:00Z"
+_NEXT_GENERATION = "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+
+
+def _acquire_input() -> dict[str, object]:
+    return {
+        "version": 1,
+        "provider": "anthropic",
+        "account_id": "acct-1",
+        "kind": "claude-code-oauth",
+        "purpose": "factory",
+        "record_id": _RECORD_ID,
+        "next_value_generation": _NEXT_GENERATION,
+    }
+
 
 _TERMINAL_EFFECTS = (
     "audit-append",
@@ -89,7 +103,7 @@ def _terminal_operation(**changes: object):
         "phase": "terminal",
         "idempotency_key": _KEY,
         "accepted_at": _ACCEPTED_AT,
-        "normalized_input": {"record_id": _RECORD_ID},
+        "normalized_input": _acquire_input(),
         "terminal_result": dict(_TERMINAL_RESULT),
         "ordered_effects": _TERMINAL_EFFECTS,
         "completed_step": module.UNSTARTED_STEP,
@@ -242,7 +256,7 @@ def test_a_phase_replacement_is_the_same_operation_with_a_new_plan(tmp_path):
 
     assert replaced.operation_id == _OPERATION_ID, "the operation_id is retained byte-for-byte"
     assert replaced.accepted_at == _ACCEPTED_AT, "a retry reuses accepted_at; it never re-captures"
-    assert replaced.normalized_input == {"record_id": _RECORD_ID}
+    assert replaced.normalized_input == _acquire_input()
     assert replaced.phase == "recovery"
     assert replaced.ordered_effects == effects
     assert replaced.completed_step == -1, "the replacement plan starts unstarted"
@@ -266,7 +280,7 @@ def test_a_replacement_the_contract_does_not_admit_leaves_the_prior_bytes(tmp_pa
         path=path,
         operation=operation,
         phase="recovery",
-        ordered_effects=("audit-append",),
+        ordered_effects=("audit-append", "credential-conditional-set", "worker-record-remove"),
         terminal_result=dict(_TERMINAL_RESULT),
         owner_uid=_uid(),
     )

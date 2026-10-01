@@ -51,6 +51,7 @@ __all__: list[str] = [
     "TRANSITION_CONDITIONS",
     "WRITER_ROLES",
     "PlanContext",
+    "admissible_effect_arrays",
     "next_phase",
     "ordered_effects_for",
     "writer_role_for",
@@ -154,6 +155,31 @@ def ordered_effects_for(
     if command == "expire":
         return _single(phase=phase, expected="close", effects=_CLOSE_APPLY)
     return _apply_effects(command=command, phase=phase, context=context)
+
+
+def admissible_effect_arrays(*, command: str, phase: str) -> tuple[tuple[str, ...], ...]:
+    """Every effect array the contract admits for `command`'s `phase`, in no order.
+
+    A stored record carries no `PlanContext` — whether it ran against a tombstone, or whether
+    prepared state existed, is not one of its ten members — so a VALIDATOR cannot pick the one
+    right array. It can still refuse every array the contract never admits, which is the
+    difference between checking a legal phase/effect relation and merely checking that each name
+    is spelled from the vocabulary.
+
+    A command/phase pair the contract does not state admits NO array, so the result is EMPTY
+    rather than a refusal: "the contract admits nothing here" is exactly the answer a validator
+    needs, and a refusal channel would be dead code behind the phase check that already ran.
+    """
+    arrays: list[tuple[str, ...]] = []
+    for context in (
+        PlanContext(),
+        PlanContext(against_tombstone=True),
+        PlanContext(prepared_state_exists=True),
+    ):
+        candidate = ordered_effects_for(command=command, phase=phase, context=context)
+        if isinstance(candidate, Success) and candidate.unwrap() not in arrays:
+            arrays.append(candidate.unwrap())
+    return tuple(arrays)
 
 
 def next_phase(*, phase: str, condition: str) -> Result[str | None, ManagerError]:
