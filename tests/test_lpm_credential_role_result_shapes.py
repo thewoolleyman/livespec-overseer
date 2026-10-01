@@ -382,6 +382,92 @@ def test_the_item_envelope_and_invalid_descriptor_are_themselves_closed():
     ), "every descriptor inside a list is closed too"
 
 
+def test_each_nested_member_is_closed_for_its_own_role_mode_and_status():
+    """A member NAME does not determine its nested shape -- the role, mode and status do.
+
+    `invalid` is ONE descriptor object on a get and an ARRAY of them on a list. `item` is
+    nullable because null asserts authoritative absence; an element of `items` is not,
+    because a list of records has no member to be absent. Deciding the nested shape from the
+    name alone makes each of those confusions invisible, and all three counterexamples below
+    were accepted that way: an empty array where one descriptor is required, a bare object
+    where an array is required, and a null masquerading as a listed record.
+
+    `committed_at` is the same failure at the value level. Checking only non-null accepts
+    `123` and `"nope"` as commit times, but the contract requires it to EQUAL the adapter's
+    final lease-fence sample -- a value a later reconciler compares against stored
+    timestamps. A commit dated by something no comparison can parse is not a commit anyone
+    can verify.
+
+    Every rejection is paired with the valid shape it is one step from, so none of them can
+    pass by refusing the whole family.
+    """
+    results = _results()
+    uuid = "0f9c0a1e-0000-4000-8000-000000000000"
+    descriptor = {"record_id": uuid, "reason": "gap"}
+    envelope = {"item_id": "rev-1", "record": {}}
+    stamp = "2026-09-12T10:00:00Z"
+
+    def _defect(*, mode, members, role_name="metadata-reader"):
+        return results.closed_result_defect(role_name=role_name, mode=mode, members=members)
+
+    # A get's `invalid` is exactly ONE descriptor, never an array -- empty or otherwise.
+    assert _defect(mode="get", members={"version": 1, "status": "invalid", "invalid": []})
+    assert _defect(mode="get", members={"version": 1, "status": "invalid", "invalid": [descriptor]})
+    assert (
+        _defect(mode="get", members={"version": 1, "status": "invalid", "invalid": descriptor})
+        is None
+    )
+
+    # A list's `invalid` is exactly an ARRAY, never a bare descriptor object.
+    assert _defect(
+        mode="list", members={"version": 1, "status": "ok", "items": [], "invalid": descriptor}
+    )
+    assert (
+        _defect(
+            mode="list",
+            members={"version": 1, "status": "ok", "items": [], "invalid": [descriptor]},
+        )
+        is None
+    )
+
+    # `item` is nullable; an ELEMENT of `items` is not, because a list has nothing absent.
+    assert _defect(mode="get", members={"version": 1, "status": "ok", "item": None}) is None
+    assert _defect(
+        mode="list", members={"version": 1, "status": "ok", "items": [None], "invalid": []}
+    )
+    assert (
+        _defect(
+            mode="list",
+            members={"version": 1, "status": "ok", "items": [envelope], "invalid": []},
+        )
+        is None
+    )
+
+    # A commit time is a canonical UTC RFC 3339-second string, not merely non-null.
+    for dated in (123, "nope", "2026-09-12T10:00:00.500Z", "2026-09-12 10:00:00Z", True):
+        assert _defect(
+            role_name="final-provisioning",
+            mode=None,
+            members={"version": 1, "status": "committed", "committed_at": dated},
+        ), dated
+    assert (
+        _defect(
+            role_name="final-provisioning",
+            mode=None,
+            members={"version": 1, "status": "committed", "committed_at": stamp},
+        )
+        is None
+    )
+    assert (
+        _defect(
+            role_name="target-status",
+            mode=None,
+            members={"version": 1, "status": "uncommitted", "committed_at": None},
+        )
+        is None
+    )
+
+
 def test_an_unknown_mode_of_a_covered_role_fails_closed():
     """An unrecognized mode must not fall through the not-covered success path.
 
