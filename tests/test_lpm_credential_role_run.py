@@ -220,6 +220,44 @@ def test_a_parse_failure_reason_quotes_nothing_the_child_chose(tmp_path):
     assert _DUPLICATE_SENTINEL not in str(outcome.result_object)
 
 
+def test_a_spawn_that_never_starts_is_this_role_s_closed_failure_not_an_exception(tmp_path):
+    """`subprocess_role_launch` caught only `TimeoutExpired`; an exec `OSError` escaped.
+
+    A missing interpreter raises `FileNotFoundError` and a non-executable one raises
+    `PermissionError`, both `OSError`. Escaping, they reach the manager as an exception
+    rather than as this role's closed failure object -- and the contract is explicit that a
+    pre-exec key, permission or exec failure "MUST produce that exact store-unavailable role
+    result without target validation or target action". An exception produces no result at
+    all, so every caller downstream would have to know to catch it.
+
+    Driven against the REAL adapter with real unusable paths, because an injected
+    `RoleCompletion` cannot raise what the adapter fails to catch: the double is downstream
+    of the except clause under test.
+
+    `launched` must be FALSE here. A spawn that never started is earlier than a pre-exec
+    launcher refusal -- definitively no role, store or target action -- and that is the one
+    field final provisioning reads to know a target write cannot be ambiguous.
+    """
+    runner = _runner()
+    unexecutable = tmp_path / "not-executable"
+    unexecutable.write_text("#!/bin/sh\n", encoding="utf-8")
+    unexecutable.chmod(0o644)
+
+    for python_executable, label in (
+        (str(tmp_path / "absent-interpreter"), "missing"),
+        (str(unexecutable), "unexecutable"),
+    ):
+        companion = _roles().PackagedCompanion(
+            python_executable=python_executable, packaged_companion=str(tmp_path / "companion.py")
+        )
+
+        outcome = _run(runner, companion=companion, launch=runner.subprocess_role_launch)
+
+        assert outcome.result_object == {"version": 1, "status": "unavailable"}, label
+        assert outcome.launched is False, label
+        assert "could not be started" in outcome.refusal_reason, label
+
+
 def test_a_nonzero_exit_is_abnormal_however_conforming_the_output_looks(tmp_path):
     """A child that printed a perfect answer and THEN exited nonzero did not answer.
 
