@@ -194,6 +194,19 @@ def run_credential_role(
             launched=True,
             reason=f"{role.name} exceeded its {timeout_seconds:g}-second parent deadline",
         )
+    if completion.exit_status != 0:
+        # BEFORE the output is interpreted, because a conforming-looking answer from a
+        # child that then died is the worst input this boundary takes: `status: ok` with
+        # `item: null` asserts AUTHORITATIVE ABSENCE, and absence is what licenses a
+        # genesis create. A launcher that emits its own closed failure object has DONE its
+        # job and exits 0 to say so, so this does not swallow a pre-exec refusal — it is
+        # what keeps `unavailable`-because-we-refused apart from
+        # `unavailable`-because-we-crashed.
+        return _substituted(
+            role_input=role_input,
+            launched=True,
+            reason=f"{role.name} exited {completion.exit_status} abnormally",
+        )
     answer = _closed_role_object(stdout=completion.stdout)
     if isinstance(answer, Failure):
         return _substituted(

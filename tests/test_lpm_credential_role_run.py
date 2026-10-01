@@ -159,7 +159,6 @@ def test_any_nonconforming_child_output_becomes_that_role_s_own_closed_failure_o
                 'printf \'{"version":1,"status":"ok","status":"unavailable"}\'\n',
                 "duplicate member name",
             ),
-            ("exit 9\n", "not one JSON object"),
         )
     ):
         companion = _stub_companion(tmp_path / f"case{index}", body=body)
@@ -179,6 +178,34 @@ def test_any_nonconforming_child_output_becomes_that_role_s_own_closed_failure_o
             launch=runner.subprocess_role_launch,
         ).refusal_reason
     ), "an unfamiliar exit status must survive the process boundary"
+
+
+def test_a_nonzero_exit_is_abnormal_however_conforming_the_output_looks(tmp_path):
+    """A child that printed a perfect answer and THEN exited nonzero did not answer.
+
+    This is the sharpest shape on the whole boundary, because the output alone is
+    indistinguishable from a real one: `{"version":1,"status":"ok","item":null}` asserts
+    AUTHORITATIVE ABSENCE, and absence is what licenses a genesis create. A parent that
+    read the object and shrugged at the status would let a crashing child authorize a
+    write against a record it never actually looked up.
+
+    The status is therefore checked BEFORE the output is interpreted at all. That does not
+    swallow a launcher's pre-exec refusal: a launcher that emits its closed failure object
+    has DONE its job and exits 0 to say so, which is what keeps `unavailable`-because-we-
+    refused distinguishable from `unavailable`-because-we-crashed.
+    """
+    runner = _runner()
+    companion = _stub_companion(
+        tmp_path / "pkg",
+        body=('printf \'{"version":1,"status":"ok","item":null}\'\nexit 9\n'),
+    )
+
+    outcome = _run(runner, companion=companion, launch=runner.subprocess_role_launch)
+
+    assert outcome.result_object == {"version": 1, "status": "unavailable"}
+    assert outcome.launched is True
+    assert "exited 9 abnormally" in outcome.refusal_reason
+    assert "item" not in str(outcome.result_object), "the discarded answer must not survive"
 
 
 def test_the_parent_launches_nothing_when_the_role_input_or_request_is_not_closed(tmp_path):
