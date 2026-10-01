@@ -122,15 +122,21 @@ def subprocess_role_launch(
     a service-account token and may hold a lock or a target-reference lock; one left running
     behind an abandoned parent would keep that authority with nobody reading its answer.
 
-    Standard error is deliberately NOT captured. Nothing the parent may read comes from
-    there, and a captured diagnostic is one more buffer a stray byte could land in; the
-    contract's secret-free rule covers logs as well as results.
+    STANDARD ERROR IS DISCARDED EXPLICITLY, and the distinction from leaving it alone is
+    the whole point: an unset `stderr` INHERITS the parent's fd 2, so a child's diagnostic
+    lands verbatim in the manager's own log — the one surface the contract requires to stay
+    secret-free. A launcher child runs `keyctl` and later `op`, neither of them
+    manager-owned nor answerable for what they print when they fail, so the parent cannot
+    vouch for those bytes. They are discarded rather than captured because a captured
+    diagnostic is a buffer the parent then holds and must remember never to log; nothing
+    the parent is permitted to read comes from there in the first place.
     """
     try:
         completed = subprocess.run(  # noqa: S603 - the registry's closed role vector; never PATH
             list(argv),
             input=request_bytes,
             stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
             env=dict(environ),
             timeout=timeout_seconds,
             check=False,

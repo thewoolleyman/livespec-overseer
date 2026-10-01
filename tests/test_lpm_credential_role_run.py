@@ -331,3 +331,37 @@ def test_no_inherited_credential_override_reaches_the_launcher_child(tmp_path):
     ] == []
     assert "inherited-manager" not in environment
     assert "inherited-manager" not in str(outcome.result_object)
+
+
+def test_a_child_s_standard_error_never_reaches_the_parent(tmp_path, capfd):
+    """NOT CAPTURING a child's stderr is not suppressing it -- it is INHERITING fd 2.
+
+    A launcher child runs `keyctl` and, later, `op`; neither is manager-owned code and
+    neither can be vouched for about what it writes when it fails. Left unredirected, the
+    child's fd 2 IS the parent's, so any diagnostic it emits lands verbatim in the manager's
+    own log -- the one surface the contract requires to stay secret-free. The parent cannot
+    filter what it never chose to receive, so the sink is explicit and the bytes are
+    discarded rather than buffered: a captured diagnostic is one more place a token could
+    sit waiting to be logged by someone else.
+
+    Read at the FILE-DESCRIPTOR level (`capfd`, not `capsys`), because a child writes to
+    fd 2 directly and never touches this process's `sys.stderr` object -- the exact reason
+    an in-process assertion would pass while the bytes still reached the terminal.
+    """
+    runner = _runner()
+    companion = _stub_companion(
+        tmp_path / "pkg",
+        body=(
+            "printf 'keyctl-sentinel-must-not-escape\\n' >&2\n"
+            'printf \'{"version":1,"status":"unavailable"}\'\n'
+        ),
+    )
+    capfd.readouterr()
+
+    outcome = _run(runner, companion=companion, launch=runner.subprocess_role_launch)
+
+    streams = capfd.readouterr()
+    assert outcome.result_object == {"version": 1, "status": "unavailable"}
+    assert outcome.refusal_reason is None, "the role answered; this is its own result"
+    assert "keyctl-sentinel-must-not-escape" not in streams.err
+    assert "keyctl-sentinel-must-not-escape" not in streams.out
