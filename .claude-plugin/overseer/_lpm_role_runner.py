@@ -69,11 +69,20 @@ class RoleCompletion:
     is the UNSAFE direction for a flag whose True means "nobody knows what it did" — so a
     caller that forgot to say must not be given the reassuring answer. When it is true
     `exit_status` is `_TERMINATED_EXIT_STATUS` and meaningless.
+
+    `started` DOES default, and the asymmetry is deliberate rather than an oversight. It is
+    knowable only at the spawn site: every other construction of a completion is by
+    definition describing a child that ran, so True is the honest default there, and the one
+    place that can say otherwise — the launch adapter — sets it explicitly on all three of
+    its paths. False means no child ever existed, which is strictly earlier than any
+    pre-exec launcher refusal and is what tells final provisioning a target write cannot
+    even be ambiguous.
     """
 
     stdout: bytes
     exit_status: int
     timed_out: bool
+    started: bool = True
 
 
 class RoleLaunch(Protocol):
@@ -156,9 +165,21 @@ def subprocess_role_launch(
     except subprocess.TimeoutExpired:
         # Whatever the child had written so far is discarded with it. A partial result is
         # not a shorter result: these shapes are closed, and half of one is not one.
-        return RoleCompletion(stdout=b"", exit_status=_TERMINATED_EXIT_STATUS, timed_out=True)
+        return RoleCompletion(
+            stdout=b"", exit_status=_TERMINATED_EXIT_STATUS, timed_out=True, started=True
+        )
+    except OSError:
+        # The spawn itself failed — a missing or non-executable interpreter raises
+        # `FileNotFoundError` or `PermissionError` from here. Letting it escape would hand
+        # the manager an exception where the contract requires a pre-exec failure to produce
+        # that role's closed result, so every caller downstream would need to know to catch
+        # it. The error is NOT quoted: an operating-system message carries the path it
+        # failed on, and this operation's diagnostics are secret-free.
+        return RoleCompletion(
+            stdout=b"", exit_status=_TERMINATED_EXIT_STATUS, timed_out=False, started=False
+        )
     return RoleCompletion(
-        stdout=completed.stdout, exit_status=completed.returncode, timed_out=False
+        stdout=completed.stdout, exit_status=completed.returncode, timed_out=False, started=True
     )
 
 
@@ -217,7 +238,7 @@ def run_credential_role(
     if isinstance(interpreted, Failure):
         return _substituted(
             role_input=role_input,
-            launched=True,
+            launched=completion.started,
             reason=f"{role.name} {interpreted.failure()}",
         )
     return RoleOutcome(result_object=interpreted.unwrap(), refusal_reason=None, launched=True)
@@ -237,9 +258,13 @@ def _completion_meaning(
     result it did not produce. The ORDER of these four questions is the whole substance,
     and each one exists to stop the next from being asked too early.
     """
+    if not completion.started:
+        # Before everything, because none of the later questions have an answer when no
+        # child ever ran: there is no exit status, no output and no deadline to have missed.
+        return Failure("could not be started")
     if completion.timed_out:
-        # First, because a terminated child has no exit status to report: folding this into
-        # a later branch would name an invented one in the reason a reconciler reads.
+        # Then this, because a terminated child has no exit status to report: folding it
+        # into a later branch would name an invented one in the reason a reconciler reads.
         return Failure(f"exceeded its {timeout_seconds:g}-second parent deadline")
     if completion.exit_status != 0:
         # Before the output is interpreted at all, because a conforming-looking answer from
