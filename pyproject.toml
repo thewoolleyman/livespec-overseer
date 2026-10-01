@@ -30,6 +30,7 @@ dependencies = [
 
 [project.scripts]
 caam-anthropic-loop = "overseer.caam_anthropic_loop:main"
+llm-provider-manager = "overseer.manager_bootstrap:main"
 overseer-declare = "overseer.declare:main"
 overseer-scan-homelab-charters = "overseer.homelab_charter_scan:main"
 overseerd = "overseer.daemon:main"
@@ -111,7 +112,21 @@ covered_trees = ["overseer"]
 # `check-supervisor-discipline`. It is deliberately NOT in `io_trees`: the same
 # clause forecloses exempting a hook tree wholesale ("There is NO 'thin repo'
 # exemption").
-supervisor_entry_files = [".claude/hooks/livespec_footgun_guard.py"]
+# The two manager launch artifacts join it for the SAME documented reason, not a new one: each
+# owns the manager's single-line stdout contract and cannot route it through `streams`.
+# `manager_bootstrap` may not — SPECIFICATION/contracts.md allows it "only the `overseer` package
+# initializer and its standard-library-only bootstrap module", because every product import in that
+# file runs BEFORE the credential-override scrub. `_lpm_companion`'s one direct write is its
+# package-load failure path, which by definition executes when `streams` could not be loaded. Both
+# are process entry points, which is what this key denotes. The mirrors are declared too, since the
+# plugin tree is byte-identical and the check walks the git-derived universe.
+supervisor_entry_files = [
+    ".claude/hooks/livespec_footgun_guard.py",
+    "overseer/manager_bootstrap.py",
+    "overseer/_lpm_companion.py",
+    ".claude-plugin/overseer/manager_bootstrap.py",
+    ".claude-plugin/overseer/_lpm_companion.py",
+]
 
 # livespec v179 member 2. Each entry declares that this function's `X | None`
 # models a legitimate ABSENCE rather than a FAILURE, which no AST can decide --
