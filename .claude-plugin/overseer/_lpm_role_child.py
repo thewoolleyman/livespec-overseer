@@ -39,11 +39,12 @@ from _lpm_launcher import (
     keyctl_search_argv,
     pre_exec_failure_object,
     role_child_environment,
+    user_keyring_description_matches,
     validated_launch,
 )
 from _lpm_roles import PackagedCompanion, execution_vector_for
 
-from overseer._vendor.returns.result import Failure
+from overseer._vendor.returns.result import Failure, Result, Success
 
 _ = VENDOR_PATHS_INSTALLED
 
@@ -156,7 +157,14 @@ def launch_credential_role(
     description = role.key_description
     token: str | None = None
     if description is not None:
-        token = _keyring_token(expected_description=description, process_os=process_os)
+        retrieved = _keyring_token(expected_description=description, process_os=process_os)
+        if isinstance(retrieved, Failure):
+            return _refusal(
+                role_name=role.name,
+                observer_mode=observer_mode,
+                reason=f"{role.name} {retrieved.failure()}",
+            )
+        token = retrieved.unwrap()
     process_os.replace_process(
         argv=execution_vector_for(companion=companion, role=role),
         environ=role_child_environment(role=role, environ=inherited, token=token),
@@ -176,22 +184,59 @@ def _refusal(*, role_name: str, observer_mode: str | None, reason: str) -> Launc
     )
 
 
-def _keyring_token(*, expected_description: str, process_os: ChildProcessOS) -> str:
+def _keyring_token(*, expected_description: str, process_os: ChildProcessOS) -> Result[str, str]:
     """Search, inspect, and only then pipe the named token out of the user keyring.
+
+    EVERY STEP IS A GATE, including `rdescribe`, whose answer is what authorizes the pipe
+    at all: the exact five-field check in `user_keyring_description_matches` runs on the
+    description BEFORE the payload vector is ever built, so a key that exists but is not
+    this role's owner-only key is refused unread. Each failure returns the STEP it reached,
+    role-free, because the caller owns the role's own closed failure object and a reason
+    that conflated "no such key" with "could not read the payload" would send a reconciler
+    looking for a key that was never there.
 
     The payload lands in a `bytearray` that is zeroed before this returns, so the only
     surviving reference to the token is the one string handed to the child environment and
     consumed by the exec.
     """
-    found = process_os.run(argv=keyctl_search_argv(description=expected_description))
-    serial = _decoded_line(data=found.stdout)
-    _ = process_os.run(argv=keyctl_rdescribe_argv(serial=serial))
-    piped = process_os.run(argv=keyctl_pipe_argv(serial=serial))
+    serial = _key_serial(expected_description=expected_description, process_os=process_os)
+    if isinstance(serial, Failure):
+        return serial
+    described = process_os.run(argv=keyctl_rdescribe_argv(serial=serial.unwrap()))
+    if described.exit_status != 0:
+        return Failure("key description could not be read")
+    if not user_keyring_description_matches(
+        raw=_decoded_line(data=described.stdout),
+        effective_uid=process_os.effective_uid(),
+        expected_description=expected_description,
+    ):
+        return Failure("key is not this user's owner-only key for that description")
+    piped = process_os.run(argv=keyctl_pipe_argv(serial=serial.unwrap()))
+    if piped.exit_status != 0:
+        return Failure("key payload could not be piped")
     payload = bytearray(piped.stdout)
     try:
-        return payload.decode("utf-8").strip()
+        return Success(payload.decode("utf-8").strip())
+    except UnicodeDecodeError:
+        return Failure("key payload is not UTF-8")
     finally:
         payload[:] = bytes(len(payload))
+
+
+def _key_serial(*, expected_description: str, process_os: ChildProcessOS) -> Result[str, str]:
+    """The serial `keyctl search @u user <description>` found, or why there is none.
+
+    A non-numeric answer is refused rather than passed on: `rdescribe` and `pipe` take a
+    serial, and handing them something else would make the next step's failure the one
+    that gets reported.
+    """
+    found = process_os.run(argv=keyctl_search_argv(description=expected_description))
+    if found.exit_status != 0:
+        return Failure("key is not in the user keyring")
+    serial = _decoded_line(data=found.stdout)
+    if not serial.isdigit():
+        return Failure("key search returned no serial")
+    return Success(serial)
 
 
 def _decoded_line(*, data: bytes) -> str:
