@@ -34,7 +34,9 @@ __all__: list[str] = [
     "KEYRING_PERMISSION",
     "LIFECYCLE_ROLES",
     "CredentialRole",
+    "PackagedCompanion",
     "credential_role",
+    "execution_vector_for",
     "role_execution_vector",
 ]
 
@@ -61,6 +63,23 @@ class CredentialRole:
     variable: str | None
     descriptors: tuple[str, ...]
     op_scope: tuple[str, ...]
+
+
+@dataclass(frozen=True, kw_only=True)
+class PackagedCompanion:
+    """The resolved interpreter and the packaged companion every role vector is built from.
+
+    They travel TOGETHER because neither half is meaningful alone. The contract's vector is
+    `<resolved-python> -I -S <packaged-companion> …`, where the interpreter is the canonical
+    regular executable for the INVOKING interpreter and the companion is a canonical regular
+    file inside THAT SAME validated installed package. A caller able to supply one without
+    the other could run this package's companion under some other interpreter, or another
+    package's companion under this one — and either pairing runs code the validated root
+    never vouched for.
+    """
+
+    python_executable: str
+    packaged_companion: str
 
 
 def _role(
@@ -160,16 +179,39 @@ def credential_role(*, name: str) -> CredentialRole | None:
     return CREDENTIAL_ROLES.get(name)
 
 
-def role_execution_vector(
-    *, python_executable: str, packaged_companion: str, name: str
-) -> tuple[str, ...] | None:
-    """The one execution vector a role name maps to, or None when unregistered.
+def execution_vector_for(*, companion: PackagedCompanion, role: CredentialRole) -> tuple[str, ...]:
+    """The one execution vector an ALREADY-RESOLVED registered role maps to.
 
     `<resolved-python> -I -S <packaged-companion> --credential-role <role-name>`. The
     mapping lives in manager-owned code, never in configuration or request input: these
     vectors are the COMPLETE role-executable allowlist, and the launcher accepts no
     caller-supplied executable or argument.
+
+    This spelling exists beside the name-keyed one because a caller holding a resolved
+    `CredentialRole` has ALREADY had the registration question answered. Re-deriving the
+    answer there would add an "unregistered" branch to code that cannot reach it, and the
+    only honest way to cover such a branch is to stop asking the question twice.
     """
-    if credential_role(name=name) is None:
+    return (
+        companion.python_executable,
+        "-I",
+        "-S",
+        companion.packaged_companion,
+        "--credential-role",
+        role.name,
+    )
+
+
+def role_execution_vector(
+    *, python_executable: str, packaged_companion: str, name: str
+) -> tuple[str, ...] | None:
+    """The one execution vector a role name maps to, or None when unregistered."""
+    role = credential_role(name=name)
+    if role is None:
         return None
-    return (python_executable, "-I", "-S", packaged_companion, "--credential-role", name)
+    return execution_vector_for(
+        companion=PackagedCompanion(
+            python_executable=python_executable, packaged_companion=packaged_companion
+        ),
+        role=role,
+    )

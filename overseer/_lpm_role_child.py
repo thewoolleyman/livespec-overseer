@@ -1,0 +1,205 @@
+"""The in-child launcher SEQUENCE: scrub, read the user keyring, become the role.
+
+SPECIFICATION/contracts.md makes the credential-role launcher a short-lived child created
+BEFORE any token retrieval. `_lpm_launcher` holds the parts of that contract which are pure
+decisions — the registry validation, the exact `rdescribe` match, the three `keyctl`
+argument vectors and the child environment. THIS module is the sequence those decisions
+imply: it reapplies the complete closed scrub, runs those vectors in the contract's order,
+installs only the corresponding manager-named variable and replaces the process with the
+role's closed execution vector.
+
+THE ORDER IS THE SECURITY PROPERTY, not the individual steps. `search` yields a serial,
+`rdescribe` proves that serial names this user's owner-only key for exactly this role's
+description, and only then may `pipe` read the payload. An implementation that piped first
+would hand the bytes over before anything had established that the key was the one the role
+was promised, and no later check can un-read them.
+
+RETURNING AT ALL IS A FAILURE. On success this process is REPLACED, so
+:func:`launch_credential_role` has no success value: a `LauncherRefusal` is the only thing
+it can hand back, and `replace_process` coming back is itself the contract's "failure to
+exec the validated role vector". That inversion is deliberate — it makes the no-token-return
+guarantee STRUCTURAL rather than a rule every caller has to remember.
+
+A REFUSAL NAMES THE STEP, NEVER THE VALUE. The reason carried beside the role's own closed
+failure object is built from the role name and the step that refused, so the secret-free
+requirement holds by construction rather than by review of each message.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Protocol
+
+from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
+from _lpm_env import scrubbed_environment
+from _lpm_launcher import (
+    keyctl_pipe_argv,
+    keyctl_rdescribe_argv,
+    keyctl_search_argv,
+    pre_exec_failure_object,
+    role_child_environment,
+    validated_launch,
+)
+from _lpm_roles import PackagedCompanion, execution_vector_for
+
+from overseer._vendor.returns.result import Failure
+
+_ = VENDOR_PATHS_INSTALLED
+
+__all__: list[str] = [
+    "ChildProcessOS",
+    "ClosedRoleInput",
+    "CommandOutcome",
+    "LauncherRefusal",
+    "launch_credential_role",
+]
+
+
+@dataclass(frozen=True, kw_only=True)
+class ClosedRoleInput:
+    """Exactly what a parent may tell a launcher child about WHICH role to become.
+
+    The contract closes this list: one closed role name, one nullable key description and
+    that role's declared descriptors — plus, for `provider-observer` alone, the mode it was
+    launched in, because that role's two modes have different closed failure objects. No
+    executable, no argument and no credential value is in it, which is why a launcher that
+    reads only this cannot be talked into running something else.
+    """
+
+    role_name: str
+    key_description: str | None
+    descriptors: tuple[str, ...]
+    observer_mode: str | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class CommandOutcome:
+    """One completed `keyctl` call: its exit status and its raw standard-output bytes.
+
+    The bytes are kept RAW rather than decoded at the boundary because one of these three
+    outputs is a credential payload, and a decode here would make an immutable copy of it
+    that nothing can overwrite afterwards.
+    """
+
+    exit_status: int
+    stdout: bytes
+
+
+class ChildProcessOS(Protocol):
+    """The only OS primitives the in-child launcher may reach for.
+
+    Three, deliberately: the uid the key's owner field must equal, one fixed-vector command
+    run, and the process replacement. A launcher that could also open files, resolve a
+    `PATH` or spawn a shell would have authority the contract does not give it.
+    """
+
+    def effective_uid(self) -> int:
+        """The effective uid the `rdescribe` owner field must equal exactly."""
+        ...
+
+    def run(self, *, argv: tuple[str, ...]) -> CommandOutcome:
+        """Run one manager-owned `keyctl` vector, capturing only its standard output."""
+        ...
+
+    def replace_process(self, *, argv: tuple[str, ...], environ: Mapping[str, str]) -> None:
+        """Replace this process with `argv`. Returning at all means the exec FAILED."""
+        ...
+
+
+@dataclass(frozen=True, kw_only=True)
+class LauncherRefusal:
+    """A pre-exec refusal: this role's own closed failure object and a secret-free reason.
+
+    The object is the ONLY thing the contract permits to cross back, and it is the role's
+    own closed shape rather than a generic error — for final provisioning that distinction
+    is load-bearing, because its pre-exec `store-unavailable` must not be reinterpreted as
+    the ambiguous target-write outcome that applies only after a successful exec. The
+    reason is a local diagnostic naming the step, for a manager log that must stay
+    secret-free.
+    """
+
+    failure_object: dict[str, object]
+    reason: str
+
+
+def launch_credential_role(
+    *,
+    role_input: ClosedRoleInput,
+    companion: PackagedCompanion,
+    environ: Mapping[str, str],
+    process_os: ChildProcessOS,
+) -> LauncherRefusal:
+    """Run the whole in-child sequence, or report why it refused before any exec.
+
+    There is no success return value: a sequence that reaches its end has REPLACED this
+    process with the mapped role, so every value this function produces is a refusal.
+    """
+    observer_mode = role_input.observer_mode
+    validated = validated_launch(
+        role_name=role_input.role_name,
+        key_description=role_input.key_description,
+        descriptors=role_input.descriptors,
+    )
+    if isinstance(validated, Failure):
+        return _refusal(
+            role_name=role_input.role_name,
+            observer_mode=observer_mode,
+            reason=validated.failure().message,
+        )
+    role = validated.unwrap()
+    # The contract orders the complete closed scrub BEFORE key lookup, so it happens here
+    # rather than at the exec. `role_child_environment` reapplies the same name-only scrub
+    # when it installs the one manager-named variable — idempotent, and deliberately not
+    # bypassed, so the two spellings of the closed set cannot drift apart.
+    inherited = scrubbed_environment(environ=environ)
+    description = role.key_description
+    token: str | None = None
+    if description is not None:
+        token = _keyring_token(expected_description=description, process_os=process_os)
+    process_os.replace_process(
+        argv=execution_vector_for(companion=companion, role=role),
+        environ=role_child_environment(role=role, environ=inherited, token=token),
+    )
+    return _refusal(
+        role_name=role.name,
+        observer_mode=observer_mode,
+        reason=f"{role.name} could not be replaced with its mapped role process",
+    )
+
+
+def _refusal(*, role_name: str, observer_mode: str | None, reason: str) -> LauncherRefusal:
+    """This role's own closed failure object, paired with the name of the refusing step."""
+    return LauncherRefusal(
+        failure_object=pre_exec_failure_object(role_name=role_name, observer_mode=observer_mode),
+        reason=reason,
+    )
+
+
+def _keyring_token(*, expected_description: str, process_os: ChildProcessOS) -> str:
+    """Search, inspect, and only then pipe the named token out of the user keyring.
+
+    The payload lands in a `bytearray` that is zeroed before this returns, so the only
+    surviving reference to the token is the one string handed to the child environment and
+    consumed by the exec.
+    """
+    found = process_os.run(argv=keyctl_search_argv(description=expected_description))
+    serial = _decoded_line(data=found.stdout)
+    _ = process_os.run(argv=keyctl_rdescribe_argv(serial=serial))
+    piped = process_os.run(argv=keyctl_pipe_argv(serial=serial))
+    payload = bytearray(piped.stdout)
+    try:
+        return payload.decode("utf-8").strip()
+    finally:
+        payload[:] = bytes(len(payload))
+
+
+def _decoded_line(*, data: bytes) -> str:
+    """One `keyctl` output line as text, with an undecodable byte replaced.
+
+    Replacement rather than refusal is right here, and only here: this text is compared
+    against an exact expected serial or description, so a mangled byte can only make the
+    comparison FAIL, which is already the fail-closed answer. It is never used for the
+    payload, whose decode has to be exact.
+    """
+    return data.decode("utf-8", errors="replace").strip()
