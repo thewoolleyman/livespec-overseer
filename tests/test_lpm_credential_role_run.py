@@ -35,6 +35,10 @@ _REQUEST = {
     "op_executable": "/usr/bin/op",
 }
 
+# Placed in a DUPLICATE member NAME, which is the one piece of a nonconforming result that
+# the canonical parser quotes back in its own defect reason.
+_DUPLICATE_SENTINEL = "sk-ant-oat0-in-a-member-name"
+
 _INHERITED = {
     "PATH": "/usr/bin:/bin",
     "HOME": "/home/operator",
@@ -87,6 +91,12 @@ def _role_input(*, role_name):
     return _child().ClosedRoleInput(
         role_name=role_name, key_description=role.key_description, descriptors=role.descriptors
     )
+
+
+def _duplicate_member_body(*, name):
+    """A `printf` emitting an otherwise-conforming object with `name` repeated."""
+    members = f'"version":1,"status":"ok","{name}":1,"{name}":2'
+    return "printf '{" + members + "}'\n"
 
 
 def _run(runner, *, companion, launch, role_request=None, role_input=None, timeout_seconds=5.0):
@@ -157,7 +167,7 @@ def test_any_nonconforming_child_output_becomes_that_role_s_own_closed_failure_o
             ("printf '{\"version\":1}'\n", "carries no status"),
             (
                 'printf \'{"version":1,"status":"ok","status":"unavailable"}\'\n',
-                "duplicate member name",
+                "not one JSON object",
             ),
         )
     ):
@@ -178,6 +188,36 @@ def test_any_nonconforming_child_output_becomes_that_role_s_own_closed_failure_o
             launch=runner.subprocess_role_launch,
         ).refusal_reason
     ), "an unfamiliar exit status must survive the process boundary"
+
+
+def test_a_parse_failure_reason_quotes_nothing_the_child_chose(tmp_path):
+    """A duplicate member NAME is child-controlled, and the canonical parser quotes it.
+
+    `parse_canonical_json` reports `duplicate member name: <name>`, which is exactly right
+    for a generic parser and exactly wrong to embed HERE: this reason reaches
+    `RoleOutcome.refusal_reason` and from there a manager log, so a token placed in a
+    duplicate member name was logged by the very check that rejected the result. The shape
+    checks already refuse to quote a child's status or member names; this was the one path
+    still passing upstream text through.
+
+    So every parser failure maps to one static reason at this boundary. The distinction
+    between malformed JSON and a duplicate member is lost deliberately -- both are the same
+    closed failure object to the manager, and keeping the distinction would mean auditing a
+    SHARED parser's message text for secrets on every change to it.
+    """
+    runner = _runner()
+    companion = _stub_companion(
+        tmp_path / "sentinel",
+        body=_duplicate_member_body(name=_DUPLICATE_SENTINEL),
+    )
+
+    outcome = _run(runner, companion=companion, launch=runner.subprocess_role_launch)
+
+    assert outcome.result_object == {"version": 1, "status": "unavailable"}
+    assert outcome.launched is True
+    assert "not one JSON object" in outcome.refusal_reason
+    assert _DUPLICATE_SENTINEL not in outcome.refusal_reason
+    assert _DUPLICATE_SENTINEL not in str(outcome.result_object)
 
 
 def test_a_nonzero_exit_is_abnormal_however_conforming_the_output_looks(tmp_path):
