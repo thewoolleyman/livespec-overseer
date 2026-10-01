@@ -268,3 +268,39 @@ def test_a_child_that_outlives_the_parent_deadline_is_terminated_and_never_read(
 
     assert inside.refusal_reason is None
     assert mark.read_text(encoding="utf-8") == "ran"
+
+
+def test_no_inherited_credential_override_reaches_the_launcher_child(tmp_path):
+    """The parent scrubs at the CHILD-SPAWN boundary, so a token cannot be passed IN.
+
+    This is the other half of the no-token guarantee, and the half a reader is likely to
+    assume rather than check. The child's own scrub protects the ROLE process, but it runs
+    INSIDE a launcher that has already started -- so without this one the launcher begins
+    life holding whatever credential override its parent inherited, including, exactly, the
+    manager service-account variable for the role whose key it is about to fetch. A
+    launcher that could find a usable token already in its environment has a second,
+    unaudited source for one, and the keyring check it passes would prove nothing about
+    which token the role actually ran with.
+
+    The survivors are asserted alongside the removals because the scrub is specified as
+    copying what passes rather than deleting what fails: a child handed an EMPTY
+    environment would satisfy the removals and still be wrong.
+    """
+    runner = _runner()
+    seen = tmp_path / "env"
+    companion = _stub_companion(
+        tmp_path / "pkg",
+        body=(f'env > "{seen}"\n' 'printf \'{"version":1,"status":"ok","item":null}\'\n'),
+    )
+
+    outcome = _run(runner, companion=companion, launch=runner.subprocess_role_launch)
+
+    environment = seen.read_text(encoding="utf-8")
+    names = sorted(line.split("=", 1)[0] for line in environment.splitlines() if "=" in line)
+    assert outcome.refusal_reason is None
+    assert {"PATH", "HOME"} <= set(names), "the scrub copies survivors, it does not clear"
+    assert [
+        name for name in names if name.startswith(("LPM_", "OP_", "ANTHROPIC_", "CLAUDE"))
+    ] == []
+    assert "inherited-manager" not in environment
+    assert "inherited-manager" not in str(outcome.result_object)

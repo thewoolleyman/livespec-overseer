@@ -34,6 +34,7 @@ from typing import Final, Protocol
 
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 from _lpm_canonical import canonical_json_bytes, parse_canonical_json
+from _lpm_env import scrubbed_environment
 from _lpm_launcher import pre_exec_failure_object, validated_launch
 from _lpm_role_child import ClosedRoleInput
 from _lpm_roles import PackagedCompanion, execution_vector_for
@@ -172,7 +173,14 @@ def run_credential_role(
         )
     completion = launch(
         argv=execution_vector_for(companion=companion, role=role),
-        environ=dict(environ),
+        # The contract puts the complete closed scrub on whichever process ACTUALLY SPAWNS
+        # the child, which is this one. The launcher reapplies it before its key lookup,
+        # but that reapplication runs inside an already-started launcher: without the scrub
+        # HERE, the launcher begins life holding whatever credential override its parent
+        # inherited — including the manager service-account variable for the very role
+        # whose key it is about to fetch, which would give it a second, unaudited token
+        # source that no keyring check could detect.
+        environ=scrubbed_environment(environ=environ),
         request_bytes=request.unwrap(),
         timeout_seconds=timeout_seconds,
     )
