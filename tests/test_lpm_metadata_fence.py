@@ -559,7 +559,15 @@ def _terminal_operation(**changes: object):
         "phase": "terminal",
         "idempotency_key": _KEY,
         "accepted_at": "2026-09-30T09:00:00Z",
-        "normalized_input": {"record_id": _RECORD_ID},
+        "normalized_input": {
+            "version": 1,
+            "provider": "anthropic",
+            "account_id": "acct-1",
+            "kind": "claude-code-oauth",
+            "purpose": "factory",
+            "record_id": _RECORD_ID,
+            "next_value_generation": _GENERATION,
+        },
         "terminal_result": {
             "outcome": "success",
             "validated_at": "2026-09-30T09:00:04Z",
