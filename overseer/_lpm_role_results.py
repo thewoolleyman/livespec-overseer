@@ -173,22 +173,47 @@ class _NestedChecker(Protocol):
     def __call__(self, *, value: object) -> str | None: ...
 
 
-def _envelope_defect(*, value: object) -> str | None:
-    """Whether `value` is exactly a non-empty `item_id` plus a `record`.
+@dataclass(frozen=True, kw_only=True)
+class _Element:
+    """One array element's verdict: its secret-free defect reason, or the key it orders by.
+
+    The two travel together because the ordering key is only MEANINGFUL once the element
+    has been validated, and only KNOWN to be a string at the point the validation proved
+    it. Returning both from one pass is what lets the array checker below order elements
+    without re-deriving a type its caller already established.
+    """
+
+    defect: str | None = None
+    key: str = ""
+
+
+class _OrderedElementChecker(Protocol):
+    """One array-element checker: its defect reason, or the value its array orders by."""
+
+    def __call__(self, *, value: object) -> _Element: ...
+
+
+def _envelope_element(*, value: object) -> _Element:
+    """Whether `value` is exactly a non-empty `item_id` plus a `record`, and that `item_id`.
 
     Deliberately NOT nullable. Null is meaningful only for the single `item` member, where
     it asserts authoritative absence; an element of `items` has nothing to be absent, so
     reusing a nullable checker for array elements let `items: [null]` pass as a record.
     """
     if not isinstance(value, dict):
-        return "an item envelope that is not an object"
+        return _Element(defect="an item envelope that is not an object")
     members: dict[str, object] = value
     if frozenset(members) != _ITEM_ENVELOPE_MEMBERS:
-        return "an item envelope whose members are not exactly item_id and record"
+        return _Element(defect="an item envelope whose members are not exactly item_id and record")
     item_id = members["item_id"]
     if not isinstance(item_id, str) or not item_id:
-        return "an item envelope whose item_id is not a non-empty string"
-    return None
+        return _Element(defect="an item envelope whose item_id is not a non-empty string")
+    return _Element(key=item_id)
+
+
+def _envelope_defect(*, value: object) -> str | None:
+    """The envelope shape alone, for the single `item` member that does not order anything."""
+    return _envelope_element(value=value).defect
 
 
 def _nullable_envelope_defect(*, value: object) -> str | None:
@@ -196,46 +221,88 @@ def _nullable_envelope_defect(*, value: object) -> str | None:
     return None if value is None else _envelope_defect(value=value)
 
 
-def _descriptor_defect(*, value: object) -> str | None:
+def _descriptor_element(*, value: object) -> _Element:
     """Whether `value` is exactly a lowercase UUIDv4 `record_id` plus a registered `reason`."""
     if not isinstance(value, dict):
-        return "an invalid-chain descriptor that is not an object"
+        return _Element(defect="an invalid-chain descriptor that is not an object")
     members: dict[str, object] = value
     if frozenset(members) != _DESCRIPTOR_MEMBERS:
-        return "an invalid-chain descriptor whose members are not exactly record_id and reason"
+        return _Element(
+            defect="an invalid-chain descriptor whose members are not exactly record_id and reason"
+        )
     record_id = members["record_id"]
     if not isinstance(record_id, str) or not is_uuid4(value=record_id):
-        return "an invalid-chain descriptor whose record_id is not a lowercase UUIDv4"
+        return _Element(
+            defect="an invalid-chain descriptor whose record_id is not a lowercase UUIDv4"
+        )
     if members["reason"] not in INVALID_CHAIN_REASONS:
-        return "an invalid-chain descriptor whose reason is not a registered one"
-    return None
+        return _Element(defect="an invalid-chain descriptor whose reason is not a registered one")
+    return _Element(key=record_id)
 
 
-def _array_defect(*, value: object, element: _NestedChecker, named: str) -> str | None:
-    """Whether `value` is an array whose every element satisfies `element`.
+def _descriptor_defect(*, value: object) -> str | None:
+    """The descriptor shape alone, for a get's single `invalid` member."""
+    return _descriptor_element(value=value).defect
+
+
+def _array_defect(
+    *, value: object, element: _OrderedElementChecker, named: str, ordered_by: str
+) -> str | None:
+    """Whether `value` is an array of valid elements IN the order the contract declares.
 
     An EMPTY array is legal — a list result with nothing to report is still a list result.
     What is never legal is a non-array, which is how a bare descriptor object came to pass
     for a member the list shape requires to be an array.
+
+    ORDER IS PART OF THE SHAPE. The contract requires a list's valid-chain envelopes
+    "ordered by lexical `item_id`" and its invalid-chain descriptors "ordered by lexical
+    `record_id`", and requires the parent to map "any nonconforming output to
+    `store-unavailable`, never to absence" — so an unordered array is refused here rather
+    than quietly sorted. The ordering is EVIDENCE, not presentation: it is the reader's own
+    proof that it enumerated the revision chain deterministically, and a reader that cannot
+    do that is exactly the one whose `item:null` must never be read as authoritative
+    absence. Sorting it here would discard the only signal that tells them apart.
+
+    EACH ARRAY ORDERS BY ITS OWN MEMBER, which is why `ordered_by` is a parameter rather
+    than a constant: `items` orders by `item_id` and `invalid` by `record_id`, so a single
+    shared key would leave one of the two arrays unchecked.
+
+    NON-DECREASING, NOT STRICTLY INCREASING. The contract states an ordering for these
+    arrays and no uniqueness requirement, so equal adjacent keys stay acceptable; refusing
+    them would reject output the contract permits.
+
+    The comparison is Python's string ordering, the same idiom the durable selection-state
+    record already validates its own lexical ordering with. The contract defines lexical
+    order over "the values' UTF-8 bytes ... unsigned byte by unsigned byte", and UTF-8 is
+    order-preserving — byte-wise comparison of two encodings agrees with code-point
+    comparison for every pair — so the two definitions cannot disagree.
     """
     if not isinstance(value, list):
         return f"a {named} member that is not an array"
     elements: list[object] = value
+    keys: list[str] = []
     for member in elements:
-        defect = element(value=member)
-        if defect is not None:
-            return defect
+        verdict = element(value=member)
+        if verdict.defect is not None:
+            return verdict.defect
+        keys.append(verdict.key)
+    if keys != sorted(keys):
+        return f"a {named} member not in lexical {ordered_by} order"
     return None
 
 
 def _envelope_array_defect(*, value: object) -> str | None:
-    """The `items` member: an array of envelopes, with no element absent."""
-    return _array_defect(value=value, element=_envelope_defect, named="items")
+    """The `items` member: envelopes in lexical `item_id` order, with no element absent."""
+    return _array_defect(
+        value=value, element=_envelope_element, named="items", ordered_by="item_id"
+    )
 
 
 def _descriptor_array_defect(*, value: object) -> str | None:
-    """A list result's `invalid` member: an array of descriptors, never a bare one."""
-    return _array_defect(value=value, element=_descriptor_defect, named="invalid")
+    """A list result's `invalid` member: descriptors in lexical `record_id` order."""
+    return _array_defect(
+        value=value, element=_descriptor_element, named="invalid", ordered_by="record_id"
+    )
 
 
 def _commit_time_defect(*, value: object) -> str | None:
