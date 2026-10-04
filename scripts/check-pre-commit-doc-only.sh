@@ -9,7 +9,10 @@ set -euo pipefail
 # per-commit warn-only tier EXCEPT when the staged changeset itself edits
 # tests/heading-coverage.json: authoring an unowned TODO entry is refused
 # (release tier armed) per the check's own "an unowned TODO entry is
-# never valid" contract. The full aggregate remains the safety net at
+# never valid" contract. Scope that authoring verdict to entries changed
+# since HEAD, as the canonical dev-tooling caller does; unrelated existing
+# TODOs are still reported, and release workflows retain the full scan.
+# The full aggregate remains the safety net at
 # pre-push and in CI.
 echo ":: doc-only subset: repo-state checks for non-.py input surfaces"
 just check-heading-coverage
@@ -19,8 +22,10 @@ just check-agents-ai-references-resolve
 just check-plan-anchor-declared
 just check-vendor-manifest
 if git diff --cached --name-only | grep -qx 'tests/heading-coverage.json'; then
-    echo ":: staged changeset edits tests/heading-coverage.json — arming the TODO-ownership release tier for this commit"
-    LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST=true just check-no-todo-registry
+    echo ":: staged changeset edits tests/heading-coverage.json — arming the TODO-ownership release tier for entries this commit authors"
+    LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST=true \
+        LIVESPEC_SCOPE_HEADING_COVERAGE_TODOS_TO_HEAD_DIFF=true \
+        just check-no-todo-registry
 else
     just check-no-todo-registry
 fi

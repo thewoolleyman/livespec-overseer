@@ -165,7 +165,7 @@
     "spec_file": "constraints.md",
     "heading": "## Runtime requirements",
     "test": "overseer.test_supervisor_b7_bad_input.test_the_host_gate_precedes_the_gitignore_gate",
-    "reason": "Pins both halves of the enforceable clause: on an unsupported host the daemon REFUSES to start naming the failed precondition, and that check runs BEFORE every other startup gate (asserted by making a watched repo ALSO fail the gitignore gate and confirming only 'unsupported host' is reported). CAVEAT: the constraint's other half — Linux+tmux as a DECLARED requirement rather than an unfinished portability story — is decision D4, implemented by core item livespec-b1uo.2 which is still backlog. This row's evidence covers the behavior, not that declaration."
+    "reason": "Pins unsupported-host refusal before other startup gates. Backend ownership selection and herdr capability coverage are owned by overseer-uzvcbn and the new scenario entries; this existing test covers gate ordering only."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -317,9 +317,9 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A fresh ready declaration triggers the atomic restart",
+    "heading": "## Scenario: A fresh ready declaration triggers the guarded restart",
     "test": "tests.integration.test_ready_declaration_restart.test_scenario_a_fresh_ready_declaration_triggers_the_atomic_restart",
-    "reason": "Integration-tier: opens a REAL wrap-up round (which is what writes the injection stamp), then declares `ready` post-dating it. Asserts ONE respawn and no new-session / no `/exit` send-keys (atomicity as the absence of the alternatives), the claude launch command, exactly one resume prompt naming the handoff path, and that the state file plus the round's stamp are gone. A final re-tick pins that the consumed declaration cannot re-trigger. SABOTAGE-VERIFIED 2026-07-26: skipping `_clear_state` on the success path reddens the state-file assertion (and, verified on an isolated probe, the re-trigger assertion at 2 respawns != 1); re-pointing `_launch_command` at the codex command reddens the launch-command assertion."
+    "reason": "Integration-tier tmux regression: a fresh declared round authorizes exactly one native atomic respawn and one resume prompt; a later tick cannot reuse the declaration. The distinct herdr guarded replacement is tracked by its owned scenario entries below."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -2675,5 +2675,61 @@
     "test": "TODO",
     "work_item": "overseer-fb7usz",
     "reason": "The lifecycle slice owns an integration-tier unknown conditional-write test proving an operation-less expiry fence remains discoverable, byte-identical and record-excluding until recovery completes it through recovery-writer."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The nearest verified terminal owns the two-pane overseer",
+    "test": "TODO",
+    "reason": "Plan overseer-uzvcbn owns integration-tier herdr/tmux parity coverage for this new scenario; replace this placeholder with a real behavior test before plan completion.",
+    "work_item": "overseer-uzvcbn"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Stale environment cannot choose an overseer pane",
+    "test": "TODO",
+    "reason": "Plan overseer-uzvcbn owns integration-tier herdr/tmux parity coverage for this new scenario; replace this placeholder with a real behavior test before plan completion.",
+    "work_item": "overseer-uzvcbn"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Backend-qualified coordinates preserve legacy tmux ownership",
+    "test": "TODO",
+    "reason": "Plan overseer-uzvcbn owns integration-tier herdr/tmux parity coverage for this new scenario; replace this placeholder with a real behavior test before plan completion.",
+    "work_item": "overseer-uzvcbn"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Both backends retain supervision and acting guards",
+    "test": "TODO",
+    "reason": "Plan overseer-uzvcbn owns integration-tier herdr/tmux parity coverage for this new scenario; replace this placeholder with a real behavior test before plan completion.",
+    "work_item": "overseer-uzvcbn"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A guarded herdr replacement survives daemon loss without a second kill",
+    "test": "TODO",
+    "reason": "Plan overseer-uzvcbn owns integration-tier herdr/tmux parity coverage for this new scenario; replace this placeholder with a real behavior test before plan completion.",
+    "work_item": "overseer-uzvcbn"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A replacement prerequisite failure preserves every live session",
+    "test": "TODO",
+    "reason": "Plan overseer-uzvcbn owns integration-tier herdr/tmux parity coverage for this new scenario; replace this placeholder with a real behavior test before plan completion.",
+    "work_item": "overseer-uzvcbn"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A failed tmux native replacement preserves restart authorization",
+    "test": "TODO",
+    "reason": "Plan overseer-uzvcbn owns an integration-tier native tmux replacement failure test that preserves ready for retry, alongside existing tmux beside-test coverage.",
+    "work_item": "overseer-uzvcbn"
   }
 ]
