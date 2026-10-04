@@ -1,5 +1,21 @@
 # Changelog
 
+## [5.12.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.11.0...v5.12.0) (2026-10-04)
+
+
+### Features
+
+* **lpm:** add the assignment, receipt and tombstone records the close effects write ([dd7275c](https://github.com/thewoolleyman/livespec-overseer/commit/dd7275cdd68d479ac7d3f3ffe26de836985dd49e))
+* **lpm:** close an assignment idempotently from stored times, never a clock ([3d9c2d4](https://github.com/thewoolleyman/livespec-overseer/commit/3d9c2d4bce91847f3c4ac45f9900ec845be46d04))
+* **lpm:** decide a fenced set by rereading the real store, not by believing it ([7c3e624](https://github.com/thewoolleyman/livespec-overseer/commit/7c3e624f2fdeb1dc4a4b5f2b805fb7384bdfc175))
+* **lpm:** implement the durable-operation engine and its real effect registry ([6357db1](https://github.com/thewoolleyman/livespec-overseer/commit/6357db15b2c764fe0ba24b90fee861d6dcbe0081))
+* **lpm:** merge the shared selection and proof records so a replay keeps its peers ([c2e3472](https://github.com/thewoolleyman/livespec-overseer/commit/c2e3472273333a273fb33aec65becce10f89e63d))
+* **lpm:** pin the ten-member operation record, phases and effect identity ([faa2a84](https://github.com/thewoolleyman/livespec-overseer/commit/faa2a84e91e1f02cadadd5d2cec932806988ebc0))
+* **lpm:** reconcile a fenced metadata effect and quarantine only its record ([6f75b83](https://github.com/thewoolleyman/livespec-overseer/commit/6f75b83292b050bf0e5b9cd17d2ae7782013bebe))
+* **lpm:** replay a phase positionally across the checkpoint crash window ([05033b0](https://github.com/thewoolleyman/livespec-overseer/commit/05033b0e50ace8617eb3c656dec5312f82b05e44))
+* **lpm:** take a ratified condition, never a caller-supplied phase or plan ([d9c6973](https://github.com/thewoolleyman/livespec-overseer/commit/d9c69737e9649e0693ddb495a1145b5286bc1c0b))
+* **lpm:** validate each command's exact input and its phase's legal effect array ([1b0abba](https://github.com/thewoolleyman/livespec-overseer/commit/1b0abba34cbafdcf05eda86b6b4a1a49ed156e38))
+
 ## [5.11.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.10.1...v5.11.0) (2026-10-04)
 
 
