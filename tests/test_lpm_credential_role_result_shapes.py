@@ -540,3 +540,97 @@ def test_the_closed_table_covers_exactly_the_roles_this_slice_implements():
         )
         is None
     ), "provider-observer arrives with its own operation; this slice does not close it"
+
+
+def test_a_metadata_list_fails_closed_on_arrays_not_in_the_contract_s_lexical_order():
+    """A list's ORDER is part of its closed shape, and out-of-order output is refused.
+
+    SPECIFICATION/contracts.md requires a non-secret metadata list to return its
+    "valid-chain envelopes ordered by lexical `item_id` and invalid-chain descriptors
+    ordered by lexical `record_id`", and requires the parent to map "any nonconforming
+    output to `store-unavailable`, never to absence". Validating only each ELEMENT's shape
+    accepted both arrays in any order, which is what this pins: the contract states one
+    ordering per array, so an unordered array is nonconforming output and must fail closed.
+
+    WHY REFUSING BEATS RE-SORTING. The parent could silently sort the arrays itself and
+    always have canonical order, but the ordering is evidence rather than presentation: it
+    is the reader's own proof that it enumerated the revision chain deterministically. A
+    reader that cannot do that is exactly the reader whose `item:null` must never be read as
+    authoritative absence, and quietly sorting its output would discard the one signal that
+    distinguishes it from a reader that can.
+
+    EACH ARRAY ORDERS BY ITS OWN MEMBER. `items` orders by `item_id` and `invalid` by
+    `record_id`, so a single shared ordering key would leave one of the two unchecked.
+    Both are asserted here, in both directions, and the valid counterpart of each rejection
+    is asserted too so neither can pass by refusing the whole family.
+
+    ORDER IS NON-DECREASING, NOT STRICTLY INCREASING. The contract states an ordering for
+    these arrays and no uniqueness requirement, so equal adjacent keys stay acceptable;
+    inventing a uniqueness rule here would refuse output the contract permits.
+
+    LEXICAL MEANS BYTES. The same operation's digest paragraph defines every use of lexical
+    order as comparing "the values' UTF-8 bytes ... unsigned byte by unsigned byte", so the
+    comparison is not locale-, case- or accent-aware: `rev-Z` precedes `rev-a` because
+    `0x5a` precedes `0x61`, and an ASCII key precedes a multi-byte one.
+
+    AND NO REJECTION QUOTES THE CHILD'S BYTES. A rogue child controls these ordering values,
+    so a reason that echoed the offending `item_id` would let a token placed there be logged
+    by the very check that refused the result.
+    """
+    results = _results()
+    low = "0f9c0a1e-0000-4000-8000-000000000000"
+    high = "f0000000-0000-4000-8000-000000000000"
+
+    def _listed(*, items, invalid):
+        return results.closed_result_defect(
+            role_name="metadata-reader",
+            mode="list",
+            members={"version": 1, "status": "ok", "items": items, "invalid": invalid},
+        )
+
+    def _envelopes(*titles):
+        return [{"item_id": title, "record": {}} for title in titles]
+
+    def _descriptors(*identifiers):
+        return [{"record_id": identifier, "reason": "gap"} for identifier in identifiers]
+
+    # `items` orders by lexical `item_id`, in both directions.
+    assert _listed(items=_envelopes("rev-1", "rev-2"), invalid=[]) is None
+    assert _listed(
+        items=_envelopes("rev-2", "rev-1"), invalid=[]
+    ), "descending items must fail closed"
+    assert _listed(
+        items=_envelopes("rev-1", "rev-3", "rev-2"), invalid=[]
+    ), "one displaced item is enough to be nonconforming"
+
+    # `invalid` orders by lexical `record_id` -- its own member, not the envelopes'.
+    assert _listed(items=[], invalid=_descriptors(low, high)) is None
+    assert _listed(
+        items=[], invalid=_descriptors(high, low)
+    ), "descending invalid descriptors must fail closed"
+
+    # Each array is checked independently; an ordered one cannot excuse its sibling.
+    assert _listed(items=_envelopes("rev-1", "rev-2"), invalid=_descriptors(high, low))
+    assert _listed(items=_envelopes("rev-2", "rev-1"), invalid=_descriptors(low, high))
+
+    # An ordering, not a uniqueness rule: equal adjacent keys remain acceptable.
+    assert _listed(items=_envelopes("rev-1", "rev-1"), invalid=_descriptors(low, low)) is None
+
+    # Nothing to order is still ordered -- empty and single-element arrays stay valid.
+    assert _listed(items=[], invalid=[]) is None
+    assert _listed(items=_envelopes("rev-9"), invalid=_descriptors(high)) is None
+
+    # Lexical means unsigned UTF-8 bytes: uppercase before lowercase, ASCII before
+    # multi-byte -- never a case-folded or accent-aware collation.
+    assert _listed(items=_envelopes("rev-Z", "rev-a"), invalid=[]) is None
+    assert _listed(items=_envelopes("rev-a", "rev-Z"), invalid=[]), "case-folding is not lexical"
+    assert _listed(items=_envelopes("rev-z", "rev-é"), invalid=[]) is None
+    assert _listed(
+        items=_envelopes("rev-é", "rev-z"), invalid=[]
+    ), "a multi-byte key sorts after an ASCII one by byte"
+
+    # The refusal names the member and its ordering, never the child's own bytes.
+    leaked = _listed(items=_envelopes(f"zz-{_LEAK}", "aa-ordered"), invalid=[])
+    assert leaked, "the leaky out-of-order list must still be refused"
+    assert _LEAK not in leaked, "a rejection must not echo the child's ordering value"
+    assert "items" in leaked and "item_id" in leaked, "it must say which member and which key"
