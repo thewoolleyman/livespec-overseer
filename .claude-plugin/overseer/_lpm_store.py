@@ -29,6 +29,7 @@ express the condition those rules exist to enforce.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Final, Protocol
 
@@ -47,12 +48,16 @@ __all__: list[str] = [
     "STORE_VERSION",
     "ConditionalSet",
     "InMemorySecretStore",
+    "RecordValue",
     "SecretStore",
+    "chain_get_result",
+    "chain_list_result",
     "invalid_chain_descriptor",
     "metadata_get_result",
     "metadata_item_envelope",
     "metadata_list_result",
     "set_result",
+    "stored_record_text",
 ]
 
 STORE_VERSION: Final = 1
@@ -99,6 +104,77 @@ def set_result(*, status: str) -> dict[str, object]:
     return {"version": STORE_VERSION, "status": status}
 
 
+class RecordValue(Protocol):
+    """How one backend turns a stored revision into the envelope's `record` member.
+
+    It is a port because the two backends legitimately differ. A real one reads a stored
+    `record` FIELD and must expose "whatever canonical JSON value decoded from" it; the
+    in-memory one was handed canonical text directly and has no stored field to decode. The
+    chain walk, the invalid-chain reporting and the two orderings are identical either way,
+    and this is the one seam where they are not.
+    """
+
+    def __call__(self, *, item: RevisionItem) -> object:
+        """The envelope `record` for one resolved revision of one chain."""
+        ...
+
+
+def stored_record_text(*, item: RevisionItem) -> object:
+    """The in-memory backend's `record`: the canonical text it was handed, unchanged."""
+    return item.record
+
+
+def chain_get_result(
+    *, record_id: str, items: list[RevisionItem], record_value: RecordValue
+) -> dict[str, object]:
+    """One chain's closed metadata-get result: its defect, absence, or one envelope.
+
+    The order of the three answers is the substance. An invalid chain is reported BEFORE
+    absence, because "an invariant-invalid chain MUST expose no earlier revision as a valid
+    item" — and reporting it as absence would license a genesis create against a record that
+    already has revisions nobody can read.
+    """
+    resolved = resolve_chain(record_id=record_id, items=items)
+    if resolved.reason is not None:
+        return metadata_get_result(
+            status="invalid",
+            payload=invalid_chain_descriptor(record_id=record_id, reason=resolved.reason),
+        )
+    if resolved.item is None:
+        return metadata_get_result(status="ok", payload=None)
+    return metadata_get_result(
+        status="ok",
+        payload=metadata_item_envelope(
+            item_id=resolved.item.title, record=record_value(item=resolved.item)
+        ),
+    )
+
+
+def chain_list_result(
+    *, chains: Mapping[str, list[RevisionItem]], record_value: RecordValue
+) -> dict[str, object]:
+    """Every chain's current revision by lexical `item_id`; every defect by `record_id`.
+
+    A chain that is present but EMPTY is absence — neither an envelope nor a defect — so it
+    appears in neither array rather than as an envelope with a null record.
+    """
+    envelopes: list[dict[str, object]] = []
+    defects: list[dict[str, object]] = []
+    for record_id in sorted(chains):
+        resolved = resolve_chain(record_id=record_id, items=chains[record_id])
+        if resolved.reason is not None:
+            defects.append(invalid_chain_descriptor(record_id=record_id, reason=resolved.reason))
+        elif resolved.item is not None:
+            envelopes.append(
+                metadata_item_envelope(
+                    item_id=resolved.item.title, record=record_value(item=resolved.item)
+                )
+            )
+    envelopes.sort(key=lambda envelope: str(envelope["item_id"]))
+    defects.sort(key=lambda defect: str(defect["record_id"]))
+    return metadata_list_result(status="ok", items=envelopes, invalid=defects)
+
+
 class SecretStore(Protocol):
     """The replaceable secret backend port every manager role talks through."""
 
@@ -141,40 +217,17 @@ class InMemorySecretStore:
         """The closed metadata-get result for one record."""
         if not self.available:
             return metadata_get_result(status="unavailable")
-        resolved = resolve_chain(record_id=record_id, items=self.items.get(record_id, []))
-        if resolved.reason is not None:
-            return metadata_get_result(
-                status="invalid",
-                payload=invalid_chain_descriptor(record_id=record_id, reason=resolved.reason),
-            )
-        if resolved.item is None:
-            return metadata_get_result(status="ok", payload=None)
-        return metadata_get_result(
-            status="ok",
-            payload=metadata_item_envelope(
-                item_id=resolved.item.title, record=resolved.item.record
-            ),
+        return chain_get_result(
+            record_id=record_id,
+            items=self.items.get(record_id, []),
+            record_value=stored_record_text,
         )
 
     def metadata_list(self) -> dict[str, object]:
         """Every current revision by lexical `item_id`; every defect by lexical `record_id`."""
         if not self.available:
             return metadata_list_result(status="unavailable")
-        envelopes: list[dict[str, object]] = []
-        defects: list[dict[str, object]] = []
-        for record_id in sorted(self.items):
-            resolved = resolve_chain(record_id=record_id, items=self.items[record_id])
-            if resolved.reason is not None:
-                defects.append(
-                    invalid_chain_descriptor(record_id=record_id, reason=resolved.reason)
-                )
-            elif resolved.item is not None:
-                envelopes.append(
-                    metadata_item_envelope(item_id=resolved.item.title, record=resolved.item.record)
-                )
-        envelopes.sort(key=lambda envelope: str(envelope["item_id"]))
-        defects.sort(key=lambda defect: str(defect["record_id"]))
-        return metadata_list_result(status="ok", items=envelopes, invalid=defects)
+        return chain_list_result(chains=self.items, record_value=stored_record_text)
 
     def credential_conditional_set(self, *, request: ConditionalSet) -> dict[str, object]:
         """Append `request`'s one revision, or report why no change was made."""
