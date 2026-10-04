@@ -31,9 +31,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import cast
+from typing import Final, cast
 
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 
@@ -46,6 +47,7 @@ __all__: list[str] = [
     "JsonParse",
     "canonical_json_bytes",
     "canonical_json_text",
+    "is_sha256_hex",
     "length_prefixed",
     "length_prefixed_digest",
     "parse_canonical_json",
@@ -53,6 +55,7 @@ __all__: list[str] = [
 ]
 
 _LENGTH_PREFIX_BYTES = 8
+_SHA256_HEX: Final = re.compile(r"\A[0-9a-f]{64}\Z")
 _SURROGATE_FIRST = 0xD800
 _SURROGATE_LAST = 0xDFFF
 _LAST_CONTROL = 0x1F
@@ -90,6 +93,16 @@ def length_prefixed_digest(*, values: Sequence[str]) -> str:
 def sha256_hex(*, data: bytes) -> str:
     """Lowercase SHA-256 of raw bytes, for the digests the contract states unprefixed."""
     return hashlib.sha256(data).hexdigest()
+
+
+def is_sha256_hex(*, value: str) -> bool:
+    """Whether `value` is a LOWERCASE SHA-256 hex digest, the only accepted spelling.
+
+    Every stored digest in this operation — an idempotency key, an `effect_id`, a fence's
+    `predecessor_sha256` — is compared BYTE-FOR-BYTE, so an uppercase or truncated
+    spelling is not a cosmetic variant: it is a value no second producer reproduces.
+    """
+    return _SHA256_HEX.match(value) is not None
 
 
 def canonical_json_text(*, value: object) -> Result[str, JsonDefect]:
