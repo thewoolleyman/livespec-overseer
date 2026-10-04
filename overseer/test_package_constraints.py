@@ -12,6 +12,7 @@ to confirm that is recorded in each test's docstring.
 
 from __future__ import annotations
 
+import ast
 import builtins
 import io as _io
 import json
@@ -65,7 +66,26 @@ _NETWORK_MODULES = frozenset(
 _OUT_OF_BAND_IMPORTS = {
     "homelab_charter_scan.py": frozenset({"livespec_dev_tooling"}),
 }
-_SUPERVISION_NETWORK_ALLOWLIST = {"_supervisor_otel.py": ["http", "urllib"]}
+# The OTLP emitter's entry was the only one until SPECIFICATION v052 ratified the
+# herdr pane backend, whose ONLY control surface is a Unix socket
+# (`plan/herdr-overseer/research/002-herdr-api-evidence.md`): there is no way to
+# speak to herdr without `socket`, so constraints.md's "MUST support Linux with
+# either tmux or herdr" cannot be satisfied while this set excludes it.
+#
+# The two entries are NOT the same kind of allowance, and collapsing them would
+# lose the distinction this guard exists to draw. The emitter genuinely reaches
+# the network. `herdr_transport.py` cannot: AF_UNIX is a kernel-local address
+# family with no route off the host, so admitting `socket` here grants the
+# supervision loop no way to make a model call — which is the property the guard
+# protects. `test_only_the_otlp_emitter_can_reach_off_the_host` below holds that
+# claim to its word rather than leaving it as a comment.
+_SUPERVISION_NETWORK_ALLOWLIST = {
+    "_supervisor_otel.py": ["http", "urllib"],
+    "herdr_transport.py": ["socket"],
+}
+# Address families that leave the host. A herdr socket is AF_UNIX; anything from
+# this set appearing in the herdr transport would make the reasoning above false.
+_OFF_HOST_ADDRESS_FAMILIES = ("AF_INET", "AF_INET6", "create_connection")
 
 
 def _product_modules() -> tuple[pathlib.Path, ...]:
@@ -208,9 +228,15 @@ def test_the_supervision_loop_network_imports_are_limited_to_the_otlp_emitter():
 
     A model call needs a network client. The supervision-loop modules import NO
     network-capable stdlib module except the dedicated OTLP emitter that ships the
-    daemon's closed catalog of local event records. `caam_*` modules are operation
+    daemon's closed catalog of local event records, and the herdr transport's
+    host-local AF_UNIX socket. `caam_*` modules are operation
     code, not daemon supervision code; the account-usage
     operation is specified to poll Anthropic's usage endpoint.
+
+    The herdr entry is the narrower kind of allowance, and
+    `test_only_the_otlp_emitter_can_reach_off_the_host` is what keeps it narrow:
+    this test alone would let a later AF_INET socket into that module under an
+    allowance granted on the strength of AF_UNIX being host-local.
 
     SABOTAGE-VERIFIED 2026-07-26: adding `import urllib.request` to
     `overseer/supervisor.py` turns this red with `{'supervisor.py': ['urllib']}`;
@@ -231,6 +257,48 @@ def test_the_supervision_loop_network_imports_are_limited_to_the_otlp_emitter():
     assert (
         reachable == _SUPERVISION_NETWORK_ALLOWLIST
     ), f"unexpected network-capable imports in the supervision loop: {reachable}"
+
+
+def test_only_the_otlp_emitter_can_reach_off_the_host():
+    """The herdr transport's `socket` allowance rests on AF_UNIX; hold it to that.
+
+    The allowlist above admits `socket` into `herdr_transport.py` on one stated
+    ground: AF_UNIX is a kernel-local address family with no route off the host,
+    so the import grants the supervision loop no way to make a model call. That
+    ground is a claim about the module's CONTENT, and an allowlist entry cannot
+    check content — it would keep passing if the module grew an AF_INET socket
+    tomorrow, with the comment still asserting the opposite.
+
+    So the allowance and this check ship together. Without it the entry above
+    would be a relaxation whose justification nothing enforces, which is exactly
+    the shape of an exemption rather than a conformance.
+
+    It reads the AST rather than the text, and that is not fussiness: the first
+    cut grepped the source and went red on the transport's own DOCSTRING, which
+    names AF_INET to say it must never be used. A textual check cannot tell code
+    from the prose explaining the code, so it would have forced that explanation
+    to be deleted to stay green — removing the rationale to satisfy the guard
+    protecting it.
+
+    SABOTAGE-VERIFIED 2026-10-04 in this AST form: rewriting the transport's sole
+    `socket.socket(socket.AF_UNIX, ...)` call to `socket.AF_INET` turns this red
+    with `references ['AF_INET']`; the injection was asserted to have landed
+    before the result was trusted, and reverted to a zero diff.
+    """
+    tree = ast.parse((_PACKAGE_ROOT / "herdr_transport.py").read_text(encoding="utf-8"))
+    referenced = {node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)} | {
+        node.id for node in ast.walk(tree) if isinstance(node, ast.Name)
+    }
+    present = sorted(referenced & set(_OFF_HOST_ADDRESS_FAMILIES))
+
+    assert present == [], (
+        "herdr_transport.py holds a `socket` allowance granted because AF_UNIX "
+        f"cannot leave the host, but its code references {present}"
+    )
+    assert "AF_UNIX" in referenced, (
+        "herdr_transport.py is the module the AF_UNIX allowance was granted for; "
+        "if it no longer opens an AF_UNIX socket, the allowlist entry should go"
+    )
 
 
 def test_a_supervision_tick_never_opens_a_file_under_a_plan_tree(*, tmp_path, monkeypatch):
