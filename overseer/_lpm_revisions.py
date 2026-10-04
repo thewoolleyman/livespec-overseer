@@ -26,6 +26,7 @@ manager revision.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Final
 
@@ -41,9 +42,11 @@ __all__: list[str] = [
     "REVISION_DIGITS",
     "ChainResolution",
     "RevisionItem",
+    "RevisionTitle",
     "predecessor_digest",
     "resolve_chain",
     "revision_title",
+    "revision_title_parts",
 ]
 
 REVISION_DIGITS: Final = 20
@@ -58,6 +61,15 @@ INVALID_CHAIN_REASONS: Final = (
     "multiple-successors",
 )
 
+# The complete closed title grammar: a lowercase RFC 4122 UUIDv4 `record_id`, a 20-digit
+# (`REVISION_DIGITS`) zero-padded revision, and a lowercase SHA-256 `effect_id`. It is
+# spelled in full because the caller that needs it has NO record id to anchor on — it is
+# enumerating a whole vault and deciding which items are revision items at all.
+_REVISION_TITLE = re.compile(
+    r"\A(?P<record_id>[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})"
+    r"-m(?P<revision>[0-9]{20})-(?P<effect_id>[0-9a-f]{64})\Z"
+)
+
 
 @dataclass(frozen=True, kw_only=True)
 class RevisionItem:
@@ -66,6 +78,15 @@ class RevisionItem:
     title: str
     predecessor_sha256: str
     record: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class RevisionTitle:
+    """One revision title's three parts, read back out of the title itself."""
+
+    record_id: str
+    revision: int
+    effect_id: str
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -80,6 +101,35 @@ class ChainResolution:
 def revision_title(*, record_id: str, revision: int, effect_id: str) -> str:
     """`<record_id>-m<20-digit revision>-<effect_id>` — the one title form."""
     return f"{record_id}-m{revision:0{REVISION_DIGITS}d}-{effect_id}"
+
+
+def revision_title_parts(*, title: str) -> RevisionTitle | None:
+    """Split `title` into its three parts, or None when it is not a revision title at all.
+
+    THIS DECIDES GRAMMAR MEMBERSHIP; :func:`resolve_chain` DECIDES CHAIN MEMBERSHIP. A
+    vault enumerator has no record id in hand, so it can only ask "is this a revision item?"
+    — and the contract makes that question total over the vault, since "any other item
+    outside the operation's closed item grammar remains `store-unavailable`". Once the
+    enumerator has grouped items by the record id it read OUT of each title, the resolver
+    re-anchors on the record it was actually asked about. Both answers have to hold, which
+    is why each is complete on its own terms rather than one deferring to the other.
+
+    A revision below one is refused after the match rather than excluded by the pattern. The
+    contract says revisions are "a 20-digit zero-padded positive base-10 integer beginning
+    at `00000000000000000001`", and a pattern that encoded "20 digits but not all zeroes"
+    would be unreadable for a bound every reader of this module needs to see.
+    """
+    match = _REVISION_TITLE.match(title)
+    if match is None:
+        return None
+    revision = int(match.group("revision"))
+    if revision < FIRST_REVISION:
+        return None
+    return RevisionTitle(
+        record_id=match.group("record_id"),
+        revision=revision,
+        effect_id=match.group("effect_id"),
+    )
 
 
 def predecessor_digest(*, record: str | None) -> str:
