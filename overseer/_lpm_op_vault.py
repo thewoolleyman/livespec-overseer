@@ -5,6 +5,11 @@ questions that are asked BEFORE the first child is spawned and one that is asked
 first credential item is read. All three are properties of the pair (this role, this
 vault), which is why they live together here.
 
+THREE VECTORS, AND CREATE IS THE ONLY MUTATION. `item list`, `item get` and the
+`item create` prefix are the whole vocabulary: "MUST NOT use `op item edit`, delete a
+metadata revision or rely on 1Password item-title uniqueness." There is no `edit` method
+here to call, which is the only form of that prohibition a reader can check at a glance.
+
 MAY THIS ROLE ADDRESS THIS VAULT AT ALL? "every registry role's complete
 external-executable allowlist is the one retained canonical `op` path: each role MUST
 require its `op_executable` to equal that retained canonical regular executable, invoke only
@@ -40,7 +45,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
-from _lpm_onepassword import NAMESPACE_ITEM_TITLE, namespace_mismatch
+from _lpm_onepassword import NAMESPACE_ITEM_TITLE, namespace_mismatch, op_item_create_argv
 from _lpm_op import (
     OpRunner,
     op_item_get_argv,
@@ -115,6 +120,27 @@ class VaultAccess:
         if outcome.exit_status != 0:
             return Failure("the backend did not complete an item read")
         return parse_item_fields(stdout=outcome.stdout)
+
+    def create(self, *, vault: str, template_bytes: bytes) -> str | None:
+        """Stream one item template to `op item create`, or say the outcome is unknown.
+
+        It takes BYTES rather than a template object, deliberately. A caller that could not
+        encode its template has a definitive no-change to report, while a create whose child
+        exited non-zero has an UNKNOWN one — and a single function returning one reason for
+        both would make its caller collapse the two words the contract keeps apart.
+
+        The created item's id is DISCARDED. A revision is addressed by its title through the
+        chain, so an id the caller kept would be a second way to find an item the next read
+        must find for itself; and for a values-vault generation item the answer is a body
+        this role has no reason to hold.
+        """
+        outcome = self.runner(
+            argv=op_item_create_argv(op_executable=self.op_executable, vault=vault),
+            stdin_bytes=template_bytes,
+        )
+        if outcome.exit_status != 0:
+            return "the backend did not complete its create"
+        return None
 
 
 def namespace_bound_summaries(

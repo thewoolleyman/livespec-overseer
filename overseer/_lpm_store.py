@@ -50,6 +50,7 @@ __all__: list[str] = [
     "InMemorySecretStore",
     "RecordValue",
     "SecretStore",
+    "already_committed",
     "chain_get_result",
     "chain_list_result",
     "invalid_chain_descriptor",
@@ -239,7 +240,7 @@ class InMemorySecretStore:
             return set_result(status="unavailable")
         current_item = resolved.item
         current = None if current_item is None else current_item.record
-        if current_item is not None and _already_committed(
+        if current_item is not None and already_committed(
             item=current_item, revision=resolved.revision or FIRST_REVISION, request=request
         ):
             # Already committed: the desired record IS the current logical revision, in the
@@ -262,7 +263,15 @@ class InMemorySecretStore:
         return set_result(status="committed")
 
 
-def _already_committed(*, item: RevisionItem, revision: int, request: ConditionalSet) -> bool:
+def already_committed(*, item: RevisionItem, revision: int, request: ConditionalSet) -> bool:
+    """Whether `item` IS this request's own revision, already appended at `revision`.
+
+    "A conditional-set whose current logical record equals the desired record in the exact
+    next revision carrying that effect_id is already committed." BOTH halves are required: a
+    record that merely LOOKS like the desired one, written by another effect, is a different
+    revision that this request must not claim credit for — and a fenced retry that appended
+    a second physical item would stop being a retry.
+    """
     if item.record != request.desired_record:
         return False
     return item.title == revision_title(

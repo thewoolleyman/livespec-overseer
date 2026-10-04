@@ -33,6 +33,7 @@ hands the decoded value to is what differs between an enumeration and one item's
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol, TypeVar, cast
 
@@ -45,9 +46,17 @@ _ = VENDOR_PATHS_INSTALLED
 
 __all__: list[str] = [
     "OpItem",
+    "item_create_template",
     "parse_item_fields",
     "parse_item_summaries",
 ]
+
+# A metadata revision item carries only text fields, so the template needs only the text
+# type. The concealed type belongs to a values-vault generation item, which this backend
+# creates from the acquisition writer alone; adding it here before that role has a creator
+# would widen the template beyond what any shipped caller can ask for.
+_ITEM_TEXT_TYPE = "STRING"
+_ITEM_CATEGORY = "SECURE_NOTE"
 
 _Shaped_co = TypeVar("_Shaped_co", covariant=True)
 
@@ -88,6 +97,29 @@ def parse_item_summaries(*, stdout: bytes) -> Result[tuple[OpItem, ...], str]:
 def parse_item_fields(*, stdout: bytes) -> Result[dict[str, str], str]:
     """`op item get`'s answer as its application fields, keyed by unique label."""
     return _read_answer(stdout=stdout, shape=_fields_of)
+
+
+def item_create_template(*, title: str, fields: Mapping[str, str]) -> dict[str, object]:
+    """The one item object `op item create -` reads from its child's standard input.
+
+    STREAMED, NEVER ARGUED. "It MUST use no assignment argument, template file or
+    environment field for the credential": all three are readable from outside the process,
+    so the template exists only in this process's memory and in the pipe.
+
+    THE FIELD ORDER IS DETERMINISTIC because a retry may append "only the byte-identical
+    revision title and fields". Sorting by label is what makes two independently-built
+    templates for one logical revision the same bytes; relying on a caller's mapping order
+    would make a late duplicate a DIFFERENT physical item, which is a conflict rather than
+    the harmless copy the fence depends on.
+    """
+    return {
+        "title": title,
+        "category": _ITEM_CATEGORY,
+        "fields": [
+            {"id": label, "type": _ITEM_TEXT_TYPE, "label": label, "value": fields[label]}
+            for label in sorted(fields)
+        ],
+    }
 
 
 def _summaries_of(*, answer: object) -> Result[tuple[OpItem, ...], str]:
