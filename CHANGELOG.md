@@ -1,5 +1,31 @@
 # Changelog
 
+## [5.11.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.10.1...v5.11.0) (2026-10-04)
+
+
+### Features
+
+* **lpm:** enforce the parent's own deadline on a launcher child ([5b26ec5](https://github.com/thewoolleyman/livespec-overseer/commit/5b26ec5a11bf832732fac86731d2614554145b2b))
+* **lpm:** execute a registered credential role in its launcher child ([e89beac](https://github.com/thewoolleyman/livespec-overseer/commit/e89beac7f5454334d7a03b5b77279d071b55f465))
+* **lpm:** run a credential role as a real launcher subprocess ([cb89f3f](https://github.com/thewoolleyman/livespec-overseer/commit/cb89f3fbf8f14f7adda688f4f4928b67c49b5b3d))
+* **lpm:** ship the production OS primitives the launcher child runs on ([c4e81ac](https://github.com/thewoolleyman/livespec-overseer/commit/c4e81acd76680baedfff2636d58a1fd9a495ddcc))
+
+
+### Bug Fixes
+
+* **lpm:** carry the allowlisted descriptors into the real launcher subprocess ([4da5522](https://github.com/thewoolleyman/livespec-overseer/commit/4da5522329abb41a7f87638a0238dfce99c9662e))
+* **lpm:** close each role's result shape so no extra member crosses the boundary ([2b74e1e](https://github.com/thewoolleyman/livespec-overseer/commit/2b74e1e28490b25459ac5237482f863ce51ec87e))
+* **lpm:** close the nested shapes, the writer modes and the unknown-mode fallback ([45ccf93](https://github.com/thewoolleyman/livespec-overseer/commit/45ccf93fe2b840e5d5ffc686f0b7406d717fda27))
+* **lpm:** correct the commit-status shapes and reject a non-integer version ([9c8c26e](https://github.com/thewoolleyman/livespec-overseer/commit/9c8c26e124253e60b3a7d15fd2506fd83be19428))
+* **lpm:** decide each nested shape by role, mode and status, not by member name ([664e2f7](https://github.com/thewoolleyman/livespec-overseer/commit/664e2f74d4d7a08cad04e030fb1e8ffbf18885d9))
+* **lpm:** gate the keyring pipe on the exact owner-only description ([5da0ada](https://github.com/thewoolleyman/livespec-overseer/commit/5da0ada7123049c75ebfdbfbb655a5a14519d527))
+* **lpm:** refuse a metadata list whose arrays are not in lexical order ([20bfa71](https://github.com/thewoolleyman/livespec-overseer/commit/20bfa71259570c9618a8d2e06f8614942d698e1d))
+* **lpm:** refuse an abnormal role exit before interpreting its output ([2b46f7c](https://github.com/thewoolleyman/livespec-overseer/commit/2b46f7cf44580e9aaf37c2c315b7d07723e7aa56))
+* **lpm:** scrub the credential overrides the parent hands a launcher child ([8e71d3b](https://github.com/thewoolleyman/livespec-overseer/commit/8e71d3be2f0da44bdfd233653106daa53d797889))
+* **lpm:** stop a launcher child's standard error reaching the parent log ([bd8685b](https://github.com/thewoolleyman/livespec-overseer/commit/bd8685b236ca046f01f40f06f4f284ba9701dc0e))
+* **lpm:** stop the canonical parser's defect reason quoting a child's bytes ([72039bc](https://github.com/thewoolleyman/livespec-overseer/commit/72039bc0a264068b07ad4481267cc9ebc5a6f1e0))
+* **lpm:** turn a failed spawn into this role's closed failure, not an exception ([00ed5a7](https://github.com/thewoolleyman/livespec-overseer/commit/00ed5a7f5a4ecc1331cfeced5672e6277073c429))
+
 ## [5.10.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.10.0...v5.10.1) (2026-09-30)
 
 
