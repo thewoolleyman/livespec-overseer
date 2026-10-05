@@ -1,5 +1,15 @@
 # Changelog
 
+## [5.13.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.12.0...v5.13.0) (2026-10-05)
+
+
+### Features
+
+* **lpm:** append a conditional revision by create alone, inside the field boundary ([9db6cb7](https://github.com/thewoolleyman/livespec-overseer/commit/9db6cb779c8bbfba16f3170eba15dde66db0f89c))
+* **lpm:** read namespace-bound metadata chains through the real op child ([f325eea](https://github.com/thewoolleyman/livespec-overseer/commit/f325eeaeefce26b5b1775fad641d8365ec3aa123))
+* **lpm:** resolve a provisionable value only inside its isolated child ([82c22a5](https://github.com/thewoolleyman/livespec-overseer/commit/82c22a5ce42930bb58a2bfe3423282da6b9f7deb))
+* **lpm:** spawn the one op child with only this role's token ([46abddd](https://github.com/thewoolleyman/livespec-overseer/commit/46abddd05844eea6d49656fb8b719257fd62ad28))
+
 ## [5.12.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.11.0...v5.12.0) (2026-10-04)
 
 
