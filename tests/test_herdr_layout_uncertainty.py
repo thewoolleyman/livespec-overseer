@@ -57,6 +57,54 @@ SWAP_RESULT: dict[str, object] = {
     "swap": {"changed": True, "source_pane_id": PANE, "target_pane_id": CREATED},
 }
 OK_RESULT: dict[str, object] = {"type": "ok"}
+TAB = "w1:t1"
+
+
+def _row(*, pane_id: str) -> dict[str, object]:
+    return {
+        "pane_id": pane_id,
+        "tab_id": TAB,
+        "workspace_id": "w1",
+        "cwd": "/tmp",
+        "foreground_cwd": "/tmp",
+        "focused": pane_id == PANE,
+    }
+
+
+BEFORE_ROWS: dict[str, object] = {"type": "pane_list", "panes": [_row(pane_id=PANE)]}
+AFTER_ROWS: dict[str, object] = {
+    "type": "pane_list",
+    "panes": [_row(pane_id=PANE), _row(pane_id=CREATED)],
+}
+GOOD_GEOMETRY: dict[str, object] = {
+    "type": "pane_layout",
+    "layout": {
+        "workspace_id": "w1",
+        "tab_id": TAB,
+        "zoomed": False,
+        "area": {"x": 0, "y": 0, "width": 120, "height": 40},
+        "focused_pane_id": PANE,
+        "panes": [
+            {"pane_id": CREATED, "focused": False, "rect": {"x": 0, "y": 0, "w": 1, "height": 10}},
+            {"pane_id": PANE, "focused": True, "rect": {"x": 0, "y": 10, "w": 1, "height": 30}},
+        ],
+    },
+}
+# The verified sequence: enumerate, split, re-enumerate, swap, re-measure, launch.
+HEALTHY: dict[str, list[dict[str, object] | None]] = {
+    "pane.list": [BEFORE_ROWS, AFTER_ROWS],
+    "pane.split": [SPLIT_RESULT],
+    "pane.swap": [SWAP_RESULT],
+    "pane.layout": [GOOD_GEOMETRY],
+    "pane.send_input": [OK_RESULT],
+}
+
+
+def _script(
+    **overrides: list[dict[str, object] | None],
+) -> dict[str, list[dict[str, object] | None]]:
+    """The healthy script with specific methods replaced."""
+    return {**{key: list(value) for key, value in HEALTHY.items()}, **overrides}
 
 
 def _modules() -> tuple[Any, Any]:
@@ -78,10 +126,20 @@ def _envelope(*, result: dict[str, object], request_id: str) -> bytes:
     return json.dumps({"id": request_id, "result": result}).encode("utf-8")
 
 
+def _next_reply(
+    *, method: str, replies: dict[str, list[dict[str, object] | None]]
+) -> dict[str, object] | None:
+    """The next scripted reply for `method`, repeating the last once exhausted."""
+    queued = replies.get(method)
+    if not queued:
+        return OK_RESULT
+    return queued.pop(0) if len(queued) > 1 else queued[0]
+
+
 def _answer_scripted(
     *,
     conn: socket.socket,
-    reply: dict[str, object] | None,
+    replies: dict[str, list[dict[str, object] | None]],
     request_id: str,
     received: list[bytes],
 ) -> None:
@@ -104,6 +162,7 @@ def _answer_scripted(
     if not buffered:
         return
     received.append(buffered)
+    reply = _next_reply(method=str(json.loads(buffered)["method"]), replies=replies)
     if reply is None:
         return
     try:
@@ -112,23 +171,30 @@ def _answer_scripted(
         return
 
 
-def _serve_script(*, address: Path, script: list[dict[str, object] | None]) -> list[bytes]:
-    """A REAL AF_UNIX peer answering one scripted reply per connection.
+def _serve_script(
+    *, address: Path, replies: dict[str, list[dict[str, object] | None]], rounds: int = 12
+) -> list[bytes]:
+    """A REAL AF_UNIX peer answering per METHOD, recording every request it reads.
 
     A `None` entry is a server that ACCEPTS the request, reads it, and then
     closes WITHOUT answering — the client-side shape of a committed request
     that went unanswered. The returned list records every request that actually
     crossed the socket, which is what makes "nothing was resent" assertable
     rather than merely plausible.
+
+    Dispatch is BY METHOD rather than by position because `split_window_top`
+    now interleaves verification reads between its mutations; a positional
+    script would answer `pane.list` with a split acknowledgement and prove
+    nothing about the behaviour under test.
     """
     listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     listener.bind(str(address))
-    listener.listen(8)
+    listener.listen(16)
     received: list[bytes] = []
 
     def run() -> None:
-        listener.settimeout(5.0)
-        for index, reply in enumerate(script):
+        listener.settimeout(3.0)
+        for index in range(rounds):
             try:
                 conn, _ = listener.accept()
             except OSError:
@@ -136,7 +202,7 @@ def _serve_script(*, address: Path, script: list[dict[str, object] | None]) -> l
             with conn:
                 _answer_scripted(
                     conn=conn,
-                    reply=reply,
+                    replies=replies,
                     request_id=f"rq-{index + 1}",
                     received=received,
                 )
@@ -199,14 +265,19 @@ def test_a_split_whose_reply_does_not_name_a_pane_is_uncertain(*, socket_dir: Pa
     created a SECOND pane.
     """
     address = socket_dir / "h.sock"
-    received = _serve_script(address=address, script=[{"type": "pane_info", "pane": {}}])
+    received = _serve_script(
+        address=address, replies=_script(**{"pane.split": [{"type": "pane_info", "pane": {}}]})
+    )
 
     outcome = _split_top(address=address)
 
     assert outcome.ok is False
     assert outcome.pane_id == ""
     assert outcome.effect_unknown is True, outcome.error
-    assert _methods(received=received) == ["pane.split"], "the sequence must stop at the split"
+    assert _methods(received=received) == [
+        "pane.list",
+        "pane.split",
+    ], "the sequence must stop at the split"
 
 
 def test_an_unanswered_swap_stays_uncertain_and_is_not_resent(*, socket_dir: Path):
@@ -216,7 +287,7 @@ def test_an_unanswered_swap_stays_uncertain_and_is_not_resent(*, socket_dir: Pat
     pane is exactly what an operator has to go and look at.
     """
     address = socket_dir / "h.sock"
-    received = _serve_script(address=address, script=[SPLIT_RESULT, None, OK_RESULT])
+    received = _serve_script(address=address, replies=_script(**{"pane.swap": [None]}))
 
     outcome = _split_top(address=address)
 
@@ -224,7 +295,9 @@ def test_an_unanswered_swap_stays_uncertain_and_is_not_resent(*, socket_dir: Pat
     assert outcome.pane_id == CREATED
     assert outcome.effect_unknown is True, outcome.error
     assert _methods(received=received) == [
+        "pane.list",
         "pane.split",
+        "pane.list",
         "pane.swap",
     ], "the swap must not be resent, and the launch must not follow it"
 
@@ -232,7 +305,7 @@ def test_an_unanswered_swap_stays_uncertain_and_is_not_resent(*, socket_dir: Pat
 def test_an_unanswered_launch_stays_uncertain_and_is_not_resent(*, socket_dir: Path):
     """A command that may already be running must not be started a second time."""
     address = socket_dir / "h.sock"
-    received = _serve_script(address=address, script=[SPLIT_RESULT, SWAP_RESULT, None, OK_RESULT])
+    received = _serve_script(address=address, replies=_script(**{"pane.send_input": [None]}))
 
     outcome = _split_top(address=address)
 
@@ -240,8 +313,11 @@ def test_an_unanswered_launch_stays_uncertain_and_is_not_resent(*, socket_dir: P
     assert outcome.pane_id == CREATED
     assert outcome.effect_unknown is True, outcome.error
     assert _methods(received=received) == [
+        "pane.list",
         "pane.split",
+        "pane.list",
         "pane.swap",
+        "pane.layout",
         "pane.send_input",
     ], "the launch must not be resent"
 
@@ -249,14 +325,21 @@ def test_an_unanswered_launch_stays_uncertain_and_is_not_resent(*, socket_dir: P
 def test_a_fully_answered_sequence_reports_the_new_pane_and_no_uncertainty(*, socket_dir: Path):
     """The positive control, so the assertions above cannot pass by never working."""
     address = socket_dir / "h.sock"
-    received = _serve_script(address=address, script=[SPLIT_RESULT, SWAP_RESULT, OK_RESULT])
+    received = _serve_script(address=address, replies=_script())
 
     outcome = _split_top(address=address)
 
     assert outcome.ok is True, outcome.error
     assert outcome.pane_id == CREATED
     assert outcome.effect_unknown is False
-    assert _methods(received=received) == ["pane.split", "pane.swap", "pane.send_input"]
+    assert _methods(received=received) == [
+        "pane.list",
+        "pane.split",
+        "pane.list",
+        "pane.swap",
+        "pane.layout",
+        "pane.send_input",
+    ]
 
 
 def test_an_unnamable_pane_id_is_refused_whatever_shape_it_arrives_in(*, socket_dir: Path):
@@ -337,7 +420,7 @@ def test_an_input_write_reports_its_own_certainty(*, socket_dir: Path):
     _calls, writer_module = _modules()
     identity = importlib.import_module("herdr_identity")
     address = socket_dir / "h.sock"
-    received = _serve_script(address=address, script=[OK_RESULT, None])
+    received = _serve_script(address=address, replies={"pane.send_input": [OK_RESULT, None]})
     writer = writer_module.HerdrWriter(request_ids=_ids())
     target = _live_target(identity=identity, address=address)
 
@@ -347,3 +430,96 @@ def test_an_input_write_reports_its_own_certainty(*, socket_dir: Path):
     assert delivered.ok is True and delivered.effect_unknown is False, delivered.error
     assert unanswered.ok is False and unanswered.effect_unknown is True
     assert _methods(received=received) == ["pane.send_input", "pane.send_input"]
+
+
+def _launched(*, received: list[bytes]) -> bool:
+    return any(json.loads(raw)["method"] == "pane.send_input" for raw in received)
+
+
+def test_every_unmet_proof_refuses_before_the_command_is_launched(*, socket_dir: Path):
+    """Each verification the sequence rests on fails CLOSED, and none of them launches.
+
+    Driven as a table because the interesting property is uniformity: these are
+    six different ways to be unable to prove the new pane is real, new, in the
+    right tab and above the target, and not one of them may end with a daemon
+    command in a pane. A per-case test would state the same thing six times and
+    make an inconsistency easier to miss.
+    """
+    unreadable_rows: dict[str, object] = {"type": "pane_list", "panes": [{"no": "id"}]}
+    cases: dict[str, dict[str, list[dict[str, object] | None]]] = {
+        "the split itself is refused": _script(**{"pane.split": [OK_RESULT]}),
+        "the first enumeration is unreadable": _script(**{"pane.list": [unreadable_rows]}),
+        "the re-enumeration is unreadable": _script(
+            **{"pane.list": [BEFORE_ROWS, unreadable_rows]}
+        ),
+        "the new pane is not listed afterwards": _script(
+            **{"pane.list": [BEFORE_ROWS, BEFORE_ROWS]}
+        ),
+        "the layout read is refused": _script(**{"pane.layout": [OK_RESULT]}),
+        "the layout is unreadable": _script(
+            **{"pane.layout": [{"type": "pane_layout", "layout": "not an object"}]}
+        ),
+        "the layout omits one of the two panes": _script(
+            **{
+                "pane.layout": [
+                    {
+                        "type": "pane_layout",
+                        "layout": {
+                            "panes": [{"pane_id": CREATED, "rect": {"x": 0, "y": 0, "height": 10}}]
+                        },
+                    }
+                ]
+            }
+        ),
+    }
+
+    for name, replies in cases.items():
+        address = socket_dir / f"{abs(hash(name)) % 10000}.sock"
+        received = _serve_script(address=address, replies=replies)
+        outcome = _split_top(address=address)
+        assert outcome.ok is False, f"{name}: accepted without proof"
+        assert not _launched(received=received), f"{name}: launched the command anyway"
+
+
+def test_unreadable_geometry_shapes_all_yield_no_tops(*, socket_dir: Path):
+    """`pane_tops` is fail-closed on every shape that cannot be measured.
+
+    A partial reading would be worse than none: the placement check compares
+    two specific panes, and a map silently missing one of them would be
+    indistinguishable from a map that disagrees about it.
+    """
+    calls_module, _writer = _modules()
+    good = {
+        "layout": {
+            "panes": [
+                {"pane_id": CREATED, "rect": {"x": 0, "y": 0, "height": 10}},
+                {"pane_id": PANE, "rect": {"x": 0, "y": 10, "height": 30}},
+            ]
+        }
+    }
+
+    assert calls_module.pane_tops(result=good) == {CREATED: 0, PANE: 10}
+    assert calls_module.pane_tops(result={"layout": "not an object"}) is None
+    assert calls_module.pane_tops(result={"layout": {"panes": "not a list"}}) is None
+    assert calls_module.pane_tops(result={"layout": {"panes": ["not an object"]}}) is None
+    assert calls_module.pane_tops(result={"layout": {"panes": [{"rect": {"y": 0}}]}}) is None
+    assert (
+        calls_module.pane_tops(result={"layout": {"panes": [{"pane_id": "", "rect": {"y": 0}}]}})
+        is None
+    )
+    assert (
+        calls_module.pane_tops(result={"layout": {"panes": [{"pane_id": PANE, "rect": "no"}]}})
+        is None
+    )
+    assert (
+        calls_module.pane_tops(
+            result={"layout": {"panes": [{"pane_id": PANE, "rect": {"y": "low"}}]}}
+        )
+        is None
+    )
+    assert (
+        calls_module.pane_tops(
+            result={"layout": {"panes": [{"pane_id": PANE, "rect": {"y": True}}]}}
+        )
+        is None
+    ), "a bool is an int in Python, and a pane cannot be at row True"

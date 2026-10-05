@@ -39,19 +39,25 @@ import jsonio
 
 __all__: list[str] = [
     "ENTER_KEY",
+    "EXPECT_LAYOUT",
     "EXPECT_OK",
     "EXPECT_PANE_INFO",
     "EXPECT_PANE_SWAP",
+    "LAYOUT_METHOD",
     "PASTE_METHOD",
     "RESULT_TYPE_OK",
     "RESULT_TYPE_PANE_INFO",
+    "RESULT_TYPE_PANE_LAYOUT",
     "RESULT_TYPE_PANE_SWAP",
     "SPLIT_DIRECTION_DOWN",
     "SPLIT_METHOD",
     "SWAP_METHOD",
+    "created_pane_refusal",
     "enter_params",
     "launch_params",
+    "layout_params",
     "new_pane_id",
+    "pane_tops",
     "paste_params",
     "split_down_params",
     "swap_params",
@@ -66,13 +72,15 @@ PASTE_METHOD = herdr_protocol.METHOD_PANE_SEND_INPUT
 ENTER_KEY = "Enter"
 RESULT_TYPE_OK = "ok"
 
-# MEASURED: the two layout mutations, their one usable direction, and the
-# discriminators their replies carry.
+# MEASURED: the two layout mutations, the read that verifies them, their one
+# usable direction, and the discriminators their replies carry.
 SPLIT_METHOD = "pane.split"
 SWAP_METHOD = "pane.swap"
+LAYOUT_METHOD = "pane.layout"
 SPLIT_DIRECTION_DOWN = "down"
 RESULT_TYPE_PANE_INFO = "pane_info"
 RESULT_TYPE_PANE_SWAP = "pane_swap"
+RESULT_TYPE_PANE_LAYOUT = "pane_layout"
 
 # A write answers `{"type": "ok"}` and carries no payload members, so there is
 # nothing to require beyond the discriminator itself.
@@ -83,6 +91,69 @@ EXPECT_PANE_INFO = herdr_protocol.ReplyExpectation(
 EXPECT_PANE_SWAP = herdr_protocol.ReplyExpectation(
     result_type=RESULT_TYPE_PANE_SWAP, required_fields=("swap",)
 )
+EXPECT_LAYOUT = herdr_protocol.ReplyExpectation(
+    result_type=RESULT_TYPE_PANE_LAYOUT, required_fields=("layout",)
+)
+
+
+def layout_params(*, pane_id: str) -> dict[str, object]:
+    """Read the tab layout that `pane_id` belongs to."""
+    return {"pane_id": pane_id}
+
+
+def pane_tops(*, result: dict[str, object]) -> dict[str, int] | None:
+    """Each pane's TOP row on the tab, or `None` when the layout is unreadable.
+
+    Only the vertical offset is kept, because the one question this answers is
+    whether one pane sits above another. Fail-closed like every reader here: a
+    layout that cannot be parsed, or a pane row without a usable id and `y`,
+    yields no geometry rather than a partial picture something could be
+    launched against.
+    """
+    layout = jsonio.as_object(value=result.get("layout"))
+    if layout is None:
+        return None
+    rows = jsonio.as_list(value=layout.get("panes"))
+    if rows is None:
+        return None
+    tops: dict[str, int] = {}
+    for row in rows:
+        pane = jsonio.as_object(value=row)
+        if pane is None:
+            return None
+        identifier = pane.get("pane_id")
+        rect = jsonio.as_object(value=pane.get("rect"))
+        if not isinstance(identifier, str) or not identifier or rect is None:
+            return None
+        top = rect.get("y")
+        if not isinstance(top, int) or isinstance(top, bool):
+            return None
+        tops[identifier] = top
+    return tops
+
+
+def created_pane_refusal(*, created: str, original: str, known: frozenset[str]) -> str:
+    """Why `created` may not be treated as this operation's new pane, or `""`.
+
+    **A split acknowledgement is a CLAIM, not evidence.** It proves the server
+    named some pane; it cannot prove that pane is new or that it is not the one
+    being supervised. Both failures were reproduced: an acknowledgement naming
+    the ORIGINAL pane led to a self-swap and a daemon command pasted into the
+    live agent, and the same shape naming any pre-existing neighbour would move
+    somebody else's session instead.
+
+    The original check is kept separate from the pre-existing check even though
+    the original is always in `known`, because the two are different accidents
+    and an operator reading the refusal should be told which one happened.
+    """
+    if created == original:
+        return (
+            "herdr split reply names the ORIGINAL pane "
+            f"{original!r} as the pane it created; refusing before any write"
+        )
+    if created in known:
+        return f"herdr split reply names pre-existing pane {created!r} as newly created"
+    return ""
 
 
 def paste_params(*, pane_id: str, text: str) -> dict[str, object]:

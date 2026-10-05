@@ -39,6 +39,7 @@ from dataclasses import dataclass, field
 
 import claude_sessions
 import herdr_identity
+import herdr_layout
 import herdr_protocol
 import herdr_transport
 import herdr_write_calls
@@ -51,11 +52,10 @@ __all__: list[str] = [
     "WriteOutcome",
 ]
 
-# The share of the column the new TOP pane takes by default, matching
-# `overseer-start`'s tmux-side `_DAEMON_PANE_HEIGHT_PERCENT` intent: the daemon
-# pane carries the table plus the NEEDS YOU block, the supervised pane is a
-# prompt. Callers that want a different split pass `ratio`.
-DEFAULT_TOP_RATIO = 0.66
+# Re-exported so a caller holding a writer needs only this module, exactly as
+# `registry` and `supervisor` re-export their own collaborators here.
+DEFAULT_TOP_RATIO = herdr_layout.DEFAULT_TOP_RATIO
+LayoutOutcome = herdr_layout.LayoutOutcome
 
 
 def _default_request_ids() -> Iterator[str]:
@@ -74,22 +74,6 @@ class WriteOutcome:
     """
 
     ok: bool
-    error: str
-    effect_unknown: bool
-
-
-@dataclass(frozen=True, kw_only=True)
-class LayoutOutcome:
-    """A layout mutation's result, naming the pane it created when it got that far.
-
-    `pane_id` is reported even on a FAILED outcome whenever the split itself
-    succeeded, because a partially-applied layout is exactly the state a caller
-    has to re-observe: the pane exists, and the step that failed afterwards did
-    not un-create it. An empty `pane_id` means no pane was made.
-    """
-
-    ok: bool
-    pane_id: str
     error: str
     effect_unknown: bool
 
@@ -137,84 +121,23 @@ class HerdrWriter:
         target: herdr_identity.HerdrPaneTarget,
         cwd: str,
         command: str,
-        ratio: float = DEFAULT_TOP_RATIO,
-    ) -> LayoutOutcome:
+        ratio: float = herdr_layout.DEFAULT_TOP_RATIO,
+    ) -> herdr_layout.LayoutOutcome:
         """Run `command` in a new retained-shell pane placed ABOVE `target`.
 
-        Three bounded mutations in sequence — split downward, swap the two
-        positions, launch into the new pane's own shell — because herdr splits
-        only right and down, so "above" has no single call. `target` keeps its
-        pane id, its shell and its focus throughout; the swap moves rectangles,
-        not identities.
-
-        **No step is retried, and a failure after the split still names the new
-        pane.** Each stage is its own write boundary, so a stage that was sent
-        and went unanswered leaves `effect_unknown` set and the layout in a
-        state only re-observation can resolve. Repeating a swap that may have
-        landed would undo it, and repeating a launch would run the command
-        twice; `SPECIFICATION/contracts.md` forbids resubmitting past that
-        boundary and this method does not.
+        The sequence and every proof it requires before writing live in
+        :mod:`herdr_layout`; this writer supplies the bounded, peer-validated
+        request path it runs on.
         """
-        split = self._request(
-            target=target,
-            method=herdr_write_calls.SPLIT_METHOD,
-            params=herdr_write_calls.split_down_params(
-                pane_id=target.pane_id, cwd=cwd, ratio=ratio
-            ),
-            expect=herdr_write_calls.EXPECT_PANE_INFO,
+        return herdr_layout.place_above(
+            requester=self, target=target, cwd=cwd, command=command, ratio=ratio
         )
-        if not split.ok:
-            return LayoutOutcome(
-                ok=False, pane_id="", error=split.error, effect_unknown=split.effect_unknown
-            )
-        created = herdr_write_calls.new_pane_id(result=split.result)
-        if created is None:
-            # The split was ACKNOWLEDGED, so a pane probably exists; it simply
-            # cannot be addressed. That is an uncertain mutation, not a refusal.
-            return LayoutOutcome(
-                ok=False,
-                pane_id="",
-                error="herdr split reply does not name the pane it created",
-                effect_unknown=True,
-            )
-        swap = self._request(
-            target=target,
-            method=herdr_write_calls.SWAP_METHOD,
-            params=herdr_write_calls.swap_params(
-                source_pane_id=target.pane_id, target_pane_id=created
-            ),
-            expect=herdr_write_calls.EXPECT_PANE_SWAP,
-        )
-        if not swap.ok:
-            return LayoutOutcome(
-                ok=False, pane_id=created, error=swap.error, effect_unknown=swap.effect_unknown
-            )
-        refusal = herdr_write_calls.swap_refusal(
-            result=swap.result, source_pane_id=target.pane_id, target_pane_id=created
-        )
-        if refusal:
-            # A REFUSAL, not an uncertainty: herdr answered, and its answer was
-            # that it did not move anything. The pane exists where the split
-            # left it — below the target — so launching into it now would put
-            # the command somewhere nobody is looking.
-            return LayoutOutcome(ok=False, pane_id=created, error=refusal, effect_unknown=False)
-        launch = self._request(
-            target=target,
-            method=herdr_write_calls.PASTE_METHOD,
-            params=herdr_write_calls.launch_params(pane_id=created, command=command),
-            expect=herdr_write_calls.EXPECT_OK,
-        )
-        if not launch.ok:
-            return LayoutOutcome(
-                ok=False, pane_id=created, error=launch.error, effect_unknown=launch.effect_unknown
-            )
-        return LayoutOutcome(ok=True, pane_id=created, error="", effect_unknown=False)
 
     def _write(
         self, *, target: herdr_identity.HerdrPaneTarget, params: Mapping[str, object]
     ) -> WriteOutcome:
         """One bounded input mutation, reduced to the three facts a caller needs."""
-        outcome = self._request(
+        outcome = self.request(
             target=target,
             method=herdr_write_calls.PASTE_METHOD,
             params=params,
@@ -226,7 +149,7 @@ class HerdrWriter:
             effect_unknown=outcome.effect_unknown,
         )
 
-    def _request(
+    def request(
         self,
         *,
         target: herdr_identity.HerdrPaneTarget,
@@ -235,6 +158,11 @@ class HerdrWriter:
         expect: herdr_protocol.ReplyExpectation,
     ) -> herdr_transport.RpcOutcome:
         """One bounded mutation against the generation `target` names, or why not.
+
+        PUBLIC because :mod:`herdr_layout` runs its whole sequence on it through
+        :class:`herdr_layout.BoundedRequests`; a cross-module private call would
+        be rejected by pyright-strict and by this repo's own checks, and the
+        honest alternative to a private reach is a named interface.
 
         The expected peer is derived from the TARGET on every call rather than
         remembered from an earlier identification, so a coordinate whose server

@@ -63,6 +63,50 @@ PANE = "w1:p1"
 CREATED = "w1:p2"
 SPLIT_RESULT: dict[str, object] = {"type": "pane_info", "pane": {"pane_id": CREATED}}
 OK_RESULT: dict[str, object] = {"type": "ok"}
+TAB = "w1:t1"
+
+
+def _row(*, pane_id: str) -> dict[str, object]:
+    return {
+        "pane_id": pane_id,
+        "tab_id": TAB,
+        "workspace_id": "w1",
+        "cwd": "/tmp",
+        "foreground_cwd": "/tmp",
+        "focused": pane_id == PANE,
+    }
+
+
+BEFORE_ROWS: dict[str, object] = {"type": "pane_list", "panes": [_row(pane_id=PANE)]}
+AFTER_ROWS: dict[str, object] = {
+    "type": "pane_list",
+    "panes": [_row(pane_id=PANE), _row(pane_id=CREATED)],
+}
+GOOD_GEOMETRY: dict[str, object] = {
+    "type": "pane_layout",
+    "layout": {
+        "workspace_id": "w1",
+        "tab_id": TAB,
+        "zoomed": False,
+        "area": {"x": 0, "y": 0, "width": 120, "height": 40},
+        "focused_pane_id": PANE,
+        "panes": [
+            {"pane_id": CREATED, "focused": False, "rect": {"x": 0, "y": 0, "height": 10}},
+            {"pane_id": PANE, "focused": True, "rect": {"x": 0, "y": 10, "height": 30}},
+        ],
+    },
+}
+HEALTHY: dict[str, list[dict[str, object]]] = {
+    "pane.list": [BEFORE_ROWS, AFTER_ROWS],
+    "pane.split": [SPLIT_RESULT],
+    "pane.layout": [GOOD_GEOMETRY],
+    "pane.send_input": [OK_RESULT],
+}
+
+
+def _script(**overrides: list[dict[str, object]]) -> dict[str, list[dict[str, object]]]:
+    """The healthy script with specific methods replaced."""
+    return {**{key: list(value) for key, value in HEALTHY.items()}, **overrides}
 
 
 def _modules() -> tuple[Any, Any]:
@@ -280,10 +324,18 @@ def _envelope(*, result: dict[str, object], request_id: str) -> bytes:
     return json.dumps({"id": request_id, "result": result}).encode("utf-8")
 
 
+def _next_reply(*, method: str, replies: dict[str, list[dict[str, object]]]) -> dict[str, object]:
+    """The next scripted reply for `method`, repeating the last once exhausted."""
+    queued = replies.get(method)
+    if not queued:
+        return OK_RESULT
+    return queued.pop(0) if len(queued) > 1 else queued[0]
+
+
 def _answer(
     *,
     conn: socket.socket,
-    reply: dict[str, object],
+    replies: dict[str, list[dict[str, object]]],
     request_id: str,
     received: list[bytes],
 ) -> None:
@@ -307,22 +359,31 @@ def _answer(
     if not buffered:
         return
     received.append(buffered)
+    reply = _next_reply(method=str(json.loads(buffered)["method"]), replies=replies)
     try:
         conn.sendall(_envelope(result=reply, request_id=request_id) + b"\n")
     except OSError:
         return
 
 
-def _serve_script(*, address: Path, script: list[dict[str, object]]) -> list[bytes]:
-    """A controlled peer answering one scripted reply per connection."""
+def _serve_script(
+    *, address: Path, replies: dict[str, list[dict[str, object]]], rounds: int = 12
+) -> list[bytes]:
+    """A controlled peer answering per METHOD, recording every request it reads.
+
+    Dispatch is BY METHOD because `split_window_top` interleaves verification
+    reads between its mutations; a positional script would answer `pane.list`
+    with a split acknowledgement and prove nothing about the swap handling
+    these tests exist to pin.
+    """
     listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     listener.bind(str(address))
-    listener.listen(8)
+    listener.listen(16)
     received: list[bytes] = []
 
     def run() -> None:
-        listener.settimeout(5.0)
-        for index, reply in enumerate(script):
+        listener.settimeout(3.0)
+        for index in range(rounds):
             try:
                 conn, _ = listener.accept()
             except OSError:
@@ -330,7 +391,7 @@ def _serve_script(*, address: Path, script: list[dict[str, object]]) -> list[byt
             with conn:
                 _answer(
                     conn=conn,
-                    reply=reply,
+                    replies=replies,
                     request_id=f"rq-{index + 1}",
                     received=received,
                 )
@@ -374,7 +435,7 @@ def test_a_cross_tab_swap_fails_closed_and_never_launches(*, socket_dir: Path):
     address = socket_dir / "h.sock"
     received = _serve_script(
         address=address,
-        script=[SPLIT_RESULT, _swap_reply(changed=False, reason="cross_tab"), OK_RESULT],
+        replies=_script(**{"pane.swap": [_swap_reply(changed=False, reason="cross_tab")]}),
     )
 
     outcome = _split_top(address=address)
@@ -383,7 +444,9 @@ def test_a_cross_tab_swap_fails_closed_and_never_launches(*, socket_dir: Path):
     assert outcome.pane_id == CREATED, "the created pane must still be named for re-observation"
     assert "cross_tab" in outcome.error or "swap" in outcome.error, outcome.error
     assert _methods(received=received) == [
+        "pane.list",
         "pane.split",
+        "pane.list",
         "pane.swap",
     ], "the launch must not follow a swap that did not happen"
 
@@ -393,13 +456,13 @@ def test_a_same_pane_swap_fails_closed_and_never_launches(*, socket_dir: Path):
     address = socket_dir / "h.sock"
     received = _serve_script(
         address=address,
-        script=[SPLIT_RESULT, _swap_reply(changed=False, reason="same_pane"), OK_RESULT],
+        replies=_script(**{"pane.swap": [_swap_reply(changed=False, reason="same_pane")]}),
     )
 
     outcome = _split_top(address=address)
 
     assert outcome.ok is False
-    assert _methods(received=received) == ["pane.split", "pane.swap"]
+    assert _methods(received=received) == ["pane.list", "pane.split", "pane.list", "pane.swap"]
 
 
 def test_a_swap_echoing_other_panes_fails_closed(*, socket_dir: Path):
@@ -412,17 +475,15 @@ def test_a_swap_echoing_other_panes_fails_closed(*, socket_dir: Path):
     address = socket_dir / "h.sock"
     received = _serve_script(
         address=address,
-        script=[
-            SPLIT_RESULT,
-            _swap_reply(changed=True, source="w9:p8", target="w9:p7"),
-            OK_RESULT,
-        ],
+        replies=_script(
+            **{"pane.swap": [_swap_reply(changed=True, source="w9:p8", target="w9:p7")]}
+        ),
     )
 
     outcome = _split_top(address=address)
 
     assert outcome.ok is False
-    assert _methods(received=received) == ["pane.split", "pane.swap"]
+    assert _methods(received=received) == ["pane.list", "pane.split", "pane.list", "pane.swap"]
 
 
 def test_a_swap_that_changed_and_echoes_our_panes_proceeds_to_launch(*, socket_dir: Path):
@@ -430,14 +491,21 @@ def test_a_swap_that_changed_and_echoes_our_panes_proceeds_to_launch(*, socket_d
     address = socket_dir / "h.sock"
     received = _serve_script(
         address=address,
-        script=[SPLIT_RESULT, _swap_reply(changed=True), OK_RESULT],
+        replies=_script(**{"pane.swap": [_swap_reply(changed=True)]}),
     )
 
     outcome = _split_top(address=address)
 
     assert outcome.ok is True, outcome.error
     assert outcome.pane_id == CREATED
-    assert _methods(received=received) == ["pane.split", "pane.swap", "pane.send_input"]
+    assert _methods(received=received) == [
+        "pane.list",
+        "pane.split",
+        "pane.list",
+        "pane.swap",
+        "pane.layout",
+        "pane.send_input",
+    ]
 
 
 def test_the_split_request_on_the_wire_carries_the_target_key(*, socket_dir: Path):
@@ -445,12 +513,14 @@ def test_the_split_request_on_the_wire_carries_the_target_key(*, socket_dir: Pat
     address = socket_dir / "h.sock"
     received = _serve_script(
         address=address,
-        script=[SPLIT_RESULT, _swap_reply(changed=True), OK_RESULT],
+        replies=_script(**{"pane.swap": [_swap_reply(changed=True)]}),
     )
 
     outcome = _split_top(address=address)
 
     assert outcome.ok is True, outcome.error
-    sent = json.loads(received[0])["params"]
+    sent = next(
+        json.loads(raw)["params"] for raw in received if json.loads(raw)["method"] == "pane.split"
+    )
     assert sent["target_pane_id"] == PANE, sent
     assert "pane_id" not in sent, sent
