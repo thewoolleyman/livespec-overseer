@@ -34,7 +34,11 @@ from typing import Final, Protocol
 
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 from _lpm_effects_audit import audit_append
-from _lpm_effects_close import assignment_end_update, report_marker_update
+from _lpm_effects_close import (
+    assignment_end_update,
+    completion_update,
+    report_marker_update,
+)
 from _lpm_effects_commit import assignment_commit, target_write
 from _lpm_effects_lease import lease_release
 from _lpm_effects_metadata import credential_conditional_set
@@ -89,6 +93,7 @@ EFFECT_EXECUTORS: Final[dict[str, EffectExecutor]] = {
     "audit-append": audit_append,
     "credential-conditional-set": credential_conditional_set,
     "report-marker-update": report_marker_update,
+    "completion-update": completion_update,
     "assignment-end-update": assignment_end_update,
     "lease-release": lease_release,
     "tombstone-create": tombstone_create,
