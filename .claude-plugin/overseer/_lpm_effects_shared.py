@@ -33,6 +33,7 @@ shared record forever and each rewrite would race the peers it was supposed to p
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Final
 
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 from _lpm_assignment import COMMITTED_STATUS, Assignment, assignment_from_object
@@ -61,6 +62,10 @@ __all__: list[str] = [
     "proof_update",
     "selection_update",
 ]
+
+# The two commands whose `proof-update` position is ORDERED but whose shared-record
+# contribution belongs to the later proof child. Release and expire carry no such position.
+_DEFERRED_PROOF_COMMANDS: Final = ("report", "complete")
 
 
 def committed_assignment(*, context: EffectContext) -> Result[Assignment, ManagerError]:
@@ -129,7 +134,19 @@ def proof_update(*, context: EffectContext) -> Result[str, ManagerError]:
     completed no-op rather than a refusal — and `rollout_update` only ever moves the field
     EARLIER, so the record converges on the earliest committed rollout whatever order
     concurrent contributions arrive in.
+
+    A REPORT'S OR COMPLETION'S CONTRIBUTION IS NOT IMPLEMENTED YET, AND IT SETTLES RATHER
+    THAN PRETENDING OTHERWISE. The contract gives those two their own rules — report's
+    "completed no-op except for an authentication report qualifying under the coexistence-proof
+    rule", and a completion's qualifying marker with the dated-soak and seven-day progression
+    behind it — and those shared-record algorithms are a LATER plan child, named in
+    `_lpm_proof`'s own docstring as the work that writes those fields. The POSITION is real and
+    ordered here so report and complete already run their arrays in contract order; what it
+    contributes is deliberately nothing, so no caller may read a settled position as evidence
+    that a proof contribution was computed.
     """
+    if context.operation.command in _DEFERRED_PROOF_COMMANDS:
+        return Success(SATISFIED)
     assignment = committed_assignment(context=context)
     if isinstance(assignment, Failure):
         return assignment

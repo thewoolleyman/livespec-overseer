@@ -45,6 +45,7 @@ __all__: list[str] = [
     "RevisionTitle",
     "predecessor_digest",
     "resolve_chain",
+    "revision_of_title",
     "revision_title",
     "revision_title_parts",
 ]
@@ -101,6 +102,22 @@ class ChainResolution:
 def revision_title(*, record_id: str, revision: int, effect_id: str) -> str:
     """`<record_id>-m<20-digit revision>-<effect_id>` — the one title form."""
     return f"{record_id}-m{revision:0{REVISION_DIGITS}d}-{effect_id}"
+
+
+def revision_of_title(*, record_id: str, title: str) -> int | None:
+    """The revision `title` names for `record_id`, or None when it names none of its own.
+
+    A backend's reported current-revision title is the ONLY place the revision NUMBER of an
+    authoritative read is carried, and the conditional create that follows has to name
+    revision `n + 1` exactly — a fence whose title names any other revision cannot recognize
+    its own committed revision on the reread that decides it. So the parse `resolve_chain`
+    already performs is exposed here rather than re-spelled by a caller: a second spelling of
+    the title grammar is how a fence comes to name a revision this protocol never produces.
+
+    This answers a question ANCHORED on a record id; :func:`revision_title_parts` answers the
+    unanchored one. Neither subsumes the other — see that function's own note.
+    """
+    return _parsed_revision(record_id=record_id, title=title)
 
 
 def revision_title_parts(*, title: str) -> RevisionTitle | None:

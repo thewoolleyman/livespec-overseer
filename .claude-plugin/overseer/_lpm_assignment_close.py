@@ -61,6 +61,7 @@ __all__: list[str] = [
     "marker_object",
     "normalized_close_time",
     "ordered_markers",
+    "ordered_with",
 ]
 
 MARKER_MEMBERS: Final = ("occurred_at", "classification")
@@ -117,10 +118,22 @@ def insert_report_marker(
     existing = ordered_markers(markers=markers)
     if isinstance(existing, Failure):
         return existing
-    recorded = existing.unwrap()
-    if marker in recorded:
-        return Success(recorded)
-    return Success(_canonical_order(markers=[*recorded, marker]))
+    return Success(ordered_with(markers=existing.unwrap(), marker=marker))
+
+
+def ordered_with(
+    *, markers: Sequence[ReportMarker], marker: ReportMarker
+) -> tuple[ReportMarker, ...]:
+    """`markers` with `marker` in canonical order, or exactly `markers` when it is present.
+
+    This is the insert over markers a caller has ALREADY validated — a stored assignment or
+    tombstone hands its own parsed array straight here. Routing those through
+    `insert_report_marker` would re-run a validation whose refusal that caller has made
+    unreachable, and an unreachable refusal is indistinguishable from an untested one.
+    """
+    if marker in markers:
+        return tuple(markers)
+    return _canonical_order(markers=[*markers, marker])
 
 
 def normalized_close_time(

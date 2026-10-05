@@ -19,6 +19,13 @@ worker lifecycle, whose `launch`, `terminal` and `recovery` phases are a separat
 with its own value-write-once rule and its own live-worker fencing. Registering a stub for
 them would make a composition that reaches one look driven when nothing happened; naming
 them explicitly makes the boundary a reported fact instead of a missing dictionary key.
+
+`audit-append` AND `credential-conditional-set` ARE REGISTERED, AND THAT IS NOT A CRACK IN
+THAT BOUNDARY. Both names are SHARED between the worker phases and report `apply`, and the
+executors here implement the report transition the contract states for `apply` — not the
+worker lifecycle's launch, terminal or recovery transitions. A worker phase therefore still
+cannot be driven to completion through this table: it refuses at its own `worker-record-*`
+or `secret-value-set` position, which is where the boundary actually is.
 """
 
 from __future__ import annotations
@@ -26,8 +33,11 @@ from __future__ import annotations
 from typing import Final, Protocol
 
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
+from _lpm_effects_audit import audit_append
+from _lpm_effects_close import assignment_end_update, report_marker_update
 from _lpm_effects_commit import assignment_commit, target_write
 from _lpm_effects_lease import lease_release
+from _lpm_effects_metadata import credential_conditional_set
 from _lpm_effects_provision import (
     lease_create,
     prepared_assignment_create,
@@ -35,6 +45,7 @@ from _lpm_effects_provision import (
 )
 from _lpm_effects_shared import proof_update, selection_update
 from _lpm_effects_target import issuance_create, registration_remove
+from _lpm_effects_tombstone import assignment_close, tombstone_create
 from _lpm_engine_context import EffectContext
 from _lpm_results import ManagerError, internal_bug
 
@@ -75,7 +86,13 @@ EFFECT_EXECUTORS: Final[dict[str, EffectExecutor]] = {
     "prepared-assignment-discard": prepared_assignment_discard,
     "selection-update": selection_update,
     "proof-update": proof_update,
+    "audit-append": audit_append,
+    "credential-conditional-set": credential_conditional_set,
+    "report-marker-update": report_marker_update,
+    "assignment-end-update": assignment_end_update,
     "lease-release": lease_release,
+    "tombstone-create": tombstone_create,
+    "assignment-close": assignment_close,
 }
 
 
