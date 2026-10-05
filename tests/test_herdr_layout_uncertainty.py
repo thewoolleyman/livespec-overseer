@@ -49,7 +49,13 @@ __all__: list[str] = []
 PANE = "w1:p1"
 CREATED = "w1:p2"
 SPLIT_RESULT: dict[str, object] = {"type": "pane_info", "pane": {"pane_id": CREATED}}
-SWAP_RESULT: dict[str, object] = {"type": "pane_swap", "swap": {"changed": True}}
+# A swap reply must say it CHANGED something and echo the panes it moved; see
+# `tests/test_herdr_layout_exact_target.py` for the measured refusal shapes that
+# arrive inside an otherwise successful envelope.
+SWAP_RESULT: dict[str, object] = {
+    "type": "pane_swap",
+    "swap": {"changed": True, "source_pane_id": PANE, "target_pane_id": CREATED},
+}
 OK_RESULT: dict[str, object] = {"type": "ok"}
 
 
@@ -268,6 +274,29 @@ def test_an_unnamable_pane_id_is_refused_whatever_shape_it_arrives_in(*, socket_
     assert calls_module.new_pane_id(result={"pane": {"pane_id": 5}}) is None
 
 
+def test_an_unreadable_swap_member_is_refused_rather_than_assumed_successful(*, socket_dir: Path):
+    """`required_fields` proves `swap` is PRESENT; it cannot prove it is usable.
+
+    The expectation gate admits a `swap` of any JSON type, so a reply carrying
+    a string there reaches the reader. Treating that as a completed swap would
+    launch the command into a pane that was never moved — the same end state as
+    the measured `changed: false` refusals, reached by a different route.
+    """
+    calls_module, _writer = _modules()
+    readable = {"changed": True, "source_pane_id": PANE, "target_pane_id": CREATED}
+
+    assert (
+        calls_module.swap_refusal(
+            result={"swap": readable}, source_pane_id=PANE, target_pane_id=CREATED
+        )
+        == ""
+    )
+    assert calls_module.swap_refusal(
+        result={"swap": "not an object"}, source_pane_id=PANE, target_pane_id=CREATED
+    )
+    assert calls_module.swap_refusal(result={}, source_pane_id=PANE, target_pane_id=CREATED)
+
+
 def test_the_launch_is_atomic_while_the_paste_is_not(*, socket_dir: Path):
     """The two text-delivering shapes differ exactly where they must.
 
@@ -288,8 +317,10 @@ def test_the_launch_is_atomic_while_the_paste_is_not(*, socket_dir: Path):
         "text": "sleep 120",
         "keys": [],
     }
+    # `target_pane_id`, NOT `pane_id`: herdr does not alias them and ignores
+    # unknown members, so the wrong key silently splits the FOCUSED pane.
     assert calls_module.split_down_params(pane_id=PANE, cwd="/tmp", ratio=0.25) == {
-        "pane_id": PANE,
+        "target_pane_id": PANE,
         "direction": "down",
         "ratio": 0.25,
         "cwd": "/tmp",

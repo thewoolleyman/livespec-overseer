@@ -177,28 +177,37 @@ class HerdrWriter:
                 error="herdr split reply does not name the pane it created",
                 effect_unknown=True,
             )
-        for method, params, expect in (
-            (
-                herdr_write_calls.SWAP_METHOD,
-                herdr_write_calls.swap_params(
-                    source_pane_id=target.pane_id, target_pane_id=created
-                ),
-                herdr_write_calls.EXPECT_PANE_SWAP,
+        swap = self._request(
+            target=target,
+            method=herdr_write_calls.SWAP_METHOD,
+            params=herdr_write_calls.swap_params(
+                source_pane_id=target.pane_id, target_pane_id=created
             ),
-            (
-                herdr_write_calls.PASTE_METHOD,
-                herdr_write_calls.launch_params(pane_id=created, command=command),
-                herdr_write_calls.EXPECT_OK,
-            ),
-        ):
-            stage = self._request(target=target, method=method, params=params, expect=expect)
-            if not stage.ok:
-                return LayoutOutcome(
-                    ok=False,
-                    pane_id=created,
-                    error=stage.error,
-                    effect_unknown=stage.effect_unknown,
-                )
+            expect=herdr_write_calls.EXPECT_PANE_SWAP,
+        )
+        if not swap.ok:
+            return LayoutOutcome(
+                ok=False, pane_id=created, error=swap.error, effect_unknown=swap.effect_unknown
+            )
+        refusal = herdr_write_calls.swap_refusal(
+            result=swap.result, source_pane_id=target.pane_id, target_pane_id=created
+        )
+        if refusal:
+            # A REFUSAL, not an uncertainty: herdr answered, and its answer was
+            # that it did not move anything. The pane exists where the split
+            # left it — below the target — so launching into it now would put
+            # the command somewhere nobody is looking.
+            return LayoutOutcome(ok=False, pane_id=created, error=refusal, effect_unknown=False)
+        launch = self._request(
+            target=target,
+            method=herdr_write_calls.PASTE_METHOD,
+            params=herdr_write_calls.launch_params(pane_id=created, command=command),
+            expect=herdr_write_calls.EXPECT_OK,
+        )
+        if not launch.ok:
+            return LayoutOutcome(
+                ok=False, pane_id=created, error=launch.error, effect_unknown=launch.effect_unknown
+            )
         return LayoutOutcome(ok=True, pane_id=created, error="", effect_unknown=False)
 
     def _write(

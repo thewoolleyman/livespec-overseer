@@ -55,6 +55,7 @@ __all__: list[str] = [
     "paste_params",
     "split_down_params",
     "swap_params",
+    "swap_refusal",
 ]
 
 # MEASURED: the one method that brackets a paste. `pane.send_text` is NOT an
@@ -119,9 +120,20 @@ def split_down_params(*, pane_id: str, cwd: str, ratio: float) -> dict[str, obje
 
     `focus` is false because the supervised pane must keep it; the swap below
     preserves whatever focus this call leaves in place.
+
+    **The key is `target_pane_id`, and sending `pane_id` here is a SILENT
+    wrong-pane split.** `pane.split` does not alias the two, and herdr 0.9.3
+    tolerates unknown members rather than rejecting them, so a `pane_id` is
+    simply dropped and the call falls back to its default of splitting the
+    FOCUSED pane — under an ordinary successful `pane_info` reply. Measured
+    with `w1:p1` targeted and `w1:p2` focused: `w1:p1` stayed `(0,0,60,40)`
+    while `w1:p2` was split `(60,0,60,40)` → `(60,0,60,10)`. Note that this is
+    the opposite of :func:`paste_params` and :func:`launch_params`, which take
+    `pane_id` and DO honour an unfocused pane exactly (also measured); the
+    inconsistency is herdr's, not a mistake here.
     """
     return {
-        "pane_id": pane_id,
+        "target_pane_id": pane_id,
         "direction": SPLIT_DIRECTION_DOWN,
         "ratio": ratio,
         "cwd": cwd,
@@ -136,6 +148,38 @@ def swap_params(*, source_pane_id: str, target_pane_id: str) -> dict[str, object
     this; only the rectangles trade places.
     """
     return {"source_pane_id": source_pane_id, "target_pane_id": target_pane_id}
+
+
+def swap_refusal(*, result: dict[str, object], source_pane_id: str, target_pane_id: str) -> str:
+    """Why this swap may NOT be believed, or `""` when it may.
+
+    **A refused swap arrives as a SUCCESS envelope**, which is why this exists
+    rather than a `ReplyExpectation`. Measured on herdr 0.9.3: a cross-tab swap
+    answers `{"changed": false, "reason": "cross_tab", ...}` and a same-pane
+    swap answers `{"changed": false, "reason": "same_pane", ...}`, both under
+    `result` with the declared type and members all present. The expectation
+    gate therefore passes them, and a caller that trusted it would go on to
+    launch a command into a pane that was never moved.
+
+    The echoed identities are checked for the same reason the observation
+    adapter checks a reply's pane id: matching the reply's REQUEST id proves
+    the answer is to this call, not that it concerns the panes this call named.
+    """
+    swap = jsonio.as_object(value=result.get("swap"))
+    if swap is None:
+        return "herdr swap reply carries no readable swap"
+    if swap.get("changed") is not True:
+        reason = swap.get("reason")
+        detail = f" ({reason})" if isinstance(reason, str) and reason else ""
+        return f"herdr refused the swap{detail}"
+    echoed_source = swap.get("source_pane_id")
+    echoed_target = swap.get("target_pane_id")
+    if echoed_source != source_pane_id or echoed_target != target_pane_id:
+        return (
+            f"herdr swap reply describes {echoed_source!r}/{echoed_target!r}, "
+            f"not the requested {source_pane_id!r}/{target_pane_id!r}"
+        )
+    return ""
 
 
 def new_pane_id(*, result: dict[str, object]) -> str | None:
