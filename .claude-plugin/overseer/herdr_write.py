@@ -45,9 +45,17 @@ import herdr_write_calls
 from _seams import PidToOptionalStr
 
 __all__: list[str] = [
+    "DEFAULT_TOP_RATIO",
     "HerdrWriter",
+    "LayoutOutcome",
     "WriteOutcome",
 ]
+
+# The share of the column the new TOP pane takes by default, matching
+# `overseer-start`'s tmux-side `_DAEMON_PANE_HEIGHT_PERCENT` intent: the daemon
+# pane carries the table plus the NEEDS YOU block, the supervised pane is a
+# prompt. Callers that want a different split pass `ratio`.
+DEFAULT_TOP_RATIO = 0.66
 
 
 def _default_request_ids() -> Iterator[str]:
@@ -66,6 +74,22 @@ class WriteOutcome:
     """
 
     ok: bool
+    error: str
+    effect_unknown: bool
+
+
+@dataclass(frozen=True, kw_only=True)
+class LayoutOutcome:
+    """A layout mutation's result, naming the pane it created when it got that far.
+
+    `pane_id` is reported even on a FAILED outcome whenever the split itself
+    succeeded, because a partially-applied layout is exactly the state a caller
+    has to re-observe: the pane exists, and the step that failed afterwards did
+    not un-create it. An empty `pane_id` means no pane was made.
+    """
+
+    ok: bool
+    pane_id: str
     error: str
     effect_unknown: bool
 
@@ -107,17 +131,110 @@ class HerdrWriter:
             params=herdr_write_calls.enter_params(pane_id=target.pane_id),
         )
 
+    def split_window_top(
+        self,
+        *,
+        target: herdr_identity.HerdrPaneTarget,
+        cwd: str,
+        command: str,
+        ratio: float = DEFAULT_TOP_RATIO,
+    ) -> LayoutOutcome:
+        """Run `command` in a new retained-shell pane placed ABOVE `target`.
+
+        Three bounded mutations in sequence — split downward, swap the two
+        positions, launch into the new pane's own shell — because herdr splits
+        only right and down, so "above" has no single call. `target` keeps its
+        pane id, its shell and its focus throughout; the swap moves rectangles,
+        not identities.
+
+        **No step is retried, and a failure after the split still names the new
+        pane.** Each stage is its own write boundary, so a stage that was sent
+        and went unanswered leaves `effect_unknown` set and the layout in a
+        state only re-observation can resolve. Repeating a swap that may have
+        landed would undo it, and repeating a launch would run the command
+        twice; `SPECIFICATION/contracts.md` forbids resubmitting past that
+        boundary and this method does not.
+        """
+        split = self._request(
+            target=target,
+            method=herdr_write_calls.SPLIT_METHOD,
+            params=herdr_write_calls.split_down_params(
+                pane_id=target.pane_id, cwd=cwd, ratio=ratio
+            ),
+            expect=herdr_write_calls.EXPECT_PANE_INFO,
+        )
+        if not split.ok:
+            return LayoutOutcome(
+                ok=False, pane_id="", error=split.error, effect_unknown=split.effect_unknown
+            )
+        created = herdr_write_calls.new_pane_id(result=split.result)
+        if created is None:
+            # The split was ACKNOWLEDGED, so a pane probably exists; it simply
+            # cannot be addressed. That is an uncertain mutation, not a refusal.
+            return LayoutOutcome(
+                ok=False,
+                pane_id="",
+                error="herdr split reply does not name the pane it created",
+                effect_unknown=True,
+            )
+        for method, params, expect in (
+            (
+                herdr_write_calls.SWAP_METHOD,
+                herdr_write_calls.swap_params(
+                    source_pane_id=target.pane_id, target_pane_id=created
+                ),
+                herdr_write_calls.EXPECT_PANE_SWAP,
+            ),
+            (
+                herdr_write_calls.PASTE_METHOD,
+                herdr_write_calls.launch_params(pane_id=created, command=command),
+                herdr_write_calls.EXPECT_OK,
+            ),
+        ):
+            stage = self._request(target=target, method=method, params=params, expect=expect)
+            if not stage.ok:
+                return LayoutOutcome(
+                    ok=False,
+                    pane_id=created,
+                    error=stage.error,
+                    effect_unknown=stage.effect_unknown,
+                )
+        return LayoutOutcome(ok=True, pane_id=created, error="", effect_unknown=False)
+
     def _write(
         self, *, target: herdr_identity.HerdrPaneTarget, params: Mapping[str, object]
     ) -> WriteOutcome:
+        """One bounded input mutation, reduced to the three facts a caller needs."""
+        outcome = self._request(
+            target=target,
+            method=herdr_write_calls.PASTE_METHOD,
+            params=params,
+            expect=herdr_write_calls.EXPECT_OK,
+        )
+        return WriteOutcome(
+            ok=outcome.ok,
+            error=outcome.error,
+            effect_unknown=outcome.effect_unknown,
+        )
+
+    def _request(
+        self,
+        *,
+        target: herdr_identity.HerdrPaneTarget,
+        method: str,
+        params: Mapping[str, object],
+        expect: herdr_protocol.ReplyExpectation,
+    ) -> herdr_transport.RpcOutcome:
         """One bounded mutation against the generation `target` names, or why not.
 
         The expected peer is derived from the TARGET on every call rather than
         remembered from an earlier identification, so a coordinate whose server
         generation has been replaced writes NOTHING rather than reaching
-        whichever server now answers on that path.
+        whichever server now answers on that path. In a multi-step layout
+        change that revalidation happens again before EVERY step, so a server
+        replaced midway cannot receive the remainder of the sequence.
         """
-        outcome = herdr_transport.HerdrTransport(
+        return herdr_transport.HerdrTransport(
             socket_path=target.socket_path,
             expected_peer=herdr_transport.PeerIdentity(
                 pid=target.server_pid,
@@ -128,14 +245,4 @@ class HerdrWriter:
             max_reply_bytes=self.max_reply_bytes,
             starttime_of=self.starttime_of,
             monotonic=self.monotonic,
-        ).request(
-            request_id=next(self.request_ids),
-            method=herdr_write_calls.PASTE_METHOD,
-            params=params,
-            expect=herdr_write_calls.EXPECT_OK,
-        )
-        return WriteOutcome(
-            ok=outcome.ok,
-            error=outcome.error,
-            effect_unknown=outcome.effect_unknown,
-        )
+        ).request(request_id=next(self.request_ids), method=method, params=params, expect=expect)
