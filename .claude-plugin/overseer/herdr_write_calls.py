@@ -35,14 +35,26 @@ statement that no key accompanies this text.
 from __future__ import annotations
 
 import herdr_protocol
+import jsonio
 
 __all__: list[str] = [
     "ENTER_KEY",
     "EXPECT_OK",
+    "EXPECT_PANE_INFO",
+    "EXPECT_PANE_SWAP",
     "PASTE_METHOD",
     "RESULT_TYPE_OK",
+    "RESULT_TYPE_PANE_INFO",
+    "RESULT_TYPE_PANE_SWAP",
+    "SPLIT_DIRECTION_DOWN",
+    "SPLIT_METHOD",
+    "SWAP_METHOD",
     "enter_params",
+    "launch_params",
+    "new_pane_id",
     "paste_params",
+    "split_down_params",
+    "swap_params",
 ]
 
 # MEASURED: the one method that brackets a paste. `pane.send_text` is NOT an
@@ -53,9 +65,23 @@ PASTE_METHOD = herdr_protocol.METHOD_PANE_SEND_INPUT
 ENTER_KEY = "Enter"
 RESULT_TYPE_OK = "ok"
 
+# MEASURED: the two layout mutations, their one usable direction, and the
+# discriminators their replies carry.
+SPLIT_METHOD = "pane.split"
+SWAP_METHOD = "pane.swap"
+SPLIT_DIRECTION_DOWN = "down"
+RESULT_TYPE_PANE_INFO = "pane_info"
+RESULT_TYPE_PANE_SWAP = "pane_swap"
+
 # A write answers `{"type": "ok"}` and carries no payload members, so there is
 # nothing to require beyond the discriminator itself.
 EXPECT_OK = herdr_protocol.ReplyExpectation(result_type=RESULT_TYPE_OK)
+EXPECT_PANE_INFO = herdr_protocol.ReplyExpectation(
+    result_type=RESULT_TYPE_PANE_INFO, required_fields=("pane",)
+)
+EXPECT_PANE_SWAP = herdr_protocol.ReplyExpectation(
+    result_type=RESULT_TYPE_PANE_SWAP, required_fields=("swap",)
+)
 
 
 def paste_params(*, pane_id: str, text: str) -> dict[str, object]:
@@ -66,3 +92,64 @@ def paste_params(*, pane_id: str, text: str) -> dict[str, object]:
 def enter_params(*, pane_id: str) -> dict[str, object]:
     """Submit whatever `pane_id` currently holds, delivering no new text."""
     return {"pane_id": pane_id, "text": "", "keys": [ENTER_KEY]}
+
+
+def launch_params(*, pane_id: str, command: str) -> dict[str, object]:
+    """Run `command` in `pane_id`'s own shell, as one atomic text-plus-submit.
+
+    The ATOMIC form is correct here and wrong for a paste, which is why the two
+    are separate functions rather than one with a flag. Launching a known shell
+    command has no observe step to preserve — there is nothing to inspect
+    between delivery and execution — whereas a payload pasted into a supervised
+    agent must be seen before it runs. Measured: this leaves the pane's own
+    shell RUNNING with the command as its foreground process, where an `exec`
+    launch would discard that shell and a pane whose process exits is closed.
+    """
+    return {"pane_id": pane_id, "text": command, "keys": [ENTER_KEY]}
+
+
+def split_down_params(*, pane_id: str, cwd: str, ratio: float) -> dict[str, object]:
+    """Split `pane_id` DOWNWARD, giving the original `ratio` of the column.
+
+    Down is not a preference: herdr supports only `right` and `down` (measured),
+    so placing a pane ABOVE another is necessarily this split followed by
+    :func:`swap_params`. `ratio` is the ORIGINAL pane's share, so after that
+    swap the NEW pane holds it — which is what lets a caller ask for a
+    percentage and get it at any terminal size.
+
+    `focus` is false because the supervised pane must keep it; the swap below
+    preserves whatever focus this call leaves in place.
+    """
+    return {
+        "pane_id": pane_id,
+        "direction": SPLIT_DIRECTION_DOWN,
+        "ratio": ratio,
+        "cwd": cwd,
+        "focus": False,
+    }
+
+
+def swap_params(*, source_pane_id: str, target_pane_id: str) -> dict[str, object]:
+    """Exchange two panes' POSITIONS, keeping both identities and both shells.
+
+    Measured: pane ids, shell pids and the focused pane are all unchanged by
+    this; only the rectangles trade places.
+    """
+    return {"source_pane_id": source_pane_id, "target_pane_id": target_pane_id}
+
+
+def new_pane_id(*, result: dict[str, object]) -> str | None:
+    """The pane id a split reports creating, or `None` when it is unreadable.
+
+    Fail-closed in the same sense as every reader in :mod:`herdr_calls`: a split
+    whose new pane cannot be named has not given the caller anything to act on,
+    and an empty string is not a usable pane id. Returning `None` keeps the
+    caller from addressing a later swap or launch at nothing.
+    """
+    pane = jsonio.as_object(value=result.get("pane"))
+    if pane is None:
+        return None
+    identifier = pane.get("pane_id")
+    if not isinstance(identifier, str) or not identifier:
+        return None
+    return identifier
