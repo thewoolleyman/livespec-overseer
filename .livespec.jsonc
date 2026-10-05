@@ -274,6 +274,8 @@
     // that surface round-trips the file through json.dumps and silently strips
     // every comment here while reporting green — tracked as bd-ib-lmi5.
     "dispatcher": {
+      "fabro_sandbox_image": "ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-agent-v1.92.0",
+      "sandbox_capabilities": ["terminal", "headless_browser", "tmux", "herdr"],
       // Dispatch-time toolchain and conformance premises, in the shape the
       // Dispatcher's typed repository integration contract reads
       // (`dispatcher.prepare_toolchain.*`, `dispatcher.conformance.*`).
