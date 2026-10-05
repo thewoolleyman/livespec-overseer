@@ -108,6 +108,31 @@ class RpcOutcome:
     timed_out: bool
     request_sent: bool
 
+    @property
+    def effect_unknown(self) -> bool:
+        """Whether a MUTATION this outcome describes may have taken effect anyway.
+
+        The single place the write-boundary rule is decided, so no call site
+        recomputes it. `SPECIFICATION/contracts.md` lets a herdr failure "proven
+        to precede any termination attempt" be retried and forbids resubmitting
+        one after that boundary, so the question is whether the request reached
+        the server and went unanswered — `request_sent and not ok` — and nothing
+        else.
+
+        **It is deliberately NOT `timed_out`.** A timeout is one way a committed
+        request goes unanswered; a truncated reply, a reply past the size bound,
+        an unparseable reply, a reply carrying another request's id, an error
+        envelope and a reply missing a required field are the others, and every
+        one of them follows a `sendall` that already handed the server the
+        mutation. Deriving replayability from `timed_out` would mark five of
+        those six safe to repeat.
+
+        It is derived rather than stored for the same reason: a stored flag can
+        be set wrong at one of the eight construction sites, and this invariant
+        is not the kind that should depend on remembering.
+        """
+        return self.request_sent and not self.ok
+
 
 def _refused(
     *,
