@@ -49,6 +49,10 @@ _SECOND_OPERATION_ID = "0a9b7c62-5d14-4e38-91f6-2b8d4a0c7e53"
 _KEY = "3" * 64
 _SECOND_KEY = "4" * 64
 _ACCEPTED_AT = "2026-10-05T14:00:00Z"
+# The caller's first-adapter-attempt sample. Every no-op here settles the audited pair WITHOUT
+# appending, so no line is dated from it; it is supplied because the sample is a required input
+# of the composition rather than because this file's subject depends on its value.
+_ATTEMPT_AT = "2026-10-05T14:00:07Z"
 _RUN_ID = "run-no-op-one"
 _RECORD_ID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301"
 _GENERATION = "7c9e6679-7425-40de-944b-e07fc1f90ae7"
@@ -277,7 +281,9 @@ def _driven(*, state_dir: pathlib.Path, store, operation):
             state_dir=state_dir, owner_uid=os.getuid(), store=store
         ),
         operation=operation,
-        inputs=context_module.EffectInputs(),
+        inputs=context_module.EffectInputs(
+            audit=context_module.AuditInputs(attempt_now=_ATTEMPT_AT)
+        ),
     )
 
 
