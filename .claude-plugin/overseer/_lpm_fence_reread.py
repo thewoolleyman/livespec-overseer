@@ -37,7 +37,7 @@ from typing import Final, cast
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 from _lpm_canonical import canonical_json_text
 from _lpm_fence import MetadataFence
-from _lpm_fence_recovery import FenceDecision, reconcile_conditional_set
+from _lpm_fence_recovery import DESIRED_REVISION, FenceDecision, reconcile_conditional_set
 from _lpm_results import ManagerError, internal_bug
 from _lpm_store import ConditionalSet, SecretStore
 
@@ -52,7 +52,6 @@ __all__: list[str] = [
     "conditional_set_request",
 ]
 
-_DESIRED: Final = "desired"
 _EXPECTED: Final = "expected"
 _ABSENT: Final = "absent"
 _DIFFERENT: Final = "different"
@@ -131,7 +130,7 @@ def _classified(*, fence: MetadataFence, envelope: dict[str, object]) -> str:
     if isinstance(desired, Failure):
         return _UNREADABLE
     if envelope.get("item_id") == fence.item_title and envelope.get("record") == desired.unwrap():
-        return _DESIRED
+        return DESIRED_REVISION
     expected = _expected_text(fence=fence)
     if isinstance(expected, Failure):
         return _UNREADABLE
