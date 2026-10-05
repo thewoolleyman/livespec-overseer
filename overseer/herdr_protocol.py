@@ -44,6 +44,7 @@ in one place instead of being scattered across call sites.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
@@ -51,6 +52,7 @@ import jsonio
 
 __all__: list[str] = [
     "MAX_REPLY_BYTES",
+    "MAX_REPLY_NESTING",
     "METHOD_PANE_LAYOUT",
     "METHOD_PANE_LIST",
     "METHOD_PANE_PROCESS_INFO",
@@ -85,6 +87,23 @@ RESULT_TYPE_PANE_PROCESS_INFO = "pane_process_info"
 # budget: exceeding it means the peer is not speaking this protocol, which is the
 # fail-closed case rather than a slow success.
 MAX_REPLY_BYTES = 1 << 20
+
+# Ceiling on ONE reply's NESTING, which is an entirely separate bound from its
+# SIZE and has to be, because the two are unrelated: a thousand opening brackets
+# is about two kilobytes, a two-hundredth of the size bound, and `json.loads`
+# answers it with `RecursionError` — which is not a `ValueError` and so escaped
+# the refusal below. The deepest MEASURED reply nests about six levels
+# (`pane.layout`: envelope, result, layout, panes, a pane, its rect), and the
+# whole-snapshot method a few more, so this is an order of magnitude above any
+# legitimate answer and two orders below CPython's recursion limit. Exceeding it
+# means the peer is not speaking this protocol.
+MAX_REPLY_NESTING = 64
+
+# The JSON string grammar: a quote, then any run of non-quote/non-backslash
+# characters and backslash escapes, then the closing quote. `_nests_deeper_than`
+# blanks every match so a bracket inside a captured pane's text is never counted
+# as structure.
+_JSON_STRING_RE = re.compile(r'"(?:[^"\\]|\\.)*"', re.DOTALL)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -127,6 +146,86 @@ def _refused(*, error: str) -> ReplyReading:
     return ReplyReading(ok=False, result={}, error=error)
 
 
+def _nests_deeper_than(*, text: str, limit: int) -> bool:
+    """Whether `text`'s structural nesting passes `limit`, without parsing it.
+
+    This has to run BEFORE `json.loads`, because the failure it bounds is
+    `json.loads` exhausting the stack — a guard placed after the parse never
+    executes.
+
+    A bracket inside a string LITERAL is not structure, and a pane capture is
+    full of both brackets and backslashes (`\\u001b[2m` and friends), so the
+    strings are blanked first and only what remains is counted. Blanking them
+    with the one regex rather than hand-rolling a quote/escape state machine is
+    deliberate: `"(?:[^"\\\\]|\\\\.)*"` IS the JSON string grammar, it runs in C
+    over the whole reply, and a hand-rolled scanner's escape branches are
+    precisely where such a scanner gets it wrong. Text the regex cannot pair up
+    is not well-formed JSON and the parse immediately after refuses it.
+    """
+    depth = 0
+    for char in _JSON_STRING_RE.sub('""', text):
+        if char in "{[":
+            depth += 1
+            if depth > limit:
+                return True
+        elif char in "}]":
+            depth -= 1
+    return False
+
+
+@dataclass(frozen=True, kw_only=True)
+class _MemberNameAudit:
+    """A `json.loads` object hook that RECORDS every repeated member name it sees.
+
+    `SPECIFICATION/scenarios.md` section "Duplicate JSON member names are never
+    silently collapsed" forbids choosing either duplicate value, and a plain
+    `dict` resolves last-wins before any caller can see that a choice was made.
+    This records rather than raises, so the refusal stays a returned value on the
+    same rail as every other one here, and it sees EVERY object in the reply —
+    including ones nested inside `result`, where a required field's own members
+    could otherwise be doubled unnoticed.
+
+    It is a callable OBJECT rather than a function because `json.loads` invokes
+    the hook POSITIONALLY. `__call__` is one of the Python-mandated positional
+    signatures this repo's keyword-only rule exempts, so an externally fixed
+    calling convention is met without weakening the rule or suppressing it.
+    """
+
+    repeats: list[str] = field(default_factory=list)
+
+    def __call__(self, pairs: list[tuple[str, object]]) -> dict[str, object]:
+        seen: set[str] = set()
+        for name, _value in pairs:
+            if name in seen:
+                self.repeats.append(name)
+            seen.add(name)
+        return dict(pairs)
+
+
+def _parsed_object(*, text: str) -> tuple[dict[str, object] | None, str]:
+    """`text` as a JSON object under this module's bounds, or why it is unusable.
+
+    Deliberately NOT `jsonio.parse_object`: that folder is the repo's shared
+    narrowing boundary and its contract is "malformed or not", which is right for
+    the operator's own files. A reply arrives from outside the daemon, so it
+    additionally owes a nesting bound and a duplicate-member refusal that the
+    shared folder has no business imposing on a hand-edited local store.
+    """
+    if _nests_deeper_than(text=text, limit=MAX_REPLY_NESTING):
+        return None, f"herdr reply nests deeper than the bounded {MAX_REPLY_NESTING} levels"
+    audit = _MemberNameAudit()
+    try:
+        parsed: object = json.loads(text, object_pairs_hook=audit)
+    except ValueError:
+        return None, "herdr reply is not well-formed JSON"
+    if audit.repeats:
+        return None, f"herdr reply repeats member name(s) {sorted(set(audit.repeats))}"
+    envelope = jsonio.as_object(value=parsed)
+    if envelope is None:
+        return None, "herdr reply is not a JSON object"
+    return envelope, ""
+
+
 def _envelope_of(*, raw: bytes, request_id: str) -> tuple[dict[str, object] | None, str]:
     """The reply's TRANSPORT envelope, or why it cannot be read as one.
 
@@ -139,12 +238,9 @@ def _envelope_of(*, raw: bytes, request_id: str) -> tuple[dict[str, object] | No
         text = raw.decode("utf-8")
     except UnicodeDecodeError:
         return None, "herdr reply is not valid UTF-8"
-    parsed = jsonio.parse_object(text=text)
-    if jsonio.is_parse_failure(result=parsed):
-        return None, "herdr reply is not well-formed JSON"
-    envelope = parsed.unwrap()
+    envelope, parse_error = _parsed_object(text=text)
     if envelope is None:
-        return None, "herdr reply is not a JSON object"
+        return None, parse_error
     if "error" in envelope:
         return None, f"herdr returned an error envelope: {envelope['error']!r}"
     if envelope.get("id") != request_id:

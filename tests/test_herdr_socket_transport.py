@@ -382,7 +382,11 @@ def test_a_deadline_that_expires_before_the_reply_read_stops_there(*, socket_dir
             transport_module=transport_module,
             address=address,
             timeout_seconds=0.5,
-            monotonic=_fake_clock(readings=[0.0, 0.0, 100.0]),
+            # Reading three is the pre-WRITE guard (the sibling
+            # `test_herdr_bounded_refusal_escapes` suite pins that boundary);
+            # reading four is the first read-loop observation, which is the
+            # boundary this test is about.
+            monotonic=_fake_clock(readings=[0.0, 0.0, 0.0, 100.0]),
         ),
         protocol=protocol,
     )
