@@ -49,6 +49,7 @@ __all__: list[str] = [
     "ADAPTER_OUTCOMES",
     "ADVANCE",
     "CONDITION_FAILED",
+    "DESIRED_REVISION",
     "FENCE_DISPOSITIONS",
     "REREAD_OUTCOMES",
     "UNAVAILABLE",
@@ -69,12 +70,12 @@ _ADAPTER_UNCOMMITTED: Final = "uncommitted"
 _UNKNOWN: Final = "unknown"
 ADAPTER_OUTCOMES: Final = (_COMMITTED, _ADAPTER_CONDITION_FAILED, _ADAPTER_UNCOMMITTED, _UNKNOWN)
 
-_DESIRED: Final = "desired"
+DESIRED_REVISION: Final = "desired"
 _EXPECTED: Final = "expected"
 _ABSENT: Final = "absent"
 _DIFFERENT: Final = "different"
 _UNREADABLE: Final = "unreadable"
-REREAD_OUTCOMES: Final = (_DESIRED, _EXPECTED, _ABSENT, _DIFFERENT, _UNREADABLE)
+REREAD_OUTCOMES: Final = (DESIRED_REVISION, _EXPECTED, _ABSENT, _DIFFERENT, _UNREADABLE)
 
 ADVANCE: Final = "advance"
 CONDITION_FAILED: Final = "condition-failed"
@@ -123,7 +124,7 @@ def reconcile_conditional_set(
 
 
 def _decided(*, adapter_outcome: str, created_from_absence: bool, reread: str) -> FenceDecision:
-    if reread == _DESIRED:
+    if reread == DESIRED_REVISION:
         return FenceDecision(disposition=ADVANCE, retain_fence=False)
     if adapter_outcome in (_COMMITTED, _UNKNOWN) or reread == _UNREADABLE:
         return FenceDecision(disposition=UNAVAILABLE, retain_fence=True)

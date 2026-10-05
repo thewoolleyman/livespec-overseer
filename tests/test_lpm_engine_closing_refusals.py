@@ -625,6 +625,21 @@ def test_a_conditional_set_whose_transition_cannot_be_decided_refuses(
     assert "no live assignment or tombstone stands" in failure.message
 
 
+def test_a_conditional_set_whose_operation_carries_no_record_identity_is_an_internal_bug(
+    tmp_path: pathlib.Path,
+) -> None:
+    failure = _refused(
+        _driven(
+            state_dir=_state(tmp_path=tmp_path),
+            effects=("credential-conditional-set",),
+            normalized_input={"consumer_run_id": _RUN_ID},
+        )
+    )
+
+    assert failure.error_type == "internal-bug"
+    assert "carries no record_id" in failure.message
+
+
 def test_a_conditional_set_in_a_phase_that_audits_nothing_is_an_internal_bug(
     tmp_path: pathlib.Path,
 ) -> None:

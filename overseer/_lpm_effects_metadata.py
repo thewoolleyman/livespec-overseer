@@ -20,6 +20,15 @@ outcome is unknown, removed only when this invocation's absence-create earned a 
 result. A disposition that advanced on an acknowledgement rather than on a reread would make a
 lost transport look like a committed transition, which is the failure the fence exists for.
 
+THE COMPLETED NO-OP RECONCILES A STANDING FENCE RATHER THAN IGNORING IT, and that is not an
+optimization. A fence this position left behind after a lost answer may be guarding a revision
+that DID commit — and once it is authoritative the record is already `suspect`, which is exactly
+the terminal-lifecycle condition that makes the report's own transition a no-op. So the two paths
+meet on the same state, and a no-op that settled blindly would strand the fence forever while the
+contract forbids any later conditional set for that record from creating another revision. The
+reconciliation here makes NO adapter call: an exact desired revision "proves the logical effect
+committed and MUST advance it without another adapter call", so the reread alone decides.
+
 NEITHER THE FENCE BUILD NOR THE FENCED APPLY CAN REFUSE FROM HERE, and both are unwrapped with
 that stated rather than guarded. `fence_for_effect` refuses an unencodable or relation-invalid
 fence, and both records it is handed came out of `credential_record_from_object` and the actor
@@ -34,11 +43,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
-from _lpm_engine_context import EffectContext
+from _lpm_engine_context import EffectContext, input_text
 from _lpm_fence import fence_for_effect
-from _lpm_fence_recovery import ADVANCE, FenceDecision
-from _lpm_fence_reread import apply_fenced_set
-from _lpm_fence_store import claim_fence, fence_path, resolve_fence
+from _lpm_fence_recovery import ADVANCE, DESIRED_REVISION, FenceDecision, fence_owner_defect
+from _lpm_fence_reread import apply_fenced_set, authoritative_reread
+from _lpm_fence_store import claim_fence, fence_path, read_fence, resolve_fence
 from _lpm_operation_replay import PERFORMED, SATISFIED
 from _lpm_report_credential import ReportTransition, audited_actor, report_transition
 from _lpm_results import ManagerError, store_unavailable
@@ -54,12 +63,20 @@ __all__: list[str] = [
 
 def credential_conditional_set(*, context: EffectContext) -> Result[str, ManagerError]:
     """Append this report's one fenced lifecycle revision, or settle its completed no-op."""
+    record_id = input_text(operation=context.operation, member="record_id")
+    if isinstance(record_id, Failure):
+        return record_id
     transition = report_transition(context=context)
     if isinstance(transition, Failure):
         return Failure(transition.failure())
     planned = transition.unwrap()
     if planned is None:
-        return Success(SATISFIED)
+        return _settled(context=context, record_id=record_id.unwrap())
+    return _appended(context=context, planned=planned)
+
+
+def _appended(*, context: EffectContext, planned: ReportTransition) -> Result[str, ManagerError]:
+    """Issue this position's one authorized revision and report what the reread decided."""
     actor = audited_actor(context=context)
     if isinstance(actor, Failure):
         return actor
@@ -71,6 +88,39 @@ def credential_conditional_set(*, context: EffectContext) -> Result[str, Manager
         return Failure(
             store_unavailable(message=f"this record's fenced revision resolved to {disposition}")
         )
+    return Success(PERFORMED)
+
+
+def _settled(*, context: EffectContext, record_id: str) -> Result[str, ManagerError]:
+    """Settle a no-op position, reconciling a fence this very position left behind.
+
+    A fence standing here is NOT a contradiction: this position's own earlier attempt may have
+    committed the desired revision and lost the answer, and the report's lifecycle reasoning then
+    reaches its completed no-op precisely BECAUSE that revision is now authoritative. Settling
+    without looking would strand the fence over a record whose effect had committed — and while a
+    fence remains, no later conditional set for that record may create another revision at all.
+    """
+    path = _fence_file(context=context, record_id=record_id)
+    standing = read_fence(path=path, owner_uid=context.engine.owner_uid)
+    if isinstance(standing, Failure):
+        return Failure(standing.failure())
+    fence = standing.unwrap()
+    if fence is None:
+        return Success(SATISFIED)
+    defect = fence_owner_defect(
+        fence=fence, operation=context.operation, index=context.position.index
+    )
+    if defect is not None:
+        return Failure(store_unavailable(message=defect))
+    if authoritative_reread(store=context.engine.store, fence=fence) != DESIRED_REVISION:
+        return Failure(
+            store_unavailable(
+                message="this record's fence stands and its desired revision is not authoritative"
+            )
+        )
+    # `resolve_fence` cannot refuse here: its only refusal is an unsafe path, and `read_fence`
+    # validated THIS path's ownership, mode and regularity a few statements earlier.
+    _ = resolve_fence(path=path, owner_uid=context.engine.owner_uid).unwrap()
     return Success(PERFORMED)
 
 
