@@ -68,6 +68,16 @@ HERDR_SCHEME = "herdr:"
 FIELD_SEPARATOR = ":"
 
 _FIELD_COUNT = 4
+# A pid field is ASCII decimal and no longer than an unsigned 64-bit integer's
+# decimal spelling. Both halves are load-bearing and neither is cosmetic:
+# `str.isdigit` is TRUE for non-ASCII decimal numerals, so an Arabic-Indic
+# `١٢٣` was accepted and resolved to pid 123 — a second durable coordinate
+# aliasing one generation, which is the exact hazard qualification removes; and
+# `str.isdigit` is also true for digit-ish characters like `²` that `int()`
+# rejects outright. The length bound covers CPython's own integer-string
+# conversion limit (4300 digits), past which `int()` raises as well. A refusal
+# must be returned, never raised.
+_MAX_PID_DIGITS = 20
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -118,6 +128,17 @@ def _decode_field(*, value: str) -> str | None:
         return None
 
 
+def _is_plain_pid_field(*, value: str) -> bool:
+    """Whether `value` is exactly the decimal spelling of a non-negative pid.
+
+    `isascii` and the length bound are what keep `int()` total over everything
+    that reaches it — see `_MAX_PID_DIGITS`. `isdigit` additionally rejects a
+    sign, so a negative pid never reaches `int()` either; a pid is a process id
+    and there are no negative ones.
+    """
+    return value.isascii() and value.isdigit() and len(value) <= _MAX_PID_DIGITS
+
+
 def herdr_instance_key(*, target: HerdrPaneTarget) -> str:
     """The exact-INSTANCE key: socket path plus server generation, pane EXCLUDED.
 
@@ -157,9 +178,7 @@ def _decode_qualified(*, body: str) -> TargetDecoding:
             error=f"qualified herdr target needs {_FIELD_COUNT} fields, found {len(fields)}"
         )
     socket_field, pid_field, starttime_field, pane_field = fields
-    # `isdigit` rejects a sign as well as a non-number, so a negative pid never
-    # reaches `int()`. A pid is a process id; there are no negative ones.
-    if not pid_field.isdigit():
+    if not _is_plain_pid_field(value=pid_field):
         return _refusal(error=f"server pid is not a non-negative integer: {pid_field!r}")
     texts: list[str] = []
     for name, raw in (

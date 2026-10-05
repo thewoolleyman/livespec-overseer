@@ -223,6 +223,17 @@ class HerdrTransport:
         refusal = _peer_refusal(observed=peer, expected=self.expected_peer)
         if refusal:
             return _refused(error=refusal, peer=peer)
+        # THE WINDOW BETWEEN THE TWO OTHER DEADLINE GUARDS. Identification is not
+        # free — it connects, reads `SO_PEERCRED` and reads `/proc` — so the
+        # deadline can expire inside it, and guarding only before the connect and
+        # inside the read loop left the write itself unguarded. A request
+        # committed here is the one failure worse than a timeout: the caller is
+        # told `request_sent=False` about a request the server has, and may act
+        # on, so a mutation that DID happen is reported as provably not having
+        # happened. The peer rides along on the refusal because it WAS
+        # identified; only the write is abandoned.
+        if self._remaining(deadline=deadline) <= 0.0:
+            return _refused(error=_DEADLINE_ERROR, peer=peer, timed_out=True)
         raw, read_error, timed_out = self._send_and_read(
             sock=sock, payload=payload, deadline=deadline
         )
