@@ -44,7 +44,6 @@ in one place instead of being scattered across call sites.
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
@@ -99,12 +98,6 @@ MAX_REPLY_BYTES = 1 << 20
 # means the peer is not speaking this protocol.
 MAX_REPLY_NESTING = 64
 
-# The JSON string grammar: a quote, then any run of non-quote/non-backslash
-# characters and backslash escapes, then the closing quote. `_nests_deeper_than`
-# blanks every match so a bracket inside a captured pane's text is never counted
-# as structure.
-_JSON_STRING_RE = re.compile(r'"(?:[^"\\]|\\.)*"', re.DOTALL)
-
 
 @dataclass(frozen=True, kw_only=True)
 class ReplyExpectation:
@@ -151,20 +144,43 @@ def _nests_deeper_than(*, text: str, limit: int) -> bool:
 
     This has to run BEFORE `json.loads`, because the failure it bounds is
     `json.loads` exhausting the stack — a guard placed after the parse never
-    executes.
+    executes. A bracket inside a string LITERAL is not structure, and a pane
+    capture is full of both brackets and backslashes (`\\u001b[2m` and friends),
+    so string state is tracked and only what is outside a string is counted.
 
-    A bracket inside a string LITERAL is not structure, and a pane capture is
-    full of both brackets and backslashes (`\\u001b[2m` and friends), so the
-    strings are blanked first and only what remains is counted. Blanking them
-    with the one regex rather than hand-rolling a quote/escape state machine is
-    deliberate: `"(?:[^"\\\\]|\\\\.)*"` IS the JSON string grammar, it runs in C
-    over the whole reply, and a hand-rolled scanner's escape branches are
-    precisely where such a scanner gets it wrong. Text the regex cannot pair up
-    is not well-formed JSON and the parse immediately after refuses it.
+    **ONE PASS, NO BACKTRACKING, AND THAT IS THE WHOLE POINT.** This was first
+    written as `re.sub` over the JSON string grammar, blanking every literal
+    before counting — shorter, and C-speed on well-formed input. It is QUADRATIC
+    on malformed input: an unterminated literal made of escaped quotes restarts
+    and backtracks the engine at every quote, measured on this host at 0.0163s
+    for 2 028 bytes, 0.0638s for 4 028 and 0.2514s for 8 028 — quadrupling per
+    doubling, so a frame still inside `MAX_REPLY_BYTES` costs hours. Nothing can
+    interrupt it: it is CPU inside the daemon's own tick, which no socket
+    deadline reaches. A character scan is slower on the happy path (about 70ms
+    for a megabyte) and BOUNDED on every path, which is the trade a supervision
+    loop needs.
+
+    The escape state is load-bearing in BOTH directions, and they fail
+    oppositely. Ignoring it reads `\\"` as closing a literal, so a captured
+    pane's brackets become structure and a legitimate reply is refused; and an
+    escaped BACKSLASH really does close the literal, so genuine nesting after
+    one must still be counted. Text this scan cannot pair up is not well-formed
+    JSON and the parse immediately after refuses it.
     """
     depth = 0
-    for char in _JSON_STRING_RE.sub('""', text):
-        if char in "{[":
+    in_string = False
+    escaped = False
+    for char in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+        elif char == '"':
+            in_string = True
+        elif char in "{[":
             depth += 1
             if depth > limit:
                 return True

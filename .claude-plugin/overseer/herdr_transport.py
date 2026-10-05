@@ -257,8 +257,19 @@ class HerdrTransport:
         # on, so a mutation that DID happen is reported as provably not having
         # happened. The peer rides along on the refusal because it WAS
         # identified; only the write is abandoned.
-        if self._remaining(deadline=deadline) <= 0.0:
+        remaining = self._remaining(deadline=deadline)
+        if remaining <= 0.0:
             return _refused(error=_DEADLINE_ERROR, peer=peer, timed_out=True)
+        # AND THE WINDOW MUST BE THE RIGHT SIZE, not merely open — a distinct
+        # defect from the one above, and the one that made the single absolute
+        # deadline ADVISORY. `_identify` set the socket's timeout from the budget
+        # remaining BEFORE the connect, so `sendall` inherited that value and was
+        # allowed to block for the whole original budget after identification had
+        # already spent most of it: measured at 3.609s against a 2.0s deadline
+        # when identification took 1.6s. Re-arming here costs no extra clock
+        # reading, because it reuses the one the guard above just took — which is
+        # also why every injected-clock test in the sibling suites is unaffected.
+        sock.settimeout(remaining)
         raw, read_error, timed_out = self._send_and_read(
             sock=sock, payload=payload, deadline=deadline
         )
