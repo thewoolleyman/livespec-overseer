@@ -18,11 +18,18 @@ and the reason is what the log MEANS: entries attest adapter calls that were act
 An append in front of a transition nobody will attempt would assert an attempt that never
 happened, and the log cannot be corrected afterwards.
 
-`attempted_at` IS THE OPERATION'S RETAINED `accepted_at`, NEVER A FRESH READING. It is
-informational and excluded from the append's own replay match, which is exactly why a drifting
-value is harmless to idempotence and a drifting value is still wrong: two replays of one
-attempt would date the same attempt differently, and nothing downstream could say which
-reading described the attempt.
+`attempted_at` IS THE CALLER'S FIRST-ATTEMPT CLOCK SAMPLE, NEVER THE OPERATION'S `accepted_at`.
+The contract fixes it as "manager time captured for the first adapter attempt represented by
+that audit line", and acceptance is a different instant: every retry reuses `accepted_at`, so a
+phase that crashed before this append and resumed later makes its first attempt at the RESUMING
+clock. Dating the line at acceptance would assert an adapter call at an instant when none could
+have occurred — and the log is append-only, so no later writer can ever correct it.
+
+THE SAMPLE CANNOT DRIFT, WHICH IS WHY TAKING IT FROM THE CALLER IS SAFE. A replay hands in a
+newer reading, but the append's idempotency match excludes `attempted_at` exactly so that a
+retry which cannot reproduce the original instant still recognizes its own line — so this
+executor finds the line its first attempt wrote and leaves that stored time untouched. Only the
+pass that actually appends spends its sample.
 """
 
 from __future__ import annotations
@@ -31,7 +38,7 @@ from typing import Final
 
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 from _lpm_audit import AuditEntry, append_audit_entry
-from _lpm_engine_context import EffectContext
+from _lpm_engine_context import EffectContext, required_input
 from _lpm_operation_replay import PERFORMED, SATISFIED
 from _lpm_paths import AUDIT_LOG_NAME
 from _lpm_report_credential import audited_actor, report_transition
@@ -51,32 +58,56 @@ AUDITED_EFFECTS: Final = ("secret-value-set", "credential-conditional-set")
 
 def audit_append(*, context: EffectContext) -> Result[str, ManagerError]:
     """Append this position's attempt evidence, or settle an already-recorded effect."""
-    attested = _attested_effect(context=context)
-    if isinstance(attested, Failure):
-        return attested
-    actor = audited_actor(context=context)
-    if isinstance(actor, Failure):
-        return actor
-    transition = report_transition(context=context)
-    if isinstance(transition, Failure):
-        return Failure(transition.failure())
-    planned = transition.unwrap()
-    if planned is None:
+    planned = _planned_entry(context=context)
+    if isinstance(planned, Failure):
+        return Failure(planned.failure())
+    entry = planned.unwrap()
+    if entry is None:
         return Success(SATISFIED)
     appended = append_audit_entry(
         path=context.engine.state_dir / AUDIT_LOG_NAME,
-        entry=AuditEntry(
-            record_id=planned.record_id,
-            effect_id=context.position.effect_id,
-            actor=actor.unwrap(),
-            operation=attested.unwrap(),
-            attempted_at=context.operation.accepted_at,
-        ),
+        entry=entry,
         owner_uid=context.engine.owner_uid,
     )
     if isinstance(appended, Failure):
         return Failure(appended.failure())
     return Success(PERFORMED if appended.unwrap().appended else SATISFIED)
+
+
+def _planned_entry(*, context: EffectContext) -> Result[AuditEntry | None, ManagerError]:
+    """The complete line this position owes, or None for the paired effect's completed no-op.
+
+    Deciding the line is separated from writing it because the decision has FIVE ways to refuse
+    while the write has one; keeping them in one function made the two sets of exits read as a
+    single flat cascade, and the ordering below is load-bearing rather than incidental.
+    """
+    attested = _attested_effect(context=context)
+    if isinstance(attested, Failure):
+        return Failure(attested.failure())
+    # Required before the authoritative reads, so a composition that omitted the sample refuses
+    # the same way whatever the credential's current state is. A check placed after the no-op
+    # decision would report the defect only on the passes that actually append.
+    sample = required_input(value=context.inputs.audit, member="audit inputs")
+    if isinstance(sample, Failure):
+        return Failure(sample.failure())
+    actor = audited_actor(context=context)
+    if isinstance(actor, Failure):
+        return Failure(actor.failure())
+    transition = report_transition(context=context)
+    if isinstance(transition, Failure):
+        return Failure(transition.failure())
+    planned = transition.unwrap()
+    if planned is None:
+        return Success(None)
+    return Success(
+        AuditEntry(
+            record_id=planned.record_id,
+            effect_id=context.position.effect_id,
+            actor=actor.unwrap(),
+            operation=attested.unwrap(),
+            attempted_at=sample.unwrap().attempt_now,
+        )
+    )
 
 
 def _attested_effect(*, context: EffectContext) -> Result[str, ManagerError]:

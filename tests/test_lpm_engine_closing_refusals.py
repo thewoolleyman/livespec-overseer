@@ -42,6 +42,9 @@ __all__: list[str] = []
 _OPERATION_ID = "4c8b6e21-9f3a-4d77-b1e5-8a0c2d4f6b93"
 _KEY = "c" * 64
 _ACCEPTED_AT = "2026-10-04T14:00:00Z"
+# The caller's first-adapter-attempt sample, later than acceptance because the two are different
+# instants. `_driven(audit=False)` omits it to drive the composition refusal below.
+_ATTEMPT_AT = "2026-10-04T14:00:11Z"
 _RUN_ID = "run-closing-refusal"
 _RECORD_ID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301"
 _GENERATION = "7c9e6679-7425-40de-944b-e07fc1f90ae7"
@@ -361,7 +364,9 @@ def _driven(
             normalized_input=normalized_input,
             completed_step=completed_step,
         ),
-        inputs=context_module.EffectInputs(),
+        inputs=context_module.EffectInputs(
+            audit=context_module.AuditInputs(attempt_now=_ATTEMPT_AT)
+        ),
     )
 
 
@@ -556,6 +561,35 @@ def test_an_audit_append_in_a_phase_that_audits_nothing_is_an_internal_bug(
 
     assert failure.error_type == "internal-bug"
     assert "complete apply audits no credential effect" in failure.message
+
+
+def test_an_audit_append_composed_without_its_attempt_sample_is_an_internal_bug(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A phase that reached `audit-append` with no clock sample refuses instead of inventing one.
+
+    The alternative is what this repair removed: falling back to the operation's `accepted_at`,
+    which is always present and always the wrong instant. Refusing is also STATE-INDEPENDENT here
+    — the array is otherwise well-formed and the store readable, so the only thing wrong is the
+    composition, and that is what gets reported.
+    """
+    context_module = _module("_lpm_engine_context")
+
+    failure = _refused(
+        _module("_lpm_engine").drive_phase(
+            engine=context_module.OperationEngine(
+                state_dir=_state(tmp_path=tmp_path), owner_uid=os.getuid(), store=_store()
+            ),
+            operation=_operation(effects=("audit-append", "credential-conditional-set")),
+            # Composed WITHOUT the audit family, which is the one way a caller reaches
+            # `audit-append` holding nothing to date its line from. `_driven` always supplies
+            # it, so this drive is spelled out rather than routed through a flag there.
+            inputs=context_module.EffectInputs(),
+        )
+    )
+
+    assert failure.error_type == "internal-bug"
+    assert "this effect needs its operation's audit inputs" in failure.message
 
 
 def test_an_audit_append_whose_transition_cannot_be_decided_refuses(

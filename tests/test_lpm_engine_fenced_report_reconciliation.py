@@ -57,6 +57,10 @@ _SECOND_OPERATION_ID = "e3b70d29-6c85-4f17-a042-9b5c1e8d7306"
 _KEY = "6" * 64
 _SECOND_KEY = "7" * 64
 _ACCEPTED_AT = "2026-10-05T14:00:00Z"
+# The caller's first-adapter-attempt sample, supplied because the audited pair's composition
+# requires it. Reconciliation turns on the FENCE rather than on this value, and a retry through
+# this file's helpers deliberately reuses one sample so the audit log stays a constant.
+_ATTEMPT_AT = "2026-10-05T14:00:04Z"
 _RUN_ID = "run-fenced-one"
 _RECORD_ID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301"
 _GENERATION = "7c9e6679-7425-40de-944b-e07fc1f90ae7"
@@ -250,7 +254,9 @@ def _driven(*, state_dir: pathlib.Path, store, operation):
             state_dir=state_dir, owner_uid=os.getuid(), store=store
         ),
         operation=operation,
-        inputs=context_module.EffectInputs(),
+        inputs=context_module.EffectInputs(
+            audit=context_module.AuditInputs(attempt_now=_ATTEMPT_AT)
+        ),
     )
 
 

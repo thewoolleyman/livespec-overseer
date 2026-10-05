@@ -23,11 +23,22 @@ refusal paths and lets an effect silently proceed on a half-built composition. O
 family per effect means one refusal, and the family is exactly the set of facts that phase's
 caller already has in hand.
 
-EVERY TIME AN EFFECT NEEDS COMES FROM THE RECORD, NEVER FROM A CLOCK. `accepted_at` is
+ALMOST EVERY TIME AN EFFECT NEEDS COMES FROM THE RECORD, NEVER FROM A CLOCK. `accepted_at` is
 retained byte-for-byte across every retry and phase replacement, and it fixes a tombstone's
-`closed_at`, a close's `normalized_close_time`, an issuance's `issued_at` and an audit
-line's `attempted_at`. Reading a fresh clock inside an executor would drift all four on
-every replay, which is precisely the timestamp drift an idempotent command must not have.
+`closed_at`, a close's `normalized_close_time` and an issuance's `issued_at`. Reading a fresh
+clock inside an executor would drift all three on every replay, which is precisely the
+timestamp drift an idempotent command must not have.
+
+AN AUDIT LINE'S `attempted_at` IS THE ONE EXCEPTION, AND IT IS NOT A RELAXATION OF THAT RULE.
+The contract fixes it as "manager time captured for the first adapter attempt represented by
+that audit line", which is a DIFFERENT instant from acceptance rather than another spelling of
+it: every retry reuses `accepted_at`, so a phase that resumes hours later attempts at the
+resuming clock while its acceptance stays pinned. Deriving it from `accepted_at` would date the
+line at an instant when no adapter call could have occurred. It still does not get read inside
+an executor — it arrives as an `AuditInputs` sample the caller took, for the reason `fence_now`
+states — and it cannot drift on replay, because the append-only log's idempotency match
+deliberately ignores it, so a later pass finds the existing line and preserves the time already
+stored there.
 """
 
 from __future__ import annotations
@@ -50,6 +61,7 @@ from overseer._vendor.returns.result import Failure, Result, Success
 _ = VENDOR_PATHS_INSTALLED
 
 __all__: list[str] = [
+    "AuditInputs",
     "CredentialInputs",
     "EffectContext",
     "EffectInputs",
@@ -130,12 +142,32 @@ class CredentialInputs:
 
 
 @dataclass(frozen=True, kw_only=True)
+class AuditInputs:
+    """The manager-time sample one audited effect dates its attempt evidence from.
+
+    `attempt_now` is the CALLER'S clock sample, taken immediately before the phase runs, which
+    the contract requires the line to record as "manager time captured for the first adapter
+    attempt represented by that audit line". It is an input rather than a reading taken inside
+    the executor for exactly the reason `ProvisionInputs.fence_now` gives: an executor that
+    sampled for itself would re-sample on every replay.
+
+    A resumed pass legitimately hands in a LATER sample, and that is correct rather than merely
+    tolerated. The append is idempotent on every member BUT this one, so a pass arriving after
+    the line exists matches it and keeps the instant the first attempt recorded; the sample is
+    consumed exactly once, by whichever pass actually appends.
+    """
+
+    attempt_now: str
+
+
+@dataclass(frozen=True, kw_only=True)
 class EffectInputs:
     """The per-family facts a phase hands its own effects; absent families are unused."""
 
     target: TargetInputs | None = None
     provision: ProvisionInputs | None = None
     credential: CredentialInputs | None = None
+    audit: AuditInputs | None = None
 
 
 @dataclass(frozen=True, kw_only=True)

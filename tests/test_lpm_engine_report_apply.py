@@ -43,6 +43,12 @@ __all__: list[str] = []
 _OPERATION_ID = "9d1a4f2c-6b7e-4a51-8c3d-2f0e5b7a9c14"
 _KEY = "a" * 64
 _ACCEPTED_AT = "2026-10-03T14:00:00Z"
+# The caller's first-adapter-attempt clock sample, which the audit line dates itself from. It is
+# DELIBERATELY later than `_ACCEPTED_AT`: the two are different instants, and a fixture that made
+# them equal could not tell a line dated at the attempt from one dated at the acceptance. The
+# delayed-attempt and replay-preservation properties themselves are driven by
+# `tests/test_lpm_audit_attempt_time.py`.
+_ATTEMPT_AT = "2026-10-03T14:00:09Z"
 _RUN_ID = "run-report-one"
 _RECORD_ID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301"
 _GENERATION = "7c9e6679-7425-40de-944b-e07fc1f90ae7"
@@ -287,11 +293,16 @@ def _effect_id(*, operation, index: int) -> str:
     return derived.unwrap()
 
 
+def _inputs():
+    context_module = _module("_lpm_engine_context")
+    return context_module.EffectInputs(audit=context_module.AuditInputs(attempt_now=_ATTEMPT_AT))
+
+
 def _driven(*, state_dir: pathlib.Path, store, operation):
     return _module("_lpm_engine").drive_operation(
         engine=_engine(state_dir=state_dir, store=store),
         operation=operation,
-        inputs=_module("_lpm_engine_context").EffectInputs(),
+        inputs=_inputs(),
         condition="every-effect-committed",
         context=_module("_lpm_operation_plan").PlanContext(
             against_tombstone=len(operation.ordered_effects) == len(_TOMBSTONE_APPLY)
@@ -331,7 +342,7 @@ def test_a_live_assignment_report_applies_every_ordered_effect_and_closes_the_ru
             effect_id=_effect_id(operation=operation, index=0),
             actor="report-writer",
             operation="credential-conditional-set",
-            attempted_at=_ACCEPTED_AT,
+            attempted_at=_ATTEMPT_AT,
         ),
     )
     assert _current_record(store=store) == _credential(status="suspect")
@@ -412,7 +423,7 @@ def test_a_tombstone_marker_lands_in_canonical_order_rather_than_at_the_end(
             ordered_effects=_TOMBSTONE_APPLY,
             completed_step=-1,
         ),
-        inputs=_module("_lpm_engine_context").EffectInputs(),
+        inputs=_inputs(),
     )
 
     assert isinstance(driven, Success), driven
@@ -431,7 +442,7 @@ def test_re_driving_the_whole_report_phase_duplicates_no_logical_report(
     first = _module("_lpm_engine").drive_phase(
         engine=_engine(state_dir=state_dir, store=store),
         operation=operation,
-        inputs=_module("_lpm_engine_context").EffectInputs(),
+        inputs=_inputs(),
     )
     assert isinstance(first, Success), first
     assert first.unwrap().performed == (0, 1, 3, 4, 5, 6, 7)
@@ -443,7 +454,7 @@ def test_re_driving_the_whole_report_phase_duplicates_no_logical_report(
     replay = _module("_lpm_engine").drive_phase(
         engine=_engine(state_dir=state_dir, store=store),
         operation=operation,
-        inputs=_module("_lpm_engine_context").EffectInputs(),
+        inputs=_inputs(),
     )
 
     assert isinstance(replay, Success), replay
