@@ -1,5 +1,25 @@
 # Changelog
 
+## [5.14.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.13.0...v5.14.0) (2026-10-05)
+
+
+### Features
+
+* **overseer:** bound and peer-validate the herdr socket transport ([8a213f6](https://github.com/thewoolleyman/livespec-overseer/commit/8a213f6ba1fcd31bc944be2361bbf14f349a0dde))
+* **overseer:** decide a herdr mutation's replayability from the write boundary ([c4925e2](https://github.com/thewoolleyman/livespec-overseer/commit/c4925e23b1018dc128d1c0b9a146e9718d63a09d))
+* **overseer:** deliver herdr pane input as one bracketed paste, submitted separately ([8f70795](https://github.com/thewoolleyman/livespec-overseer/commit/8f70795f66400a9dd78252227f9513880579aa3d))
+* **overseer:** observe a live herdr pane through the native adapter ([2b354c0](https://github.com/thewoolleyman/livespec-overseer/commit/2b354c0c9cd66bcb5d8ae59b472e75ecc882e877))
+* **overseer:** place a retained-shell herdr pane above the pane it supervises ([947c8ac](https://github.com/thewoolleyman/livespec-overseer/commit/947c8ac82334d9fe1d66f8554c1b67f2c419770b))
+* **overseer:** qualify a herdr pane coordinate by instance and generation ([5c359fc](https://github.com/thewoolleyman/livespec-overseer/commit/5c359fcff3a0eb8c814a34904ce315f2d613c0ad))
+
+
+### Bug Fixes
+
+* **overseer:** bound the herdr write window and the malformed-frame parse ([2522bef](https://github.com/thewoolleyman/livespec-overseer/commit/2522befd783e7461d3decfda4ab6e2dfb62aa411))
+* **overseer:** prove a herdr pane is newly created before writing a command to it ([211174d](https://github.com/thewoolleyman/livespec-overseer/commit/211174dce99f037effca32a801dfba61b1eab3a3))
+* **overseer:** refuse the four escapes from the herdr boundary's bounded refusal ([febd8b9](https://github.com/thewoolleyman/livespec-overseer/commit/febd8b9b1230cd3da8e68b1bc7c0e2438632e74c))
+* **overseer:** split the exact herdr target pane and prove the swap landed ([f44defd](https://github.com/thewoolleyman/livespec-overseer/commit/f44defdca315a4573e2aaa08824842f03c1f615f))
+
 ## [5.13.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.12.0...v5.13.0) (2026-10-05)
 
 
