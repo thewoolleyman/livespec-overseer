@@ -60,6 +60,7 @@ __all__: list[str] = [
     "reconcile_conditional_set",
     "recover_pending_fences",
     "selectable_candidates",
+    "stored_terminal_outcome",
 ]
 
 _COMMITTED: Final = "committed"
@@ -209,7 +210,7 @@ def fence_owner_defect(
         command=operation.command,
         phase=operation.phase,
         effect=operation.ordered_effects[index],
-        outcome=_stored_outcome(operation=operation),
+        outcome=stored_terminal_outcome(operation=operation),
     )
     if isinstance(role, Failure):
         return role.failure().message
@@ -218,7 +219,15 @@ def fence_owner_defect(
     return None
 
 
-def _stored_outcome(*, operation: OperationRecord) -> str | None:
+def stored_terminal_outcome(*, operation: OperationRecord) -> str | None:
+    """`operation`'s stored terminal outcome, or None when it carries no terminal result.
+
+    PUBLIC because the actor table needs it too: `writer_role_for` separates a terminal
+    SUCCESS publish from a terminal FAILURE transition on the same effect name, so every
+    caller that asks the table for an audited effect's semantic actor has to read the same
+    member the same way. A second reader of a nullable member inside a nullable object is
+    exactly where two call sites come to disagree about which actor owns a fence.
+    """
     stored = operation.terminal_result
     if stored is None:
         return None

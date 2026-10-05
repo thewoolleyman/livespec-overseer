@@ -20,13 +20,22 @@ that did not happen, and refusing would wedge a cleanup that is doing precisely 
 asked to do.
 
 WHERE THE BINDING COMES FROM DEPENDS ON WHAT STILL EXISTS, and the order is deliberate. In a
-closing phase the assignment is still on disk — `assignment-close` is the LAST effect of those
-arrays — so its own stored request and binding name the provider, account and record
+closing phase the assignment is usually still on disk — `assignment-close` is the LAST effect of
+those arrays — so its own stored request and binding name the provider, account and record
 authoritatively, which matters because `report`, `complete`, `release` and `expire` inputs do
 NOT carry a provider. In provision `cleanup` the preceding `prepared-assignment-discard` has
 already removed the assignment, so the selection this phase was composed with is the only
 remaining source. Asking the assignment FIRST means a close never depends on an input it was
 not given, and `cleanup` never depends on a record it just deleted.
+
+THE TOMBSTONE SITS BETWEEN THOSE TWO, AND IT IS WHAT MAKES A RE-DRIVEN CLOSING PHASE SETTLE. A
+closing phase re-entered from an unstarted checkpoint reaches this position with the assignment
+already REMOVED by `assignment-close` — and a closing command's input carries no provider, so
+without the retained tombstone's own `request` and binding this position could not even resolve
+the lease path it is being asked about. The tombstone names the same provider, account and
+credential record the assignment did, so the answer is the same `satisfied` the first pass
+reached; falling through to the provision inputs instead would refuse `internal-bug` on a phase
+that has in fact finished.
 """
 
 from __future__ import annotations
@@ -40,6 +49,7 @@ from _lpm_engine_records import record_path, stored_record
 from _lpm_leases import LEASE_RELEASED, release_lease
 from _lpm_operation_replay import PERFORMED, SATISFIED
 from _lpm_results import ManagerError
+from _lpm_tombstone import tombstone_from_object
 
 from overseer._vendor.returns.result import Failure, Result, Success
 
@@ -77,7 +87,7 @@ def leased_binding(*, context: EffectContext) -> Result[LeaseKey, ManagerError]:
         return Failure(found.failure())
     stored = found.unwrap()
     if stored is None:
-        return _binding_from_inputs(context=context, run_id=run_id.unwrap())
+        return _binding_from_retained(context=context, run_id=run_id.unwrap())
     assignment = assignment_from_object(parsed=stored)
     if isinstance(assignment, Failure):
         return assignment
@@ -114,6 +124,32 @@ def _binding_from_assignment(*, assignment: Assignment, run_id: str) -> LeaseKey
         provider=str(assignment.request["provider"]),
         account_id=assignment.account_id,
         record_id=assignment.record_id,
+    )
+
+
+def _binding_from_retained(
+    *, context: EffectContext, run_id: str
+) -> Result[LeaseKey, ManagerError]:
+    found = stored_record(context=context, family="tombstone", identity=(run_id,))
+    if isinstance(found, Failure):
+        return Failure(found.failure())
+    stored = found.unwrap()
+    if stored is None:
+        return _binding_from_inputs(context=context, run_id=run_id)
+    retained = tombstone_from_object(parsed=stored)
+    if isinstance(retained, Failure):
+        return Failure(retained.failure())
+    closed = retained.unwrap()
+    # A stored tombstone's `request` was validated as a complete `provision` normalized input
+    # on the way out of `tombstone_from_object`, exactly as an assignment's is, so `provider`
+    # is present and non-empty by construction.
+    return Success(
+        LeaseKey(
+            consumer_run_id=run_id,
+            provider=str(closed.request["provider"]),
+            account_id=closed.account_id,
+            record_id=closed.record_id,
+        )
     )
 
 
