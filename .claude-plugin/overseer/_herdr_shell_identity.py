@@ -229,9 +229,37 @@ def system_shell_aliases() -> frozenset[tuple[str, str]]:
     `("sh", "/usr/bin/dash")` on a Debian-family host, from the declared
     `/bin/sh`. This is the only thing permitted to reconcile a server's reported
     name with a different kernel executable, and it is the host's own answer
-    rather than an allowlist authored here — the same sources and the same single
-    reading as :func:`system_login_shells`, so the two cannot disagree about what
-    is registered.
+    rather than an allowlist authored here — it reads the SAME two sources as
+    :func:`system_login_shells`, keeping the name each entry DECLARES beside the
+    path it resolves to.
+
+    **Common sources are not one reading, and this docstring used to claim they
+    were:** "the same sources and the same single reading as
+    :func:`system_login_shells`, so the two cannot disagree about what is
+    registered". The second half does not follow and is withdrawn. Each function
+    calls :func:`_registered_shell_paths` for itself, so every call is its own
+    snapshot, and `HerdrWriter` declares `login_shells` and `shell_aliases` as
+    INDEPENDENT `default_factory` fields — measured: constructing one writer
+    reads the register TWICE. An edit to `/etc/shells` or to the invoking user's
+    passwd entry between those two reads is visible to the second and not the
+    first, and nothing re-reads or reconciles them afterwards, so a writer holds
+    whatever each reading happened to see.
+
+    **A split pair does not merely narrow, which is the reason this matters.**
+    The establish path requires login-shell corroboration AND name/executable
+    agreement, and those two conditions are fed from DIFFERENT readings, so a
+    disagreement moves the verdict in both directions. Measured against
+    :func:`retained_shell` with the pane evidence held fixed: a `login_shells`
+    reading that predates a newly registered shell REFUSES what a consistent
+    pair accepts, and — the direction worth knowing — a `shell_aliases` reading
+    that still carries a pairing the host has since REMOVED ACCEPTS a reported
+    `sh` against `/usr/bin/dash` that a consistent pair REFUSES. So "it can only
+    fail closed" would be wrong too; the honest statement is that the two
+    readings can disagree and the gate is not indifferent to which way.
+
+    Taking one reading and deriving both answers from it would make the claim
+    true, and is deliberately NOT done here — that is a behavior change, and
+    this correction is to the prose only.
     """
     return frozenset(
         (Path(entry).name, str(Path(entry).resolve())) for entry in _registered_shell_paths()
