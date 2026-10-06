@@ -37,10 +37,12 @@ in it, and three round trips separate the split from the launch. A pane that
 acquired a foreground child across them would receive the command plus Enter as
 input to that child. So the created pane's retained shell is ESTABLISHED from a
 `pane.process_info` reading taken the moment the pane is proven, and RECHECKED
-immediately before the write; both readings must name that exact shell pid,
-idle, for that pane, on that generation. A reading that is missing, malformed,
-ambiguous, foreign, replaced or occupied refuses the launch and leaves the
-partial layout exactly as it stands.
+immediately before the write; both readings must agree on the live identity the
+kernel reports for that pane's shell — pid, executable and start time — still
+idle, still that pane, still that generation. A reading that is missing,
+malformed, ambiguous, foreign, replaced or occupied refuses the launch and
+leaves the partial layout exactly as it stands. What those two snapshots do and
+do not prove is set out in :mod:`_herdr_shell_identity`.
 
 The requester is taken as a :class:`BoundedRequests` protocol rather than a
 concrete writer so this module owns no socket, no deadline and no peer policy;

@@ -8,12 +8,17 @@ with the kernel's).
 
 **The rule, and an honest account of which half carries which weight.**
 
-  - **Cross-observation identity equality is the airtight half.** The establish
-    reading records the whole observed identity — pid, the executable the KERNEL
-    reports, and the start time — and the recheck must match it exactly. That
-    catches a root replaced between the two readings with no judgement about
-    what a shell is: `exec` keeps the pid and the start time, so the executable
-    is what moves, and any change at all refuses.
+  - **Cross-observation identity corroboration is the stronger half, and it is
+    NOT airtight.** An earlier version of this line called it that; the wording
+    is corrected here and in the module it describes. The establish reading
+    records the whole observed identity — pid, the executable the KERNEL
+    reports, and the start time — and the recheck re-reads it immediately before
+    the write; any difference refuses, with no judgement about what a shell is.
+    What it catches is an OBSERVED IMAGE CHANGE. It does not atomically exclude
+    an `exec` landing after that snapshot, and it cannot see an `exec` of the
+    SAME executable, which keeps all three members. The exec-replacement cases
+    are caught because `sleep` is a different binary from `bash`, not because
+    replacement is excluded in general.
   - **Positive evidence at establish is the narrowing half, and it does not
     certify ownership.** A root replaced BEFORE either reading produces two
     readings that agree perfectly, so equality cannot see it. What refuses it is
@@ -193,11 +198,13 @@ def test_an_occupied_or_foreign_or_unreadable_reply_never_reaches_the_evidence()
 
 
 def test_a_recheck_refuses_any_change_to_the_established_identity():
-    """The airtight half, driven across all three members of the identity.
+    """The corroborating half, driven across all three members of the identity.
 
     The executable case is `exec` at the same pid — the defect that prompted all
     of this. The start-time case is pid reuse, which `exec` does NOT produce and
-    which equality catches for free.
+    which the comparison catches for free. What is driven here is an OBSERVED
+    change in each member; a replacement that altered none of them would be
+    invisible to this, as the file header records.
     """
     module = _module()
     established = module.ShellIdentity(pid=SHELL_PID, executable=BASH, starttime=STARTTIME)
