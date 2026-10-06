@@ -53,6 +53,22 @@ import pytest
 
 __all__: list[str] = []
 
+# The scripted `shell_pid` below names no live process, so the retained-shell
+# proof's KERNEL half is injected here. These files stage REPLY shapes; the
+# live-evidence rule itself is pinned by
+# `tests/test_herdr_shell_identity_evidence.py` and driven against a real
+# exec-replaced root in `tests/test_herdr_live_exec_replaced_shell.py`.
+SHELL_EXECUTABLE = "/usr/bin/bash"
+LOGIN_SHELLS = frozenset({SHELL_EXECUTABLE})
+SHELL_STARTTIME = "164433575"
+
+
+def _shell_evidence(*, pid: int) -> Any:
+    """Kernel evidence for any pid: the login shell these fixtures describe."""
+    identity = importlib.import_module("_herdr_shell_identity")
+    return identity.ShellIdentity(pid=pid, executable=SHELL_EXECUTABLE, starttime=SHELL_STARTTIME)
+
+
 HERDR_BINARY = "herdr"
 SERVER_READY_TIMEOUT = 30.0
 PANE_CWD = "/tmp"
@@ -282,7 +298,9 @@ def test_the_split_lands_on_the_supervised_pane_not_the_focused_one(*, tab: Unfo
     before, focused_before = _rects(tab=tab)
     assert focused_before == tab.focused, "fixture precondition: the target is NOT focused"
 
-    outcome = writer_module.HerdrWriter().split_window_top(
+    outcome = writer_module.HerdrWriter(
+        shell_evidence_of=_shell_evidence, login_shells=LOGIN_SHELLS
+    ).split_window_top(
         target=identity.HerdrPaneTarget(
             socket_path=tab.socket_path,
             server_pid=tab.server_pid,
@@ -423,7 +441,9 @@ def _split_top(*, address: Path) -> Any:
     starttime = claude_sessions.proc_starttime(pid=os.getpid())
     assert starttime is not None
     return writer_module.HerdrWriter(
-        request_ids=iter(f"rq-{index}" for index in range(1, 64))
+        request_ids=iter(f"rq-{index}" for index in range(1, 64)),
+        shell_evidence_of=_shell_evidence,
+        login_shells=LOGIN_SHELLS,
     ).split_window_top(
         target=identity.HerdrPaneTarget(
             socket_path=str(address),

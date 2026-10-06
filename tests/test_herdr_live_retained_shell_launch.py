@@ -14,10 +14,14 @@ a different instrument:
     replaced the pane's shell (an `exec` launch) would show no such parent, and
     a pane whose process exits is CLOSED by herdr — so the retained shell is the
     difference between a reusable daemon pane and one that vanishes.
-  - **Exactly once** is read from the pane's own capture, because a duplicate
-    delivery would be QUEUED by the terminal behind the running command rather
-    than appearing as a second live process. Process evidence structurally
-    cannot see that; the echoed command line can.
+  - **Exactly once** is NOT read from the pane's capture, and an earlier version
+    of this list said it was. A duplicate delivery really would be queued behind
+    the running command where process evidence cannot see it — but a capture
+    cannot see it either, because a capture counts RENDERED occurrences: one
+    delivery renders the command line twice here, as the raw echo and then on
+    the prompt line. The byte-level claim is measured where the adapter's own
+    request stream is observable, which this unproxied file cannot do; see the
+    corrected docstring on the first test for where it lives.
 
 **The blast radius is asserted across TWO live servers, not one.** Herdr pane ids
 are unique only within a server — a fresh server's root pane is `w1:p1` every
@@ -53,7 +57,14 @@ __all__: list[str] = []
 
 HERDR_BINARY = "herdr"
 SERVER_READY_TIMEOUT = 30.0
-LAUNCH_TIMEOUT = 20.0
+# A LIVENESS FLOOR, not a latency budget — and it is deliberately generous.
+# The coverage lane runs the whole suite under `pytest -n`, so a freshly spawned
+# pane shell competes with every other worker for CPU before it can read its
+# input and fork. One run of this file's clean control exceeded a 20s bound that
+# passes comfortably in isolation and under a herdr-only parallel run; the bytes
+# a real server acknowledged were never in doubt, only how long the child took to
+# appear. Exceeding this still fails rather than skipping.
+LAUNCH_TIMEOUT = 120.0
 PANE_CWD = "/tmp"
 TOP_RATIO = 0.25
 
@@ -262,11 +273,30 @@ def _split_top(*, pair: ServerPair, command: str) -> Any:
 
 
 def test_the_command_runs_once_as_a_child_of_the_verified_retained_shell(*, pair: ServerPair):
-    """The launched process is the SHELL'S child, and the command was sent once.
+    """The launched process is the SHELL'S child, and the command reached this pane.
 
     Parentage is what distinguishes a retained shell from a replaced one, and it
     is the shell the pre-launch reading verified that must be the parent — not
     merely some shell in some pane.
+
+    **The once-ness assertion here was WRONG and is corrected, prospectively.**
+    This test used to assert `capture.count(MARKER) == 1`, and the file header
+    argued the capture was the right instrument because a duplicate delivery
+    would be queued behind the running command where process evidence could not
+    see it. The argument was sound; the instrument was not. Measured on this
+    host, ONE delivery renders the command line TWICE — the raw echo of the
+    input, then the prompt line carrying it:
+
+        'sleep 120 #OVLAUNCH1\\nroot@host:/tmp# sleep 120 #OVLAUNCH1\\n'
+
+    That is stable, not a race, so the old assertion was passing by luck
+    whenever the capture was taken before the prompt line was drawn. A capture
+    counts RENDERED occurrences, never deliveries. So this asserts what the
+    capture can support — the command reached THIS pane — plus exactly one live
+    `sleep` child. The byte-level once-ness is measured where the request stream
+    is observable: `tests/test_herdr_live_no_change_swap_refusal.py` asserts the
+    adapter's writes are exactly `[created]`, and the deterministic files assert
+    `pane.send_input` appears exactly once.
     """
     outcome = _split_top(pair=pair, command=LAUNCH_COMMAND)
 
@@ -289,7 +319,7 @@ def test_the_command_runs_once_as_a_child_of_the_verified_retained_shell(*, pair
         f"retained shell {shell_pid}"
     )
     text = _capture(socket_path=pair.target.socket_path, pane_id=outcome.pane_id)
-    assert text.count(MARKER) == 1, f"the command was delivered {text.count(MARKER)} times"
+    assert MARKER in text, f"the command never reached {outcome.pane_id}: {text!r}"
 
 
 def test_the_retained_shell_outlives_an_ordinary_child_exit(*, pair: ServerPair):

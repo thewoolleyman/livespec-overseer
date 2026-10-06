@@ -37,6 +37,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Protocol
 
+import _herdr_shell_identity
 import herdr_calls
 import herdr_identity
 import herdr_protocol
@@ -185,17 +186,23 @@ def retained_shell(
     requester: BoundedRequests,
     target: herdr_identity.HerdrPaneTarget,
     created: str,
-    expected_shell_pid: int | None,
-) -> herdr_write_calls.RetainedShell:
-    """FRESH process evidence that `created` is an idle retained shell, or why not.
+    expected: _herdr_shell_identity.ShellIdentity | None,
+    proof: _herdr_shell_identity.ShellProof,
+) -> _herdr_shell_identity.RetainedShell:
+    """FRESH evidence that `created` is an idle retained shell, or why not.
 
     Addressed at `created` through the same bounded, peer-validated path as every
-    mutation, so the reading is taken from the exact server generation the
-    coordinate names rather than from whichever server now answers on that
-    socket. A read this one cannot complete is a refusal, never an idle shell:
-    `SPECIFICATION/contracts.md` forbids treating an unsupported or malformed
-    backend response as proof of an idle pane, and that prohibition is at its
-    sharpest here, where the next step writes a command plus Enter.
+    mutation, so the server's half of the reading is taken from the exact
+    generation the coordinate names rather than from whichever server now answers
+    on that socket. A read this one cannot complete is a refusal, never an idle
+    shell: `SPECIFICATION/contracts.md` forbids treating an unsupported or
+    malformed backend response as proof of an idle pane, and that prohibition is
+    at its sharpest here, where the next step writes a command plus Enter.
+
+    The server's answer is only half of it. :mod:`_herdr_shell_identity` holds
+    the other half — live kernel evidence about the process herdr calls the
+    pane's shell — because `shell_pid` and its process group survive an `exec`
+    that replaces the shell with something else entirely.
     """
     reading = requester.request(
         target=target,
@@ -204,10 +211,14 @@ def retained_shell(
         expect=herdr_calls.EXPECT_PROCESS_INFO,
     )
     if not reading.ok:
-        return herdr_write_calls.RetainedShell(
-            shell_pid=0,
+        return _herdr_shell_identity.RetainedShell(
+            identity=None,
             error=f"the new pane's retained shell could not be read: {reading.error}",
         )
-    return herdr_write_calls.retained_shell(
-        result=reading.result, pane_id=created, expected_shell_pid=expected_shell_pid
+    return _herdr_shell_identity.retained_shell(
+        result=reading.result,
+        pane_id=created,
+        expected=expected,
+        evidence_of=proof.evidence_of,
+        login_shells=proof.login_shells,
     )

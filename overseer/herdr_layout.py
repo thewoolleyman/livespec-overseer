@@ -54,6 +54,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import _herdr_layout_proofs
+import _herdr_shell_identity
 import herdr_identity
 import herdr_write_calls
 from _herdr_layout_proofs import BoundedRequests
@@ -96,6 +97,7 @@ def place_above(
     target: herdr_identity.HerdrPaneTarget,
     cwd: str,
     command: str,
+    proof: _herdr_shell_identity.ShellProof,
     ratio: float = DEFAULT_TOP_RATIO,
 ) -> LayoutOutcome:
     """Run `command` in a new retained-shell pane placed ABOVE `target`.
@@ -133,7 +135,11 @@ def place_above(
         # cannot be trusted or addressed. That is an uncertain mutation.
         return LayoutOutcome(ok=False, pane_id="", error=creation_error, effect_unknown=True)
     shell = _herdr_layout_proofs.retained_shell(
-        requester=requester, target=target, created=created, expected_shell_pid=None
+        requester=requester,
+        target=target,
+        created=created,
+        expected=None,
+        proof=proof,
     )
     if shell.error:
         # The split's effect is KNOWN — the pane was enumerated — and no further
@@ -145,7 +151,8 @@ def place_above(
         target=target,
         created=created,
         command=command,
-        shell_pid=shell.shell_pid,
+        established=shell.identity,
+        proof=proof,
     )
 
 
@@ -155,12 +162,13 @@ def _raise_above_and_launch(
     target: herdr_identity.HerdrPaneTarget,
     created: str,
     command: str,
-    shell_pid: int,
+    established: _herdr_shell_identity.ShellIdentity | None,
+    proof: _herdr_shell_identity.ShellProof,
 ) -> LayoutOutcome:
     """Swap `created` above `target`, PROVE it landed, and only then launch.
 
     Everything here already knows `created` is a real, new, correctly-placed pane
-    whose retained shell is `shell_pid` and was idle; everything before it was
+    whose retained shell is `established` and was idle; everything before it was
     establishing that.
     """
     swap = requester.request(
@@ -193,7 +201,11 @@ def _raise_above_and_launch(
         # which would otherwise hide the daemon beneath the supervised session.
         return LayoutOutcome(ok=False, pane_id=created, error=placement, effect_unknown=unresolved)
     live = _herdr_layout_proofs.retained_shell(
-        requester=requester, target=target, created=created, expected_shell_pid=shell_pid
+        requester=requester,
+        target=target,
+        created=created,
+        expected=established,
+        proof=proof,
     )
     if live.error:
         # The swap is PROVEN landed, so the layout state is known; what cannot be
