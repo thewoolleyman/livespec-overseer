@@ -71,8 +71,13 @@ MARKER = "OVLAUNCH1"
 LAUNCH_COMMAND = f"sleep 120 #{MARKER}"
 LAUNCH_NAME = "sleep"
 # Short enough to exit on its own inside the test, which is the "ordinary child
-# exit" the pane has to survive.
-BRIEF_COMMAND = f"sleep 1 #{MARKER}"
+# exit" the pane has to survive — but no shorter than it takes to OBSERVE it
+# running. At one second the window was comparable to a scheduling stall, so a
+# reading could legitimately arrive after the child was already gone; the test
+# below now has to identify the child by pid, so its lifetime is a fixture
+# requirement rather than a free choice.
+BRIEF_SECONDS = 3
+BRIEF_COMMAND = f"sleep {BRIEF_SECONDS} #{MARKER}"
 # The decoy server is given enough panes that whatever id the operation creates
 # on the real target already exists over there too.
 DECOY_PANES = 4
@@ -156,15 +161,53 @@ def _pane_ids(*, socket_path: str) -> list[str]:
     return [str(pane["pane_id"]) for pane in reply["result"]["panes"]]
 
 
-def _parent_pid_of(*, pid: int) -> int:
-    """`pid`'s parent, read from `/proc` — the one place the lineage is a FACT.
+def _proc_stat_fields(*, pid: int) -> list[str] | None:
+    """`pid`'s post-comm `/proc/<pid>/stat` fields, or None if the pid is gone.
 
     The comm field can contain spaces and parentheses, so the fields after it
     are taken from the LAST close parenthesis rather than by splitting the whole
-    line.
+    line. Absence is returned rather than raised because a short-lived child
+    disappearing IS one of the observations this file makes.
     """
-    stat = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
-    return int(stat[stat.rindex(")") + 1 :].split()[1])
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    return stat[stat.rindex(")") + 1 :].split()
+
+
+def _parent_pid_of(*, pid: int) -> int:
+    """`pid`'s parent, read from `/proc` — the one place the lineage is a FACT."""
+    fields = _proc_stat_fields(pid=pid)
+    assert fields is not None, f"pid {pid} vanished before its parent could be read"
+    return int(fields[1])
+
+
+def _process_group_of(*, pid: int) -> int:
+    fields = _proc_stat_fields(pid=pid)
+    assert fields is not None, f"pid {pid} vanished before its process group could be read"
+    return int(fields[2])
+
+
+def _starttime_of(*, pid: int) -> int | None:
+    """`pid`'s start time in clock ticks, or None if the pid is gone.
+
+    Carried alongside a pid so that "the SAME shell" is a claim about an
+    identity rather than about an integer: a pid can be recycled, a start time
+    paired with it cannot be.
+    """
+    # `stat` field 22 counted from one; field 3 (`state`) is this list's index 0,
+    # so the offset is three. Verified against `awk '{print $22}'` on this host.
+    fields = _proc_stat_fields(pid=pid)
+    return None if fields is None else int(fields[19])
+
+
+def _foreground_pids_named(*, info: dict[str, Any], name: str) -> list[int]:
+    return [
+        int(entry["pid"])
+        for entry in info.get("foreground_processes", [])
+        if str(entry.get("name")) == name
+    ]
 
 
 def _await_foreground(*, socket_path: str, pane_id: str, name: str) -> dict[str, Any]:
@@ -320,11 +363,40 @@ def test_the_command_runs_once_as_a_child_of_the_verified_retained_shell(*, pair
 
 
 def test_the_retained_shell_outlives_an_ordinary_child_exit(*, pair: ServerPair):
-    """When the command finishes normally the pane must still be there, and reusable.
+    """The child is OBSERVED running, then observed gone, then the shell is back.
 
     A pane whose process exits is closed by herdr, so an `exec`-style launch
     would take the daemon pane down with its first command. The shell must be
     the same shell afterwards and back to owning its own foreground.
+
+    **The chronology is now asserted rather than inferred, and that is a
+    correction to this test.** It used to launch `sleep 1` and then poll
+    `while not _is_idle(info)` until the pane owned its own foreground again.
+    That predicate cannot distinguish "the child ran and then exited" from "the
+    child was never seen at all": if the first reading lands after a
+    one-second child has already finished, the loop body never runs and every
+    assertion still passes, reporting a child exit nothing observed.
+
+    Measured natively on this host rather than argued. With a declared 1.5s
+    stall injected between the launch and the first reading — standing in for a
+    scheduling delay longer than the child — the loop body ran 0 times in 4 of
+    4 rounds, no reading it took contained the `sleep` child, and the old
+    assertions still reported idle-and-same-shell. Without the stall the old
+    predicate was no better AS EVIDENCE: in 8 of 8 rounds the child's pid was
+    inside the loop's field of view, and the loop consulted only the foreground
+    group id — which commit 58d35c73 already measured leaving the shell while
+    the child is still `bash`, before the exec. A reading that never names the
+    child cannot testify about it.
+
+    So each of the three phases is waited for AND asserted:
+
+      1. the child, identified by pid, with the verified retained shell as its
+         `/proc` parent and a process group of its own;
+      2. that same pid gone from both `/proc` and the pane's foreground, with
+         no signal sent by this test — an ordinary exit, not a kill;
+      3. the same shell — same pid AND same start time, so a replacement at a
+         recycled pid cannot pass — owning its foreground again, pane still
+         open.
     """
     outcome = _split_top(pair=pair, command=BRIEF_COMMAND)
 
@@ -332,17 +404,50 @@ def test_the_retained_shell_outlives_an_ordinary_child_exit(*, pair: ServerPair)
     before = int(
         _process_info(socket_path=pair.target.socket_path, pane_id=outcome.pane_id)["shell_pid"]
     )
-    deadline = time.monotonic() + LAUNCH_TIMEOUT
-    info = _process_info(socket_path=pair.target.socket_path, pane_id=outcome.pane_id)
-    while time.monotonic() < deadline and not _is_idle(info=info):
+    before_starttime = _starttime_of(pid=before)
+    assert before_starttime is not None, f"the retained shell {before} must be alive to begin with"
+
+    running = _await_foreground(
+        socket_path=pair.target.socket_path, pane_id=outcome.pane_id, name=LAUNCH_NAME
+    )
+    children = _foreground_pids_named(info=running, name=LAUNCH_NAME)
+    assert len(children) == 1, f"the brief child was never observed running: {running}"
+    child = children[0]
+    assert (
+        _parent_pid_of(pid=child) == before
+    ), f"the brief child {child} is not a child of the verified retained shell {before}"
+    assert (
+        _process_group_of(pid=child) != before
+    ), "the brief child must run in its OWN process group, not as the shell itself"
+    assert (
+        int(running["foreground_process_group_id"]) != before
+    ), f"the pane's foreground must have left the shell while the child runs: {running}"
+
+    deadline = time.monotonic() + LAUNCH_TIMEOUT + BRIEF_SECONDS
+    info = running
+    while time.monotonic() < deadline and (
+        _starttime_of(pid=child) is not None
+        or child in _foreground_pids_named(info=info, name=LAUNCH_NAME)
+    ):
         time.sleep(0.1)
         info = _process_info(socket_path=pair.target.socket_path, pane_id=outcome.pane_id)
 
-    assert _is_idle(info=info), f"the child never exited cleanly: {info}"
+    assert _starttime_of(pid=child) is None, (
+        f"the brief child {child} is still alive; this test never signalled it, so it "
+        f"had to exit on its own"
+    )
+    assert child not in _foreground_pids_named(
+        info=info, name=LAUNCH_NAME
+    ), f"the pane still reports the exited child {child} in its foreground: {info}"
+    assert _is_idle(info=info), f"the shell never regained its own foreground: {info}"
     assert outcome.pane_id in _pane_ids(
         socket_path=pair.target.socket_path
     ), "the pane must survive its command finishing"
     assert int(info["shell_pid"]) == before, "the retained shell must be the SAME shell"
+    assert _starttime_of(pid=before) == before_starttime, (
+        "the retained shell's pid is unchanged but its start time is not, so a "
+        "DIFFERENT process now holds that pid"
+    )
 
 
 def test_no_other_pane_on_either_server_receives_the_launch(*, pair: ServerPair):
