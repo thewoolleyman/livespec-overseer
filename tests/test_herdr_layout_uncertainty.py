@@ -386,20 +386,24 @@ def test_an_unreadable_swap_member_is_refused_rather_than_assumed_successful(*, 
     a string there reaches the reader. Treating that as a completed swap would
     launch the command into a pane that was never moved — the same end state as
     the measured `changed: false` refusals, reached by a different route.
+
+    What each unusable shape leaves UNKNOWN, and why a no-change reply naming
+    foreign panes is not a refusal to be trusted, belongs to
+    `tests/test_herdr_layout_unresolved_swap_effect.py`.
     """
     calls_module, _writer = _modules()
     readable = {"changed": True, "source_pane_id": PANE, "target_pane_id": CREATED}
 
     assert (
-        calls_module.swap_refusal(
+        calls_module.swap_verdict(
             result={"swap": readable}, source_pane_id=PANE, target_pane_id=CREATED
-        )
+        ).error
         == ""
     )
-    assert calls_module.swap_refusal(
+    assert calls_module.swap_verdict(
         result={"swap": "not an object"}, source_pane_id=PANE, target_pane_id=CREATED
-    )
-    assert calls_module.swap_refusal(result={}, source_pane_id=PANE, target_pane_id=CREATED)
+    ).error
+    assert calls_module.swap_verdict(result={}, source_pane_id=PANE, target_pane_id=CREATED).error
 
 
 def test_the_launch_is_atomic_while_the_paste_is_not(*, socket_dir: Path):
