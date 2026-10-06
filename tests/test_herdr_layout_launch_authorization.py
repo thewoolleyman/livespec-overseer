@@ -24,11 +24,20 @@ So the launch now rests on PROCESS evidence, taken twice:
     is an occupied one (measured occupied: `shell_pid 22420` against
     `foreground_process_group_id 22447`, leader `sleep`).
 
-**An executable NAME is not shell identity, and this file never asserts one.**
-Every judgement here is made on pids, because `name` is attacker- and
-accident-controlled: anything can be called `bash`, and the shell this operation
-created is identified by the pid herdr reported for it, not by what the
-foreground process claims to be.
+**An executable NAME is not shell identity — and neither is a pid. This
+paragraph CORRECTS an earlier version of itself, prospectively.** It used to say
+that every judgement here is made on pids, which overstated this file's scope and
+was wrong as a statement of the product contract. A pid is not identity either:
+`exec` replaces a process image in place, keeping the pid, the process group AND
+the `/proc` start time, so a foreign program can inherit every number the first
+cut of this gate compared. The contract therefore rests on live KERNEL evidence
+about the process — which this file INJECTS, because its scripted `shell_pid`
+names no live process — with the server's reported name required to AGREE with
+that evidence rather than to be believed on its own. The rule is pinned by
+`tests/test_herdr_shell_identity_evidence.py` and driven against a really
+exec-replaced root in `tests/test_herdr_live_exec_replaced_shell.py`. Nothing
+below changed meaning: the positive data here always described `bash`, and the
+added evidence checks agree with it.
 
 Any missing, malformed, ambiguous, foreign, replaced or occupied reading stops
 the launch. What it must NOT do is tidy up: the created pane is real and
@@ -62,6 +71,22 @@ import pytest
 
 __all__: list[str] = []
 
+# The scripted `shell_pid` below names no live process, so the retained-shell
+# proof's KERNEL half is injected here. These files stage REPLY shapes; the
+# live-evidence rule itself is pinned by
+# `tests/test_herdr_shell_identity_evidence.py` and driven against a real
+# exec-replaced root in `tests/test_herdr_live_exec_replaced_shell.py`.
+SHELL_EXECUTABLE = "/usr/bin/bash"
+LOGIN_SHELLS = frozenset({SHELL_EXECUTABLE})
+SHELL_STARTTIME = "164433575"
+
+
+def _shell_evidence(*, pid: int) -> Any:
+    """Kernel evidence for any pid: the login shell these fixtures describe."""
+    identity = importlib.import_module("_herdr_shell_identity")
+    return identity.ShellIdentity(pid=pid, executable=SHELL_EXECUTABLE, starttime=SHELL_STARTTIME)
+
+
 PANE = "w1:p1"
 CREATED = "w1:p2"
 TAB = "w1:t1"
@@ -84,8 +109,11 @@ def _row(*, pane_id: str) -> dict[str, object]:
 def _process_info(*, pane_id: str, shell_pid: int, group_id: int) -> dict[str, object]:
     """A measured `pane.process_info` reply, idle when the shell owns the group.
 
-    The leader entry's NAME is set from the relationship purely so the fixture
-    reads like the real thing; nothing under test may consult it.
+    The leader entry's NAME is derived from the relationship so the fixture reads
+    like the real thing. An earlier version of this docstring added that nothing
+    under test may consult it; that is CORRECTED, prospectively — the name is
+    consulted, as one of two sources that must agree, and it was never permitted
+    to decide on its own. See this file's header.
     """
     leader = "bash" if group_id == shell_pid else "sleep"
     return {
@@ -243,7 +271,9 @@ def _split_top(*, address: Path) -> Any:
     identity = importlib.import_module("herdr_identity")
     starttime = claude_sessions.proc_starttime(pid=os.getpid())
     assert starttime is not None, "this process must have a readable /proc start time"
-    return writer_module.HerdrWriter().split_window_top(
+    return writer_module.HerdrWriter(
+        shell_evidence_of=_shell_evidence, login_shells=LOGIN_SHELLS
+    ).split_window_top(
         target=identity.HerdrPaneTarget(
             socket_path=str(address),
             server_pid=os.getpid(),

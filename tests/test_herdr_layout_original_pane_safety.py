@@ -54,6 +54,22 @@ import pytest
 
 __all__: list[str] = []
 
+# The scripted `shell_pid` below names no live process, so the retained-shell
+# proof's KERNEL half is injected here. These files stage REPLY shapes; the
+# live-evidence rule itself is pinned by
+# `tests/test_herdr_shell_identity_evidence.py` and driven against a real
+# exec-replaced root in `tests/test_herdr_live_exec_replaced_shell.py`.
+SHELL_EXECUTABLE = "/usr/bin/bash"
+LOGIN_SHELLS = frozenset({SHELL_EXECUTABLE})
+SHELL_STARTTIME = "164433575"
+
+
+def _shell_evidence(*, pid: int) -> Any:
+    """Kernel evidence for any pid: the login shell these fixtures describe."""
+    identity = importlib.import_module("_herdr_shell_identity")
+    return identity.ShellIdentity(pid=pid, executable=SHELL_EXECUTABLE, starttime=SHELL_STARTTIME)
+
+
 ORIGINAL = "w1:p1"
 SIBLING = "w1:p2"
 CREATED = "w1:p3"
@@ -240,7 +256,9 @@ def _split_top(*, address: Path) -> Any:
     identity = importlib.import_module("herdr_identity")
     starttime = claude_sessions.proc_starttime(pid=os.getpid())
     assert starttime is not None
-    return writer_module.HerdrWriter().split_window_top(
+    return writer_module.HerdrWriter(
+        shell_evidence_of=_shell_evidence, login_shells=LOGIN_SHELLS
+    ).split_window_top(
         target=identity.HerdrPaneTarget(
             socket_path=str(address),
             server_pid=os.getpid(),

@@ -37,6 +37,7 @@ import time
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 
+import _herdr_shell_identity
 import claude_sessions
 import herdr_identity
 import herdr_layout
@@ -96,6 +97,15 @@ class HerdrWriter:
     request_ids: Iterator[str] = field(default_factory=_default_request_ids)
     starttime_of: PidToOptionalStr = claude_sessions.proc_starttime
     monotonic: Callable[[], float] = time.monotonic
+    # The retained-shell proof's kernel half. Injectable for the same reason
+    # `starttime_of` is: a deterministic test must be able to drive an
+    # exec-replaced root, an unreadable `/proc`, and a host whose registered
+    # login shells differ from this one's, none of which can be staged against
+    # real host state. The daemon takes the real readers.
+    shell_evidence_of: _herdr_shell_identity.ShellEvidence = (
+        _herdr_shell_identity.proc_shell_identity
+    )
+    login_shells: frozenset[str] = field(default_factory=_herdr_shell_identity.system_login_shells)
 
     def bracketed_paste(self, *, target: herdr_identity.HerdrPaneTarget, text: str) -> WriteOutcome:
         """Deliver `text` to `target` as ONE bracketed paste, submitting nothing.
@@ -130,7 +140,14 @@ class HerdrWriter:
         request path it runs on.
         """
         return herdr_layout.place_above(
-            requester=self, target=target, cwd=cwd, command=command, ratio=ratio
+            requester=self,
+            target=target,
+            cwd=cwd,
+            command=command,
+            proof=_herdr_shell_identity.ShellProof(
+                evidence_of=self.shell_evidence_of, login_shells=self.login_shells
+            ),
+            ratio=ratio,
         )
 
     def _write(

@@ -58,7 +58,14 @@ __all__: list[str] = []
 
 HERDR_BINARY = "herdr"
 SERVER_READY_TIMEOUT = 30.0
-LAUNCH_TIMEOUT = 20.0
+# A LIVENESS FLOOR, not a latency budget — and it is deliberately generous.
+# The coverage lane runs the whole suite under `pytest -n`, so a freshly spawned
+# pane shell competes with every other worker for CPU before it can read its
+# input and fork. One run of this file's clean control exceeded a 20s bound that
+# passes comfortably in isolation and under a herdr-only parallel run; the bytes
+# a real server acknowledged were never in doubt, only how long the child took to
+# appear. Exceeding this still fails rather than skipping.
+LAUNCH_TIMEOUT = 120.0
 PANE_CWD = "/tmp"
 TOP_RATIO = 0.25
 DECLINE_REASON = "cross_tab"
