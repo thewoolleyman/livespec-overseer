@@ -221,4 +221,5 @@ def retained_shell(
         expected=expected,
         evidence_of=proof.evidence_of,
         login_shells=proof.login_shells,
+        shell_aliases=proof.shell_aliases,
     )
