@@ -454,35 +454,45 @@ def test_claude_restart_logs_the_installed_claude_build(*, tmp_path) -> None:
     assert build["version"] == "2.1.237"
 
 
-# ------------------------------------- the supplied 2.1.290 host capture
+# ------------------------------------- the supplied host captures
 #
-# This fixture is NOT a factory artifact. It was captured on the operator host
-# with `just capture-claude-idle-canary` at 2026-10-06T09:24:29-09:24:35Z, in
-# the linked `chore/claude-idle-canary-2-1-290` worktree whose cwd is visible in
-# the pane, and carried into this repair unchanged rather than recaptured —
-# which is why its bytes are pinned by DIGEST here. The alternatives a digest
-# forecloses are the two that would look identical in a diff: an older fixture
-# relabelled as this release, and a reconstructed rendering standing in for the
-# real ANSI-styled pane.
+# NEITHER of these is a factory artifact. Both were captured on the operator
+# host with `just capture-claude-idle-canary`, in the linked
+# `chore/claude-idle-canary-2-1-290` worktree whose cwd is visible in each pane,
+# and carried into this repair unchanged rather than recaptured — which is why
+# their bytes are pinned by DIGEST. The alternatives a digest forecloses are the
+# two that look identical in a diff: an older fixture relabelled as a newer
+# release, and a reconstructed rendering standing in for the real ANSI-styled
+# pane.
+#
+# There are TWO because the host build moved while this repair was in flight
+# (2.1.290 -> 2.1.292, about eleven hours apart). The older one is kept rather
+# than replaced: the registry is append-only by design, a post-merge acceptance
+# check still names 2.1.290, and a host that has not updated yet is still a host
+# this canary has to recognise. `_CURRENT_HOST_BUILD` names the build the host
+# runs NOW, which is the one a post-merge canary will actually be asked about.
 
-_SUPPLIED_HOST_CAPTURE = "2.1.290.txt"
-_SUPPLIED_SHA256 = "038ee999192893794b849f2306a0be3d2c2a6880ef521b6851f913bca83cd012"
-_SUPPLIED_BYTES = 1484
-
-
-def test_the_supplied_2_1_290_capture_is_registered_byte_for_byte() -> None:
-    """The host capture is present and UNCHANGED, digest and length both."""
-    fixture = _FIXTURE_DIR / _SUPPLIED_HOST_CAPTURE
-    assert fixture.is_file(), f"the supplied host capture {_SUPPLIED_HOST_CAPTURE} is missing"
-
-    raw = fixture.read_bytes()
-
-    assert len(raw) == _SUPPLIED_BYTES, len(raw)
-    assert hashlib.sha256(raw).hexdigest() == _SUPPLIED_SHA256
+_SUPPLIED_CAPTURES = (
+    ("2.1.290", "038ee999192893794b849f2306a0be3d2c2a6880ef521b6851f913bca83cd012", 1484),
+    ("2.1.292", "e38b57a9d96713cbe6d8f66b3b5df73095d4172ad050c5bc87a77455c89e0521", 1406),
+)
+_CURRENT_HOST_BUILD = "2.1.292"
 
 
-def test_the_detector_reads_the_supplied_2_1_290_capture_as_idle_and_input_ready() -> None:
-    """The real rendering, evaluated by the shipped predicates rather than retyped.
+def test_each_supplied_host_capture_is_registered_byte_for_byte() -> None:
+    """Every supplied capture is present and UNCHANGED, digest and length both."""
+    for version, digest, size in _SUPPLIED_CAPTURES:
+        fixture = _FIXTURE_DIR / f"{version}.txt"
+        assert fixture.is_file(), f"the supplied host capture {version}.txt is missing"
+
+        raw = fixture.read_bytes()
+
+        assert len(raw) == size, (version, len(raw))
+        assert hashlib.sha256(raw).hexdigest() == digest, version
+
+
+def test_the_detector_reads_each_supplied_capture_as_idle_and_input_ready() -> None:
+    """The real renderings, evaluated by the shipped predicates rather than retyped.
 
     Both halves, because the canary script requires both: `is_idle_input` is the
     structural idle shape and `input_box_ready` is what the submit-verify loop
@@ -490,54 +500,62 @@ def test_the_detector_reads_the_supplied_2_1_290_capture_as_idle_and_input_ready
     the detector distinguishes a dim-styled generated placeholder from identical
     user-authored text, and a stripped capture cannot carry that evidence.
     """
-    capture = (_FIXTURE_DIR / _SUPPLIED_HOST_CAPTURE).read_text(encoding="utf-8")
+    for version, _digest, _size in _SUPPLIED_CAPTURES:
+        capture = (_FIXTURE_DIR / f"{version}.txt").read_text(encoding="utf-8")
 
-    assert "\x1b[" in capture, "the capture must retain its real SGR escapes"
-    assert signals.is_idle_input(capture_text=capture) is True
-    assert signals.input_box_ready(capture_text=capture) is True
+        assert "\x1b[" in capture, f"{version} must retain its real SGR escapes"
+        assert signals.is_idle_input(capture_text=capture) is True, version
+        assert signals.input_box_ready(capture_text=capture) is True, version
 
 
-def test_the_canary_registers_2_1_290_as_an_installed_build() -> None:
-    """A host running 2.1.290 must no longer fail the version-keyed canary.
+def test_the_canary_registers_every_supplied_build_including_the_current_host_one() -> None:
+    """A host on either supplied build must pass the version-keyed canary.
 
     The measured host janitor failure was `CLAUDE_IDLE_CANARY_MISSING_FIXTURE`
-    for exactly this build, so the registry — not merely the directory — is what
-    has to carry it.
+    for 2.1.290, so the registry — not merely the directory — is what has to
+    carry it; 2.1.292 is the build the host runs now and is the one a post-merge
+    canary will be asked about.
     """
     canary = _load_canary()
+    registered = canary._registered_versions()
 
-    assert "2.1.290" in canary._registered_versions()
+    assert _CURRENT_HOST_BUILD in registered
+    for version, _digest, _size in _SUPPLIED_CAPTURES:
+        assert version in registered, version
 
-    err = _io.StringIO()
-    with contextlib.redirect_stderr(err):
-        exit_code = canary.main(
-            argv=["check"],
-            run=lambda *_args, **_kwargs: subprocess.CompletedProcess(
-                args=["claude", "--version"], returncode=0, stdout="2.1.290 (Claude Code)\n"
-            ),
-        )
+        err = _io.StringIO()
+        with contextlib.redirect_stderr(err):
+            exit_code = canary.main(
+                argv=["check"],
+                run=lambda *_args, version=version, **_kwargs: subprocess.CompletedProcess(
+                    args=["claude", "--version"],
+                    returncode=0,
+                    stdout=f"{version} (Claude Code)\n",
+                ),
+            )
 
-    assert exit_code == 0, err.getvalue()
-    assert err.getvalue() == ""
+        assert exit_code == 0, (version, err.getvalue())
+        assert err.getvalue() == "", version
 
 
-def test_the_supplied_capture_carries_its_host_provenance_row() -> None:
+def test_each_supplied_capture_carries_its_host_provenance_row() -> None:
     """The bytes and the account of where they came from travel TOGETHER.
 
     A registry file with no provenance row is indistinguishable from a
     constructed rendering, which is the whole reason the note beside these
-    fixtures exists — and this one in particular needs it, because it was
-    captured outside the run that registers it.
+    fixtures exists — and these two need it most, having been captured outside
+    the run that registers them.
     """
     note = (_FIXTURE_DIR / "README.md").read_text(encoding="utf-8")
 
-    row = next(
-        (line for line in note.splitlines() if line.startswith(f"| `{_SUPPLIED_HOST_CAPTURE}` |")),
-        None,
-    )
+    for version, _digest, _size in _SUPPLIED_CAPTURES:
+        row = next(
+            (line for line in note.splitlines() if line.startswith(f"| `{version}.txt` |")),
+            None,
+        )
 
-    assert row is not None, f"no provenance row for {_SUPPLIED_HOST_CAPTURE}"
-    assert "just capture-claude-idle-canary" in row, row
-    assert "2026-10-06" in row, row
-    assert "09:24:29" in row, row
-    assert "chore/claude-idle-canary-2-1-290" in row, row
+        assert row is not None, f"no provenance row for {version}.txt"
+        assert "just capture-claude-idle-canary" in row, row
+        assert "2026-10-06" in row, row
+        assert "chore/claude-idle-canary-2-1-290" in row, row
+        assert f"Claude Code {version}" in row, row
