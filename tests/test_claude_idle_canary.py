@@ -1,6 +1,7 @@
 """Version-keyed Claude idle-shape canary fixtures."""
 
 import contextlib
+import hashlib
 import importlib.util
 import io as _io
 import json
@@ -451,3 +452,92 @@ def test_claude_restart_logs_the_installed_claude_build(*, tmp_path) -> None:
     )
     assert build["phase"] == "respawn"
     assert build["version"] == "2.1.237"
+
+
+# ------------------------------------- the supplied 2.1.290 host capture
+#
+# This fixture is NOT a factory artifact. It was captured on the operator host
+# with `just capture-claude-idle-canary` at 2026-10-06T09:24:29-09:24:35Z, in
+# the linked `chore/claude-idle-canary-2-1-290` worktree whose cwd is visible in
+# the pane, and carried into this repair unchanged rather than recaptured —
+# which is why its bytes are pinned by DIGEST here. The alternatives a digest
+# forecloses are the two that would look identical in a diff: an older fixture
+# relabelled as this release, and a reconstructed rendering standing in for the
+# real ANSI-styled pane.
+
+_SUPPLIED_HOST_CAPTURE = "2.1.290.txt"
+_SUPPLIED_SHA256 = "038ee999192893794b849f2306a0be3d2c2a6880ef521b6851f913bca83cd012"
+_SUPPLIED_BYTES = 1484
+
+
+def test_the_supplied_2_1_290_capture_is_registered_byte_for_byte() -> None:
+    """The host capture is present and UNCHANGED, digest and length both."""
+    fixture = _FIXTURE_DIR / _SUPPLIED_HOST_CAPTURE
+    assert fixture.is_file(), f"the supplied host capture {_SUPPLIED_HOST_CAPTURE} is missing"
+
+    raw = fixture.read_bytes()
+
+    assert len(raw) == _SUPPLIED_BYTES, len(raw)
+    assert hashlib.sha256(raw).hexdigest() == _SUPPLIED_SHA256
+
+
+def test_the_detector_reads_the_supplied_2_1_290_capture_as_idle_and_input_ready() -> None:
+    """The real rendering, evaluated by the shipped predicates rather than retyped.
+
+    Both halves, because the canary script requires both: `is_idle_input` is the
+    structural idle shape and `input_box_ready` is what the submit-verify loop
+    waits for. The ANSI escapes are left in place deliberately — since 2.1.286
+    the detector distinguishes a dim-styled generated placeholder from identical
+    user-authored text, and a stripped capture cannot carry that evidence.
+    """
+    capture = (_FIXTURE_DIR / _SUPPLIED_HOST_CAPTURE).read_text(encoding="utf-8")
+
+    assert "\x1b[" in capture, "the capture must retain its real SGR escapes"
+    assert signals.is_idle_input(capture_text=capture) is True
+    assert signals.input_box_ready(capture_text=capture) is True
+
+
+def test_the_canary_registers_2_1_290_as_an_installed_build() -> None:
+    """A host running 2.1.290 must no longer fail the version-keyed canary.
+
+    The measured host janitor failure was `CLAUDE_IDLE_CANARY_MISSING_FIXTURE`
+    for exactly this build, so the registry — not merely the directory — is what
+    has to carry it.
+    """
+    canary = _load_canary()
+
+    assert "2.1.290" in canary._registered_versions()
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        exit_code = canary.main(
+            argv=["check"],
+            run=lambda *_args, **_kwargs: subprocess.CompletedProcess(
+                args=["claude", "--version"], returncode=0, stdout="2.1.290 (Claude Code)\n"
+            ),
+        )
+
+    assert exit_code == 0, err.getvalue()
+    assert err.getvalue() == ""
+
+
+def test_the_supplied_capture_carries_its_host_provenance_row() -> None:
+    """The bytes and the account of where they came from travel TOGETHER.
+
+    A registry file with no provenance row is indistinguishable from a
+    constructed rendering, which is the whole reason the note beside these
+    fixtures exists — and this one in particular needs it, because it was
+    captured outside the run that registers it.
+    """
+    note = (_FIXTURE_DIR / "README.md").read_text(encoding="utf-8")
+
+    row = next(
+        (line for line in note.splitlines() if line.startswith(f"| `{_SUPPLIED_HOST_CAPTURE}` |")),
+        None,
+    )
+
+    assert row is not None, f"no provenance row for {_SUPPLIED_HOST_CAPTURE}"
+    assert "just capture-claude-idle-canary" in row, row
+    assert "2026-10-06" in row, row
+    assert "09:24:29" in row, row
+    assert "chore/claude-idle-canary-2-1-290" in row, row
