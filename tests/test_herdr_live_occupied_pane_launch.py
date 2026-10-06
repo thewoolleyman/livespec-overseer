@@ -20,14 +20,24 @@ of a real shell, and the reading proving it comes from herdr rather than from
 the surface under test.
 
 **What "OBSERVES that child" has to mean, because this fixture used to get it
-wrong and the test passed anyway.** The old wait returned as soon as the pane's
-`foreground_process_group_id` differed from its `shell_pid` — any difference, by
-any process. Measured on the operator host: shell `zsh` 3584980, then foreground
-3585294 named `mv`, a child of that shell's own startup. The wait returned
-before `sleep` had ever run, the fixture stamped its precondition flag, the
-adapter correctly read an IDLE shell and launched into it — and the assertion
-that a live occupant withholds the launch was graded against a pane with no
-occupant. Two sibling defects came out of the same loop: one real run raised
+wrong and ACCUSE THE PRODUCT OF ITS OWN DEFECT.** The old wait returned as soon
+as the pane's `foreground_process_group_id` differed from its `shell_pid` — any
+difference, by any process. Measured on the operator host: shell `zsh` 3584980,
+then foreground 3585294 named `mv`, a child of that shell's own startup. The
+wait returned before `sleep` had ever run and stamped its precondition flag
+anyway, so the pane the adapter read was genuinely IDLE and it returned
+`outcome.ok=True` — correctly. `assert outcome.ok is False` therefore **FAILED**,
+and the recurrence was recorded as a failing expected-refusal test.
+
+**That direction is the whole point, and the opposite reading is the tempting
+one.** This was a FAILING test against a CORRECT product, never a passing test
+concealing a defect. Because no occupant was ever staged, the run carries NO
+evidence either way about whether the adapter would accept a PROVEN occupied
+pane — the question the exercise exists to ask was simply never put. A false
+fixture premise produced a false accusation, and the repair's value is that the
+same premise now fails as a FIXTURE failure that names what it saw.
+
+Two sibling defects came out of the same loop: one real run raised
 `KeyError: 'foreground_process_group_id'` inside the setup thread, and the loop
 returned silently at its deadline, so a setup TIMEOUT and an established
 precondition were the same return value.

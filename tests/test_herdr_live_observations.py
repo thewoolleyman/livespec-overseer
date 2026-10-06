@@ -25,10 +25,17 @@ real herdr on the operator host, and none of them is evidence about the adapter.
     returned as soon as a pane's `foreground_process_group_id` differed from its
     `shell_pid` — any difference, by any process. Measured: shell `zsh` pid
     3584980, then foreground pid 3585294 named `mv`, a child of the operator
-    shell's own startup. The wait returned immediately, the requested `sleep`
-    was never observed, and the adapter then quite correctly launched into an
-    idle shell — so the test that exists to prove a live occupant withholds the
-    launch passed against a pane that had no occupant at all.
+    shell's own startup. The wait returned immediately and the requested `sleep`
+    was never observed, so the pane the adapter then read was genuinely IDLE and
+    it returned `outcome.ok=True` — correctly. The exercise's expected-refusal
+    assertion therefore **FAILED**.
+
+    **Note the direction, because the obvious reading of that is backwards.**
+    This was a FAILING test against a CORRECT product, not a passing test hiding
+    a defect: the fixture never staged an occupant, so the run says nothing
+    whatever about whether the adapter would accept a PROVEN occupied pane. A
+    false premise produced a false accusation. What the repair buys is that the
+    same false premise now fails as a FIXTURE failure, naming what it saw.
   - **A reading missing a field raised instead of refusing.** Another real run
     raised `KeyError: 'foreground_process_group_id'` inside the setup thread,
     where nothing was watching for it.
@@ -637,7 +644,26 @@ def _reading(
 
 
 def _frozen_poll(*, seconds: float, ticks: list[float]) -> BoundedPoll:
-    """A poll whose clock advances only through `ticks`, and never really sleeps."""
+    """A poll whose clock advances only through `ticks`, and never really sleeps.
+
+    **Every caller needs at least THREE ticks, and the reason is a property of
+    this harness rather than of anything it tests.** The waits read the clock
+    once to compute their deadline and again on each `while` test, so a
+    two-element `[0.0, 2.0]` against `seconds=1.0` expires on the FIRST test and
+    the loop body never runs — the wait then reports "no process reading was
+    taken before the deadline", which is true and is not the refusal the control
+    meant to assert. An intermediate tick (`[0.0, 0.5, 2.0]`) buys exactly one
+    reading before expiry, which is what a timeout control wants: a real refusal
+    first, then the bound.
+
+    **Two controls were authored with two ticks and failed on first run. That was
+    a defect in THIS function's callers, not in any helper, and it is recorded so
+    nobody re-reads it as one.** Nothing in `await_occupying_child`,
+    `await_idle_shell` or `_recovery_refusal` changed to make them pass, and no
+    assertion in either control was weakened — the fix was the inserted tick and
+    nothing else. It is not a Red-Green pair over a product or helper defect, and
+    it is not evidence about either.
+    """
     remaining = list(ticks)
 
     def monotonic() -> float:
