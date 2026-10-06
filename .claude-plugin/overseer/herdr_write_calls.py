@@ -104,6 +104,30 @@ def layout_params(*, pane_id: str) -> dict[str, object]:
     return {"pane_id": pane_id}
 
 
+def _placed_pane(*, row: object) -> tuple[str, int] | None:
+    """One layout row as `(pane_id, top)`, or None when it cannot be measured.
+
+    Split from :func:`pane_tops` along the seam between reading a ROW and
+    assembling the MAP, so the duplicate-coordinate rule below reads as the one
+    thing it is rather than as a fourth parse branch.
+
+    `bool` is excluded from the offset explicitly because it is an `int`
+    subclass in Python: a reply carrying `y: true` would otherwise place a pane
+    at row 1, which is a position invented out of a flag.
+    """
+    pane = jsonio.as_object(value=row)
+    if pane is None:
+        return None
+    identifier = pane.get("pane_id")
+    rect = jsonio.as_object(value=pane.get("rect"))
+    if not isinstance(identifier, str) or not identifier or rect is None:
+        return None
+    top = rect.get("y")
+    if not isinstance(top, int) or isinstance(top, bool):
+        return None
+    return identifier, top
+
+
 def pane_tops(*, result: dict[str, object]) -> dict[str, int] | None:
     """Each pane's TOP row on the tab, or `None` when the layout is unreadable.
 
@@ -112,6 +136,21 @@ def pane_tops(*, result: dict[str, object]) -> dict[str, int] | None:
     layout that cannot be parsed, or a pane row without a usable id and `y`,
     yields no geometry rather than a partial picture something could be
     launched against.
+
+    **A REPEATED pane coordinate refuses the whole layout**, for the same reason
+    :func:`herdr_calls.pane_rows` refuses a repeated listing coordinate: a pane
+    id is unique within a server by construction, so a reply naming one twice is
+    contradictory, and "where is my pane?" cannot be answered from two
+    conflicting records. The refusal is on the REPEAT itself rather than on
+    whether the two rows disagree, because a caller cannot know which fields a
+    server might repeat consistently.
+
+    Assignment in a loop was the defect this replaces, and it was worse than a
+    partial reading: the LAST row silently won, so one contradictory reply meant
+    two different things depending on its order. With the created pane
+    duplicated at rows 20 and 0 against a target at row 10, ending on 0 placed
+    it "above" and launched the command, while the reverse order read as a
+    certain known failure. Neither position was ever established.
     """
     layout = jsonio.as_object(value=result.get("layout"))
     if layout is None:
@@ -121,15 +160,11 @@ def pane_tops(*, result: dict[str, object]) -> dict[str, int] | None:
         return None
     tops: dict[str, int] = {}
     for row in rows:
-        pane = jsonio.as_object(value=row)
-        if pane is None:
+        placed = _placed_pane(row=row)
+        if placed is None:
             return None
-        identifier = pane.get("pane_id")
-        rect = jsonio.as_object(value=pane.get("rect"))
-        if not isinstance(identifier, str) or not identifier or rect is None:
-            return None
-        top = rect.get("y")
-        if not isinstance(top, int) or isinstance(top, bool):
+        identifier, top = placed
+        if identifier in tops:
             return None
         tops[identifier] = top
     return tops
