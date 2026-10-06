@@ -1,5 +1,16 @@
 # Changelog
 
+## [5.14.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.14.0...v5.14.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **overseer:** agree with a shell registered under an alias of its real binary ([60e9c99](https://github.com/thewoolleyman/livespec-overseer/commit/60e9c99efc6cd5f6283b23936a7f1df18a5577d1))
+* **overseer:** prove a new herdr pane's retained shell before launching into it ([bccc472](https://github.com/thewoolleyman/livespec-overseer/commit/bccc472deea995338eca5418fa3b5f4b51b0c84f))
+* **overseer:** refuse a herdr layout that names one pane twice ([47239d0](https://github.com/thewoolleyman/livespec-overseer/commit/47239d0f12ee4a51e0cd166f452ca9de07088a10))
+* **overseer:** refuse a herdr pane whose root shell was exec-replaced at its pid ([d7ea5a0](https://github.com/thewoolleyman/livespec-overseer/commit/d7ea5a0e80a6247b2641eaf9601e22c8a6114cd0))
+* **overseer:** report an unresolved herdr swap effect instead of a certain refusal ([45df64d](https://github.com/thewoolleyman/livespec-overseer/commit/45df64dd6d7f096823b4fc77c011d43820b43930))
+
 ## [5.14.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.13.0...v5.14.0) (2026-10-05)
 
 
