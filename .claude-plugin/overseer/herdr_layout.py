@@ -5,7 +5,13 @@ Split out of :mod:`herdr_write` along the seam between its two concerns.
 request, no question about which pane it is. This module CONSTRUCTS a pane and
 then has to prove, before writing anything into it, that the pane it is about to
 write to is the one it meant to make. Those are different jobs with different
-failure modes, and the proving is most of the code here.
+failure modes.
+
+The proving outgrew the ordering, so it has a module of its own:
+:mod:`_herdr_layout_proofs` gathers the live evidence, and what is left here is
+the SEQUENCE — which mutation goes in which order, and what each failure means
+to a caller. The two halves of that second question are the whole subject of
+:class:`LayoutOutcome`.
 
 **Why so much proof for one split.** Herdr supports only `right` and `down`
 splits, so "above" is a split followed by a swap, and every step answers with a
@@ -45,15 +51,12 @@ generation replaced midway cannot receive the remainder of the sequence.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Protocol
 
-import herdr_calls
+import _herdr_layout_proofs
 import herdr_identity
-import herdr_protocol
-import herdr_transport
 import herdr_write_calls
+from _herdr_layout_proofs import BoundedRequests
 
 __all__: list[str] = [
     "DEFAULT_TOP_RATIO",
@@ -67,24 +70,6 @@ __all__: list[str] = [
 # pane carries the table plus the NEEDS YOU block, the supervised pane is a
 # prompt. Callers that want a different split pass `ratio`.
 DEFAULT_TOP_RATIO = 0.66
-
-
-class BoundedRequests(Protocol):
-    """The one capability this module needs: a bounded, peer-validated request.
-
-    A protocol rather than an import of the concrete writer, so the layout
-    sequence can be reasoned about without the socket, and so neither module
-    has to reach into the other's privates.
-    """
-
-    def request(
-        self,
-        *,
-        target: herdr_identity.HerdrPaneTarget,
-        method: str,
-        params: Mapping[str, object],
-        expect: herdr_protocol.ReplyExpectation,
-    ) -> herdr_transport.RpcOutcome: ...
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -125,7 +110,7 @@ def place_above(
     would undo it, and repeating a launch would run the command twice;
     `SPECIFICATION/contracts.md` forbids resubmitting past that boundary.
     """
-    owned, ownership_error = _owned_panes(requester=requester, target=target)
+    owned, ownership_error = _herdr_layout_proofs.owned_panes(requester=requester, target=target)
     if ownership_error:
         # Refused BEFORE the split, so nothing was created and nothing is
         # uncertain: the caller named a pane this server does not own.
@@ -140,14 +125,14 @@ def place_above(
         return LayoutOutcome(
             ok=False, pane_id="", error=split.error, effect_unknown=split.effect_unknown
         )
-    created, creation_error = _proven_new_pane(
+    created, creation_error = _herdr_layout_proofs.proven_new_pane(
         requester=requester, target=target, result=split.result, owned=owned
     )
     if creation_error:
         # The split was ACKNOWLEDGED, so a pane probably exists; it simply
         # cannot be trusted or addressed. That is an uncertain mutation.
         return LayoutOutcome(ok=False, pane_id="", error=creation_error, effect_unknown=True)
-    shell = _retained_shell(
+    shell = _herdr_layout_proofs.retained_shell(
         requester=requester, target=target, created=created, expected_shell_pid=None
     )
     if shell.error:
@@ -161,39 +146,6 @@ def place_above(
         created=created,
         command=command,
         shell_pid=shell.shell_pid,
-    )
-
-
-def _retained_shell(
-    *,
-    requester: BoundedRequests,
-    target: herdr_identity.HerdrPaneTarget,
-    created: str,
-    expected_shell_pid: int | None,
-) -> herdr_write_calls.RetainedShell:
-    """FRESH process evidence that `created` is an idle retained shell, or why not.
-
-    Addressed at `created` through the same bounded, peer-validated path as every
-    mutation, so the reading is taken from the exact server generation the
-    coordinate names rather than from whichever server now answers on that
-    socket. A read this one cannot complete is a refusal, never an idle shell:
-    `SPECIFICATION/contracts.md` forbids treating an unsupported or malformed
-    backend response as proof of an idle pane, and that prohibition is at its
-    sharpest here, where the next step writes a command plus Enter.
-    """
-    reading = requester.request(
-        target=target,
-        method=herdr_protocol.METHOD_PANE_PROCESS_INFO,
-        params=herdr_calls.process_info_params(pane_id=created),
-        expect=herdr_calls.EXPECT_PROCESS_INFO,
-    )
-    if not reading.ok:
-        return herdr_write_calls.RetainedShell(
-            shell_pid=0,
-            error=f"the new pane's retained shell could not be read: {reading.error}",
-        )
-    return herdr_write_calls.retained_shell(
-        result=reading.result, pane_id=created, expected_shell_pid=expected_shell_pid
     )
 
 
@@ -221,16 +173,26 @@ def _raise_above_and_launch(
         return LayoutOutcome(
             ok=False, pane_id=created, error=swap.error, effect_unknown=swap.effect_unknown
         )
-    refusal = herdr_write_calls.swap_refusal(
+    verdict = herdr_write_calls.swap_verdict(
         result=swap.result, source_pane_id=target.pane_id, target_pane_id=created
-    ) or _placement_refusal(requester=requester, target=target, created=created)
-    if refusal:
-        # Either herdr said it moved nothing, or the rectangles say it did not.
-        # Both are REFUSALS rather than uncertainties — the server answered —
-        # and both leave the new pane below the target, where launching the
-        # command would hide it from the operator.
-        return LayoutOutcome(ok=False, pane_id=created, error=refusal, effect_unknown=False)
-    live = _retained_shell(
+    )
+    if verdict.error:
+        # Either herdr explicitly declined — a certain refusal about a mutation
+        # that did not happen — or its answer cannot settle whether the panes
+        # were exchanged, which is an UNRESOLVED effect. The verdict carries
+        # which, because only the first is safe to reconsider.
+        return LayoutOutcome(
+            ok=False, pane_id=created, error=verdict.error, effect_unknown=verdict.effect_unknown
+        )
+    placement, unresolved = _herdr_layout_proofs.placement_refusal(
+        requester=requester, target=target, created=created
+    )
+    if placement:
+        # Past a believed swap, an UNREADABLE placement leaves the effect open
+        # while an observed wrong one is a known state; both stop the launch,
+        # which would otherwise hide the daemon beneath the supervised session.
+        return LayoutOutcome(ok=False, pane_id=created, error=placement, effect_unknown=unresolved)
+    live = _herdr_layout_proofs.retained_shell(
         requester=requester, target=target, created=created, expected_shell_pid=shell_pid
     )
     if live.error:
@@ -249,102 +211,3 @@ def _raise_above_and_launch(
             ok=False, pane_id=created, error=launch.error, effect_unknown=launch.effect_unknown
         )
     return LayoutOutcome(ok=True, pane_id=created, error="", effect_unknown=False)
-
-
-def _owned_panes(
-    *, requester: BoundedRequests, target: herdr_identity.HerdrPaneTarget
-) -> tuple[tuple[herdr_calls.PaneRow, ...], str]:
-    """The server's live pane rows, having proved `target` is among them.
-
-    This runs BEFORE the split for two reasons. It establishes that the
-    coordinate names a pane this generation actually owns — every later claim
-    about that pane is unverifiable otherwise — and it records which panes
-    already existed, which is the only way to tell a genuinely new pane from one
-    the server merely pointed at.
-    """
-    listing = requester.request(
-        target=target,
-        method=herdr_protocol.METHOD_PANE_LIST,
-        params=herdr_calls.list_params(),
-        expect=herdr_calls.EXPECT_LIST,
-    )
-    if not listing.ok:
-        return (), listing.error
-    rows = herdr_calls.pane_rows(result=listing.result)
-    if rows is None:
-        return (), "herdr pane listing is unreadable"
-    if not any(row.pane_id == target.pane_id for row in rows):
-        return (), f"herdr server does not own pane {target.pane_id!r}"
-    return rows, ""
-
-
-def _proven_new_pane(
-    *,
-    requester: BoundedRequests,
-    target: herdr_identity.HerdrPaneTarget,
-    result: dict[str, object],
-    owned: tuple[herdr_calls.PaneRow, ...],
-) -> tuple[str, str]:
-    """The created pane id, proven NEW and in the target's tab, or why not.
-
-    Three separate claims, none of which the acknowledgement can settle on its
-    own: that a pane was named, that the named pane is neither the original nor
-    a pre-existing neighbour, and that it really exists in the target's tab. The
-    last is taken from a fresh enumeration rather than from the reply, because a
-    reply that is wrong about which pane it made is equally capable of being
-    wrong about where it made it.
-    """
-    created = herdr_write_calls.new_pane_id(result=result)
-    if created is None:
-        return "", "herdr split reply does not name the pane it created"
-    refusal = herdr_write_calls.created_pane_refusal(
-        created=created,
-        original=target.pane_id,
-        known=frozenset(row.pane_id for row in owned),
-    )
-    if refusal:
-        return "", refusal
-    rows, error = _owned_panes(requester=requester, target=target)
-    if error:
-        return "", f"the new pane could not be verified: {error}"
-    expected = next((row.tab_id for row in rows if row.pane_id == target.pane_id), "")
-    placed = next((row for row in rows if row.pane_id == created), None)
-    if placed is None:
-        return "", f"herdr does not list {created!r} as a live pane after the split"
-    if placed.tab_id != expected:
-        return "", (
-            f"herdr created {created!r} in tab {placed.tab_id!r}, "
-            f"not the target's tab {expected!r}"
-        )
-    return created, ""
-
-
-def _placement_refusal(
-    *, requester: BoundedRequests, target: herdr_identity.HerdrPaneTarget, created: str
-) -> str:
-    """Why the live geometry does not show `created` above `target`, or `""`.
-
-    The last proof before the command is written, and the only one taken from
-    the rectangles themselves. A swap can report success and leave the panes
-    where they were; launching on that report alone would put the daemon beneath
-    the session it supervises.
-    """
-    layout = requester.request(
-        target=target,
-        method=herdr_write_calls.LAYOUT_METHOD,
-        params=herdr_write_calls.layout_params(pane_id=target.pane_id),
-        expect=herdr_write_calls.EXPECT_LAYOUT,
-    )
-    if not layout.ok:
-        return f"the new pane's placement could not be verified: {layout.error}"
-    tops = herdr_write_calls.pane_tops(result=layout.result)
-    if tops is None:
-        return "herdr layout reply is unreadable, so the placement is unproven"
-    if created not in tops or target.pane_id not in tops:
-        return f"herdr layout does not place both {created!r} and {target.pane_id!r}"
-    if tops[created] >= tops[target.pane_id]:
-        return (
-            f"herdr left {created!r} at row {tops[created]}, not above "
-            f"{target.pane_id!r} at row {tops[target.pane_id]}"
-        )
-    return ""

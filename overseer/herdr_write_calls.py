@@ -56,6 +56,7 @@ __all__: list[str] = [
     "SPLIT_METHOD",
     "SWAP_METHOD",
     "RetainedShell",
+    "SwapVerdict",
     "created_pane_refusal",
     "enter_params",
     "launch_params",
@@ -66,7 +67,7 @@ __all__: list[str] = [
     "retained_shell",
     "split_down_params",
     "swap_params",
-    "swap_refusal",
+    "swap_verdict",
 ]
 
 # MEASURED: the one method that brackets a paste. `pane.send_text` is NOT an
@@ -303,8 +304,25 @@ def swap_params(*, source_pane_id: str, target_pane_id: str) -> dict[str, object
     return {"source_pane_id": source_pane_id, "target_pane_id": target_pane_id}
 
 
-def swap_refusal(*, result: dict[str, object], source_pane_id: str, target_pane_id: str) -> str:
-    """Why this swap may NOT be believed, or `""` when it may.
+@dataclass(frozen=True, kw_only=True)
+class SwapVerdict:
+    """Whether a swap reply may be believed, and whether it SETTLES the mutation.
+
+    Two different questions, and collapsing them is what made a swap whose fate
+    was unknown look safe to reconsider. `error` says the sequence may not
+    continue; `effect_unknown` says whether the panes may already have been
+    exchanged anyway, which is the only thing that decides whether repeating the
+    request is forbidden.
+    """
+
+    error: str
+    effect_unknown: bool
+
+
+def swap_verdict(
+    *, result: dict[str, object], source_pane_id: str, target_pane_id: str
+) -> SwapVerdict:
+    """Why this swap may NOT be believed and what is still unknown, or `""`.
 
     **A refused swap arrives as a SUCCESS envelope**, which is why this exists
     rather than a `ReplyExpectation`. Measured on herdr 0.9.3: a cross-tab swap
@@ -314,25 +332,52 @@ def swap_refusal(*, result: dict[str, object], source_pane_id: str, target_pane_
     gate therefore passes them, and a caller that trusted it would go on to
     launch a command into a pane that was never moved.
 
-    The echoed identities are checked for the same reason the observation
-    adapter checks a reply's pane id: matching the reply's REQUEST id proves
-    the answer is to this call, not that it concerns the panes this call named.
+    **The ECHOED IDENTITIES are checked FIRST, and the order is the fix.** This
+    function used to test `changed` first, so a `changed: false` reply naming
+    panes the call never asked about was reported as a certain refusal — proof
+    that nothing moved. It is proof of nothing: a statement about somebody
+    else's panes says nothing about ours, and the request had already crossed
+    the socket. Identity is therefore the prior question, exactly as the
+    observation adapter treats a reply's pane id: matching the reply's REQUEST
+    id proves the answer is to this call, never that it concerns these panes.
+
+    **`changed` must be a real boolean.** `required_fields` proves the member is
+    present, not that it is usable, so a missing `changed`, the string
+    `"false"`, and a number all reach this reader. None of them states whether
+    the exchange happened, so each leaves the effect unknown rather than being
+    read as a convenient falsehood.
+
+    Only ONE shape here is certain: a well-formed `changed: false` about exactly
+    the panes asked for. That is the server explicitly declining, which is a
+    fact about a mutation that did not occur.
     """
     swap = jsonio.as_object(value=result.get("swap"))
     if swap is None:
-        return "herdr swap reply carries no readable swap"
-    if swap.get("changed") is not True:
-        reason = swap.get("reason")
-        detail = f" ({reason})" if isinstance(reason, str) and reason else ""
-        return f"herdr refused the swap{detail}"
+        return SwapVerdict(error="herdr swap reply carries no readable swap", effect_unknown=True)
     echoed_source = swap.get("source_pane_id")
     echoed_target = swap.get("target_pane_id")
     if echoed_source != source_pane_id or echoed_target != target_pane_id:
-        return (
-            f"herdr swap reply describes {echoed_source!r}/{echoed_target!r}, "
-            f"not the requested {source_pane_id!r}/{target_pane_id!r}"
+        return SwapVerdict(
+            error=(
+                f"herdr swap reply describes {echoed_source!r}/{echoed_target!r}, "
+                f"not the requested {source_pane_id!r}/{target_pane_id!r}"
+            ),
+            effect_unknown=True,
         )
-    return ""
+    changed = swap.get("changed")
+    if not isinstance(changed, bool):
+        return SwapVerdict(
+            error=(
+                f"herdr swap reply carries an unusable changed member {changed!r}, "
+                "so whether the panes were exchanged is unknown"
+            ),
+            effect_unknown=True,
+        )
+    if not changed:
+        reason = swap.get("reason")
+        detail = f" ({reason})" if isinstance(reason, str) and reason else ""
+        return SwapVerdict(error=f"herdr refused the swap{detail}", effect_unknown=False)
+    return SwapVerdict(error="", effect_unknown=False)
 
 
 def new_pane_id(*, result: dict[str, object]) -> str | None:
