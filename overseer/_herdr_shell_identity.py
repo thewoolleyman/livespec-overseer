@@ -21,13 +21,26 @@ stdin. The start time is kept in the identity anyway, but NOT for this: it canno
 see a replacement, it sees PID REUSE — a genuinely different process arriving at
 the same number.
 
-**Two halves, carrying different weight, and the difference is worth stating.**
+**Two halves, carrying different weight — and NEITHER is airtight. An earlier
+version of this paragraph called the first one that, which overstated what two
+point-in-time snapshots can prove.**
 
-  - :func:`retained_shell` with `expected` set is the AIRTIGHT half. The whole
-    observed identity is recorded at establish and must match exactly at
-    recheck. A root replaced between the two readings changes the executable
-    while keeping the number, so equality refuses it with no judgement about
-    what a shell is.
+  - :func:`retained_shell` with `expected` set is a FRESH CORROBORATION. The
+    whole observed identity is recorded at establish and re-read immediately
+    before the write, and any difference refuses. What that buys is detection of
+    an OBSERVED IMAGE CHANGE: between those two readings the kernel came to
+    report a different executable, or a different start time, for the pid herdr
+    calls the pane's shell. It needs no judgement about what a shell is, which
+    is what makes it the stronger of the two halves.
+
+    Two things it does NOT do, stated because "airtight" implied both. It does
+    not atomically exclude a LATER `exec` — the recheck is a snapshot taken
+    before the write, not a lock held across it, so a replacement landing after
+    that read is outside what any snapshot can see. And it does not detect a
+    SAME-EXECUTABLE replacement: an `exec` of the same binary keeps the pid, the
+    start time AND the executable, leaving the comparison nothing to refuse. The
+    guarantee is "the image this operation observed did not change", never "the
+    image cannot have changed".
   - `expected=None` — the establish — needs POSITIVE evidence, because a root
     replaced BEFORE either reading produces two readings that agree perfectly.
     What refuses it is that the kernel's executable is not a login shell
@@ -212,8 +225,10 @@ def retained_shell(
 
     `expected is None` ESTABLISHES the identity and is the only path that applies
     the login-shell corroboration; a supplied identity REQUIRES exact equality,
-    which is what detects a replacement. See the module docstring for why those
-    two halves are not interchangeable.
+    which corroborates the live image against the one observed at establish and
+    refuses an observed change. See the module docstring for why those two halves
+    are not interchangeable, and for what the comparison does not prove — it
+    neither excludes a later `exec` nor sees one that keeps the same executable.
     """
     process, unusable = _server_reading(result=result, pane_id=pane_id)
     if process is None:
