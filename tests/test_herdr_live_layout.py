@@ -48,6 +48,13 @@ OBSERVES it, and then waits for the pane to report an idle retained shell before
 the adapter takes its own reading; a gate that cannot establish that condition
 fails the exercise by name rather than being reported as the adapter declining.
 
+These tests PASSED before that change and pass after it — on a host whose login
+shell loads nothing they are PRESERVATION CONTROLS over guards that already
+hold, and none of this is a reproduced host failure or a product Red. What the
+staged transient buys is a bounded DISCRIMINATING instance: the premise is now
+established rather than inherited from the shell the exercise happens to run
+under. `tests/test_herdr_live_observations.py` carries that framing in full.
+
 **Session isolation is herdr's own `--session` mechanism**: every session name
 carries this test process's pid, and teardown stops and deletes BY THAT EXACT
 NAME, so no other session — including the operator's `default` — is touched.
