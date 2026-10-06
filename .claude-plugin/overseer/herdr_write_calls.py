@@ -34,6 +34,9 @@ statement that no key accompanies this text.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
+import herdr_calls
 import herdr_protocol
 import jsonio
 
@@ -52,6 +55,7 @@ __all__: list[str] = [
     "SPLIT_DIRECTION_DOWN",
     "SPLIT_METHOD",
     "SWAP_METHOD",
+    "RetainedShell",
     "created_pane_refusal",
     "enter_params",
     "launch_params",
@@ -59,6 +63,7 @@ __all__: list[str] = [
     "new_pane_id",
     "pane_tops",
     "paste_params",
+    "retained_shell",
     "split_down_params",
     "swap_params",
     "swap_refusal",
@@ -154,6 +159,83 @@ def created_pane_refusal(*, created: str, original: str, known: frozenset[str]) 
     if created in known:
         return f"herdr split reply names pre-existing pane {created!r} as newly created"
     return ""
+
+
+@dataclass(frozen=True, kw_only=True)
+class RetainedShell:
+    """A pane's idle retained shell, or why it may not be written into.
+
+    `shell_pid` is 0 on a refusal rather than left as a plausible value, for the
+    same reason every reader here fails closed: a caller that carried a pid out
+    of a refused reading could use it as the EXPECTED shell on a later check and
+    certify the comparison against itself.
+    """
+
+    shell_pid: int
+    error: str
+
+
+def retained_shell(
+    *, result: dict[str, object], pane_id: str, expected_shell_pid: int | None
+) -> RetainedShell:
+    """The pane's live idle retained shell, or why it does not authorize a write.
+
+    **An executable NAME is not shell identity.** Anything can be called `bash`,
+    so the judgement is made entirely on pids: `shell_pid` is the identity, and
+    its relationship to `foreground_process_group_id` is the state. Measured on
+    herdr 0.9.3, a pane at its prompt reports the two EQUAL with the shell itself
+    as the listed group leader (`shell_pid 22420` / group `22420`, leader
+    `bash`), and the same pane running a child reports them DIFFERENT (`22420` /
+    group `22447`, leader `sleep`). Equality is therefore the idle reading, and
+    anything else is a pane whose foreground belongs to something that would
+    receive the command instead of the shell.
+
+    `expected_shell_pid` carries the two uses apart with one function rather than
+    two that could drift. `None` ESTABLISHES the expectation from this reading;
+    a pid REQUIRES it, which is the only way a shell replaced between the
+    establish and the recheck is detectable at all — a replaced shell is idle,
+    in the right pane, and reports perfectly well about a process the command was
+    never meant for.
+
+    Fail-closed on every other shape too, by delegating the parse to
+    :func:`herdr_calls.foreground_process`: a payload that cannot be read, a
+    non-positive pid, and a foreground list whose group leader cannot be
+    selected unambiguously all arrive here as `None` and refuse. The pane echo is
+    checked for the same reason the observation adapter checks it — a matching
+    request id proves the reply answers THIS REQUEST, not that it describes THIS
+    PANE.
+    """
+    process = herdr_calls.foreground_process(result=result)
+    if process is None:
+        return RetainedShell(
+            shell_pid=0,
+            error=f"herdr process reading for {pane_id!r} is unreadable or ambiguous",
+        )
+    if process.pane_id != pane_id:
+        return RetainedShell(
+            shell_pid=0,
+            error=(
+                f"herdr process reading describes pane {process.pane_id!r}, "
+                f"not the created {pane_id!r}"
+            ),
+        )
+    if expected_shell_pid is not None and process.shell_pid != expected_shell_pid:
+        return RetainedShell(
+            shell_pid=0,
+            error=(
+                f"herdr reports shell {process.shell_pid} in {pane_id!r}, not the "
+                f"expected {expected_shell_pid}; the retained shell was replaced"
+            ),
+        )
+    if process.process_group_id != process.shell_pid:
+        return RetainedShell(
+            shell_pid=0,
+            error=(
+                f"{pane_id!r} is OCCUPIED: foreground group {process.process_group_id} "
+                f"is not its retained shell {process.shell_pid}"
+            ),
+        )
+    return RetainedShell(shell_pid=process.shell_pid, error="")
 
 
 def paste_params(*, pane_id: str, text: str) -> dict[str, object]:

@@ -21,8 +21,20 @@ measured to be dangerous when trusted:
 And a split acknowledgement naming the ORIGINAL pane as the pane it created was
 reproduced driving a self-swap followed by a daemon command pasted into the live
 supervised agent. That is the invariant this module exists to hold: the command
-goes into a pane that is provably NEW, provably in the target's tab, and
-provably above the target — or it is not sent at all.
+goes into a pane that is provably NEW, provably in the target's tab, provably
+above the target, and provably still an IDLE RETAINED SHELL at the instant of
+the write — or it is not sent at all.
+
+**Geometry is not authorization to write, which is the last of those four and
+the one that was missing.** Where a pane IS says nothing about what is RUNNING
+in it, and three round trips separate the split from the launch. A pane that
+acquired a foreground child across them would receive the command plus Enter as
+input to that child. So the created pane's retained shell is ESTABLISHED from a
+`pane.process_info` reading taken the moment the pane is proven, and RECHECKED
+immediately before the write; both readings must name that exact shell pid,
+idle, for that pane, on that generation. A reading that is missing, malformed,
+ambiguous, foreign, replaced or occupied refuses the launch and leaves the
+partial layout exactly as it stands.
 
 The requester is taken as a :class:`BoundedRequests` protocol rather than a
 concrete writer so this module owns no socket, no deadline and no peer policy;
@@ -135,8 +147,53 @@ def place_above(
         # The split was ACKNOWLEDGED, so a pane probably exists; it simply
         # cannot be trusted or addressed. That is an uncertain mutation.
         return LayoutOutcome(ok=False, pane_id="", error=creation_error, effect_unknown=True)
+    shell = _retained_shell(
+        requester=requester, target=target, created=created, expected_shell_pid=None
+    )
+    if shell.error:
+        # The split's effect is KNOWN — the pane was enumerated — and no further
+        # mutation was attempted, so this is a known partial layout rather than
+        # an uncertain one.
+        return LayoutOutcome(ok=False, pane_id=created, error=shell.error, effect_unknown=False)
     return _raise_above_and_launch(
-        requester=requester, target=target, created=created, command=command
+        requester=requester,
+        target=target,
+        created=created,
+        command=command,
+        shell_pid=shell.shell_pid,
+    )
+
+
+def _retained_shell(
+    *,
+    requester: BoundedRequests,
+    target: herdr_identity.HerdrPaneTarget,
+    created: str,
+    expected_shell_pid: int | None,
+) -> herdr_write_calls.RetainedShell:
+    """FRESH process evidence that `created` is an idle retained shell, or why not.
+
+    Addressed at `created` through the same bounded, peer-validated path as every
+    mutation, so the reading is taken from the exact server generation the
+    coordinate names rather than from whichever server now answers on that
+    socket. A read this one cannot complete is a refusal, never an idle shell:
+    `SPECIFICATION/contracts.md` forbids treating an unsupported or malformed
+    backend response as proof of an idle pane, and that prohibition is at its
+    sharpest here, where the next step writes a command plus Enter.
+    """
+    reading = requester.request(
+        target=target,
+        method=herdr_protocol.METHOD_PANE_PROCESS_INFO,
+        params=herdr_calls.process_info_params(pane_id=created),
+        expect=herdr_calls.EXPECT_PROCESS_INFO,
+    )
+    if not reading.ok:
+        return herdr_write_calls.RetainedShell(
+            shell_pid=0,
+            error=f"the new pane's retained shell could not be read: {reading.error}",
+        )
+    return herdr_write_calls.retained_shell(
+        result=reading.result, pane_id=created, expected_shell_pid=expected_shell_pid
     )
 
 
@@ -146,11 +203,13 @@ def _raise_above_and_launch(
     target: herdr_identity.HerdrPaneTarget,
     created: str,
     command: str,
+    shell_pid: int,
 ) -> LayoutOutcome:
     """Swap `created` above `target`, PROVE it landed, and only then launch.
 
-    Everything here already knows `created` is a real, new, correctly-placed
-    pane; everything before it was establishing that.
+    Everything here already knows `created` is a real, new, correctly-placed pane
+    whose retained shell is `shell_pid` and was idle; everything before it was
+    establishing that.
     """
     swap = requester.request(
         target=target,
@@ -171,6 +230,14 @@ def _raise_above_and_launch(
         # and both leave the new pane below the target, where launching the
         # command would hide it from the operator.
         return LayoutOutcome(ok=False, pane_id=created, error=refusal, effect_unknown=False)
+    live = _retained_shell(
+        requester=requester, target=target, created=created, expected_shell_pid=shell_pid
+    )
+    if live.error:
+        # The swap is PROVEN landed, so the layout state is known; what cannot be
+        # proven is that the pane is still the idle shell this command may go to.
+        # Re-read the pane rather than re-running anything.
+        return LayoutOutcome(ok=False, pane_id=created, error=live.error, effect_unknown=False)
     launch = requester.request(
         target=target,
         method=herdr_write_calls.PASTE_METHOD,

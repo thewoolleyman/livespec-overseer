@@ -58,6 +58,21 @@ SWAP_RESULT: dict[str, object] = {
 }
 OK_RESULT: dict[str, object] = {"type": "ok"}
 TAB = "w1:t1"
+SHELL_PID = 4100
+# A pane at its prompt reports its shell as its own foreground group leader; see
+# `tests/test_herdr_layout_launch_authorization.py` for the measured shapes and
+# for what each malformed variant of this reading must refuse.
+IDLE_SHELL: dict[str, object] = {
+    "type": "pane_process_info",
+    "process_info": {
+        "pane_id": CREATED,
+        "shell_pid": SHELL_PID,
+        "foreground_process_group_id": SHELL_PID,
+        "foreground_processes": [
+            {"pid": SHELL_PID, "name": "bash", "cmdline": "/bin/bash", "cwd": "/tmp"}
+        ],
+    },
+}
 
 
 def _row(*, pane_id: str) -> dict[str, object]:
@@ -90,10 +105,12 @@ GOOD_GEOMETRY: dict[str, object] = {
         ],
     },
 }
-# The verified sequence: enumerate, split, re-enumerate, swap, re-measure, launch.
+# The verified sequence: enumerate, split, re-enumerate, establish the retained
+# shell, swap, re-measure, recheck the retained shell, launch.
 HEALTHY: dict[str, list[dict[str, object] | None]] = {
     "pane.list": [BEFORE_ROWS, AFTER_ROWS],
     "pane.split": [SPLIT_RESULT],
+    "pane.process_info": [IDLE_SHELL],
     "pane.swap": [SWAP_RESULT],
     "pane.layout": [GOOD_GEOMETRY],
     "pane.send_input": [OK_RESULT],
@@ -298,6 +315,7 @@ def test_an_unanswered_swap_stays_uncertain_and_is_not_resent(*, socket_dir: Pat
         "pane.list",
         "pane.split",
         "pane.list",
+        "pane.process_info",
         "pane.swap",
     ], "the swap must not be resent, and the launch must not follow it"
 
@@ -316,8 +334,10 @@ def test_an_unanswered_launch_stays_uncertain_and_is_not_resent(*, socket_dir: P
         "pane.list",
         "pane.split",
         "pane.list",
+        "pane.process_info",
         "pane.swap",
         "pane.layout",
+        "pane.process_info",
         "pane.send_input",
     ], "the launch must not be resent"
 
@@ -336,8 +356,10 @@ def test_a_fully_answered_sequence_reports_the_new_pane_and_no_uncertainty(*, so
         "pane.list",
         "pane.split",
         "pane.list",
+        "pane.process_info",
         "pane.swap",
         "pane.layout",
+        "pane.process_info",
         "pane.send_input",
     ]
 

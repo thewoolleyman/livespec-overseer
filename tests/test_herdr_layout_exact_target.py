@@ -96,9 +96,25 @@ GOOD_GEOMETRY: dict[str, object] = {
         ],
     },
 }
+SHELL_PID = 4100
+# The created pane sitting at its prompt: the shell owns its own foreground
+# group. `tests/test_herdr_layout_launch_authorization.py` owns the measured
+# shapes and every malformed variant this reading must refuse.
+IDLE_SHELL: dict[str, object] = {
+    "type": "pane_process_info",
+    "process_info": {
+        "pane_id": CREATED,
+        "shell_pid": SHELL_PID,
+        "foreground_process_group_id": SHELL_PID,
+        "foreground_processes": [
+            {"pid": SHELL_PID, "name": "bash", "cmdline": "/bin/bash", "cwd": "/tmp"}
+        ],
+    },
+}
 HEALTHY: dict[str, list[dict[str, object]]] = {
     "pane.list": [BEFORE_ROWS, AFTER_ROWS],
     "pane.split": [SPLIT_RESULT],
+    "pane.process_info": [IDLE_SHELL],
     "pane.layout": [GOOD_GEOMETRY],
     "pane.send_input": [OK_RESULT],
 }
@@ -447,6 +463,7 @@ def test_a_cross_tab_swap_fails_closed_and_never_launches(*, socket_dir: Path):
         "pane.list",
         "pane.split",
         "pane.list",
+        "pane.process_info",
         "pane.swap",
     ], "the launch must not follow a swap that did not happen"
 
@@ -462,7 +479,13 @@ def test_a_same_pane_swap_fails_closed_and_never_launches(*, socket_dir: Path):
     outcome = _split_top(address=address)
 
     assert outcome.ok is False
-    assert _methods(received=received) == ["pane.list", "pane.split", "pane.list", "pane.swap"]
+    assert _methods(received=received) == [
+        "pane.list",
+        "pane.split",
+        "pane.list",
+        "pane.process_info",
+        "pane.swap",
+    ]
 
 
 def test_a_swap_echoing_other_panes_fails_closed(*, socket_dir: Path):
@@ -483,7 +506,13 @@ def test_a_swap_echoing_other_panes_fails_closed(*, socket_dir: Path):
     outcome = _split_top(address=address)
 
     assert outcome.ok is False
-    assert _methods(received=received) == ["pane.list", "pane.split", "pane.list", "pane.swap"]
+    assert _methods(received=received) == [
+        "pane.list",
+        "pane.split",
+        "pane.list",
+        "pane.process_info",
+        "pane.swap",
+    ]
 
 
 def test_a_swap_that_changed_and_echoes_our_panes_proceeds_to_launch(*, socket_dir: Path):
@@ -502,8 +531,10 @@ def test_a_swap_that_changed_and_echoes_our_panes_proceeds_to_launch(*, socket_d
         "pane.list",
         "pane.split",
         "pane.list",
+        "pane.process_info",
         "pane.swap",
         "pane.layout",
+        "pane.process_info",
         "pane.send_input",
     ]
 
