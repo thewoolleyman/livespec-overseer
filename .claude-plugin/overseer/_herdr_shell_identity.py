@@ -54,6 +54,25 @@ point-in-time snapshots can prove.**
 the process's host; the executable is a claim by the kernel. They must AGREE, so
 a single lying source refuses rather than decides.
 
+**Agreement is not basename equality, and assuming it was refused every pane on
+a Debian-family host.** The two sources answer different questions: the server
+reports what the shell was INVOKED as, the kernel reports what `/proc/<pid>/exe`
+RESOLVED to. Where a registered shell is a symlink those answers differ while
+both stay true — `/bin/sh` -> `dash` yields `'sh'` against `/usr/bin/dash`,
+which the first cut read as a contradiction and refused. Measured: herdr roots a
+pane at `$SHELL` and falls back to `/bin/sh` when it is absent, so an
+interactive operator shell produced `bash` (names agree, everything passed)
+while a gate invocation produced `sh` and every launch refused.
+
+What may mediate between a name and an executable is :func:`system_shell_aliases`
+— the same two host sources, read keeping the name each entry DECLARES beside
+the path it resolves to. So an alias is accepted exactly when the system itself
+says those two strings name one program, which NARROWS rather than relaxes: a
+name the host registers for nothing never agrees, a registered name resolving to
+a different executable than the kernel reports never agrees, and an empty
+register mediates nothing and refuses every establish. Basename equality is
+still tried first and is unchanged.
+
 Every reader fails closed: no readable `/proc` identity is NOT an idle shell, it
 is no evidence at all, and `SPECIFICATION/contracts.md` forbids treating an
 unreadable backend answer as proof of an idle pane. The handlers are narrow
@@ -80,6 +99,7 @@ __all__: list[str] = [
     "proc_shell_identity",
     "retained_shell",
     "system_login_shells",
+    "system_shell_aliases",
 ]
 
 # The system's own register of valid login shells. Read, never enumerated here.
@@ -121,15 +141,20 @@ class ShellEvidence(Protocol):
 
 @dataclass(frozen=True, kw_only=True)
 class ShellProof:
-    """The two capabilities the retained-shell proof needs, as one parameter.
+    """The capabilities the retained-shell proof needs, as one parameter.
 
     Bundled rather than threaded separately because they are never useful apart:
     kernel evidence with no registry to corroborate it cannot establish, and a
     registry with no evidence has nothing to judge.
+
+    `shell_aliases` defaults EMPTY rather than to the host reader, so a caller
+    that forgets to supply it degrades to exact name agreement — refusing an
+    alias pane — instead of silently widening what authorizes a write.
     """
 
     evidence_of: ShellEvidence
     login_shells: frozenset[str]
+    shell_aliases: frozenset[tuple[str, str]] = frozenset()
 
 
 def proc_shell_identity(*, pid: int) -> ShellIdentity | None:
@@ -152,40 +177,82 @@ def proc_shell_identity(*, pid: int) -> ShellIdentity | None:
 
 
 def _declared_login_shells() -> set[str]:
+    """The paths `/etc/shells` declares, UNRESOLVED.
+
+    The declared form is kept rather than resolved in place because both callers
+    need it: the resolved set answers "is this binary a login shell" and the
+    alias table answers "which names does this host register that binary under",
+    and the second question is unanswerable once the names are discarded.
+    """
     try:
         raw = Path(LOGIN_SHELL_REGISTRY).read_text(encoding="utf-8", errors="replace")
     except OSError:
         return set()
     return {
-        str(Path(entry).resolve())
+        entry
         for entry in (line.strip() for line in raw.splitlines())
         if entry and not entry.startswith("#")
     }
 
 
 def _passwd_login_shell() -> set[str]:
+    """The invoking user's passwd shell, UNRESOLVED, for the same reason."""
     try:
         recorded = pwd.getpwuid(os.getuid()).pw_shell
     except KeyError:
         return set()
-    return {str(Path(recorded).resolve())} if recorded else set()
+    return {recorded} if recorded else set()
+
+
+def _registered_shell_paths() -> set[str]:
+    """Every path THIS HOST registers as a login shell, as declared.
+
+    The union of `/etc/shells` and the invoking user's passwd shell, because
+    either can legitimately name a shell the other omits: a host can run a shell
+    that was never registered, and a registry can list shells no account uses.
+    """
+    return _declared_login_shells() | _passwd_login_shell()
 
 
 def system_login_shells() -> frozenset[str]:
     """The login shells THIS HOST recognises, resolved to real paths.
 
-    The union of `/etc/shells` and the invoking user's passwd shell, because
-    either can legitimately name a shell the other omits: a host can run a shell
-    that was never registered, and a registry can list shells no account uses.
     An empty result is possible and is deliberately not special-cased — it makes
     every establish refuse, which is the safe direction for a write.
     """
-    return frozenset(_declared_login_shells() | _passwd_login_shell())
+    return frozenset(str(Path(entry).resolve()) for entry in _registered_shell_paths())
 
 
-def _agrees_with_reported(*, identity: ShellIdentity, reported: str) -> bool:
-    """Whether the kernel's executable and the server's reported name name one program."""
-    return Path(identity.executable).name == Path(reported).name
+def system_shell_aliases() -> frozenset[tuple[str, str]]:
+    """Each NAME this host registers a login shell under, paired with its real path.
+
+    `("sh", "/usr/bin/dash")` on a Debian-family host, from the declared
+    `/bin/sh`. This is the only thing permitted to reconcile a server's reported
+    name with a different kernel executable, and it is the host's own answer
+    rather than an allowlist authored here — the same sources and the same single
+    reading as :func:`system_login_shells`, so the two cannot disagree about what
+    is registered.
+    """
+    return frozenset(
+        (Path(entry).name, str(Path(entry).resolve())) for entry in _registered_shell_paths()
+    )
+
+
+def _agrees_with_reported(
+    *, identity: ShellIdentity, reported: str, aliases: frozenset[tuple[str, str]]
+) -> bool:
+    """Whether the kernel's executable and the server's reported name name one program.
+
+    Basename equality is the ordinary case and is answered first. Failing that,
+    the reported name agrees only if this host registers a login shell under
+    THAT name which resolves to EXACTLY the executable the kernel reports — both
+    halves required, because matching the name alone would reinstate the
+    single-source trust this whole comparison exists to prevent.
+    """
+    name = Path(reported).name
+    if Path(identity.executable).name == name:
+        return True
+    return any(alias == name and resolved == identity.executable for alias, resolved in aliases)
 
 
 def _server_reading(
@@ -220,6 +287,7 @@ def retained_shell(
     expected: ShellIdentity | None,
     evidence_of: ShellEvidence,
     login_shells: frozenset[str],
+    shell_aliases: frozenset[tuple[str, str]] = frozenset(),
 ) -> RetainedShell:
     """The pane's live idle retained shell, or why it does not authorize a write.
 
@@ -242,7 +310,7 @@ def retained_shell(
                 "so it cannot be shown to be the retained shell"
             ),
         )
-    if not _agrees_with_reported(identity=identity, reported=process.name):
+    if not _agrees_with_reported(identity=identity, reported=process.name, aliases=shell_aliases):
         return RetainedShell(
             identity=None,
             error=(

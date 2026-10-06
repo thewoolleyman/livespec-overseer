@@ -106,6 +106,13 @@ class HerdrWriter:
         _herdr_shell_identity.proc_shell_identity
     )
     login_shells: frozenset[str] = field(default_factory=_herdr_shell_identity.system_login_shells)
+    # The names this host registers its login shells UNDER, which is what lets a
+    # pane reporting `sh` be recognised as the `/usr/bin/dash` the kernel shows.
+    # Injectable alongside `login_shells` so a test can drive a host that
+    # registers a name for a different binary, or registers nothing at all.
+    shell_aliases: frozenset[tuple[str, str]] = field(
+        default_factory=_herdr_shell_identity.system_shell_aliases
+    )
 
     def bracketed_paste(self, *, target: herdr_identity.HerdrPaneTarget, text: str) -> WriteOutcome:
         """Deliver `text` to `target` as ONE bracketed paste, submitting nothing.
@@ -145,7 +152,9 @@ class HerdrWriter:
             cwd=cwd,
             command=command,
             proof=_herdr_shell_identity.ShellProof(
-                evidence_of=self.shell_evidence_of, login_shells=self.login_shells
+                evidence_of=self.shell_evidence_of,
+                login_shells=self.login_shells,
+                shell_aliases=self.shell_aliases,
             ),
             ratio=ratio,
         )
