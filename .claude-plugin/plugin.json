@@ -1,5 +1,5 @@
 {
   "name": "livespec-overseer",
-  "version": "5.14.0",
+  "version": "5.14.1",
   "description": "Control-plane operator plugin for livespec. Exposes /livespec-overseer:overseer for the thin two-pane overseer surface, /livespec-overseer:caam-anthropic-loop for caam-managed Claude Max quota watching and account rotation, /livespec-overseer:drain-backlog for draining a repository's open backlog through the factory in ruled batches, and /livespec-overseer:llm-provider-manager for acquiring, validating, selecting and provisioning LLM provider credentials into isolated consumer targets."
 }
