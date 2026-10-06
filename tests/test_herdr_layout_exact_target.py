@@ -290,6 +290,31 @@ def test_the_split_lands_on_the_supervised_pane_not_the_focused_one(*, tab: Unfo
     Asserted on the unrelated pane's FULL rectangle as well as the supervised
     one's, because the defect's signature is precisely that the wrong column
     changes while the right one does not.
+
+    **This test takes the REAL kernel readers, and the scripted-server tests
+    below do not. The difference is load-bearing and was a defect here.** It
+    drives a real herdr server, so the reported shell name is whatever that
+    server's panes actually run — while `_shell_evidence` claims
+    `/usr/bin/bash` for every pid unconditionally. Those two halves only agreed
+    because the ambient `$SHELL` happened to be bash: herdr roots a pane at
+    `$SHELL` and falls back to `/bin/sh`, so under a gate invocation (no login
+    shell, no `$SHELL`) the server reported `sh` while the injected evidence
+    still said bash, and the retained-shell gate refused the launch exactly as
+    it should — one lying source refuses rather than decides:
+
+        herdr calls shell 730779 'sh' while the kernel runs '/usr/bin/bash';
+        one of the two is wrong
+
+    The gate was right; the fixture was contradicting itself. A real server
+    therefore gets real `/proc` evidence and the host's real shell register,
+    which is what the sibling live files do and what makes this test's result
+    independent of the operator's environment. The scripted tests below keep
+    their injected evidence, because a scripted server reports whatever the
+    script says and there is no real process behind it to read.
+
+    Pinning the server's `$SHELL` to bash would also have made this green, and
+    is deliberately NOT what was done: it would have hidden genuine, supported
+    `sh` behaviour behind the fixture's own preference.
     """
     _calls, writer_module = _modules()
     identity = importlib.import_module("herdr_identity")
@@ -298,9 +323,7 @@ def test_the_split_lands_on_the_supervised_pane_not_the_focused_one(*, tab: Unfo
     before, focused_before = _rects(tab=tab)
     assert focused_before == tab.focused, "fixture precondition: the target is NOT focused"
 
-    outcome = writer_module.HerdrWriter(
-        shell_evidence_of=_shell_evidence, login_shells=LOGIN_SHELLS
-    ).split_window_top(
+    outcome = writer_module.HerdrWriter().split_window_top(
         target=identity.HerdrPaneTarget(
             socket_path=tab.socket_path,
             server_pid=tab.server_pid,
