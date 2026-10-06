@@ -32,6 +32,22 @@ addressed panes by bare id would write into it visibly rather than merely
 comparing unequal somewhere. `tests/test_herdr_live_two_servers.py` proves this
 for the OBSERVATION surface; the layout write path had no equivalent.
 
+**Every positive launch here runs under a CONTROLLED ready-shell condition, and
+that is a repair to this file rather than a convenience.** The pane the command
+goes into is created by the adapter and read three round trips later, so what is
+in its foreground at that instant is not something fixture setup beforehand can
+influence. On the operator host a freshly created pane's `zsh` forks `mise` and
+`atuin` while starting, the adapter's pre-launch reading finds the pane
+OCCUPIED, and it refuses the launch — correctly. Every test below used to depend
+on that startup finishing first, which on this host it did and on the operator's
+it did not; the sibling `tests/test_herdr_layout_exact_target.py` recorded the
+same refusal as a failure (`w1:p3` occupied by foreground 3618638 rather than
+the retained shell 3618552). So `_split_top` now runs the real sequence through
+`ReadyShellGate`, which stages a real transient startup child, OBSERVES it, and
+then waits for that pane to report an idle retained shell before the adapter's
+own reading is taken. A gate that cannot establish that condition fails the
+exercise by name — it is never reported as the adapter declining to launch.
+
 Session isolation is herdr's own `--session` mechanism: every session name
 carries this test process's pid, and teardown stops and deletes BY THAT EXACT
 NAME, so no other session — including the operator's `default` — is touched.
@@ -40,10 +56,8 @@ NAME, so no other session — including the operator's `default` — is touched.
 from __future__ import annotations
 
 import importlib
-import json
 import os
 import shutil
-import socket
 import subprocess
 import time
 from collections.abc import Iterator
@@ -52,6 +66,22 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from test_herdr_live_observations import (
+    TRANSIENT_NAME,
+    BoundedPoll,
+    ForegroundReading,
+    ReadyShellGate,
+    ShellIdentityPin,
+    await_idle_shell,
+    await_occupying_child,
+    parent_pid_of,
+    process_group_of,
+    process_info_reply,
+    raw_request,
+    read_foreground,
+    starttime_of,
+    startup_transient,
+)
 
 __all__: list[str] = []
 
@@ -59,8 +89,8 @@ HERDR_BINARY = "herdr"
 SERVER_READY_TIMEOUT = 30.0
 # A liveness floor, not a latency budget. Briefly raised to 120.0 on a diagnosis
 # that did not hold up: the flake it was meant to address was a wait-predicate
-# defect in a sibling file, and `_await_foreground` below already waited on the
-# intended process NAME rather than on the first foreground-group change.
+# defect in a sibling file, and the wait below already looked for the intended
+# process NAME rather than for the first foreground-group change.
 LAUNCH_TIMEOUT = 20.0
 PANE_CWD = "/tmp"
 TOP_RATIO = 0.25
@@ -74,10 +104,9 @@ LAUNCH_NAME = "sleep"
 # exit" the pane has to survive — but no shorter than it takes to OBSERVE it
 # running. At one second the window was comparable to a scheduling stall, so a
 # reading could legitimately arrive after the child was already gone; the test
-# below now has to identify the child by pid, so its lifetime is a fixture
+# below has to identify the child by pid, so its lifetime is a fixture
 # requirement rather than a free choice.
 BRIEF_SECONDS = 3
-BRIEF_COMMAND = f"sleep {BRIEF_SECONDS} #{MARKER}"
 # The decoy server is given enough panes that whatever id the operation creates
 # on the real target already exists over there too.
 DECOY_PANES = 4
@@ -100,6 +129,7 @@ class ServerPair:
     target: LiveServer
     unrelated: str
     decoy: LiveServer
+    transient: str
 
 
 def _socket_for(*, session: str) -> Path:
@@ -112,43 +142,21 @@ def _cli(*, args: list[str]) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _raw_request(*, socket_path: str, method: str, params: dict[str, object]) -> dict[str, Any]:
-    """One raw round trip, used ONLY for setup and for control facts.
+def _reading(*, socket_path: str, pane_id: str) -> ForegroundReading:
+    """`pane_id`'s live process reading, read over a raw socket, or a FIXTURE failure.
 
     Control evidence must not come from the surface under test, or the file
-    would only prove the adapter is self-consistent.
+    would only prove the adapter is self-consistent. An unusable reply stops the
+    exercise here rather than raising out of whichever assertion first touched
+    a field the server never sent.
     """
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.settimeout(15.0)
-    sock.connect(socket_path)
-    sock.sendall(json.dumps({"id": "fixture", "method": method, "params": params}).encode() + b"\n")
-    buffered = b""
-    try:
-        while not buffered.endswith(b"\n"):
-            chunk = sock.recv(65536)
-            if not chunk:
-                break
-            buffered += chunk
-    finally:
-        sock.close()
-    parsed: dict[str, Any] = json.loads((buffered or b"{}").split(b"\n")[0])
-    return parsed
-
-
-def _process_info(*, socket_path: str, pane_id: str) -> dict[str, Any]:
-    reply = _raw_request(
-        socket_path=socket_path, method="pane.process_info", params={"pane_id": pane_id}
-    )
-    info: dict[str, Any] = reply["result"]["process_info"]
-    return info
-
-
-def _is_idle(*, info: dict[str, Any]) -> bool:
-    return int(info["foreground_process_group_id"]) == int(info["shell_pid"])
+    reading = read_foreground(reply=process_info_reply(socket_path=socket_path, pane_id=pane_id))
+    assert reading is not None, f"herdr returned no usable process reading for {pane_id!r}"
+    return reading
 
 
 def _capture(*, socket_path: str, pane_id: str) -> str:
-    reply = _raw_request(
+    reply = raw_request(
         socket_path=socket_path,
         method="pane.read",
         params={"pane_id": pane_id, "source": "visible", "format": "text", "strip_ansi": True},
@@ -157,69 +165,25 @@ def _capture(*, socket_path: str, pane_id: str) -> str:
 
 
 def _pane_ids(*, socket_path: str) -> list[str]:
-    reply = _raw_request(socket_path=socket_path, method="pane.list", params={})
+    reply = raw_request(socket_path=socket_path, method="pane.list", params={})
     return [str(pane["pane_id"]) for pane in reply["result"]["panes"]]
 
 
-def _proc_stat_fields(*, pid: int) -> list[str] | None:
-    """`pid`'s post-comm `/proc/<pid>/stat` fields, or None if the pid is gone.
+def _observe_launched_child(*, socket_path: str, pane_id: str, name: str) -> int:
+    """The pid of the single `name` child running under `pane_id`'s retained shell.
 
-    The comm field can contain spaces and parentheses, so the fields after it
-    are taken from the LAST close parenthesis rather than by splitting the whole
-    line. Absence is returned rather than raised because a short-lived child
-    disappearing IS one of the observations this file makes.
+    Identified by pid, under the shell herdr calls this pane's own, and owning
+    the pane's foreground group — all three, because a reading that merely
+    differs from idle cannot testify about any particular process. A failure to
+    observe it is reported with what WAS seen.
     """
-    try:
-        stat = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
-    except OSError:
-        return None
-    return stat[stat.rindex(")") + 1 :].split()
-
-
-def _parent_pid_of(*, pid: int) -> int:
-    """`pid`'s parent, read from `/proc` — the one place the lineage is a FACT."""
-    fields = _proc_stat_fields(pid=pid)
-    assert fields is not None, f"pid {pid} vanished before its parent could be read"
-    return int(fields[1])
-
-
-def _process_group_of(*, pid: int) -> int:
-    fields = _proc_stat_fields(pid=pid)
-    assert fields is not None, f"pid {pid} vanished before its process group could be read"
-    return int(fields[2])
-
-
-def _starttime_of(*, pid: int) -> int | None:
-    """`pid`'s start time in clock ticks, or None if the pid is gone.
-
-    Carried alongside a pid so that "the SAME shell" is a claim about an
-    identity rather than about an integer: a pid can be recycled, a start time
-    paired with it cannot be.
-    """
-    # `stat` field 22 counted from one; field 3 (`state`) is this list's index 0,
-    # so the offset is three. Verified against `awk '{print $22}'` on this host.
-    fields = _proc_stat_fields(pid=pid)
-    return None if fields is None else int(fields[19])
-
-
-def _foreground_pids_named(*, info: dict[str, Any], name: str) -> list[int]:
-    return [
-        int(entry["pid"])
-        for entry in info.get("foreground_processes", [])
-        if str(entry.get("name")) == name
-    ]
-
-
-def _await_foreground(*, socket_path: str, pane_id: str, name: str) -> dict[str, Any]:
-    """Poll until `name` is `pane_id`'s foreground process, or the bound expires."""
-    deadline = time.monotonic() + LAUNCH_TIMEOUT
-    info = _process_info(socket_path=socket_path, pane_id=pane_id)
-    while time.monotonic() < deadline:
-        info = _process_info(socket_path=socket_path, pane_id=pane_id)
-        if any(str(entry.get("name")) == name for entry in info.get("foreground_processes", [])):
-            return info
-        time.sleep(0.1)
-    return info
+    observed = await_occupying_child(
+        read=lambda: process_info_reply(socket_path=socket_path, pane_id=pane_id),
+        name=name,
+        poll=BoundedPoll(seconds=LAUNCH_TIMEOUT),
+    )
+    assert observed.pid is not None, observed.reason
+    return observed.pid
 
 
 def _start_server(*, session: str, scratch: Path, log_name: str) -> LiveServer:
@@ -241,7 +205,7 @@ def _start_server(*, session: str, scratch: Path, log_name: str) -> LiveServer:
         f"herdr session {session!r} never created {address}; "
         f"server log: {(scratch / log_name).read_text(errors='replace')[:500]}"
     )
-    created = _raw_request(
+    created = raw_request(
         socket_path=str(address),
         method="workspace.create",
         params={"cwd": PANE_CWD, "label": session, "focus": False},
@@ -256,7 +220,7 @@ def _start_server(*, session: str, scratch: Path, log_name: str) -> LiveServer:
 
 
 def _split(*, server: LiveServer, pane_id: str, direction: str) -> str:
-    reply = _raw_request(
+    reply = raw_request(
         socket_path=server.socket_path,
         method="pane.split",
         params={
@@ -286,7 +250,12 @@ def _pair(*, tmp_path: Path) -> Iterator[ServerPair]:
     for _ in range(DECOY_PANES - 1):
         latest = _split(server=decoy, pane_id=latest, direction="right")
     try:
-        yield ServerPair(target=target, unrelated=unrelated, decoy=decoy)
+        yield ServerPair(
+            target=target,
+            unrelated=unrelated,
+            decoy=decoy,
+            transient=startup_transient(scratch=tmp_path),
+        )
     finally:
         for session in sessions:
             _ = _cli(args=["--session", session, "server", "stop"])
@@ -294,12 +263,26 @@ def _pair(*, tmp_path: Path) -> Iterator[ServerPair]:
 
 
 def _split_top(*, pair: ServerPair, command: str) -> Any:
+    """The real layout sequence, with the created pane's ready shell ESTABLISHED.
+
+    The gate forwards every request to the shipped writer — which keeps the
+    socket, the deadline and the peer validation against the REAL server, whose
+    pid and `/proc` start time this target names — and the proof it runs with is
+    taken from that writer's own fields. Its only effect is to stage and clear a
+    real transient startup child between two of the adapter's own requests.
+    """
     writer_module = importlib.import_module("herdr_write")
     identity = importlib.import_module("herdr_identity")
     claude_sessions = importlib.import_module("claude_sessions")
     starttime = claude_sessions.proc_starttime(pid=pair.target.server_pid)
     assert starttime is not None, "the live herdr server must have a readable start time"
-    return writer_module.HerdrWriter().split_window_top(
+    gate = ReadyShellGate(
+        inner=writer_module.HerdrWriter(),
+        socket_path=pair.target.socket_path,
+        startup_transient=pair.transient,
+        transient_name=TRANSIENT_NAME,
+    )
+    outcome = gate.place_above(
         target=identity.HerdrPaneTarget(
             socket_path=pair.target.socket_path,
             server_pid=pair.target.server_pid,
@@ -310,6 +293,8 @@ def _split_top(*, pair: ServerPair, command: str) -> Any:
         command=command,
         ratio=TOP_RATIO,
     )
+    assert gate.refusal() == "", gate.refusal()
+    return outcome
 
 
 def test_the_command_runs_once_as_a_child_of_the_verified_retained_shell(*, pair: ServerPair):
@@ -341,25 +326,67 @@ def test_the_command_runs_once_as_a_child_of_the_verified_retained_shell(*, pair
     outcome = _split_top(pair=pair, command=LAUNCH_COMMAND)
 
     assert outcome.ok is True, outcome.error
-    info = _await_foreground(
+    child = _observe_launched_child(
         socket_path=pair.target.socket_path, pane_id=outcome.pane_id, name=LAUNCH_NAME
     )
-    shell_pid = int(info["shell_pid"])
-    group_id = int(info["foreground_process_group_id"])
-    assert shell_pid > 0, info
-    assert group_id != shell_pid, "the command must run UNDER the shell, not replace it"
-    launched = [
-        int(entry["pid"])
-        for entry in info["foreground_processes"]
-        if str(entry.get("name")) == LAUNCH_NAME
-    ]
-    assert len(launched) == 1, info
-    assert _parent_pid_of(pid=launched[0]) == shell_pid, (
-        f"the launched process {launched[0]} is not a child of the verified "
-        f"retained shell {shell_pid}"
+    reading = _reading(socket_path=pair.target.socket_path, pane_id=outcome.pane_id)
+    assert reading.shell_pid > 0, reading
+    assert (
+        reading.group_id != reading.shell_pid
+    ), "the command must run UNDER the shell, not replace it"
+    assert reading.pids_named(name=LAUNCH_NAME) == (child,), reading
+    assert parent_pid_of(pid=child) == reading.shell_pid, (
+        f"the launched process {child} is not a child of the verified "
+        f"retained shell {reading.shell_pid}"
     )
     text = _capture(socket_path=pair.target.socket_path, pane_id=outcome.pane_id)
     assert MARKER in text, f"the command never reached {outcome.pane_id}: {text!r}"
+
+
+def _brief_then_busy(*, pair: ServerPair) -> str:
+    """The brief child, followed by a REAL post-command process in the SAME shell.
+
+    This is what makes the recovery phase below a genuine observation on any
+    host rather than a tautology on a fast one. The operator's `zsh` is still
+    running its own post-command work at the instant a child exits — the
+    measured reading carried two `zsh` children and a foreground group that was
+    not the shell — while a login shell that loads nothing is idle again within
+    the same millisecond, so the defect is invisible there. Chaining one real,
+    distinctly named, self-terminating process behind the brief child
+    reproduces that window under the fixture's control, which is how an
+    exercise that infers recovery from the child's exit can be made to fail
+    here instead of only on the operator's host.
+
+    The marker comment stays LAST, which is load-bearing and was wrong in the
+    first cut: `#` comments to end of line, so `sleep 3 #OVLAUNCH1; <transient>`
+    makes the transient part of the comment. It never ran, the shell really was
+    idle the instant the child exited, and the sabotage control for this very
+    repair passed.
+    """
+    return f"sleep {BRIEF_SECONDS}; {pair.transient} #{MARKER}"
+
+
+def _await_child_gone(*, socket_path: str, pane_id: str, child: int) -> str:
+    """Wait for `child` to leave BOTH `/proc` and the pane's foreground, or say why not.
+
+    Nothing here signals the child; an ordinary exit is the whole point. The
+    bound covers the child's own declared lifetime plus the liveness floor, and
+    an expiry is returned as a reason rather than fallen out of silently.
+    """
+    deadline = time.monotonic() + LAUNCH_TIMEOUT + BRIEF_SECONDS
+    reason = "no reading was taken before the deadline"
+    while time.monotonic() < deadline:
+        reading = _reading(socket_path=socket_path, pane_id=pane_id)
+        alive = starttime_of(pid=child)
+        listed = child in reading.pids_named(name=LAUNCH_NAME)
+        if alive is None and not listed:
+            return ""
+        reason = (
+            f"child {child} is {'still alive' if alive is not None else 'gone from /proc'} "
+            f"and {'still listed' if listed else 'unlisted'} in {list(reading.processes)}"
+        )
+        time.sleep(0.1)
+    return f"the brief child {child} never exited on its own within the bound: {reason}"
 
 
 def test_the_retained_shell_outlives_an_ordinary_child_exit(*, pair: ServerPair):
@@ -369,24 +396,33 @@ def test_the_retained_shell_outlives_an_ordinary_child_exit(*, pair: ServerPair)
     would take the daemon pane down with its first command. The shell must be
     the same shell afterwards and back to owning its own foreground.
 
-    **The chronology is now asserted rather than inferred, and that is a
-    correction to this test.** It used to launch `sleep 1` and then poll
-    `while not _is_idle(info)` until the pane owned its own foreground again.
-    That predicate cannot distinguish "the child ran and then exited" from "the
-    child was never seen at all": if the first reading lands after a
-    one-second child has already finished, the loop body never runs and every
-    assertion still passes, reporting a child exit nothing observed.
+    **The chronology is asserted rather than inferred, and that took TWO
+    corrections to this test.**
 
-    Measured natively on this host rather than argued. With a declared 1.5s
-    stall injected between the launch and the first reading — standing in for a
-    scheduling delay longer than the child — the loop body ran 0 times in 4 of
-    4 rounds, no reading it took contained the `sleep` child, and the old
+    The first correction retired a `while not _is_idle(info)` loop that followed
+    `sleep 1`. That predicate cannot distinguish "the child ran and then exited"
+    from "the child was never seen at all": if the first reading lands after a
+    one-second child has already finished, the loop body never runs and every
+    assertion still passes, reporting a child exit nothing observed. Measured
+    natively rather than argued — with a declared 1.5s stall injected between
+    the launch and the first reading, the loop body ran 0 times in 4 of 4
+    rounds, no reading it took contained the `sleep` child, and the old
     assertions still reported idle-and-same-shell. Without the stall the old
     predicate was no better AS EVIDENCE: in 8 of 8 rounds the child's pid was
     inside the loop's field of view, and the loop consulted only the foreground
     group id — which commit 58d35c73 already measured leaving the shell while
-    the child is still `bash`, before the exec. A reading that never names the
-    child cannot testify about it.
+    the child is still `bash`, before the exec.
+
+    **The second correction is that the child's exit is not the shell's
+    recovery, and this test used to read one off the other.** Having waited for
+    the child to disappear, it asserted idleness on the reading taken at that
+    same instant. Measured on the operator host, that reading still carried two
+    `zsh` children and a foreground group that was not the shell — so the
+    assertion failed on a condition that had simply not happened YET. Recovery
+    is its own observation with its own bounded wait, and an unrecovered shell
+    is reported as such. The launched command carries a real post-command
+    process for the reason `_brief_then_busy` records: without it this host is
+    idle again instantly and the correction cannot be exercised at all.
 
     So each of the three phases is waited for AND asserted:
 
@@ -394,60 +430,44 @@ def test_the_retained_shell_outlives_an_ordinary_child_exit(*, pair: ServerPair)
          `/proc` parent and a process group of its own;
       2. that same pid gone from both `/proc` and the pane's foreground, with
          no signal sent by this test — an ordinary exit, not a kill;
-      3. the same shell — same pid AND same start time, so a replacement at a
-         recycled pid cannot pass — owning its foreground again, pane still
-         open.
+      3. SEPARATELY, and within its own bound, the same shell — same pid AND
+         same start time, so a replacement at a recycled pid cannot pass —
+         owning its foreground again, pane still open.
     """
-    outcome = _split_top(pair=pair, command=BRIEF_COMMAND)
+    outcome = _split_top(pair=pair, command=_brief_then_busy(pair=pair))
 
     assert outcome.ok is True, outcome.error
-    before = int(
-        _process_info(socket_path=pair.target.socket_path, pane_id=outcome.pane_id)["shell_pid"]
-    )
-    before_starttime = _starttime_of(pid=before)
+    before = _reading(socket_path=pair.target.socket_path, pane_id=outcome.pane_id).shell_pid
+    before_starttime = starttime_of(pid=before)
     assert before_starttime is not None, f"the retained shell {before} must be alive to begin with"
 
-    running = _await_foreground(
+    child = _observe_launched_child(
         socket_path=pair.target.socket_path, pane_id=outcome.pane_id, name=LAUNCH_NAME
     )
-    children = _foreground_pids_named(info=running, name=LAUNCH_NAME)
-    assert len(children) == 1, f"the brief child was never observed running: {running}"
-    child = children[0]
     assert (
-        _parent_pid_of(pid=child) == before
+        parent_pid_of(pid=child) == before
     ), f"the brief child {child} is not a child of the verified retained shell {before}"
     assert (
-        _process_group_of(pid=child) != before
+        process_group_of(pid=child) != before
     ), "the brief child must run in its OWN process group, not as the shell itself"
-    assert (
-        int(running["foreground_process_group_id"]) != before
-    ), f"the pane's foreground must have left the shell while the child runs: {running}"
 
-    deadline = time.monotonic() + LAUNCH_TIMEOUT + BRIEF_SECONDS
-    info = running
-    while time.monotonic() < deadline and (
-        _starttime_of(pid=child) is not None
-        or child in _foreground_pids_named(info=info, name=LAUNCH_NAME)
-    ):
-        time.sleep(0.1)
-        info = _process_info(socket_path=pair.target.socket_path, pane_id=outcome.pane_id)
-
-    assert _starttime_of(pid=child) is None, (
-        f"the brief child {child} is still alive; this test never signalled it, so it "
-        f"had to exit on its own"
+    departed = _await_child_gone(
+        socket_path=pair.target.socket_path, pane_id=outcome.pane_id, child=child
     )
-    assert child not in _foreground_pids_named(
-        info=info, name=LAUNCH_NAME
-    ), f"the pane still reports the exited child {child} in its foreground: {info}"
-    assert _is_idle(info=info), f"the shell never regained its own foreground: {info}"
+    assert departed == "", departed
+
+    recovery = await_idle_shell(
+        read=lambda: process_info_reply(
+            socket_path=pair.target.socket_path, pane_id=outcome.pane_id
+        ),
+        pane_id=outcome.pane_id,
+        poll=BoundedPoll(seconds=LAUNCH_TIMEOUT),
+        expected=ShellIdentityPin(pid=before, starttime=before_starttime),
+    )
+    assert recovery.recovered is True, recovery.reason
     assert outcome.pane_id in _pane_ids(
         socket_path=pair.target.socket_path
     ), "the pane must survive its command finishing"
-    assert int(info["shell_pid"]) == before, "the retained shell must be the SAME shell"
-    assert _starttime_of(pid=before) == before_starttime, (
-        "the retained shell's pid is unchanged but its start time is not, so a "
-        "DIFFERENT process now holds that pid"
-    )
 
 
 def test_no_other_pane_on_either_server_receives_the_launch(*, pair: ServerPair):
@@ -472,8 +492,8 @@ def test_no_other_pane_on_either_server_receives_the_launch(*, pair: ServerPair)
         *((pair.decoy.socket_path, pane_id) for pane_id in decoy_panes),
     ]
     for socket_path, pane_id in untouched:
-        info = _process_info(socket_path=socket_path, pane_id=pane_id)
-        assert _is_idle(info=info), f"{pane_id} was given something to run: {info}"
+        reading = _reading(socket_path=socket_path, pane_id=pane_id)
+        assert reading.is_idle(), f"{pane_id} was given something to run: {reading}"
         assert MARKER not in _capture(
             socket_path=socket_path, pane_id=pane_id
         ), f"the command text reached {pane_id}"
