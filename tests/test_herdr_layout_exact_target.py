@@ -50,6 +50,17 @@ from typing import Any
 
 import claude_sessions
 import pytest
+from test_herdr_live_observations import (
+    TRANSIENT_NAME,
+    BoundedPoll,
+    ForegroundReading,
+    ReadyShellGate,
+    await_occupying_child,
+    parent_pid_of,
+    process_info_reply,
+    read_foreground,
+    startup_transient,
+)
 
 __all__: list[str] = []
 
@@ -74,6 +85,8 @@ SERVER_READY_TIMEOUT = 30.0
 PANE_CWD = "/tmp"
 TOP_RATIO = 0.25
 LAUNCH_COMMAND = "sleep 120"
+LAUNCH_NAME = "sleep"
+READY_TIMEOUT = 30.0
 
 PANE = "w1:p1"
 CREATED = "w1:p2"
@@ -176,6 +189,7 @@ class UnfocusedTab:
     server_pid: int
     supervised: str
     focused: str
+    transient: str
 
 
 def _socket_for(*, session: str) -> Path:
@@ -268,6 +282,39 @@ def _start_unfocused_tab(*, session: str, scratch: Path) -> UnfocusedTab:
         server_pid=child.pid,
         supervised=supervised,
         focused=other,
+        transient=startup_transient(scratch=scratch),
+    )
+
+
+def _live_reading(*, tab: UnfocusedTab, pane_id: str) -> ForegroundReading:
+    """`pane_id`'s live process reading, or an explicit FIXTURE failure."""
+    reading = read_foreground(
+        reply=process_info_reply(socket_path=tab.socket_path, pane_id=pane_id)
+    )
+    assert reading is not None, f"herdr returned no usable process reading for {pane_id!r}"
+    return reading
+
+
+def _assert_child_on_the_created_pane(*, tab: UnfocusedTab, pane_id: str) -> None:
+    """The requested command runs as the EXACT created pane's own shell's child.
+
+    Geometry alone says where a pane is, never what is running in it — the
+    distinction the layout module's own docstring turns on — so the exercise
+    that proves the split landed on the right pane also has to prove the launch
+    landed in that same pane.
+    """
+    observed = await_occupying_child(
+        read=lambda: process_info_reply(socket_path=tab.socket_path, pane_id=pane_id),
+        name=LAUNCH_NAME,
+        poll=BoundedPoll(seconds=READY_TIMEOUT),
+    )
+    assert observed.pid is not None, observed.reason
+    reading = _live_reading(tab=tab, pane_id=pane_id)
+    assert reading.pane_id == pane_id, reading
+    assert reading.pids_named(name=LAUNCH_NAME) == (observed.pid,), reading
+    assert parent_pid_of(pid=observed.pid) == reading.shell_pid, (
+        f"the launched process {observed.pid} is not a child of the created pane's "
+        f"retained shell {reading.shell_pid}"
     )
 
 
@@ -315,15 +362,34 @@ def test_the_split_lands_on_the_supervised_pane_not_the_focused_one(*, tab: Unfo
     Pinning the server's `$SHELL` to bash would also have made this green, and
     is deliberately NOT what was done: it would have hidden genuine, supported
     `sh` behaviour behind the fixture's own preference.
+
+    **AND IT STILL REFUSED, for a different and equally legitimate reason — the
+    created pane's shell had not finished STARTING.** Measured on the operator
+    host: `w1:p3` occupied by foreground 3618638 rather than its retained shell
+    3618552, because a freshly created pane's `zsh` forks `mise` and `atuin`
+    while the adapter's pre-launch reading is being taken. The gate was right
+    again; the fixture had simply never established the condition the gate
+    requires, and could not — the pane is created BY the adapter, three round
+    trips before it is written to. So this test now runs the real sequence
+    through `ReadyShellGate`, which stages a real transient startup child,
+    OBSERVES it, and waits for that pane to report an idle retained shell before
+    the adapter reads it. A gate that cannot establish that fails this exercise
+    by name; it is never reported as the adapter declining to split.
     """
-    _calls, writer_module = _modules()
     identity = importlib.import_module("herdr_identity")
+    writer_module = importlib.import_module("herdr_write")
     starttime = claude_sessions.proc_starttime(pid=tab.server_pid)
     assert starttime is not None
     before, focused_before = _rects(tab=tab)
     assert focused_before == tab.focused, "fixture precondition: the target is NOT focused"
+    gate = ReadyShellGate(
+        inner=writer_module.HerdrWriter(),
+        socket_path=tab.socket_path,
+        startup_transient=tab.transient,
+        transient_name=TRANSIENT_NAME,
+    )
 
-    outcome = writer_module.HerdrWriter().split_window_top(
+    outcome = gate.place_above(
         target=identity.HerdrPaneTarget(
             socket_path=tab.socket_path,
             server_pid=tab.server_pid,
@@ -335,6 +401,7 @@ def test_the_split_lands_on_the_supervised_pane_not_the_focused_one(*, tab: Unfo
         ratio=TOP_RATIO,
     )
 
+    assert gate.refusal() == "", gate.refusal()
     assert outcome.ok is True, outcome.error
     after, _focused_after = _rects(tab=tab)
     assert after[tab.focused] == before[tab.focused], (
@@ -347,6 +414,10 @@ def test_the_split_lands_on_the_supervised_pane_not_the_focused_one(*, tab: Unfo
         new_x == supervised_x
     ), f"the new pane landed in column {new_x}, not the supervised pane's {supervised_x}"
     assert new_y < after[tab.supervised][1], "the new pane must sit above the supervised pane"
+    _assert_child_on_the_created_pane(tab=tab, pane_id=outcome.pane_id)
+    for bystander in (tab.supervised, tab.focused):
+        reading = _live_reading(tab=tab, pane_id=bystander)
+        assert reading.is_idle(), f"{bystander} was given something to run: {reading}"
 
 
 def test_the_split_parameters_name_the_target_pane_explicitly():

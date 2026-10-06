@@ -32,6 +32,22 @@ The measurements this file is built from, taken on this host against herdr 0.9.3
     exits is closed — which is why the retained shell is asserted rather than
     assumed.
 
+**Every launch here runs under a CONTROLLED ready-shell condition, which is a
+repair to this file rather than a convenience.** The pane the command goes into
+is created by the ADAPTER and read three round trips later, so what sits in its
+foreground at that instant is not something fixture setup beforehand can
+influence. On the operator host a freshly created pane's `zsh` forks `mise` and
+`atuin` while starting up, the adapter's pre-launch reading finds the pane
+OCCUPIED, and it refuses the launch — correctly, and the sibling
+`tests/test_herdr_layout_exact_target.py` recorded exactly that refusal as a
+failure (`w1:p3` occupied by foreground 3618638 rather than the retained shell
+3618552). Every `outcome.ok is True` below therefore depended on the host's
+login shell being one that loads nothing. `_split_top` now runs the real
+sequence through `ReadyShellGate`, which stages a real transient startup child,
+OBSERVES it, and then waits for the pane to report an idle retained shell before
+the adapter takes its own reading; a gate that cannot establish that condition
+fails the exercise by name rather than being reported as the adapter declining.
+
 **Session isolation is herdr's own `--session` mechanism**: every session name
 carries this test process's pid, and teardown stops and deletes BY THAT EXACT
 NAME, so no other session — including the operator's `default` — is touched.
@@ -52,6 +68,17 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from test_herdr_live_observations import (
+    TRANSIENT_NAME,
+    BoundedPoll,
+    ForegroundReading,
+    ReadyShellGate,
+    await_occupying_child,
+    parent_pid_of,
+    process_info_reply,
+    read_foreground,
+    startup_transient,
+)
 
 __all__: list[str] = []
 
@@ -79,6 +106,7 @@ class LiveTab:
     server_pid: int
     original: str
     unrelated: str
+    transient: str
 
 
 def _socket_for(*, session: str) -> Path:
@@ -121,24 +149,36 @@ def _geometry(*, live: LiveTab) -> tuple[dict[str, tuple[int, int]], str]:
     return placed, str(layout["focused_pane_id"])
 
 
-def _process_info(*, live: LiveTab, pane_id: str) -> dict[str, Any]:
-    reply = _raw_request(
-        socket_path=live.socket_path, method="pane.process_info", params={"pane_id": pane_id}
+def _reading(*, live: LiveTab, pane_id: str) -> ForegroundReading:
+    """`pane_id`'s live process reading, or an explicit FIXTURE failure.
+
+    An unusable reply is a failed control read rather than a fact about the
+    pane, so it stops here instead of raising out of whichever assertion first
+    touched a field the server never sent.
+    """
+    reading = read_foreground(
+        reply=process_info_reply(socket_path=live.socket_path, pane_id=pane_id)
     )
-    info: dict[str, Any] = reply["result"]["process_info"]
-    return info
+    assert reading is not None, f"herdr returned no usable process reading for {pane_id!r}"
+    return reading
 
 
-def _await_foreground(*, live: LiveTab, pane_id: str, name: str) -> dict[str, Any]:
-    """Poll `pane_id` until `name` is its foreground process, or the bound expires."""
-    deadline = time.monotonic() + LAUNCH_TIMEOUT
-    info = _process_info(live=live, pane_id=pane_id)
-    while time.monotonic() < deadline:
-        info = _process_info(live=live, pane_id=pane_id)
-        if any(str(entry.get("name")) == name for entry in info.get("foreground_processes", [])):
-            return info
-        time.sleep(0.1)
-    return info
+def _observe_launched_child(*, live: LiveTab, pane_id: str, name: str) -> int:
+    """The pid of the single `name` child running under `pane_id`'s retained shell.
+
+    Identified by pid, under the shell herdr calls this pane's own, and owning
+    the pane's foreground group. The predecessor polled for the NAME alone and
+    then returned whatever reading it last took — including, on expiry, one in
+    which the name never appeared, leaving the caller to assert on a reading
+    that was never the observation it asked for.
+    """
+    observed = await_occupying_child(
+        read=lambda: process_info_reply(socket_path=live.socket_path, pane_id=pane_id),
+        name=name,
+        poll=BoundedPoll(seconds=LAUNCH_TIMEOUT),
+    )
+    assert observed.pid is not None, observed.reason
+    return observed.pid
 
 
 def _start_live_tab(*, session: str, scratch: Path) -> LiveTab:
@@ -188,6 +228,7 @@ def _start_live_tab(*, session: str, scratch: Path) -> LiveTab:
         server_pid=child.pid,
         original=original,
         unrelated=str(sibling["result"]["pane"]["pane_id"]),
+        transient=startup_transient(scratch=scratch),
     )
 
 
@@ -234,18 +275,37 @@ def _target(*, identity: Any, live: LiveTab) -> Any:
 
 
 def _split_top(*, live: LiveTab) -> Any:
+    """The real layout sequence, with the created pane's ready shell ESTABLISHED.
+
+    The gate forwards every request to the shipped writer — so the socket, the
+    deadline and the peer validation stay against the REAL server whose pid and
+    `/proc` start time this target names — and the shell proof it runs with is
+    taken from that writer's own fields. Its only effect is to stage and clear a
+    real transient startup child between two of the adapter's own requests. The
+    `split_window_top` facade this replaces is three lines over the same call
+    with the same proof, and the scripted-server tests in
+    `tests/test_herdr_layout_exact_target.py` drive it directly.
+    """
     _calls, writer_module = _modules()
     identity = importlib.import_module("herdr_identity")
     writer = writer_module.HerdrWriter()
     assert hasattr(
         writer, "split_window_top"
     ), "the herdr writer owes a split_window_top placing a retained-shell pane above its target"
-    return writer.split_window_top(
+    gate = ReadyShellGate(
+        inner=writer,
+        socket_path=live.socket_path,
+        startup_transient=live.transient,
+        transient_name=TRANSIENT_NAME,
+    )
+    outcome = gate.place_above(
         target=_target(identity=identity, live=live),
         cwd=PANE_CWD,
         command=LAUNCH_COMMAND,
         ratio=TOP_RATIO,
     )
+    assert gate.refusal() == "", gate.refusal()
+    return outcome
 
 
 def test_the_new_pane_is_placed_above_the_original(*, live: LiveTab):
@@ -272,23 +332,27 @@ def test_the_requested_command_runs_in_the_new_pane_s_retained_shell(*, live: Li
 
     A retained shell is what makes the pane reusable and keeps it from closing
     when the command exits, so `shell_pid` must be present AND distinct from the
-    command's own process group.
+    command's own process group — and the child must be that shell's own, read
+    from `/proc`, on the EXACT pane the operation says it created.
     """
     outcome = _split_top(live=live)
 
     assert outcome.ok is True, outcome.error
-    info = _await_foreground(live=live, pane_id=outcome.pane_id, name=LAUNCH_NAME)
-    names = [str(entry.get("name")) for entry in info.get("foreground_processes", [])]
-    assert LAUNCH_NAME in names, info
-    assert int(info["shell_pid"]) > 0, info
-    assert int(info["foreground_process_group_id"]) != int(
-        info["shell_pid"]
-    ), "the command must run UNDER a retained shell, not replace it"
+    child = _observe_launched_child(live=live, pane_id=outcome.pane_id, name=LAUNCH_NAME)
+    reading = _reading(live=live, pane_id=outcome.pane_id)
+    assert reading.pane_id == outcome.pane_id, reading
+    assert reading.pids_named(name=LAUNCH_NAME) == (child,), reading
+    assert reading.shell_pid > 0, reading
+    assert reading.is_idle() is False, "the command must run UNDER a retained shell, not replace it"
+    assert parent_pid_of(pid=child) == reading.shell_pid, (
+        f"the launched process {child} is not a child of the created pane's "
+        f"retained shell {reading.shell_pid}"
+    )
 
 
 def test_the_original_pane_keeps_its_identity_and_its_focus(*, live: LiveTab):
     """The supervised session must survive the split completely untouched."""
-    before_info = _process_info(live=live, pane_id=live.original)
+    before_reading = _reading(live=live, pane_id=live.original)
     _before, focused_before = _geometry(live=live)
     assert focused_before == live.original, "fixture precondition: the original is focused"
 
@@ -296,28 +360,30 @@ def test_the_original_pane_keeps_its_identity_and_its_focus(*, live: LiveTab):
 
     assert outcome.ok is True, outcome.error
     after, focused_after = _geometry(live=live)
-    after_info = _process_info(live=live, pane_id=live.original)
+    after_reading = _reading(live=live, pane_id=live.original)
     assert live.original in after, "the original pane id must survive"
-    assert int(after_info["shell_pid"]) == int(
-        before_info["shell_pid"]
+    assert (
+        after_reading.shell_pid == before_reading.shell_pid
     ), "the original pane's shell must not be replaced"
+    assert after_reading.is_idle(), f"the original pane was given something to run: {after_reading}"
     assert focused_after == live.original, f"focus moved to {focused_after}"
 
 
 def test_an_unrelated_pane_is_left_exactly_where_it_was(*, live: LiveTab):
     """Everything else on the tab keeps its geometry and its process identity."""
     before, _focused = _geometry(live=live)
-    before_info = _process_info(live=live, pane_id=live.unrelated)
+    before_reading = _reading(live=live, pane_id=live.unrelated)
 
     outcome = _split_top(live=live)
 
     assert outcome.ok is True, outcome.error
     after, _ = _geometry(live=live)
-    after_info = _process_info(live=live, pane_id=live.unrelated)
+    after_reading = _reading(live=live, pane_id=live.unrelated)
     assert (
         after[live.unrelated] == before[live.unrelated]
     ), f"unrelated pane moved from {before[live.unrelated]} to {after[live.unrelated]}"
-    assert int(after_info["shell_pid"]) == int(before_info["shell_pid"])
+    assert after_reading.shell_pid == before_reading.shell_pid
+    assert after_reading.is_idle(), f"the sibling was given something to run: {after_reading}"
 
 
 def test_the_new_top_pane_takes_the_requested_percentage(*, live: LiveTab):
