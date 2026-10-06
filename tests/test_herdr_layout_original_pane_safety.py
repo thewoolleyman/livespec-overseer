@@ -125,6 +125,32 @@ def _swap_ack(*, changed: bool, source: str, target: str, reason: str | None = N
 
 
 OK_ACK: dict[str, object] = {"type": "ok"}
+SHELL_PID = 4100
+
+
+def _idle_shell(*, pane_id: str) -> dict[str, object]:
+    """`pane_id` sitting at its prompt: its shell owns its own foreground group.
+
+    Scripted for every case here, including the ones that refuse earlier, so a
+    refusal under test stays the refusal being measured rather than becoming an
+    unprovable retained shell. The measured shapes and the malformed variants
+    this reading must refuse live in
+    `tests/test_herdr_layout_launch_authorization.py`.
+    """
+    return {
+        "type": "pane_process_info",
+        "process_info": {
+            "pane_id": pane_id,
+            "shell_pid": SHELL_PID,
+            "foreground_process_group_id": SHELL_PID,
+            "foreground_processes": [
+                {"pid": SHELL_PID, "name": "bash", "cmdline": "/bin/bash", "cwd": "/tmp"}
+            ],
+        },
+    }
+
+
+IDLE_SHELL = _idle_shell(pane_id=CREATED)
 # The healthy world: two panes before the split, the created pane appearing in
 # the same tab afterwards, and geometry showing it above the original.
 BEFORE_ROWS = [_row(pane_id=ORIGINAL, focused=True), _row(pane_id=SIBLING)]
@@ -261,6 +287,7 @@ def test_an_acknowledgement_naming_the_original_pane_never_writes_to_it(*, socke
             "pane.split": [_split_ack(pane_id=ORIGINAL)],
             "pane.swap": [_swap_ack(changed=True, source=ORIGINAL, target=ORIGINAL)],
             "pane.layout": [GOOD_GEOMETRY],
+            "pane.process_info": [IDLE_SHELL],
         },
     )
 
@@ -288,6 +315,7 @@ def test_an_acknowledgement_naming_a_pre_existing_pane_is_refused(*, socket_dir:
             "pane.split": [_split_ack(pane_id=SIBLING)],
             "pane.swap": [_swap_ack(changed=True, source=ORIGINAL, target=SIBLING)],
             "pane.layout": [GOOD_GEOMETRY],
+            "pane.process_info": [IDLE_SHELL],
         },
     )
 
@@ -314,6 +342,7 @@ def test_a_created_pane_in_another_tab_is_refused_before_any_launch(*, socket_di
             "pane.split": [_split_ack(pane_id=CREATED, tab_id=OTHER_TAB)],
             "pane.swap": [_swap_ack(changed=True, source=ORIGINAL, target=CREATED)],
             "pane.layout": [GOOD_GEOMETRY],
+            "pane.process_info": [IDLE_SHELL],
         },
     )
 
@@ -336,6 +365,7 @@ def test_a_cross_tab_swap_refusal_prevents_the_launch(*, socket_dir: Path):
                 _swap_ack(changed=False, source=ORIGINAL, target=CREATED, reason="cross_tab")
             ],
             "pane.layout": [GOOD_GEOMETRY],
+            "pane.process_info": [IDLE_SHELL],
         },
     )
 
@@ -361,6 +391,7 @@ def test_geometry_is_reproven_before_the_command_is_launched(*, socket_dir: Path
             "pane.swap": [_swap_ack(changed=True, source=ORIGINAL, target=CREATED)],
             # The created pane is still BELOW the original: the swap did not land.
             "pane.layout": [_layout(tops={ORIGINAL: 0, CREATED: 10, SIBLING: 20})],
+            "pane.process_info": [IDLE_SHELL],
         },
     )
 
@@ -384,6 +415,7 @@ def test_a_target_absent_from_the_live_enumeration_is_refused(*, socket_dir: Pat
             "pane.split": [_split_ack(pane_id=CREATED)],
             "pane.swap": [_swap_ack(changed=True, source=ORIGINAL, target=CREATED)],
             "pane.layout": [GOOD_GEOMETRY],
+            "pane.process_info": [IDLE_SHELL],
         },
     )
 
@@ -407,6 +439,7 @@ def test_a_fully_evidenced_sequence_still_launches_into_the_new_pane(*, socket_d
             "pane.split": [_split_ack(pane_id=CREATED)],
             "pane.swap": [_swap_ack(changed=True, source=ORIGINAL, target=CREATED)],
             "pane.layout": [GOOD_GEOMETRY],
+            "pane.process_info": [IDLE_SHELL],
         },
     )
 
