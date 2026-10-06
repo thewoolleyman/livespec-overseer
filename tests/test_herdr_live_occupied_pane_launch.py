@@ -41,7 +41,11 @@ reading missing a field, a setup timeout and a dead setup thread all FAIL as
 fixture failures rather than grading as an occupied-child proof. The helpers and
 their deterministic controls live in `tests/test_herdr_live_observations.py`;
 `test_a_real_transient_is_not_mistaken_for_the_requested_occupant` below is the
-native control over real herdr.
+native control over real herdr. That control stages a bounded DISCRIMINATING
+transient rather than claiming to reproduce the operator shell's startup: on a
+shell that loads nothing the three exercises above passed before this change and
+pass after it, as PRESERVATION controls over guards that already hold, and none
+of this is a product Red.
 
 The peer the writer validates is therefore the proxy — this test process — and
 the target names its pid and `/proc` start time accordingly. That is a real peer

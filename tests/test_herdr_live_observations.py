@@ -8,6 +8,16 @@ wrong in the SAME direction — it reported an established precondition on
 evidence that did not support one. The helpers here are the single honest
 answer, and the controls in this file are what keep them honest.
 
+**Where the evidence comes from, and what this tree can and cannot witness.**
+The four defects below were measured against real herdr ON THE OPERATOR HOST and
+are supplied with the work item; they are fixture-premise failures, not evidence
+about the adapter. The sandbox these exercises also run in has a login shell that
+loads nothing, so the pre-existing native exercises PASS here and always did —
+they are PRESERVATION CONTROLS over guards that already hold, and nothing in this
+file relabels them as a reproduced host failure or as a product Red. No guarded
+product code changed for any of it; what changed is the fixtures' premises and
+the controls that discriminate them.
+
 **The four measured fixture defects these replace.** All four were taken against
 real herdr on the operator host, and none of them is evidence about the adapter.
 
@@ -503,10 +513,16 @@ class ReadyShellGate:
     personal shell configuration. On the host, a freshly created pane's `zsh`
     forks `mise` and `atuin` during startup, so the adapter's pre-launch reading
     legitimately finds the pane OCCUPIED and refuses the launch — a correct
-    refusal that the positive exercises used to report as a failed layout. A
-    host whose login shell loads nothing never reproduces it. Injecting a real,
-    distinctly named, self-terminating child reproduces exactly that condition
-    under the fixture's control, and then clears it.
+    refusal that the positive exercises used to report as a failed layout.
+
+    **What the injected transient is, stated exactly, because the weaker claim
+    is the honest one.** It stages a BOUNDED DISCRIMINATING INSTANCE of a
+    non-idle created pane: one real, distinctly named, self-terminating child,
+    observed and then cleared. It is NOT a reproduction of the operator's
+    `zsh`/`mise`/`atuin` startup, and no exercise here should be read as having
+    reproduced that host failure. What it discriminates is the fixture premise —
+    whether readiness was ESTABLISHED or merely inherited from a login shell
+    that loads nothing — which is the premise the repair is about.
     """
 
     inner: Any

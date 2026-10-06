@@ -48,6 +48,12 @@ then waits for that pane to report an idle retained shell before the adapter's
 own reading is taken. A gate that cannot establish that condition fails the
 exercise by name — it is never reported as the adapter declining to launch.
 
+The staged transient is a bounded DISCRIMINATING instance, not a claim to have
+reproduced the host's startup: these tests passed before the change and pass
+after it, as PRESERVATION controls over guards that already hold, and none of
+this is a product Red. `tests/test_herdr_live_observations.py` carries that
+framing in full.
+
 Session isolation is herdr's own `--session` mechanism: every session name
 carries this test process's pid, and teardown stops and deletes BY THAT EXACT
 NAME, so no other session — including the operator's `default` — is touched.
@@ -107,6 +113,11 @@ LAUNCH_NAME = "sleep"
 # below has to identify the child by pid, so its lifetime is a fixture
 # requirement rather than a free choice.
 BRIEF_SECONDS = 3
+# A bound short enough to expire WHILE the staged post-command process is still
+# running, and long enough to take several real readings first. The transient
+# outlives it by well over a second, so the refusal it proves is about the
+# shell's state rather than about which of two timers won.
+IMPATIENT_BOUND = 0.3
 # The decoy server is given enough panes that whatever id the operation creates
 # on the real target already exists over there too.
 DECOY_PANES = 4
@@ -235,6 +246,14 @@ def _split(*, server: LiveServer, pane_id: str, direction: str) -> str:
     return str(reply["result"]["pane"]["pane_id"])
 
 
+def _run_in_pane(*, socket_path: str, pane_id: str, command: str) -> None:
+    _ = raw_request(
+        socket_path=socket_path,
+        method="pane.send_input",
+        params={"pane_id": pane_id, "text": command, "keys": ["Enter"]},
+    )
+
+
 @pytest.fixture(name="pair")
 def _pair(*, tmp_path: Path) -> Iterator[ServerPair]:
     if shutil.which(HERDR_BINARY) is None:
@@ -351,11 +370,16 @@ def _brief_then_busy(*, pair: ServerPair) -> str:
     running its own post-command work at the instant a child exits — the
     measured reading carried two `zsh` children and a foreground group that was
     not the shell — while a login shell that loads nothing is idle again within
-    the same millisecond, so the defect is invisible there. Chaining one real,
-    distinctly named, self-terminating process behind the brief child
-    reproduces that window under the fixture's control, which is how an
-    exercise that infers recovery from the child's exit can be made to fail
-    here instead of only on the operator's host.
+    the same millisecond, so the window is simply absent there and the exercise
+    passes without ever exercising its own recovery wait.
+
+    Chaining one real, distinctly named, self-terminating process behind the
+    brief child stages a BOUNDED DISCRIMINATING INSTANCE of that window under
+    the fixture's control. It is deliberately the weaker claim: this is not a
+    reproduction of the operator's `zsh` post-command work, and the pass this
+    file records here is not a reproduced host failure. What it discriminates is
+    whether recovery was WAITED FOR or merely inherited from a shell that was
+    never busy — which is the premise the repair is about.
 
     The marker comment stays LAST, which is load-bearing and was wrong in the
     first cut: `#` comments to end of line, so `sleep 3 #OVLAUNCH1; <transient>`
@@ -468,6 +492,73 @@ def test_the_retained_shell_outlives_an_ordinary_child_exit(*, pair: ServerPair)
     assert outcome.pane_id in _pane_ids(
         socket_path=pair.target.socket_path
     ), "the pane must survive its command finishing"
+
+
+def test_a_child_exit_before_shell_idle_is_a_bounded_discriminating_case(*, pair: ServerPair):
+    """The window the recovery wait exists for, OBSERVED on every run.
+
+    The exercise above stages this window and then waits it out, which proves
+    the wait does not BREAK anything — but on a host where the window is absent
+    it would pass just as happily with no wait at all. A temporary sabotage
+    showed the difference once; nothing kept showing it. This control does,
+    permanently, and it drives the delivered helper rather than the adapter:
+    the layout sequence is not involved at all, so a refusal here is
+    unambiguously about the observation.
+
+    Three bounded steps, each a real reading from the real server:
+
+      1. the requested child is observed, and then observed GONE from both
+         `/proc` and the pane's foreground, unsignalled;
+      2. a real post-command process is then observed owning that pane's
+         foreground — POSITIVE evidence that the shell was not idle after its
+         child exited, rather than an inference from a gap;
+      3. so `await_idle_shell` under a short bound REFUSES while that process
+         runs, and the bound this file actually uses then recovers the same
+         shell identity.
+
+    Step 3 is what a predecessor could not have passed: it asserted idleness on
+    the reading taken at step 1 and would read step 2's as a failed recovery.
+    """
+    pane_id = _split(server=pair.target, pane_id=pair.unrelated, direction="down")
+
+    def read() -> dict[str, Any]:
+        return process_info_reply(socket_path=pair.target.socket_path, pane_id=pane_id)
+
+    shell = _reading(socket_path=pair.target.socket_path, pane_id=pane_id).shell_pid
+    starttime = starttime_of(pid=shell)
+    assert starttime is not None, f"the pane's shell {shell} must be alive to begin with"
+    pin = ShellIdentityPin(pid=shell, starttime=starttime)
+
+    _run_in_pane(
+        socket_path=pair.target.socket_path, pane_id=pane_id, command=_brief_then_busy(pair=pair)
+    )
+    child = _observe_launched_child(
+        socket_path=pair.target.socket_path, pane_id=pane_id, name=LAUNCH_NAME
+    )
+    departed = _await_child_gone(socket_path=pair.target.socket_path, pane_id=pane_id, child=child)
+    assert departed == "", departed
+
+    busy = await_occupying_child(
+        read=read, name=TRANSIENT_NAME, poll=BoundedPoll(seconds=LAUNCH_TIMEOUT)
+    )
+    assert busy.pid is not None, (
+        f"the shell was already idle after child {child} exited, so this control staged "
+        f"no window to discriminate: {busy.reason}"
+    )
+
+    impatient = await_idle_shell(
+        read=read, pane_id=pane_id, poll=BoundedPoll(seconds=IMPATIENT_BOUND), expected=pin
+    )
+    assert impatient.recovered is False, (
+        f"recovery was reported while {TRANSIENT_NAME} {busy.pid} still owned the "
+        f"foreground of {pane_id!r}"
+    )
+    assert "is not the shell" in impatient.reason, impatient.reason
+
+    recovery = await_idle_shell(
+        read=read, pane_id=pane_id, poll=BoundedPoll(seconds=LAUNCH_TIMEOUT), expected=pin
+    )
+    assert recovery.recovered is True, recovery.reason
 
 
 def test_no_other_pane_on_either_server_receives_the_launch(*, pair: ServerPair):

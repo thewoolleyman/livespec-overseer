@@ -375,6 +375,12 @@ def test_the_split_lands_on_the_supervised_pane_not_the_focused_one(*, tab: Unfo
     OBSERVES it, and waits for that pane to report an idle retained shell before
     the adapter reads it. A gate that cannot establish that fails this exercise
     by name; it is never reported as the adapter declining to split.
+
+    The staged transient is a bounded DISCRIMINATING instance, deliberately not
+    a claim to have reproduced the host's `zsh` startup: on a shell that loads
+    nothing this test passed before the change and passes after it, as a
+    PRESERVATION control over a guard that already holds.
+    `tests/test_herdr_live_observations.py` carries that framing in full.
     """
     identity = importlib.import_module("herdr_identity")
     writer_module = importlib.import_module("herdr_write")
