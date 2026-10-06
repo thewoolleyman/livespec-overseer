@@ -58,14 +58,11 @@ __all__: list[str] = []
 
 HERDR_BINARY = "herdr"
 SERVER_READY_TIMEOUT = 30.0
-# A LIVENESS FLOOR, not a latency budget — and it is deliberately generous.
-# The coverage lane runs the whole suite under `pytest -n`, so a freshly spawned
-# pane shell competes with every other worker for CPU before it can read its
-# input and fork. One run of this file's clean control exceeded a 20s bound that
-# passes comfortably in isolation and under a herdr-only parallel run; the bytes
-# a real server acknowledged were never in doubt, only how long the child took to
-# appear. Exceeding this still fails rather than skipping.
-LAUNCH_TIMEOUT = 120.0
+# A liveness floor, not a latency budget. This was briefly raised to 120.0 on a
+# diagnosis that did not hold up — the clean control's failures were traced to
+# its wait PREDICATE, not to this bound (see `_await_foreground`), so the raise
+# is backed out rather than left behind as a fix for something else.
+LAUNCH_TIMEOUT = 20.0
 PANE_CWD = "/tmp"
 TOP_RATIO = 0.25
 DECLINE_REASON = "cross_tab"
@@ -160,6 +157,29 @@ def _capture(*, socket_path: str, pane_id: str) -> str:
         params={"pane_id": pane_id, "source": "visible", "format": "text", "strip_ansi": True},
     )
     return str(reply["result"]["read"]["text"])
+
+
+def _await_foreground(*, socket_path: str, pane_id: str, name: str) -> dict[str, Any]:
+    """Poll until `name` IS the pane's foreground process, or the bound expires.
+
+    Waiting on the NAME rather than on the first foreground-group change is
+    load-bearing rather than tidiness, and this file used to get it wrong. A
+    shell runs a command by FORKING and then `exec`ing, so there is a real
+    window in which the foreground group has already left the shell while the
+    child is still `bash`. Measured on this host with an otherwise idle server,
+    the first observed group change was `bash` rather than the command on 4 of
+    12 deliveries. A loop that stopped at that first change and then demanded
+    the command's name failed inside that window; this one keeps looking until
+    the intended runtime is actually there, and still fails if the bound expires.
+    """
+    deadline = time.monotonic() + LAUNCH_TIMEOUT
+    info = _process_info(socket_path=socket_path, pane_id=pane_id)
+    while time.monotonic() < deadline:
+        info = _process_info(socket_path=socket_path, pane_id=pane_id)
+        if any(str(entry.get("name")) == name for entry in info.get("foreground_processes", [])):
+            return info
+        time.sleep(0.1)
+    return info
 
 
 def _forward(*, socket_path: str, raw: bytes) -> bytes:
@@ -367,14 +387,13 @@ def test_the_same_harness_without_the_decline_still_launches(*, proxied: Any):
     assert outcome.ok is True, outcome.error
     tops = _geometry(socket_path=live.real_socket, pane_id=live.original)
     assert tops[outcome.pane_id] < tops[live.original], f"the swap must have landed: {tops}"
-    deadline = time.monotonic() + LAUNCH_TIMEOUT
-    info = _process_info(socket_path=live.real_socket, pane_id=outcome.pane_id)
-    while time.monotonic() < deadline and int(info["foreground_process_group_id"]) == int(
-        info["shell_pid"]
-    ):
-        time.sleep(0.1)
-        info = _process_info(socket_path=live.real_socket, pane_id=outcome.pane_id)
+    info = _await_foreground(
+        socket_path=live.real_socket, pane_id=outcome.pane_id, name=LAUNCH_NAME
+    )
     names = [str(entry.get("name")) for entry in info.get("foreground_processes", [])]
     assert LAUNCH_NAME in names, info
     assert int(info["shell_pid"]) > 0, "the retained shell must survive the launch"
+    assert int(info["foreground_process_group_id"]) != int(
+        info["shell_pid"]
+    ), "the command must run UNDER the retained shell, not replace it"
     assert live.state.writes() == [outcome.pane_id], live.state.writes()
