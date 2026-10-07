@@ -65,7 +65,9 @@ observation instead of an exception; `occupying_child_pid` requires the
 REQUESTED name, the retained shell as the child's `/proc` parent, and the pane's
 own foreground group; `await_idle_shell` waits for idleness as its own separate
 observation and, when pinned, for the same shell IDENTITY rather than the same
-pid. Nothing here sleeps to wait out a race — each loop polls a real reading
+pid; `await_child_gone` answers the OTHER half of that same chronology — whether
+the child really left — and answers it about an identity rather than a pid
+number. Nothing here sleeps to wait out a race — each loop polls a real reading
 under a bound it reports when it expires.
 
 `ReadyShellGate` is the write-side counterpart, and it enters the adapter at
@@ -105,6 +107,7 @@ __all__: list[str] = [
     "ReadyShellGate",
     "ShellIdentityPin",
     "ShellRecovery",
+    "await_child_gone",
     "await_idle_shell",
     "await_occupying_child",
     "occupying_child_pid",
@@ -454,6 +457,40 @@ def await_occupying_child(
     )
 
 
+def await_child_gone(
+    *,
+    pid: int,
+    starttime: int | None,
+    poll: BoundedPoll,
+    starttime_of_pid: PidReader = starttime_of,
+) -> str:
+    """``""`` once `pid` has left `/proc`, or why it is still there — IDENTITY, not number.
+
+    Nothing here signals the child: an ORDINARY exit is the whole point, because
+    a pane whose process is killed is not the same observation as a pane whose
+    bounded child finished. The comparison is against the start time the caller
+    OBSERVED the child with, so a recycled pid now holding a different process
+    counts as gone and the same pid still carrying the same start time never
+    does.
+
+    A `starttime` of None means the caller never managed to read one, which is
+    itself the fact that the child is already gone — the observation it came from
+    found the pid alive, so the only way to miss its start time is for it to have
+    exited in between.
+    """
+    if starttime is None:
+        return ""
+    deadline = poll.monotonic() + poll.seconds
+    while poll.monotonic() < deadline:
+        if starttime_of_pid(pid=pid) != starttime:
+            return ""
+        poll.sleep(POLL_SECONDS)
+    return (
+        f"child {pid} still carries start time {starttime} after {poll.seconds}s, so it never "
+        "exited on its own"
+    )
+
+
 def _recovery_refusal(
     *,
     reading: ForegroundReading | None,
@@ -575,6 +612,17 @@ class ReadyShellGate:
     running and then observed gone, and then a bounded wait for that pane to
     report an idle retained shell.
 
+    **"Observed gone" and "the SAME shell" are both measurements now, and neither
+    was before.** The establishment used to observe the child and then wait for
+    the pane to report ANY idle shell: the child's exit was inferred from the
+    foreground group returning to a shell, and the shell was whichever one the
+    pane happened to report at that moment. So it pins the child's `/proc` parent
+    — the retained shell the observation already proved the child hung off — as an
+    IDENTITY (pid AND start time), waits for the child itself to leave `/proc`
+    under that same identity discipline, and only then waits for THAT shell to own
+    its foreground again. Both halves are reported through :meth:`refusal`, so an
+    expired wait is a named fixture failure rather than an establishment.
+
     The transient is what makes this exercise independent of the operator's
     personal shell configuration. On the host, a freshly created pane's `zsh`
     forks `mise` and `atuin` during startup, so the adapter's pre-launch reading
@@ -599,6 +647,8 @@ class ReadyShellGate:
     methods: list[str] = field(default_factory=list)
     gated: list[str] = field(default_factory=list)
     transient: ChildObservation | None = None
+    retained: ShellIdentityPin | None = None
+    departed: str | None = None
     established: ShellRecovery | None = None
 
     def request(
@@ -645,6 +695,13 @@ class ReadyShellGate:
         if self.startup_transient and (self.transient is None or self.transient.pid is None):
             observed = "" if self.transient is None else self.transient.reason
             return f"the controlled startup transient was never observed: {observed}"
+        if self.startup_transient and self.retained is None:
+            return (
+                f"the controlled startup transient's retained shell could not be pinned as an "
+                f"identity, so {self.gated[0]!r} readiness cannot be established"
+            )
+        if self.departed:
+            return f"the controlled startup transient never exited: {self.departed}"
         if self.established is None or not self.established.recovered:
             return "" if self.established is None else self.established.reason
         return ""
@@ -666,8 +723,30 @@ class ReadyShellGate:
             self.transient = await_occupying_child(
                 read=read, name=self.transient_name, poll=BoundedPoll(seconds=self.seconds)
             )
+            self._clear_transient(child=self.transient.pid)
         self.established = await_idle_shell(
-            read=read, pane_id=pane_id, poll=BoundedPoll(seconds=self.seconds)
+            read=read,
+            pane_id=pane_id,
+            poll=BoundedPoll(seconds=self.seconds),
+            expected=self.retained,
+        )
+
+    def _clear_transient(self, *, child: int | None) -> None:
+        """Pin the child's own retained shell, then wait for the child to exit.
+
+        The shell comes from the child's `/proc` parent rather than from a fresh
+        reading, because `occupying_child_pid` has already PROVEN that parent is
+        the pane's `shell_pid` — re-reading it would only introduce a second
+        answer that could disagree.
+        """
+        if child is None:
+            return
+        shell = parent_pid_of(pid=child)
+        shell_starttime = None if shell is None else starttime_of(pid=shell)
+        if shell is not None and shell_starttime is not None:
+            self.retained = ShellIdentityPin(pid=shell, starttime=shell_starttime)
+        self.departed = await_child_gone(
+            pid=child, starttime=starttime_of(pid=child), poll=BoundedPoll(seconds=self.seconds)
         )
 
 
@@ -905,6 +984,62 @@ def test_a_recycled_shell_pid_is_not_the_same_retained_shell() -> None:
 
     assert recovery.recovered is False
     assert "no longer carries start time" in recovery.reason, recovery.reason
+
+
+def test_a_bounded_child_that_leaves_proc_is_observed_gone() -> None:
+    """The positive control: the pid stops carrying the start time it was seen with."""
+    readings = [164433575, None]
+
+    departed = await_child_gone(
+        pid=HOST_SLEEP_PID,
+        starttime=164433575,
+        poll=_frozen_poll(seconds=5.0, ticks=[0.0, 0.1, 0.2]),
+        starttime_of_pid=lambda pid: readings.pop(0) if readings else None,
+    )
+
+    assert departed == "", departed
+    assert readings == [], "the wait must have taken BOTH readings, not stopped at the first"
+
+
+def test_a_child_still_carrying_its_start_time_is_reported_rather_than_waited_out() -> None:
+    """An expired exit wait must name what it saw, never read as an ordinary exit."""
+    departed = await_child_gone(
+        pid=HOST_SLEEP_PID,
+        starttime=164433575,
+        poll=_frozen_poll(seconds=2.0, ticks=[0.0, 1.0, 3.0]),
+        starttime_of_pid=lambda pid: 164433575 if pid == HOST_SLEEP_PID else None,
+    )
+
+    assert "never exited on its own" in departed, departed
+    assert str(HOST_SLEEP_PID) in departed, departed
+
+
+def test_a_recycled_pid_holding_another_process_counts_as_gone() -> None:
+    """Same number, different start time: the child this exercise watched has left."""
+    departed = await_child_gone(
+        pid=HOST_SLEEP_PID,
+        starttime=164433575,
+        poll=_frozen_poll(seconds=1.0, ticks=[0.0, 0.5, 2.0]),
+        starttime_of_pid=lambda pid: 999999999,
+    )
+
+    assert departed == "", departed
+
+
+def test_a_child_whose_start_time_was_never_read_is_already_gone() -> None:
+    """No start time to compare means it exited between the observation and the pin.
+
+    Asserted so the branch cannot quietly become "assume it departed": the reader
+    below would report the child as STILL PRESENT if it were consulted at all.
+    """
+    departed = await_child_gone(
+        pid=HOST_SLEEP_PID,
+        starttime=None,
+        poll=_frozen_poll(seconds=1.0, ticks=[0.0, 0.5, 2.0]),
+        starttime_of_pid=lambda pid: 164433575,
+    )
+
+    assert departed == ""
 
 
 def test_a_reading_about_another_pane_establishes_nothing() -> None:
