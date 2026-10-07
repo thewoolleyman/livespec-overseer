@@ -31,6 +31,44 @@ proxy counts requests, so "the swap was not resent" and "no command was
 launched" are measurements rather than inferences. Repeating a landed swap would
 put the daemon pane back BELOW the session it supervises.
 
+**NEITHER FAULT WAS REACHABLE WITHOUT ESTABLISHING THE CREATED PANE'S READINESS
+FIRST, and that is what this file was repaired for (work-item `overseer-dihsef`).**
+The pane is created BY the adapter and read three round trips later, so no setup
+beforehand can influence what is in its foreground at that instant; the adapter's
+pre-launch reading is taken BEFORE the swap, so an occupied created pane stops
+the sequence one guard EARLIER than either fault here, and the exercise then
+reports a refusal that has nothing to do with the swap it meant to test. That was
+demonstrated separately rather than inferred from the shared guard ordering:
+driving THIS module's own public writer against a real `sleep 300` observed owning
+the created pane `w1:p2` (child 5844 under retained shell 5835), the relayed
+request list stopped at `['pane.list', 'pane.split', 'pane.list',
+'pane.process_info']` — no `pane.swap` ever sent, the withheld-geometry fault
+never injected — and the outcome was `'w1:p2' is OCCUPIED: foreground group 5844
+is not its retained shell 5835`.
+
+So `_split_top` runs the real sequence through `ReadyShellGate`, which stages one
+real bounded child in that exact pane, OBSERVES it, waits for it to exit and for
+the SAME pinned retained shell to own its foreground again, and only then lets the
+adapter read. `_assert_unresolved_but_landed` grades that precondition before it
+grades anything about the adapter, so unavailable or expired readiness is a
+FIXTURE failure naming what it saw.
+
+What that staged child does and does not stand for is the weaker claim
+deliberately: it is a bounded DISCRIMINATING instance of a non-idle created pane,
+not a reproduction of the operator host's `zsh`/`mise`/`atuin` startup, and the
+withheld-geometry node's ORIGINAL host failure remains unresolved — it passed when
+re-run alone on the host, and nothing here reproduces whatever made it fail inside
+the aggregate. `tests/test_herdr_live_observations.py` carries that framing in
+full.
+
+**The proxy has to SURVIVE that establishment window, and it did not.** The
+establishment talks to the real server directly, so the listener sits idle
+throughout it — and `socket.timeout` is an `OSError` subclass, so the old
+`except OSError: return` treated an ordinary idle accept as a shutdown and killed
+the relay thread mid-sequence. A timeout is now distinguished from a real closure,
+and teardown closes exactly the listeners this fixture opened and joins their
+threads.
+
 The peer the writer validates is the proxy — this test process — and the target
 names its pid and `/proc` start time accordingly; that is a real generation
 check against a real process, proven against the live server itself in
@@ -42,6 +80,7 @@ test process's pid, and teardown stops and deletes BY THAT EXACT NAME.
 
 from __future__ import annotations
 
+import contextlib
 import importlib
 import json
 import os
@@ -56,11 +95,21 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from test_herdr_live_observations import (
+    TRANSIENT_NAME,
+    ReadyShellGate,
+    parent_pid_of,
+    startup_transient,
+)
 
 __all__: list[str] = []
 
 HERDR_BINARY = "herdr"
 SERVER_READY_TIMEOUT = 30.0
+# Short enough that teardown closing a listener ends its relay thread promptly,
+# long enough that the loop is not spinning. The establishment window this has to
+# survive is seconds of real waiting with no connection arriving.
+ACCEPT_POLL = 0.5
 PANE_CWD = "/tmp"
 TOP_RATIO = 0.25
 DAEMON_COMMAND = "DO_NOT_SEND_PAST_AN_UNRESOLVED_SWAP"
@@ -82,6 +131,14 @@ class ProxyState:
         return [str(request["method"]) for request in self.requests]
 
     def writes(self) -> list[str]:
+        """Every pane the WRITER sent input to — this fixture's own setup excluded.
+
+        The readiness gate delivers its controlled child over a separate raw
+        connection to the REAL server, which never passes through this listener,
+        so everything recorded here was written by the surface under test. That
+        separation is the whole reason the gate is pointed at the real socket
+        rather than at the proxy.
+        """
         return [
             str(request["params"].get("pane_id"))
             for request in self.requests
@@ -96,6 +153,7 @@ class LiveProxiedTab:
     real_socket: str
     proxy_socket: str
     original: str
+    transient: str
     state: ProxyState
 
 
@@ -174,11 +232,21 @@ def _corrupted(*, answered: bytes) -> bytes:
 
 
 def _serve_proxy(*, listener: socket.socket, real_socket: str, state: ProxyState) -> None:
-    """Relay verbatim, injecting exactly one fault once the real swap has landed."""
-    listener.settimeout(5.0)
+    """Relay verbatim, injecting exactly one fault once the real swap has landed.
+
+    An idle `accept` is NOT a shutdown. `socket.timeout` is an `OSError`
+    subclass, so the predecessor's single `except OSError: return` ended this
+    thread after the first quiet interval — and the readiness establishment the
+    gate performs is exactly such an interval, because it talks to the real
+    server directly and sends nothing through here. Only a genuine closure, which
+    is this fixture's teardown closing the listener it opened, ends the loop.
+    """
+    listener.settimeout(ACCEPT_POLL)
     while True:
         try:
             conn, _peer = listener.accept()
+        except TimeoutError:
+            continue
         except OSError:
             return
         with conn:
@@ -226,7 +294,30 @@ def _start_server(*, session: str, scratch: Path) -> str:
     return str(address)
 
 
-def _build(*, session: str, scratch: Path, proxy_dir: Path, fault: str) -> LiveProxiedTab:
+@dataclass(kw_only=True)
+class OwnedProxies:
+    """Every listener and relay thread this fixture opened, so it can close them.
+
+    Teardown is EXACT rather than left to interpreter shutdown: closing a
+    listener is what ends its relay thread now that an idle accept no longer
+    does, and the join proves the thread this file started is the thread this
+    file stopped.
+    """
+
+    listeners: list[socket.socket] = field(default_factory=list)
+    threads: list[threading.Thread] = field(default_factory=list)
+
+    def shut_down(self) -> None:
+        for listener in self.listeners:
+            with contextlib.suppress(OSError):
+                listener.close()
+        for thread in self.threads:
+            thread.join(timeout=ACCEPT_POLL * 10)
+
+
+def _build(
+    *, session: str, scratch: Path, proxy_dir: Path, fault: str, owned: OwnedProxies
+) -> LiveProxiedTab:
     real_socket = _start_server(session=session, scratch=scratch)
     created = _raw_request(
         socket_path=real_socket,
@@ -240,15 +331,19 @@ def _build(*, session: str, scratch: Path, proxy_dir: Path, fault: str) -> LiveP
     proxy_socket = proxy_dir / f"{fault}.sock"
     listener.bind(str(proxy_socket))
     listener.listen(16)
-    threading.Thread(
+    relay = threading.Thread(
         target=_serve_proxy,
         kwargs={"listener": listener, "real_socket": real_socket, "state": state},
         daemon=True,
-    ).start()
+    )
+    owned.listeners.append(listener)
+    owned.threads.append(relay)
+    relay.start()
     return LiveProxiedTab(
         real_socket=real_socket,
         proxy_socket=str(proxy_socket),
         original=original,
+        transient=startup_transient(scratch=scratch),
         state=state,
     )
 
@@ -261,28 +356,56 @@ def _faulted(*, tmp_path: Path) -> Iterator[Any]:
     proxy_dir = Path(os.environ.get("TMPDIR", "/tmp")) / f"hrdru-{os.getpid()}"
     proxy_dir.mkdir(parents=True, exist_ok=True)
     sessions: list[str] = []
+    owned = OwnedProxies()
 
     def build(*, fault: str) -> LiveProxiedTab:
         session = f"overseer-test-{os.getpid()}-{fault}"
         sessions.append(session)
-        return _build(session=session, scratch=tmp_path, proxy_dir=proxy_dir, fault=fault)
+        return _build(
+            session=session, scratch=tmp_path, proxy_dir=proxy_dir, fault=fault, owned=owned
+        )
 
     try:
         yield build
     finally:
+        owned.shut_down()
         for session in sessions:
             _ = _cli(args=["--session", session, "server", "stop"])
             _ = _cli(args=["session", "delete", session])
         shutil.rmtree(proxy_dir, ignore_errors=True)
 
 
-def _split_top(*, live: LiveProxiedTab) -> Any:
+def _split_top(*, live: LiveProxiedTab) -> tuple[Any, ReadyShellGate]:
+    """The real layout sequence, with the created pane's ready shell ESTABLISHED.
+
+    The gate forwards every request to the shipped writer, so the socket, the
+    deadline and the PEER VALIDATION stay exactly as the public facade runs them
+    — against this proxy, whose pid and `/proc` start time the target names — and
+    the shell proof is taken from that writer's own fields rather than rebuilt
+    here. `split_window_top` is the three-line facade over this same call with
+    this same proof.
+
+    Its establishment requests go to the REAL socket, which keeps this fixture's
+    setup input out of `ProxyState.writes()` and therefore out of the byte-level
+    claim that nothing was launched past the fault. It also keeps them out of
+    `methods()`, so the `pane.swap` and `pane.layout` counts below still describe
+    the WRITER's request stream alone.
+
+    The gate is returned alongside the outcome because an unestablished or expired
+    readiness has to be gradeable as a FIXTURE failure, not swallowed here.
+    """
     writer_module = importlib.import_module("herdr_write")
     identity = importlib.import_module("herdr_identity")
     claude_sessions = importlib.import_module("claude_sessions")
     starttime = claude_sessions.proc_starttime(pid=os.getpid())
     assert starttime is not None, "this process must have a readable /proc start time"
-    return writer_module.HerdrWriter(timeout_seconds=10.0).split_window_top(
+    gate = ReadyShellGate(
+        inner=writer_module.HerdrWriter(timeout_seconds=10.0),
+        socket_path=live.real_socket,
+        startup_transient=live.transient,
+        transient_name=TRANSIENT_NAME,
+    )
+    outcome = gate.place_above(
         target=identity.HerdrPaneTarget(
             socket_path=live.proxy_socket,
             server_pid=os.getpid(),
@@ -293,6 +416,37 @@ def _split_top(*, live: LiveProxiedTab) -> Any:
         command=DAEMON_COMMAND,
         ratio=TOP_RATIO,
     )
+    return outcome, gate
+
+
+def _assert_readiness_was_established(*, live: LiveProxiedTab, gate: ReadyShellGate) -> None:
+    """Grade the fixture's own precondition before anything grades the adapter.
+
+    Three facts, each named separately so a failure says which one was missing:
+    the controlled child was observed in the EXACT pane the adapter created, that
+    child exited on its own, and the pinned retained shell owns its foreground
+    again. `refusal()` carries all three plus the expiry of any of their bounds.
+
+    Without this, an occupied created pane refuses one guard BEFORE the swap, so
+    neither fault below is ever reached and the exercise reports a refusal about
+    something else entirely — the measured shape recorded in this module's
+    docstring.
+    """
+    assert gate.refusal() == "", gate.refusal()
+    assert gate.gated == [live.state.created], (
+        "the readiness gate must have established the pane the adapter actually "
+        f"created; it gated {gate.gated} against created {live.state.created!r}"
+    )
+    transient = gate.transient
+    assert transient is not None and transient.pid is not None, transient
+    assert gate.retained is not None, "the retained shell was never pinned as an identity"
+    assert parent_pid_of(pid=transient.pid) in (None, gate.retained.pid), (
+        f"the controlled child {transient.pid} is not a child of the pinned retained "
+        f"shell {gate.retained.pid}"
+    )
+    assert gate.departed == "", gate.departed
+    established = gate.established
+    assert established is not None and established.recovered is True, established
 
 
 def _assert_unresolved_but_landed(*, live: LiveProxiedTab, outcome: Any) -> None:
@@ -320,11 +474,17 @@ def _assert_unresolved_but_landed(*, live: LiveProxiedTab, outcome: Any) -> None
 
 
 def test_a_landed_swap_with_a_corrupted_answer_is_unresolved(*, faulted: Any):
-    """The real panes were exchanged; the reply describing it cannot be read."""
+    """The real panes were exchanged; the reply describing it cannot be read.
+
+    The created pane's readiness is ESTABLISHED before the swap is asked for, so
+    the swap is actually reached and the corruption is actually injected — which
+    is what makes the uncertainty asserted below about a mutation that occurred.
+    """
     live = faulted(fault=CORRUPT_SWAP)
 
-    outcome = _split_top(live=live)
+    outcome, gate = _split_top(live=live)
 
+    _assert_readiness_was_established(live=live, gate=gate)
     _assert_unresolved_but_landed(live=live, outcome=outcome)
     assert (
         "pane.layout" not in live.state.methods()
@@ -340,8 +500,9 @@ def test_a_landed_swap_with_a_withheld_geometry_answer_is_unresolved(*, faulted:
     """
     live = faulted(fault=WITHHOLD_LAYOUT)
 
-    outcome = _split_top(live=live)
+    outcome, gate = _split_top(live=live)
 
+    _assert_readiness_was_established(live=live, gate=gate)
     _assert_unresolved_but_landed(live=live, outcome=outcome)
     assert (
         live.state.methods().count("pane.layout") == 1
