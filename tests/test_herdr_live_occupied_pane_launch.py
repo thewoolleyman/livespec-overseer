@@ -65,26 +65,55 @@ no `pane.layout`, `occupation` still None — the adapter refused with
 `_observed_occupant` failed by name with "the fixture's occupation step never
 completed". Same pane id and same method list as the host receipt.
 
-So the sequence now runs through `ReadyShellGate`, which precedes the FIRST
-`pane.process_info` for the created pane — and only the first — with one real
-bounded child staged in that exact pane, OBSERVED running under the pane's own
-retained shell, observed EXITING on its own, and the SAME pinned retained shell
-observed owning its foreground again. `_established` grades that precondition
-before anything grades the adapter, so unavailable or expired initial readiness
-is a FIXTURE failure naming what it saw.
+**That demonstration's PROVENANCE is weaker than its content, and the gap is
+recorded rather than papered over.** Those are real readings printed by a real
+pytest process driving the then-unmodified file, but the command was piped into
+`tail`, so the producer's own exit status was never captured — the shell reported
+the pipeline, not the run. The observations above stand on their own printed
+values; no pytest PASS/FAIL verdict is claimed for that command, and re-running
+the demonstration AFTER this file was edited would not be a prechange measurement
+at all, so it was not re-run and relabelled.
+
+So the establishment now happens AT THE PROXY — this file's existing fault
+boundary, which already sees every request the writer sends and already injects
+at one of them. When the proxy relays the FIRST `pane.process_info` naming the
+created pane, and only the first, it drives the delivered `ReadyShellGate` once
+over that same pane: one real bounded child staged in it, OBSERVED running under
+the pane's own retained shell, observed EXITING on its own, and the SAME pinned
+retained shell observed owning its foreground again. Then it relays the writer's
+reading untouched. `_established` grades that precondition before anything grades
+the adapter, so unavailable or expired initial readiness is a FIXTURE failure
+naming what it saw.
+
+**The writer is still entered through its own public `split_window_top`.** The
+gate is a `BoundedRequests` wrapper, so it COULD have been wrapped around the
+writer and driven at `herdr_layout.place_above` — and that is what a first cut
+did. It is not what this exercise wants: the public facade is part of what is
+under test here, and a sequence entered one layer below it is a different
+subject. So the gate is driven from the proxy instead, on a `pane.process_info`
+of its own against the REAL server, and the writer's own call is untouched.
+
+**The establishment therefore runs INSIDE one writer request's deadline**, which
+is the cost of putting it at the proxy rather than between the writer's own
+requests. `herdr_transport` gives each request ONE absolute deadline, so the
+delayed request is exactly one — the first process-info — and the gate's bound is
+sized against that deadline rather than left at its default: see
+:data:`INITIAL_READY_SECONDS`. An expired establishment must lose the race to a
+NAMED fixture failure, never to a transport timeout.
 
 **The gate is one-shot precisely so it does NOT swallow the occupancy this
 exercise is about.** The occupant is injected later, at `pane.layout`, and the
-reading that meets it is the adapter's SECOND one — which the gate forwards
-untouched. `gate.gated` therefore holds exactly one pane while `gate.methods`
-records two process-info requests, and every later assertion about the live
-occupant and the writer's refusal is unchanged.
+reading that meets it is the writer's SECOND one — which the proxy relays
+untouched, with no establishment and no waiting. `ready.gated` therefore holds
+exactly one pane while the proxy's own `methods()` records two process-info
+requests.
 
 That staged initial child is the weaker claim deliberately: a bounded
 DISCRIMINATING instance of a non-idle created pane, not a reproduction of the
-operator's `zsh`/`mise`/`atuin` startup. The gate's establishment requests go to
-the REAL socket, so this fixture's setup input never enters `adapter_writes()` or
-`methods()` and the zero-delivery claim still describes the writer's stream alone.
+operator's `zsh`/`mise`/`atuin` startup. Every one of the gate's requests — its
+setup input and its own reading alike — goes to the REAL socket, so this
+fixture's setup never enters `adapter_writes()` or `methods()` and the
+zero-delivery claim still describes the writer's stream alone.
 
 **The proxy has to SURVIVE that establishment window, and it did not.** The
 establishment talks to the real server directly, so the listener sits idle
@@ -137,7 +166,7 @@ import socket
 import subprocess
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -151,6 +180,7 @@ from test_herdr_live_observations import (
     ForegroundReading,
     ReadyShellGate,
     ShellIdentityPin,
+    ShellRecovery,
     await_idle_shell,
     await_occupying_child,
     occupying_child_pid,
@@ -170,6 +200,20 @@ OCCUPY_TIMEOUT = 20.0
 # long enough that the loop is not spinning. The establishment window this has to
 # survive is seconds of real waiting with no connection arriving.
 ACCEPT_POLL = 0.5
+# The writer's own per-request ceiling, and the bound each of the initial
+# establishment's THREE waits runs under.
+#
+# These two are related, not independently chosen. The establishment happens at
+# the proxy, so it runs while the writer is blocked on the one request it was
+# triggered by, and `herdr_transport` gives that request ONE absolute deadline.
+# Three waits at 8s cannot exceed 24s, so an establishment that expires always
+# loses the race to `_established` naming which wait expired, rather than to a
+# transport timeout that would name nothing. The writer's ceiling is the value
+# this exercise already used; the gate's default of 30s per wait is what was
+# narrowed, and only because the proxy boundary puts it inside a deadline.
+# Measured here, the whole establishment takes about three seconds.
+WRITER_TIMEOUT = 30.0
+INITIAL_READY_SECONDS = 8.0
 PANE_CWD = "/tmp"
 TOP_RATIO = 0.25
 # Long-lived and inert, so the occupied reading is stable while the assertions
@@ -183,15 +227,25 @@ DAEMON_COMMAND = "DO_NOT_SEND_TO_AN_OCCUPIED_PANE"
 
 @dataclass(kw_only=True)
 class ProxyState:
-    """What the forwarding proxy saw, and what it injected.
+    """What the forwarding proxy saw, established, and injected.
 
     `occupation` is None until the injection step has RUN at all — which
     distinguishes a proxy whose thread died before reaching it from one that
     reached it and failed to observe the child, and neither from one that
     succeeded. The old `occupied: bool` collapsed all three into False.
+
+    `ready` is the same distinction one step earlier, for the INITIAL readiness
+    the proxy establishes before relaying the writer's first process-info
+    reading: None means that step was never reached, and a gate that was reached
+    carries its own reason when it could not establish anything.
+
+    `transient` is the command the establishment stages — carried here rather
+    than passed down the relay because the proxy is what runs it.
     """
 
+    transient: str
     created: str = ""
+    ready: ReadyShellGate | None = None
     occupation: ChildObservation | None = None
     requests: list[dict[str, Any]] = field(default_factory=list)
 
@@ -222,7 +276,6 @@ class LiveProxiedTab:
     proxy_socket: str
     original: str
     unrelated: str
-    transient: str
     state: ProxyState
 
 
@@ -358,13 +411,97 @@ def _inject_occupant(*, real_socket: str, state: ProxyState) -> ChildObservation
         return ChildObservation(pid=None, reason=f"the occupation step failed: {failed}")
 
 
+@dataclass(frozen=True, kw_only=True)
+class _SetupRequests:
+    """A `BoundedRequests`-shaped forwarder to the REAL server, for SETUP only.
+
+    `ReadyShellGate` establishes a pane's readiness around a request it then
+    forwards to whatever it wraps. Here what it wraps is this: a raw round trip
+    to the real server, taken on the fixture's own behalf. So the gate's reading
+    is unmistakably a SETUP OBSERVATION — it never reaches the writer, never
+    passes through the listener, and is recorded in neither `methods()` nor
+    `adapter_writes()`.
+
+    `target` and `expect` are the protocol's peer-validation and
+    envelope-expectation arguments, which only a real writer acts on; this
+    forwarder ignores both, and its reply is consumed by the gate and discarded.
+    """
+
+    socket_path: str
+
+    def request(
+        self, *, target: Any, method: str, params: Mapping[str, object], expect: Any
+    ) -> dict[str, Any]:
+        return _raw_request(socket_path=self.socket_path, method=method, params=dict(params))
+
+
+def _establish_initial_readiness(*, real_socket: str, state: ProxyState) -> ReadyShellGate:
+    """Establish the created pane's INITIAL readiness, ONCE, before the writer reads it.
+
+    The delivered `ReadyShellGate` does the work, driven here over a
+    `pane.process_info` of the proxy's own against the real server: one real
+    bounded child staged in the created pane, OBSERVED under that pane's own
+    retained shell, the shell pinned as an IDENTITY, the child observed exiting
+    on its own, and that same identity observed owning its foreground again.
+    Nothing is re-coded here — every one of those observations is the delivered
+    helper's, and so is the `refusal()` that names whichever one was missing.
+
+    Returned rather than asserted on, and a socket failure is REPORTED the same
+    way `_inject_occupant` reports its own: a raise here would die inside the
+    relay thread with nothing watching, which is how a fixture comes to grade an
+    establishment it never made.
+    """
+    gate = ReadyShellGate(
+        inner=_SetupRequests(socket_path=real_socket),
+        socket_path=real_socket,
+        startup_transient=state.transient,
+        transient_name=TRANSIENT_NAME,
+        seconds=INITIAL_READY_SECONDS,
+    )
+    try:
+        _ = gate.request(
+            target=None,
+            method="pane.process_info",
+            params={"pane_id": state.created},
+            expect=None,
+        )
+    except OSError as failed:
+        gate.established = ShellRecovery(
+            recovered=False, reason=f"the initial readiness step failed: {failed}"
+        )
+    return gate
+
+
+def _is_initial_reading(*, request: dict[str, Any], state: ProxyState) -> bool:
+    """Whether `request` is the writer's FIRST process-info read of the created pane.
+
+    The pane id is matched explicitly rather than assumed: the establishment
+    belongs to the pane the writer CREATED, and a reading of any other pane must
+    pass through untouched. `state.ready` being None is what makes this one-shot,
+    so the writer's SECOND reading — the one that meets the injected occupant —
+    is relayed with no establishment and no waiting.
+    """
+    return (
+        request["method"] == "pane.process_info"
+        and bool(state.created)
+        and str(request["params"].get("pane_id")) == state.created
+        and state.ready is None
+    )
+
+
 def _serve_proxy(*, listener: socket.socket, real_socket: str, state: ProxyState) -> None:
-    """Forward requests verbatim, occupying the created pane before the layout read.
+    """Forward requests verbatim, establishing readiness first and occupying later.
+
+    Two steps, at two different requests, in the order the writer reaches them:
+    the created pane's INITIAL readiness is established before the first
+    process-info read is relayed, and the intended occupant is injected before
+    the layout read is relayed. Both talk to the real server directly; neither
+    rewrites a byte of what passes through.
 
     An idle `accept` is NOT a shutdown. `socket.timeout` is an `OSError`
     subclass, so the predecessor's single `except OSError: return` ended this
-    thread after the first quiet interval — and the initial-readiness
-    establishment the gate performs is exactly such an interval, because it talks
+    thread after the first quiet interval — and the readiness establishment is
+    exactly such an interval from the listener's point of view, because it talks
     to the real server directly and sends nothing through here. Only a genuine
     closure, which is this fixture's teardown closing the listener it opened,
     ends the loop.
@@ -383,6 +520,8 @@ def _serve_proxy(*, listener: socket.socket, real_socket: str, state: ProxyState
                 continue
             request = json.loads(raw)
             state.requests.append(request)
+            if _is_initial_reading(request=request, state=state):
+                state.ready = _establish_initial_readiness(real_socket=real_socket, state=state)
             if request["method"] == "pane.layout" and state.created and state.occupation is None:
                 state.occupation = _inject_occupant(real_socket=real_socket, state=state)
             answered = _forward(socket_path=real_socket, raw=raw)
@@ -463,7 +602,7 @@ def _build_tab(
         },
     )
     assert "result" in sibling, f"sibling split failed: {sibling}"
-    state = ProxyState()
+    state = ProxyState(transient=startup_transient(scratch=scratch))
     listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     proxy_socket = proxy_dir / "p.sock"
     listener.bind(str(proxy_socket))
@@ -481,7 +620,6 @@ def _build_tab(
         proxy_socket=str(proxy_socket),
         original=original,
         unrelated=str(sibling["result"]["pane"]["pane_id"]),
-        transient=startup_transient(scratch=scratch),
         state=state,
     )
 
@@ -504,42 +642,23 @@ def _live(*, tmp_path: Path) -> Iterator[LiveProxiedTab]:
         shutil.rmtree(proxy_dir, ignore_errors=True)
 
 
-def _split_top(*, live: LiveProxiedTab) -> tuple[Any, ReadyShellGate]:
-    """The real layout sequence, with the created pane's INITIAL readiness established.
+def _split_top(*, live: LiveProxiedTab) -> Any:
+    """The writer's own PUBLIC entrypoint, unchanged, pointed at the proxy.
 
-    The gate forwards every request to the shipped writer, so the socket, the
-    deadline and the PEER VALIDATION stay exactly as the public facade runs them
-    — against this proxy, whose pid and `/proc` start time the target names — and
-    the shell proof is taken from that writer's own fields rather than rebuilt
-    here. `split_window_top` is the three-line facade over this same call with
-    this same proof.
-
-    It establishes the FIRST `pane.process_info` for the created pane and nothing
-    else, which is what keeps this exercise's subject intact: the occupant is
-    injected afterwards, at `pane.layout`, and the reading that meets it is the
-    adapter's SECOND one, relayed untouched.
-
-    Its establishment requests go to the REAL socket, which keeps this fixture's
-    setup input out of `ProxyState.adapter_writes()` and therefore out of the
-    byte-level claim that nothing was delivered, and out of `methods()` so the
-    `pane.swap` count below still describes the WRITER's request stream alone.
-
-    The gate is returned alongside the outcome because unavailable or expired
-    initial readiness has to be gradeable as a FIXTURE failure, not swallowed
-    here.
+    `HerdrWriter.split_window_top` is what this exercise is about, so it is what
+    is called: the socket, the per-request deadline, the peer validation against
+    this proxy's pid and `/proc` start time, and the shell proof are all the
+    shipped facade's. The initial readiness the sequence now depends on is
+    established at the PROXY, not by wrapping anything around this call — see
+    `_establish_initial_readiness` and this module's docstring for why that
+    distinction is load-bearing here.
     """
     writer_module = importlib.import_module("herdr_write")
     identity = importlib.import_module("herdr_identity")
     claude_sessions = importlib.import_module("claude_sessions")
     starttime = claude_sessions.proc_starttime(pid=os.getpid())
     assert starttime is not None, "this process must have a readable /proc start time"
-    gate = ReadyShellGate(
-        inner=writer_module.HerdrWriter(timeout_seconds=30.0),
-        socket_path=live.real_socket,
-        startup_transient=live.transient,
-        transient_name=TRANSIENT_NAME,
-    )
-    outcome = gate.place_above(
+    return writer_module.HerdrWriter(timeout_seconds=WRITER_TIMEOUT).split_window_top(
         target=identity.HerdrPaneTarget(
             socket_path=live.proxy_socket,
             server_pid=os.getpid(),
@@ -550,44 +669,49 @@ def _split_top(*, live: LiveProxiedTab) -> tuple[Any, ReadyShellGate]:
         command=DAEMON_COMMAND,
         ratio=TOP_RATIO,
     )
-    return outcome, gate
 
 
-def _established(*, live: LiveProxiedTab, gate: ReadyShellGate) -> None:
+def _established(*, live: LiveProxiedTab) -> ReadyShellGate:
     """Grade the INITIAL readiness premise before anything grades the adapter.
 
-    Four facts, each named separately so a failure says which one was missing:
-    the controlled child was observed in the EXACT pane the adapter created,
-    under that pane's own pinned retained shell, it exited on its own, and that
-    same shell identity owns its foreground again. `refusal()` carries all of
-    them plus the expiry of any of their bounds, so an unavailable or expired
-    establishment fails HERE, by name, rather than being reported as the adapter
-    declining to launch.
+    Five facts, each named separately so a failure says which one was missing:
+    the step RAN at all, the controlled child was observed in the EXACT pane the
+    writer created, under that pane's own pinned retained shell, it exited on its
+    own, and that same shell identity owns its foreground again. `refusal()`
+    carries the last four plus the expiry of any of their bounds, so an
+    unavailable or expired establishment fails HERE, by name, rather than being
+    reported as the adapter declining to launch.
 
     `gated` is asserted to hold exactly ONE pane, which is the other half of the
-    claim: the establishment ran once, before the first reading, and the adapter's
-    second reading — the one that meets the injected occupant — was relayed
-    untouched.
+    claim: the establishment ran once, before the writer's FIRST reading, and the
+    writer's second reading — the one that meets the injected occupant — was
+    relayed with nothing done to it.
     """
-    assert gate.refusal() == "", gate.refusal()
-    assert gate.gated == [live.state.created], (
-        "the readiness gate must have established the pane the adapter actually "
-        f"created, exactly once; it gated {gate.gated} against created {live.state.created!r}"
+    ready = live.state.ready
+    assert ready is not None, (
+        "the fixture's initial-readiness step never ran; the proxy saw "
+        f"{live.state.methods()} and created {live.state.created!r}"
     )
-    transient = gate.transient
+    assert ready.refusal() == "", ready.refusal()
+    assert ready.gated == [live.state.created], (
+        "the readiness gate must have established the pane the writer actually "
+        f"created, exactly once; it gated {ready.gated} against created {live.state.created!r}"
+    )
+    transient = ready.transient
     assert transient is not None and transient.pid is not None, transient
-    assert gate.retained is not None, "the retained shell was never pinned as an identity"
-    assert parent_pid_of(pid=transient.pid) in (None, gate.retained.pid), (
+    assert ready.retained is not None, "the retained shell was never pinned as an identity"
+    assert parent_pid_of(pid=transient.pid) in (None, ready.retained.pid), (
         f"the controlled child {transient.pid} is not a child of the pinned retained "
-        f"shell {gate.retained.pid}"
+        f"shell {ready.retained.pid}"
     )
-    assert gate.departed == "", gate.departed
-    recovery = gate.established
+    assert ready.departed == "", ready.departed
+    recovery = ready.established
     assert recovery is not None and recovery.recovered is True, recovery
-    assert gate.methods.count("pane.process_info") == 2, (
-        "the adapter must still take BOTH of its readings — the established one and the "
-        f"recheck that meets the occupant: {gate.methods}"
+    assert live.state.methods().count("pane.process_info") == 2, (
+        "the writer must still take BOTH of its readings — the established one and the "
+        f"recheck that meets the occupant: {live.state.methods()}"
     )
+    return ready
 
 
 def _observed_occupant(*, live: LiveProxiedTab) -> int:
@@ -619,16 +743,16 @@ def test_a_really_occupied_new_pane_receives_no_command_or_enter_bytes(*, live: 
     swap was ever asked for, which is the measured shape that stopped the
     sequence one step early and never injected anything.
     """
-    outcome, gate = _split_top(live=live)
+    outcome = _split_top(live=live)
 
-    _established(live=live, gate=gate)
+    ready = _established(live=live)
     child = _observed_occupant(live=live)
     assert live.state.methods().count("pane.layout") == 1, (
         "the one-time readiness gate must not have swallowed the later injection: the "
         f"writer never reached its layout read: {live.state.methods()}"
     )
-    assert gate.transient is not None and child != gate.transient.pid, (
-        f"the occupant {child} is the readiness gate's own bounded child {gate.transient}, not "
+    assert ready.transient is not None and child != ready.transient.pid, (
+        f"the occupant {child} is the readiness gate's own bounded child {ready.transient}, not "
         "the distinct occupant this exercise injected after the layout"
     )
     assert starttime_of(pid=child) is not None, (
@@ -655,9 +779,9 @@ def test_the_refusal_preserves_the_partial_layout_and_the_occupying_child(*, liv
     established, so "the proven swap must not be undone" is a claim about a swap
     that really happened rather than about one the sequence stopped short of.
     """
-    outcome, gate = _split_top(live=live)
+    outcome = _split_top(live=live)
 
-    _established(live=live, gate=gate)
+    _ = _established(live=live)
     child = _observed_occupant(live=live)
     assert outcome.ok is False, "precondition: the launch was refused"
     tops = _geometry(socket_path=live.real_socket, pane_id=live.original)
@@ -684,9 +808,9 @@ def test_the_original_pane_and_its_unrelated_sibling_receive_nothing(*, live: Li
     before = _geometry(socket_path=live.real_socket, pane_id=live.original)
     original_shell = _reading(socket_path=live.real_socket, pane_id=live.original).shell_pid
 
-    outcome, gate = _split_top(live=live)
+    outcome = _split_top(live=live)
 
-    _established(live=live, gate=gate)
+    _ = _established(live=live)
     _ = _observed_occupant(live=live)
     assert outcome.ok is False, "precondition: the launch was refused"
     for pane_id in (live.original, live.unrelated):
