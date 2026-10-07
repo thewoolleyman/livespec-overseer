@@ -1,5 +1,19 @@
 # Changelog
 
+## [5.15.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.14.1...v5.15.0) (2026-10-07)
+
+
+### Features
+
+* **lpm:** apply a report's ordered effects through the public engine ([101d8b7](https://github.com/thewoolleyman/livespec-overseer/commit/101d8b7b9fad32bd5e850cb19e8bcdb417f8df46))
+* **lpm:** close a completed run through its own durable tombstone ([5710668](https://github.com/thewoolleyman/livespec-overseer/commit/57106689176c3d5d4814f5b7fd59ff0373ab056c))
+* **lpm:** reconcile a report's pending fence on its settled path too ([550eed2](https://github.com/thewoolleyman/livespec-overseer/commit/550eed2e30e0fdbeca1dc33ebdea58ded07b1644))
+
+
+### Bug Fixes
+
+* **lpm:** date an audit line at its first adapter attempt ([a97e088](https://github.com/thewoolleyman/livespec-overseer/commit/a97e088eb7ce513f5e64e2283fe0faf9355bbd40))
+
 ## [5.14.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.14.0...v5.14.1) (2026-10-06)
 
 
