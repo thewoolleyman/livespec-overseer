@@ -9,6 +9,7 @@ import io as _io
 import json
 import threading
 import time
+from dataclasses import dataclass, field
 
 import _supervisor_otel_report
 import registry
@@ -24,6 +25,59 @@ from test_supervisor_builders import (
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
+
+
+@dataclass(kw_only=True)
+class _HeldExport:
+    """An export the test can observe ENTERED, hold open, and then release.
+
+    The three events are the causal handshake: `entered` proves the exporter is
+    occupied, `release` is the only thing that lets it finish, and `returned` proves
+    whether it has finished yet — which is what lets a caller's completion be read as
+    "while the export was still held" rather than "soon enough". `calls` is the
+    enqueue count: an overflow must report without starting an export of its own.
+    """
+
+    entered: threading.Event = field(default_factory=threading.Event)
+    release: threading.Event = field(default_factory=threading.Event)
+    returned: threading.Event = field(default_factory=threading.Event)
+    calls: list[dict[str, object]] = field(default_factory=list)
+    lock: threading.Lock = field(default_factory=threading.Lock)
+
+    def emit(self, request: dict[str, object]) -> EmitResult:
+        """The injected emitter seam. Positional, because `emit_daemon_event` calls it so."""
+        with self.lock:
+            self.calls.append(request)
+        self.entered.set()
+        # A liveness guard so a failing test cannot wedge the suite, NOT a latency budget.
+        _ = self.release.wait(timeout=5.0)
+        self.returned.set()
+        return EmitResult(sent=True, span_count=1, rejected_spans=0, error=None)
+
+
+def _start_log(
+    *,
+    sup,
+    message: str,
+    callers: list[threading.Thread],
+) -> threading.Event:
+    """Log one daemon event from its own thread; return the event set once it COMPLETES.
+
+    The caller runs off the main thread so a blocking log call fails a bounded wait
+    instead of wedging the test. Only a thread that actually started is recorded, so
+    cleanup joins exactly what is owned — joining an unstarted thread raises
+    `RuntimeError` and would replace a failing assertion with that noise.
+    """
+    logged = threading.Event()
+
+    def log_tick() -> None:
+        sup.log(message=message, event="daemon-tick")
+        logged.set()
+
+    caller = threading.Thread(target=log_tick)
+    caller.start()
+    callers.append(caller)
+    return logged
 
 
 def _count_export_alerts(
@@ -168,13 +222,25 @@ def test_slow_otel_export_does_not_block_daemon_event_log(*, tmp_path):
 
 
 def test_otel_export_queue_overflow_is_reported_without_blocking(*, tmp_path, monkeypatch):
+    """A full queue reports the overflow WHILE the only in-flight export is still held.
+
+    The nonblocking claim is CAUSAL, not a stopwatch reading. An elapsed-time bound over
+    two log calls proves neither that the queue overflowed nor that the caller ever waited
+    on the exporter: it ran BEFORE the event assertions, and the emitter's bare sleep
+    established no occupancy for it to measure. Such a bound was observed failing once at
+    0.3047s against 0.05s. What slowed those two calls was never established — and that
+    is the point rather than a missing detail, because the reading cannot separate the
+    behaviour under test from anything else happening on the host, so no cause is claimed
+    for it here. So this follows the entered/release/completion handshake of its sibling
+    `test_slow_otel_export_does_not_block_daemon_event_log`: the first export is observably
+    ENTERED and held, and the second daemon log call is observed to COMPLETE — with the
+    queue-full error already reported — while that first export has provably not returned.
+    Every bounded wait here is a liveness guard against a hang, never a latency budget.
+    """
     async_otel = importlib.import_module("_supervisor_otel_async")
     monkeypatch.setattr(async_otel, "_MAX_IN_FLIGHT", 1)
 
-    def slow_emit(_request: dict[str, object]) -> EmitResult:
-        time.sleep(0.25)
-        return EmitResult(sent=True, span_count=1, rejected_spans=0, error=None)
-
+    held = _HeldExport()
     sup = make_supervisor(
         tmp_path=tmp_path,
         fake=FakeTmux(),
@@ -185,25 +251,46 @@ def test_otel_export_queue_overflow_is_reported_without_blocking(*, tmp_path, mo
                 service_name="svc",
                 service_namespace="ns",
             ),
-            emitter=slow_emit,
+            emitter=held.emit,
         ),
     )
 
     err = _io.StringIO()
-    started = time.monotonic()
-    with contextlib.redirect_stderr(err):
-        sup.log(message="tick 1 complete", event="daemon-tick")
-        sup.log(message="tick 2 complete", event="daemon-tick")
-    elapsed = time.monotonic() - started
+    callers: list[threading.Thread] = []
+    try:
+        with contextlib.redirect_stderr(err):
+            first_logged = _start_log(sup=sup, message="tick 1 complete", callers=callers)
+            # The single queue slot is OCCUPIED and its caller is already back, so the
+            # second log below provably meets a full queue rather than a timing window.
+            assert held.entered.wait(timeout=1.0)
+            assert first_logged.wait(timeout=1.0)
+            second_logged = _start_log(sup=sup, message="tick 2 complete", callers=callers)
+            assert second_logged.wait(timeout=1.0)
+            # The causal safety assertion: the second caller completed, and the exact
+            # queue-full error was already reported, while the held export had NOT
+            # returned. `returned` is unset across the whole inspection, both sides of it.
+            assert not held.returned.is_set()
+            overflow = json.loads(err.getvalue().splitlines()[-1])
+            assert overflow["event"] == "otel-export-failed"
+            assert overflow["error"] == "OTLP export queue full"
+            assert not held.returned.is_set()
+    finally:
+        # Failure-safe: release the held export, join the callers this test owns, and
+        # finish the exporter's own pending work so nothing runs on past the test.
+        held.release.set()
+        for caller in callers:
+            caller.join(timeout=5.0)
+        with contextlib.redirect_stderr(err):
+            sup.otel.exporter.flush(sup=sup)
 
-    events = [json.loads(line) for line in err.getvalue().splitlines()]
-    assert elapsed < 0.05
-    assert [event["event"] for event in events] == [
+    assert [caller.is_alive() for caller in callers] == [False, False]
+    # An overflow REPORTS; it must never enqueue a second export of its own.
+    assert len(held.calls) == 1
+    assert [json.loads(line)["event"] for line in err.getvalue().splitlines()] == [
         "daemon-tick",
         "daemon-tick",
         "otel-export-failed",
     ]
-    assert events[2]["error"] == "OTLP export queue full"
 
 
 def test_otel_export_queue_overflow_dedups_fixed_queue_full_error(
