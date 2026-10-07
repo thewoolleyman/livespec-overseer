@@ -18,8 +18,19 @@ file relabels them as a reproduced host failure or as a product Red. No guarded
 product code changed for any of it; what changed is the fixtures' premises and
 the controls that discriminate them.
 
+**That sandbox/host gap has a SECOND leg, and the fifth defect fell straight
+through it.** The sandbox's `sleep` is a GNU standalone binary while the
+operator host's is a uutils MULTICALL executable, so a transient built by
+renaming `sleep` ran perfectly here and could not run there at all. A native
+exercise passing in this sandbox is therefore evidence about this sandbox's
+coreutils as well as about its login shell. Where a property turns on either,
+the discriminating control is a DISCLOSED MECHANISM staged by this file, and the
+real boundary stays a HOST assertion that no run here discharges.
+
 **The four measured fixture defects these replace.** All four were taken against
 real herdr on the operator host, and none of them is evidence about the adapter.
+A FIFTH, measured on the same host against the repair itself, is recorded further
+down — see "the transient's portability control" and `startup_transient`.
 
   - **A transient startup process satisfied the occupation wait.** The old wait
     returned as soon as a pane's `foreground_process_group_id` differed from its
@@ -77,11 +88,15 @@ import importlib
 import json
 import shutil
 import socket
+import subprocess
+import sys
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+import pytest
 
 __all__: list[str] = [
     "BoundedPoll",
@@ -112,23 +127,67 @@ PidReader = Callable[..., int | None]
 # unmistakably not the child any exercise requested.
 TRANSIENT_NAME = "ovstartup"
 TRANSIENT_SECONDS = 2
+# PR_SET_NAME, from `linux/prctl.h`. The transient names ITSELF, so the name the
+# kernel reports — and therefore the name herdr reports, which it reads from
+# `/proc/<pid>/comm` — comes from a call this fixture makes rather than from the
+# basename of a renamed binary. The script verifies the rename took effect and
+# exits loudly if it did not, so a platform where `prctl` is unavailable fails as
+# itself instead of as an unobserved child.
+_PR_SET_NAME = 15
+_TRANSIENT_SOURCE = f'''\
+"""One real, bounded, SELF-NAMED foreground child for the native herdr exercises.
+
+Written by `startup_transient` in tests/test_herdr_live_observations.py; see that
+function for why the name is set here rather than taken from a file name.
+"""
+
+import ctypes
+import pathlib
+import sys
+import time
+
+_ = ctypes.CDLL(None, use_errno=True).prctl({_PR_SET_NAME}, b"{TRANSIENT_NAME}", 0, 0, 0)
+_named = pathlib.Path("/proc/self/comm").read_text(encoding="utf-8").strip()
+if _named != "{TRANSIENT_NAME}":
+    raise SystemExit(f"prctl(PR_SET_NAME) left this process named {{_named!r}}")
+time.sleep(float(sys.argv[1]))
+'''
 
 
 def startup_transient(*, scratch: Path) -> str:
     """A command that runs one real, self-terminating foreground child.
 
-    A COPY of the system `sleep` under :data:`TRANSIENT_NAME`, so the process
-    the kernel reports is genuine and its lifetime is this fixture's to choose
-    rather than the host's. It stands in for the `mise` and `atuin` children the
-    operator's `zsh` forks while a freshly created pane starts up — the measured
-    condition under which the adapter legitimately refuses a launch.
+    A short Python script run by THIS interpreter under its own real path, which
+    renames itself to :data:`TRANSIENT_NAME` and then sleeps for the argument it
+    is given. The process the kernel reports is genuine, and its lifetime is this
+    fixture's to choose rather than the host's. It stands in for the `mise` and
+    `atuin` children the operator's `zsh` forks while a freshly created pane
+    starts up — the measured condition under which the adapter legitimately
+    refuses a launch.
+
+    **Why the child names itself instead of being a renamed `sleep`.** This used
+    to copy `shutil.which("sleep")` to a file called `ovstartup` and run that.
+    A standalone `sleep` does not care what it is called, so it worked in the
+    factory sandbox and in CI — but the operator host's `sleep` is a MULTICALL
+    executable (uutils coreutils), which decides which utility to BE from the
+    name it was invoked under. Under the name `ovstartup` it recognized no
+    utility, fell back to reading its first argument as one, printed
+    `<arg>: function/utility not found` and exited 1 without ever sleeping, so
+    every native exercise that staged a transient failed on its own fixture
+    premise. The receipts, and the disclosed-mechanism control over this
+    property, are in
+    `test_the_startup_transient_runs_where_sleep_dispatches_on_its_invocation_name`
+    below.
+
+    So the identity and the lifetime no longer rest on renaming a system utility
+    at all: nothing here consults `PATH`, the interpreter is invoked by the
+    absolute path it already runs under, and the name is a `prctl` this fixture
+    makes.
     """
-    source = shutil.which("sleep")
-    assert source is not None, "a native exercise needs a real `sleep` binary to copy"
-    binary = scratch / TRANSIENT_NAME
-    if not binary.exists():
-        _ = shutil.copy(source, binary)
-    return f"{binary} {TRANSIENT_SECONDS}"
+    assert sys.executable, "a native exercise needs a real interpreter path to run"
+    script = scratch / f"{TRANSIENT_NAME}.py"
+    _ = script.write_text(_TRANSIENT_SOURCE, encoding="utf-8")
+    return f"{sys.executable} {script} {TRANSIENT_SECONDS}"
 
 
 # ------------------------------------------------------------------ readings
@@ -858,3 +917,210 @@ def test_a_reading_about_another_pane_establishes_nothing() -> None:
 
     assert recovery.recovered is False
     assert "not 'w1:p9'" in recovery.reason, recovery.reason
+
+
+# --------------------------------------- the transient's portability control
+#
+# The control over the FIFTH measured defect, the one this section was added
+# for: a transient whose name came from COPYING `sleep` under a new name did
+# not run at all on the operator host, because that host's `sleep` is a
+# MULTICALL executable which decides WHICH utility to be from the name it was
+# invoked under.
+#
+# The executable staged below is a small `sh` script this file writes. It is
+# NOT uutils coreutils, and the control below is a DISCLOSED MECHANISM control
+# rather than a reproduction: what it stages is the one mechanism the host
+# failure turns on — dispatch on the invocation name — so that a transient
+# depending on a rename cannot run under it. The real uutils boundary is a HOST
+# assertion and nothing here stands in for it.
+
+# The refusal a multicall executable answers a name it does not know with,
+# quoted from the measured host receipt below.
+MULTICALL_REFUSAL = "function/utility not found"
+_REAL_SLEEP_TOKEN = "@REAL_SLEEP@"
+_MULTICALL_SOURCE = """\
+#!/bin/sh
+# A stand-in for a MULTICALL coreutils executable, written by
+# tests/test_herdr_live_observations.py. The utility it runs is the NAME it was
+# invoked under; an unrecognized name falls back to the FIRST ARGUMENT, which is
+# how `coreutils sleep 2` dispatches. Under its own name it is a real `sleep`.
+#
+# The name is taken by parameter expansion rather than by `basename`, and the
+# real sleep is reached by absolute path: this control repoints PATH at the
+# directory it stages, so a stub needing anything FROM PATH would fail for a
+# reason that has nothing to do with its invocation name.
+utility=${0##*/}
+if [ "$utility" != sleep ]; then
+    utility="$1"
+    shift
+fi
+if [ "$utility" != sleep ]; then
+    echo "$utility: function/utility not found"
+    exit 1
+fi
+exec "@REAL_SLEEP@" "$@"
+"""
+
+
+def _multicall_sleep(*, directory: Path) -> Path:
+    """A real, invocation-name-sensitive `sleep` executable in `directory`.
+
+    It dispatches to the host's genuine `sleep` under its own name, so a refusal
+    from a COPY of it is about the name it was invoked under and not about a
+    control that never worked.
+    """
+    real = shutil.which("sleep")
+    assert real is not None, "this control dispatches to the host's own real sleep"
+    staged = directory / "sleep"
+    _ = staged.write_text(_MULTICALL_SOURCE.replace(_REAL_SLEEP_TOKEN, real), encoding="utf-8")
+    staged.chmod(0o755)
+    return staged
+
+
+def _ran(*, argv: list[str]) -> subprocess.CompletedProcess[str]:
+    """One bounded foreground run of this control's own staged executable."""
+    return subprocess.run(  # noqa: S603 — an executable this control just wrote
+        argv, capture_output=True, text=True, timeout=READY_TIMEOUT, check=False
+    )
+
+
+def _named_processes_under(*, shell: int, name: str) -> tuple[int, ...]:
+    """Every process named `name` that IS `shell` or is one of its children.
+
+    Both shapes are accepted because both are honest: `sh -c` may `exec` a
+    single command in place rather than forking it, so the process carrying the
+    name is sometimes the shell's own pid. The lineage bound is what keeps a
+    same-named process from another test out of the answer.
+    """
+    found: list[int] = []
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdigit():
+            continue
+        pid = int(entry.name)
+        try:
+            comm = (entry / "comm").read_text(encoding="utf-8").strip()
+        except OSError:
+            continue
+        if comm == name and (pid == shell or parent_pid_of(pid=pid) == shell):
+            found.append(pid)
+    return tuple(found)
+
+
+@dataclass(frozen=True, kw_only=True)
+class _TransientRun:
+    """One real run of a staged transient command, as OBSERVED from `/proc`."""
+
+    observed: tuple[int, ...]
+    starttime: int | None
+    status: int | None
+    output: str
+    elapsed: float
+
+
+def _run_transient(*, command: str) -> _TransientRun:
+    """Run `command` in a real shell and observe the named child it produces."""
+    started = time.monotonic()
+    shell = subprocess.Popen(  # noqa: S603 — /bin/sh running this fixture's own command
+        ["/bin/sh", "-c", command],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    observed: tuple[int, ...] = ()
+    deadline = started + READY_TIMEOUT
+    while time.monotonic() < deadline and not observed:
+        finished = shell.poll() is not None
+        observed = _named_processes_under(shell=shell.pid, name=TRANSIENT_NAME)
+        if observed:
+            break
+        # A shell that has already exited will not go on to produce the child,
+        # so waiting out the rest of the bound would only make a real refusal
+        # slow. `finished` is sampled BEFORE the reading so the two cannot
+        # disagree about a child that started and exited between them.
+        if finished:
+            break
+        time.sleep(POLL_SECONDS)
+    starttime = None if not observed else starttime_of(pid=observed[0])
+    output = shell.communicate(timeout=READY_TIMEOUT)[0]
+    return _TransientRun(
+        observed=observed,
+        starttime=starttime,
+        status=shell.returncode,
+        output=output,
+        elapsed=time.monotonic() - started,
+    )
+
+
+def test_the_staged_executable_dispatches_on_the_name_it_was_invoked_under(
+    *, tmp_path: Path
+) -> None:
+    """The control's own mechanism, proven BOTH ways before anything leans on it.
+
+    Under the name `sleep` it really sleeps and exits 0; copied to
+    :data:`TRANSIENT_NAME` it refuses with the message the operator host printed,
+    naming the ARGUMENT it fell back to. Without this leg the refusal below could
+    equally be a broken stand-in.
+    """
+    multicall = _multicall_sleep(directory=tmp_path)
+
+    worked = _ran(argv=[str(multicall), "0"])
+    assert worked.returncode == 0, worked
+    renamed = tmp_path / TRANSIENT_NAME
+    _ = shutil.copy(multicall, renamed)
+    refused = _ran(argv=[str(renamed), str(TRANSIENT_SECONDS)])
+
+    assert refused.returncode != 0, "a copy under a foreign name must refuse, not sleep"
+    assert MULTICALL_REFUSAL in refused.stdout, refused
+    assert str(TRANSIENT_SECONDS) in refused.stdout, refused
+
+
+def test_the_startup_transient_runs_where_sleep_dispatches_on_its_invocation_name(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The transient's identity and lifetime must not depend on a renamed utility.
+
+    **The measured host receipt this control exists for** (work-item
+    `overseer-emzwpx`). On the operator host `/usr/bin/sleep` resolves to
+    `/usr/lib/cargo/bin/coreutils/sleep` — uutils coreutils 0.2.2, 10832184
+    bytes, sha256
+    `2a9b9ccf4e9724a6d6d8c97c835c9932223fbdefc9706fef9d0dfef7a9076739`. A copy of
+    it named `ovstartup`, run with the argument `0`, exited 1 in 0.2 seconds
+    printing `0: function/utility not found` and never slept. So every exercise
+    that staged a transient refused its own fixture premise:
+    `tests/test_herdr_live_layout.py::test_the_requested_command_runs_in_the_new_pane_s_retained_shell`
+    failed twice with "controlled ovstartup was not observed within 30 seconds".
+    The pinned factory sandbox has a GNU STANDALONE `sleep` (35336 bytes,
+    sha256 `8ac215ec4c1ce4a9c23a10cd3e5898d60419bdfab1ac7444d6bdd1690701de24`),
+    which is why the native exercises passed here throughout and why the real
+    uutils boundary stays a HOST assertion this control does not discharge.
+
+    What is asserted here is the PORTABILITY property, with `sleep` on this
+    process's PATH replaced by the disclosed invocation-name-sensitive executable
+    the leg above proved both ways: the command the fixture hands a pane must
+    still produce ONE real process carrying the requested name, alive when
+    observed, for its whole declared lifetime, exiting on its own with nothing
+    written to its terminal.
+    """
+    staged = tmp_path / "bin"
+    staged.mkdir()
+    multicall = _multicall_sleep(directory=staged)
+    monkeypatch.setenv("PATH", str(staged))
+    assert shutil.which("sleep") == str(multicall), "this control owns what `sleep` resolves to"
+
+    run = _run_transient(command=startup_transient(scratch=tmp_path))
+
+    assert len(run.observed) == 1, (
+        f"no single process named {TRANSIENT_NAME!r} ran under the staged transient: observed "
+        f"{run.observed}, shell exited {run.status} with output {run.output!r}"
+    )
+    assert run.starttime is not None, f"{TRANSIENT_NAME} {run.observed[0]} was gone when observed"
+    assert run.status == 0, f"the transient exited {run.status} with output {run.output!r}"
+    assert run.output == "", f"the transient wrote to its terminal: {run.output!r}"
+    assert run.elapsed >= TRANSIENT_SECONDS, (
+        f"the transient was finished after {run.elapsed:.2f}s, short of its declared "
+        f"{TRANSIENT_SECONDS}s lifetime"
+    )
+    assert starttime_of(pid=run.observed[0]) != run.starttime, (
+        f"{TRANSIENT_NAME} {run.observed[0]} still carries start time {run.starttime}, so it "
+        "never exited"
+    )
