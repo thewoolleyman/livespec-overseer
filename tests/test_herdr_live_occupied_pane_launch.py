@@ -96,6 +96,8 @@ from test_herdr_live_observations import (
     BoundedPoll,
     ChildObservation,
     ForegroundReading,
+    ShellIdentityPin,
+    await_idle_shell,
     await_occupying_child,
     occupying_child_pid,
     parent_pid_of,
@@ -554,4 +556,77 @@ def test_a_real_transient_is_not_mistaken_for_the_requested_occupant(
     assert parent_pid_of(pid=observed.pid) == running.shell_pid, (
         f"the observed {OCCUPYING_NAME} {observed.pid} is not a child of the pane's "
         f"retained shell {running.shell_pid}"
+    )
+
+
+def test_the_staged_transient_is_a_bounded_child_the_shell_recovers_from(
+    *, live: LiveProxiedTab, tmp_path: Path
+):
+    """The transient's WHOLE lifecycle, over real herdr: run, bounded, gone, recovered.
+
+    The control above proves the staged transient is not mistaken for the
+    requested child. This one proves it is a real child at all — the property the
+    measured uutils-host failure destroyed, where the command exited 1 in 0.2
+    seconds and no `ovstartup` ever existed, so every exercise that staged one
+    refused its own fixture premise.
+
+    Four real observations on one pane this control creates itself, each from the
+    server or from `/proc` rather than from the surface under test:
+
+      1. the pane's retained shell as an IDENTITY — pid AND start time — before
+         anything runs in it;
+      2. the transient observed by its REQUESTED name, as that shell's own
+         `/proc` child, owning the pane's foreground group;
+      3. its NATURAL exit: this control sends no signal, and the pid no longer
+         carries the start time it was observed with, so the process that left
+         is the one that arrived rather than a recycled number;
+      4. SEPARATELY, within its own bound, the SAME shell identity owning its
+         foreground again, with the pane still open.
+
+    Step 4 is `await_idle_shell` doing the job a predecessor inferred from step 3
+    — the child exiting is not the shell recovering — and step 1's pin is what
+    makes "the same shell" a claim about a process rather than about an integer.
+    """
+    pane = _raw_request(
+        socket_path=live.real_socket,
+        method="pane.split",
+        params={
+            "target_pane_id": live.unrelated,
+            "direction": "down",
+            "ratio": 0.5,
+            "cwd": PANE_CWD,
+            "focus": False,
+        },
+    )
+    assert "result" in pane, f"control split failed: {pane}"
+    pane_id = str(pane["result"]["pane"]["pane_id"])
+
+    def read() -> dict[str, Any]:
+        return process_info_reply(socket_path=live.real_socket, pane_id=pane_id)
+
+    shell = _reading(socket_path=live.real_socket, pane_id=pane_id).shell_pid
+    shell_starttime = starttime_of(pid=shell)
+    assert shell_starttime is not None, f"the pane's shell {shell} must be alive to begin with"
+
+    _run_in_pane(
+        socket_path=live.real_socket, pane_id=pane_id, command=startup_transient(scratch=tmp_path)
+    )
+    observed = await_occupying_child(
+        read=read, name=TRANSIENT_NAME, poll=BoundedPoll(seconds=OCCUPY_TIMEOUT)
+    )
+    assert observed.pid is not None, observed.reason
+    child_starttime = starttime_of(pid=observed.pid)
+    assert child_starttime is not None, f"{TRANSIENT_NAME} {observed.pid} was gone when observed"
+
+    recovery = await_idle_shell(
+        read=read,
+        pane_id=pane_id,
+        poll=BoundedPoll(seconds=OCCUPY_TIMEOUT + TRANSIENT_SECONDS),
+        expected=ShellIdentityPin(pid=shell, starttime=shell_starttime),
+    )
+
+    assert recovery.recovered is True, recovery.reason
+    assert starttime_of(pid=observed.pid) != child_starttime, (
+        f"{TRANSIENT_NAME} {observed.pid} still carries start time {child_starttime}, so the "
+        "pane reported an idle shell while its declared transient was still running"
     )
