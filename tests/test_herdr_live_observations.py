@@ -66,9 +66,14 @@ REQUESTED name, the retained shell as the child's `/proc` parent, and the pane's
 own foreground group; `await_idle_shell` waits for idleness as its own separate
 observation and, when pinned, for the same shell IDENTITY rather than the same
 pid; `await_child_gone` answers the OTHER half of that same chronology — whether
-the child really left — and answers it about an identity rather than a pid
-number. Nothing here sleeps to wait out a race — each loop polls a real reading
-under a bound it reports when it expires.
+the child really left — about an identity rather than a pid number, and only on
+POSITIVE evidence. That last qualifier is the fifth defect of this kind, found in
+owner source review of this very file: `/proc` readers here answer None for every
+failure alike, so "no start time" was read as "the process exited" and an
+UNREADABLE `/proc` entry produced a clean observed-exit. Absence and
+unavailability are now separate states (`ProcReading`), and only the kernel
+denying a pid is evidence an exit happened. Nothing here sleeps to wait out a
+race — each loop polls a real reading under a bound it reports when it expires.
 
 `ReadyShellGate` is the write-side counterpart, and it enters the adapter at
 :func:`herdr_layout.place_above` rather than at `HerdrWriter.split_window_top`.
@@ -88,6 +93,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 import shutil
 import socket
 import subprocess
@@ -102,8 +108,10 @@ import pytest
 
 __all__: list[str] = [
     "BoundedPoll",
+    "ChildExit",
     "ChildObservation",
     "ForegroundReading",
+    "ProcReading",
     "ReadyShellGate",
     "ShellIdentityPin",
     "ShellRecovery",
@@ -276,19 +284,72 @@ def read_foreground(*, reply: Mapping[str, Any]) -> ForegroundReading | None:
 # -------------------------------------------------------------- /proc readers
 
 
-def _stat_fields(*, pid: int) -> list[str] | None:
-    """`pid`'s post-comm `/proc/<pid>/stat` fields, or None when the pid is gone.
+@dataclass(frozen=True, kw_only=True)
+class ProcReading:
+    """`/proc/<pid>/stat` as THREE outcomes, because two of them cannot be honest.
+
+    `fields` is populated only when the file was actually read. `absent` is True
+    for ENOENT/ESRCH alone — the kernel saying this pid does not exist, which is
+    the ONLY `/proc` failure that is EVIDENCE a process left. Every other
+    `OSError` (EACCES, EPERM, EIO) sets `error` and leaves both of the others
+    empty: the evidence is UNAVAILABLE, which is evidence of neither presence nor
+    absence.
+
+    **The three-way split exists because collapsing it to two was a real defect
+    in this file.** `_stat_fields` answers None for every failure, so a caller
+    reading "no start time" as "the process exited" grades a `/proc` read it was
+    not allowed to make as an OBSERVED NATURAL EXIT. That is the opposite of what
+    the native exercises require of themselves — an unavailable reading is a
+    FIXTURE FAILURE naming what it could not see, never an establishment — and it
+    was shipped here with a control that asserted the wrong half: the control
+    supplied a reader which would have reported the child ALIVE and asserted
+    success without ever consulting it.
+    """
+
+    fields: tuple[str, ...]
+    absent: bool
+    error: str
+
+
+def _stat_reading(*, pid: int) -> ProcReading:
+    """`pid`'s post-comm `/proc/<pid>/stat` fields, or WHICH kind of nothing.
 
     The comm field can contain spaces and parentheses, so the fields after it
     are taken from the LAST close parenthesis rather than by splitting the whole
-    line. Absence is returned rather than raised because a child disappearing
-    IS one of the observations these exercises make.
+    line.
+
+    `FileNotFoundError` and `ProcessLookupError` are separated from the rest
+    DELIBERATELY and are the whole point of this function: they are the kernel
+    reporting that no such pid exists, and nothing else about a `/proc` read is.
     """
     try:
         stat = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
-    except OSError:
-        return None
-    return stat[stat.rindex(")") + 1 :].split()
+    except (FileNotFoundError, ProcessLookupError):
+        return ProcReading(fields=(), absent=True, error="")
+    except OSError as failed:
+        return ProcReading(
+            fields=(), absent=False, error=f"/proc/{pid}/stat could not be read: {failed}"
+        )
+    return ProcReading(fields=tuple(stat[stat.rindex(")") + 1 :].split()), absent=False, error="")
+
+
+def _stat_fields(*, pid: int) -> list[str] | None:
+    """`pid`'s post-comm stat fields, or None when they could not be read at all.
+
+    Deliberately KEEPS collapsing absence and unavailability into None, because
+    None is all its three callers can act on: `parent_pid_of`, `process_group_of`
+    and `starttime_of` answer "what is this value", and both failures mean there
+    is no value to answer with. Each of them is used to QUALIFY an observation,
+    so a None correctly fails that observation closed.
+
+    The distinction those three cannot carry is the subject of
+    :func:`await_child_gone`, which asks the opposite question — "has this process
+    LEFT?" — where absence is a positive answer and unavailability is not. That
+    one reads :func:`_stat_reading` directly and must never be routed through
+    here.
+    """
+    reading = _stat_reading(pid=pid)
+    return None if reading.absent or reading.error else list(reading.fields)
 
 
 def parent_pid_of(*, pid: int) -> int | None:
@@ -457,38 +518,89 @@ def await_occupying_child(
     )
 
 
+@dataclass(frozen=True, kw_only=True)
+class ChildExit:
+    """Whether `pid` is PROVABLY gone, and why that is unproven when it is not.
+
+    `gone` is True only on positive evidence — the kernel denying the pid, or the
+    pid carrying a DIFFERENT process than the one observed. `reason` is non-empty
+    for both of the other two states, which a caller must treat alike: a child
+    still present has not exited YET, and a reading that could not be taken says
+    nothing about whether it has.
+    """
+
+    gone: bool
+    reason: str
+
+
+ExitReader = Callable[..., ProcReading]
+
+
+def _child_exit(*, pid: int, starttime: int, read: ExitReader) -> ChildExit:
+    """One reading's answer to "has the process observed as `starttime` left?".
+
+    Four readings, three answers, and the fourth is the one that used to be
+    missing:
+
+      - the kernel denies the pid — GONE, which is the ordinary ending;
+      - the pid exists carrying a DIFFERENT start time, so the number was
+        recycled and the process observed under `starttime` has left — GONE;
+      - the pid exists carrying the SAME start time — present, not gone;
+      - the read FAILED for any other reason — UNAVAILABLE, reported as its own
+        refusal rather than folded into either of the first two.
+    """
+    reading = read(pid=pid)
+    if reading.absent:
+        return ChildExit(gone=True, reason="")
+    if reading.error:
+        return ChildExit(gone=False, reason=reading.error)
+    if int(reading.fields[19]) != starttime:
+        return ChildExit(gone=True, reason="")
+    return ChildExit(
+        gone=False, reason=f"child {pid} is still present carrying start time {starttime}"
+    )
+
+
 def await_child_gone(
     *,
     pid: int,
     starttime: int | None,
     poll: BoundedPoll,
-    starttime_of_pid: PidReader = starttime_of,
+    read: ExitReader = _stat_reading,
 ) -> str:
-    """``""`` once `pid` has left `/proc`, or why it is still there — IDENTITY, not number.
+    """``""`` once `pid` is PROVABLY gone, or why its exit was not established.
 
     Nothing here signals the child: an ORDINARY exit is the whole point, because
     a pane whose process is killed is not the same observation as a pane whose
     bounded child finished. The comparison is against the start time the caller
-    OBSERVED the child with, so a recycled pid now holding a different process
-    counts as gone and the same pid still carrying the same start time never
-    does.
+    OBSERVED the child with, so the answer is about an IDENTITY rather than about
+    a pid number.
 
-    A `starttime` of None means the caller never managed to read one, which is
-    itself the fact that the child is already gone — the observation it came from
-    found the pid alive, so the only way to miss its start time is for it to have
-    exited in between.
+    **A `starttime` of None is a REFUSAL, and reading it as an exit was a defect
+    shipped in this function's first cut.** The argument then made was that the
+    observation it came from had found the pid alive, so a missing start time
+    could only mean the child had since exited. That is wrong, and `_stat_fields`
+    is why: it answers None for EVERY `/proc` failure, not only for a pid the
+    kernel denies. So an unreadable `/proc` entry — any reason at all — arrived
+    here as None and was graded as an observed natural exit, which is both the
+    opposite of the "unavailable readiness is a fixture failure" rule the native
+    exercises are held to, and a claim about a process this function never saw
+    leave. Unavailability is now reported, at entry and on every later reading.
     """
     if starttime is None:
-        return ""
+        return (
+            f"child {pid}'s own start time was never readable, so its exit cannot be "
+            "observed at all; an unavailable identity is not an observed exit"
+        )
     deadline = poll.monotonic() + poll.seconds
+    reason = "no /proc reading was taken before the deadline"
     while poll.monotonic() < deadline:
-        if starttime_of_pid(pid=pid) != starttime:
+        exited = _child_exit(pid=pid, starttime=starttime, read=read)
+        if exited.gone:
             return ""
+        reason = exited.reason
         poll.sleep(POLL_SECONDS)
-    return (
-        f"child {pid} still carries start time {starttime} after {poll.seconds}s, so it never "
-        "exited on its own"
-    )
+    return f"child {pid} was not observed gone within {poll.seconds}s: {reason}"
 
 
 def _recovery_refusal(
@@ -622,6 +734,13 @@ class ReadyShellGate:
     under that same identity discipline, and only then waits for THAT shell to own
     its foreground again. Both halves are reported through :meth:`refusal`, so an
     expired wait is a named fixture failure rather than an establishment.
+
+    **An UNAVAILABLE reading fails every one of those closed, in both halves.** A
+    child whose own `/proc` identity cannot be read is not a child observed
+    exiting, and a shell whose identity cannot be pinned is not a shell this gate
+    may say recovered — so `refusal()` names each of those cases separately
+    instead of treating a missing reading as a satisfied step. See
+    :func:`await_child_gone` for the defect that rule is written against.
 
     The transient is what makes this exercise independent of the operator's
     personal shell configuration. On the host, a freshly created pane's `zsh`
@@ -986,15 +1105,29 @@ def test_a_recycled_shell_pid_is_not_the_same_retained_shell() -> None:
     assert "no longer carries start time" in recovery.reason, recovery.reason
 
 
-def test_a_bounded_child_that_leaves_proc_is_observed_gone() -> None:
-    """The positive control: the pid stops carrying the start time it was seen with."""
-    readings = [164433575, None]
+HOST_CHILD_STARTTIME = 164433575
+
+
+def _present(*, starttime: int) -> ProcReading:
+    """A `/proc/<pid>/stat` that WAS read, carrying `starttime` in field 22."""
+    fields = ["0"] * 20
+    fields[19] = str(starttime)
+    return ProcReading(fields=tuple(fields), absent=False, error="")
+
+
+_ABSENT = ProcReading(fields=(), absent=True, error="")
+_UNREADABLE = ProcReading(fields=(), absent=False, error="/proc/x/stat could not be read: EACCES")
+
+
+def test_a_child_the_kernel_denies_is_observed_gone() -> None:
+    """The positive control: ENOENT is the one `/proc` failure that proves an exit."""
+    readings = [_present(starttime=HOST_CHILD_STARTTIME), _ABSENT]
 
     departed = await_child_gone(
         pid=HOST_SLEEP_PID,
-        starttime=164433575,
+        starttime=HOST_CHILD_STARTTIME,
         poll=_frozen_poll(seconds=5.0, ticks=[0.0, 0.1, 0.2]),
-        starttime_of_pid=lambda pid: readings.pop(0) if readings else None,
+        read=lambda pid: readings.pop(0) if readings else _ABSENT,
     )
 
     assert departed == "", departed
@@ -1005,12 +1138,13 @@ def test_a_child_still_carrying_its_start_time_is_reported_rather_than_waited_ou
     """An expired exit wait must name what it saw, never read as an ordinary exit."""
     departed = await_child_gone(
         pid=HOST_SLEEP_PID,
-        starttime=164433575,
+        starttime=HOST_CHILD_STARTTIME,
         poll=_frozen_poll(seconds=2.0, ticks=[0.0, 1.0, 3.0]),
-        starttime_of_pid=lambda pid: 164433575 if pid == HOST_SLEEP_PID else None,
+        read=lambda pid: _present(starttime=HOST_CHILD_STARTTIME),
     )
 
-    assert "never exited on its own" in departed, departed
+    assert "was not observed gone within 2.0s" in departed, departed
+    assert "still present carrying start time" in departed, departed
     assert str(HOST_SLEEP_PID) in departed, departed
 
 
@@ -1018,28 +1152,124 @@ def test_a_recycled_pid_holding_another_process_counts_as_gone() -> None:
     """Same number, different start time: the child this exercise watched has left."""
     departed = await_child_gone(
         pid=HOST_SLEEP_PID,
-        starttime=164433575,
+        starttime=HOST_CHILD_STARTTIME,
         poll=_frozen_poll(seconds=1.0, ticks=[0.0, 0.5, 2.0]),
-        starttime_of_pid=lambda pid: 999999999,
+        read=lambda pid: _present(starttime=999999999),
     )
 
     assert departed == "", departed
 
 
-def test_a_child_whose_start_time_was_never_read_is_already_gone() -> None:
-    """No start time to compare means it exited between the observation and the pin.
+def test_an_unreadable_proc_entry_is_never_graded_as_an_observed_exit() -> None:
+    """THE owner-found defect, as its own control: unavailable is not absent.
 
-    Asserted so the branch cannot quietly become "assume it departed": the reader
-    below would report the child as STILL PRESENT if it were consulted at all.
+    A `/proc` read that failed for any reason OTHER than the kernel denying the
+    pid is evidence of neither presence nor absence. The predecessor routed every
+    failure through `_stat_fields`, which answers None for all of them, and then
+    read None as "different from the observed start time" — so an unreadable entry
+    returned a clean exit observation. It must refuse, and the refusal must carry
+    the read error so the fixture failure names what it could not see.
+
+    Driven through the whole wait rather than through one reading, because the
+    defect applies to EVERY later reading and not only to the first.
     """
+    departed = await_child_gone(
+        pid=HOST_SLEEP_PID,
+        starttime=HOST_CHILD_STARTTIME,
+        poll=_frozen_poll(seconds=2.0, ticks=[0.0, 0.5, 1.0, 3.0]),
+        read=lambda pid: _UNREADABLE,
+    )
+
+    assert departed != "", "an unreadable /proc entry was graded as an observed exit"
+    assert "could not be read" in departed, departed
+    assert "was not observed gone within 2.0s" in departed, departed
+
+
+def test_an_unreadable_reading_midway_does_not_end_the_wait_early() -> None:
+    """Present, then unavailable, then absent: only the LAST one is an exit.
+
+    The sequence is the one a real exercise can meet — a `/proc` read that fails
+    transiently while the child is still running — and the control's value is that
+    the middle reading must be CONSUMED and rejected rather than returned on.
+    """
+    readings = [_present(starttime=HOST_CHILD_STARTTIME), _UNREADABLE, _ABSENT]
+
+    departed = await_child_gone(
+        pid=HOST_SLEEP_PID,
+        starttime=HOST_CHILD_STARTTIME,
+        poll=_frozen_poll(seconds=5.0, ticks=[0.0, 0.1, 0.2, 0.3]),
+        read=lambda pid: readings.pop(0) if readings else _ABSENT,
+    )
+
+    assert departed == "", departed
+    assert readings == [], "the unavailable middle reading must not have ended the wait"
+
+
+def test_a_child_whose_start_time_was_never_read_is_not_an_observed_exit() -> None:
+    """An unavailable INITIAL identity is a fixture failure, not an exit.
+
+    This control asserted the exact opposite when it was written — it supplied a
+    reader that would have reported the child ALIVE and asserted SUCCESS without
+    consulting it, which is how the defect reached a green suite. The reader is
+    kept, and the assertion that nothing consulted it is kept, because that fact
+    is now the POINT: with no identity to compare against there is nothing a
+    reading could settle, so the only honest answer is to refuse.
+    """
+    consulted: list[int] = []
+
+    def read(*, pid: int) -> ProcReading:
+        consulted.append(pid)
+        return _present(starttime=HOST_CHILD_STARTTIME)
+
     departed = await_child_gone(
         pid=HOST_SLEEP_PID,
         starttime=None,
         poll=_frozen_poll(seconds=1.0, ticks=[0.0, 0.5, 2.0]),
-        starttime_of_pid=lambda pid: 164433575,
+        read=read,
     )
 
-    assert departed == ""
+    assert "an unavailable identity is not an observed exit" in departed, departed
+    assert str(HOST_SLEEP_PID) in departed, departed
+    assert consulted == [], "there is no identity to compare, so nothing may be read"
+
+
+def test_the_proc_reader_maps_a_kernel_denied_pid_to_absence_against_the_real_proc() -> None:
+    """The reader's own ENOENT mapping, read from the REAL `/proc`.
+
+    The denied pid is one past `/proc/sys/kernel/pid_max`, so the kernel can never
+    have allocated it and the ENOENT is guaranteed by construction rather than by
+    winning a race against a child being reaped. That is deliberately the WEAKER,
+    exact claim: what this pins is the reader's MAPPING from a denied pid to
+    `absent` with no error — the one `/proc` state the exit observation is allowed
+    to act on — not that any particular process was watched leaving. Real leaving
+    is observed elsewhere in this file, by the native exercises that run a bounded
+    child and then see its start time stop being carried.
+
+    The control is bounded two ways on purpose. A LIVE pid must read as present
+    with real fields, so it cannot pass by answering absent to everything. And the
+    other half — a `/proc` entry that exists and cannot be READ — is driven through
+    the injected seam in the controls above rather than staged here: this sandbox
+    runs as root, so no `/proc` entry it can see is unreadable, and manufacturing
+    one would be a different mechanism wearing the same name. The split is
+    disclosed rather than papered over.
+
+    It spawns nothing. An earlier cut reaped a real `sys.executable` child, which
+    `check-tests-no-subprocess-spawn` correctly rejected; routing that same spawn
+    through `/bin/sh` to get past the matcher would have been evasion, and
+    allowlisting this path would have weakened a shared check for one control's
+    convenience.
+    """
+    pid_max = int(Path("/proc/sys/kernel/pid_max").read_text(encoding="utf-8").strip())
+
+    denied = _stat_reading(pid=pid_max + 1)
+    live = _stat_reading(pid=os.getpid())
+
+    assert denied.absent is True, f"a pid the kernel cannot own must read as ENOENT: {denied}"
+    assert denied.error == "", f"absence must not be reported as a read failure: {denied}"
+    assert live.absent is False and live.error == "", live
+    assert int(live.fields[19]) == starttime_of(
+        pid=os.getpid()
+    ), "the reading and the delivered start-time reader must agree on this process"
 
 
 def test_a_reading_about_another_pane_establishes_nothing() -> None:
