@@ -23,10 +23,24 @@ rewrites an owning operation directly to its failure `recovery` phase once the f
 becomes authoritative — is a SEPARATE contract rule and is not reached from here; a reader should
 not take a green pass as evidence that it ran. What this pass guarantees about an owning operation
 is only that it leaves it exactly as found.
+
+THE QUARANTINE IS ONLY A BOUND UNTIL SOMETHING ASKS IT, which is what the two admission entry
+points are for. "A requested command MUST return `store-unavailable` when its explicit or resolved
+record identity is quarantined" and "Provision MUST exclude a quarantined record", so each kind of
+request has one seam: an identity-dependent command asks about the record it is bound to, and
+selection asks which of its matching candidates survive. Each runs the pass itself rather than
+taking a quarantine set from its caller, because the set is a property of the fences on disk right
+now and a command that supplied its own would be enforcing nothing.
+
+A PASS THAT COULD NOT BE BOUNDED ADMITS NOTHING. A fence file no record identity resolves to makes
+the whole pass refuse, and neither seam may substitute an empty quarantine set for that refusal:
+proceeding would let the command touch a record whose pending effect nobody looked at, which is
+the one outcome the traversal's own refusal channel exists to prevent.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
@@ -34,7 +48,13 @@ from _lpm_engine_context import OperationEngine
 from _lpm_fence import MetadataFence, fence_from_object
 from _lpm_fence_inventory import pending_fence_records
 from _lpm_fence_owner import validated_writer_role
-from _lpm_fence_recovery import DESIRED_REVISION, GlobalRecovery, recover_pending_fences
+from _lpm_fence_recovery import (
+    DESIRED_REVISION,
+    GlobalRecovery,
+    quarantine_refusal,
+    recover_pending_fences,
+    selectable_candidates,
+)
 from _lpm_fence_reread import apply_fenced_set, authoritative_reread
 from _lpm_fence_store import fence_path, resolve_fence
 from _lpm_localstate import read_local_record
@@ -45,6 +65,8 @@ from overseer._vendor.returns.result import Failure, Result, Success
 _ = VENDOR_PATHS_INSTALLED
 
 __all__: list[str] = [
+    "admitted_record_identity",
+    "admitted_selection",
     "recover_metadata_fences",
 ]
 
@@ -68,6 +90,40 @@ def recover_metadata_fences(*, engine: OperationEngine) -> Result[GlobalRecovery
             reconcile=lambda record_id: _attempted(engine=engine, record_id=record_id),
         )
     )
+
+
+def admitted_record_identity(
+    *, engine: OperationEngine, record_id: str
+) -> Result[str, ManagerError]:
+    """`record_id`, once a global recovery pass proves no quarantine covers it.
+
+    This is the seam an identity-dependent command asks, whether its record identity was given
+    explicitly or resolved on the way in. A command whose result has no dependency on any
+    quarantined record is admitted and proceeds normally, which is the bound working rather
+    than a leniency.
+    """
+    recovered = recover_metadata_fences(engine=engine)
+    if isinstance(recovered, Failure):
+        return Failure(recovered.failure())
+    refusal = quarantine_refusal(record_id=record_id, quarantined=recovered.unwrap().quarantined)
+    if refusal is not None:
+        return Failure(refusal)
+    return Success(record_id)
+
+
+def admitted_selection(
+    *, engine: OperationEngine, matching: Sequence[str]
+) -> Result[tuple[str, ...], ManagerError]:
+    """The candidates selection may still choose from, after this pass's quarantines.
+
+    `matching` is already narrowed to the requested provider, kind and purpose; what this adds
+    is the one exclusion a caller cannot derive for itself, together with the refusal an
+    emptied pool earns. A pool emptied BY quarantine is never reported as exhaustion.
+    """
+    recovered = recover_metadata_fences(engine=engine)
+    if isinstance(recovered, Failure):
+        return Failure(recovered.failure())
+    return selectable_candidates(matching=matching, quarantined=recovered.unwrap().quarantined)
 
 
 def _attempted(*, engine: OperationEngine, record_id: str) -> Result[None, ManagerError]:
