@@ -58,6 +58,14 @@ AN OWNER THAT CANNOT BE PROVEN IS NOT AN OWNER THAT IS ABSENT. Operation records
 command and idempotency key, so resolving `owner_operation_id` means reading them; an unsafe or
 malformed record in that directory leaves the question unanswerable, and the conservative answer
 is to quarantine rather than to conclude the fence is unowned and replay it anyway.
+
+CONTINUATION IS PROVEN AT THE BACKEND TOO, AND THE FAILURES ARE DELIBERATELY NOT ALIKE. Recovery
+must "allow recovery to continue for every other record", so one case puts a malformed fence, an
+unsafe fence and an unresolved one ahead — in lexical order — of the single record that can be
+settled, and asserts the probe was still asked about the records past them. A pass that abandoned
+the traversal at its first failure would leave the same three fences retained and the same pass
+successful; only the reads the store actually received distinguish it, which is why the quarantine
+set alone is not the assertion.
 """
 
 from __future__ import annotations
@@ -74,7 +82,9 @@ __all__: list[str] = []
 _FIRST_RECORD = "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d"
 _SECOND_RECORD = "6b7c8d9e-0f1a-4b2c-8d3e-4f5a6b7c8d9e"
 _THIRD_RECORD = "cafebabe-1234-4567-89ab-cdef01234567"
+_FOURTH_RECORD = "d4e5f6a7-8b9c-4d0e-8f1a-2b3c4d5e6f70"
 _LEXICAL_RECORDS = (_FIRST_RECORD, _SECOND_RECORD, _THIRD_RECORD)
+_MIXED_RECORDS = (_FIRST_RECORD, _SECOND_RECORD, _THIRD_RECORD, _FOURTH_RECORD)
 
 _GENERATION = "7c9e6679-7425-40de-944b-e07fc1f90ae7"
 _SEED_EFFECT_ID = "9" * 64
@@ -672,3 +682,52 @@ def test_an_inherited_fence_retries_but_keeps_itself_after_an_unknown_outcome(
     assert probe.sets == [_authorized_request(fence=fence)], "exactly one, and only the authorized"
     assert fence_file.read_bytes() == retained
     assert len(store.items[_FIRST_RECORD]) == 1
+
+
+def test_an_unreconcilable_fence_quarantines_only_its_own_record(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Three records fail three different ways, and the fourth must still be reconciled."""
+    state_dir = _state(tmp_path=tmp_path)
+    store = _genesis_store(record_ids=_MIXED_RECORDS)
+
+    members = _expiry_fence_object(record_id=_FIRST_RECORD)
+    del members["version"]
+    _seed(path=_fence_file(state_dir=state_dir, record_id=_FIRST_RECORD), value=members)
+
+    _seed_fence(state_dir=state_dir, fence=_expiry_fence(record_id=_SECOND_RECORD))
+    _fence_file(state_dir=state_dir, record_id=_SECOND_RECORD).chmod(0o644)
+
+    owner = _report_operation(record_id=_THIRD_RECORD)
+    owner_file = _seed_operation(state_dir=state_dir, operation=owner)
+    owner_bytes = owner_file.read_bytes()
+    _seed_fence(
+        state_dir=state_dir,
+        fence=_owned_fence(
+            record_id=_THIRD_RECORD, operation=owner, writer_role="acquisition-writer"
+        ),
+    )
+
+    settled = _expiry_fence(record_id=_FOURTH_RECORD)
+    _seed_fence(state_dir=state_dir, fence=settled)
+    _commit_through_the_fence(store=store, fence=settled)
+
+    retained = {
+        record_id: _fence_file(state_dir=state_dir, record_id=record_id).read_bytes()
+        for record_id in (_FIRST_RECORD, _SECOND_RECORD, _THIRD_RECORD)
+    }
+    probe = _ProbedStore(inner=store)
+
+    recovered = _recover(state_dir=state_dir, store=probe)
+
+    assert isinstance(recovered, Success), recovered
+    assert recovered.unwrap().reconciled == (_FOURTH_RECORD,), "an unrelated record proceeded"
+    assert recovered.unwrap().quarantined == (_FIRST_RECORD, _SECOND_RECORD, _THIRD_RECORD)
+    assert probe.reads == [_THIRD_RECORD, _FOURTH_RECORD], "the traversal ran past each failure"
+    assert probe.sets == [], "no quarantined record was written to"
+    assert not _fence_file(state_dir=state_dir, record_id=_FOURTH_RECORD).exists()
+    for record_id, bytes_at_rest in retained.items():
+        fence_file = _fence_file(state_dir=state_dir, record_id=record_id)
+        assert fence_file.read_bytes() == bytes_at_rest, record_id
+        assert len(store.items[record_id]) == 1, record_id
+    assert owner_file.read_bytes() == owner_bytes, "the owning safety state is retained too"
