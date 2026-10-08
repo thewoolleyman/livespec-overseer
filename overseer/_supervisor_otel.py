@@ -1,5 +1,5 @@
 """OTLP/HTTP JSON export for the daemon's closed event catalog."""
-# livespec-lloc-soft-band-owner: overseer-temi26.3
+# livespec-lloc-soft-band-owner: overseer-4z97.2
 
 from __future__ import annotations
 

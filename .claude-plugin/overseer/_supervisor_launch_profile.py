@@ -1,5 +1,5 @@
 """Claude launch-profile planning for restart and reboot recovery."""
-# livespec-lloc-soft-band-owner: overseer-6m2h
+# livespec-lloc-soft-band-owner: overseer-4z97.2
 
 from __future__ import annotations
 
