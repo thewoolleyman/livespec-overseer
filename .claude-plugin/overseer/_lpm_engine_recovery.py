@@ -1,0 +1,99 @@
+"""Mandatory global recovery: reconcile every pending metadata fence this manager holds.
+
+SPECIFICATION/contracts.md requires mandatory global recovery to "attempt pending fences in
+lexical `record_id` order", and to reconcile an existing fence before any later conditional set
+for that record may create another revision. A record whose fence cannot be reconciled is
+QUARANTINED for the current invocation, its fence and owning safety state retained.
+
+THE REREAD IS THE ONLY THING THAT MAY REMOVE A FENCE. "An exact desired next revision carrying
+that effect_id proves the logical effect committed and MUST advance it without another adapter
+call", so a fence whose revision is already authoritative is settled on the reread alone and only
+then removed. A pass that issued the create first would reach the same chain — byte-identical
+physical duplicates collapse — while making a call the contract forbids, which is why the ORDER
+rather than the outcome is the rule.
+
+THE REFUSAL CHANNEL IS RESERVED FOR A TRAVERSAL THAT COULD NOT BE BOUNDED. A fence file no record
+identity resolves to supplies no bound at all, and skipping it would let a command proceed against
+a record whose pending effect nobody looked at. Everything a single record's OWN fence can go wrong
+with quarantines that record and leaves the pass itself successful, because that bound is the whole
+point: an unreconcilable fence must not wedge records it has nothing to do with.
+
+THIS PASS NEVER WRITES AN OPERATION RECORD. The terminal-success pending-fence sequence — which
+rewrites an owning operation directly to its failure `recovery` phase once the fenced revision
+becomes authoritative — is a SEPARATE contract rule and is not reached from here; a reader should
+not take a green pass as evidence that it ran. What this pass guarantees about an owning operation
+is only that it leaves it exactly as found.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
+from _lpm_engine_context import OperationEngine
+from _lpm_fence import MetadataFence, fence_from_object
+from _lpm_fence_inventory import pending_fence_records
+from _lpm_fence_recovery import DESIRED_REVISION, GlobalRecovery
+from _lpm_fence_reread import authoritative_reread
+from _lpm_fence_store import fence_path, resolve_fence
+from _lpm_localstate import read_local_record
+from _lpm_results import ManagerError, store_unavailable
+
+from overseer._vendor.returns.result import Failure, Result, Success
+
+_ = VENDOR_PATHS_INSTALLED
+
+__all__: list[str] = [
+    "recover_metadata_fences",
+]
+
+
+def recover_metadata_fences(*, engine: OperationEngine) -> Result[GlobalRecovery, ManagerError]:
+    """Attempt every pending metadata-effect fence on disk, in lexical `record_id` order."""
+    records = pending_fence_records(state_dir=engine.state_dir)
+    if isinstance(records, Failure):
+        return Failure(records.failure())
+    return Success(_attempted_pass(engine=engine, record_ids=records.unwrap()))
+
+
+def _attempted_pass(*, engine: OperationEngine, record_ids: tuple[str, ...]) -> GlobalRecovery:
+    """Visit `record_ids` in order, stopping at the first fence that cannot be reconciled."""
+    reconciled: list[str] = []
+    for record_id in record_ids:
+        if isinstance(_attempted(engine=engine, record_id=record_id), Failure):
+            return GlobalRecovery(reconciled=tuple(reconciled), quarantined=(record_id,))
+        reconciled.append(record_id)
+    return GlobalRecovery(reconciled=tuple(reconciled), quarantined=())
+
+
+def _attempted(*, engine: OperationEngine, record_id: str) -> Result[None, ManagerError]:
+    """Reconcile one record's pending fence, or report why it must be quarantined."""
+    path = _fence_file(engine=engine, record_id=record_id)
+    stored = read_local_record(path=path, owner_uid=engine.owner_uid)
+    if isinstance(stored, Failure):
+        return Failure(stored.failure())
+    # An ABSENT fence decodes as `None` and is refused by the validator's own first rule, so a
+    # fence resolved out from under this traversal needs no separate branch: it quarantines a
+    # record nothing can mutate anyway, which is the conservative direction.
+    validated = fence_from_object(parsed=stored.unwrap())
+    if isinstance(validated, Failure):
+        return Failure(validated.failure())
+    return _settled(engine=engine, fence=validated.unwrap(), path=path)
+
+
+def _settled(
+    *, engine: OperationEngine, fence: MetadataFence, path: Path
+) -> Result[None, ManagerError]:
+    """Decide `fence` against the authoritative chain, removing it only once settled."""
+    if authoritative_reread(store=engine.store, fence=fence) == DESIRED_REVISION:
+        return resolve_fence(path=path, owner_uid=engine.owner_uid)
+    return Failure(
+        store_unavailable(message="this record's fenced revision is not yet authoritative")
+    )
+
+
+def _fence_file(*, engine: OperationEngine, record_id: str) -> Path:
+    # The fence family and its single-value identity come from the contract's own local path
+    # table, so this lookup has no refusal to report; an unwrap failure would be a defect in
+    # that table rather than an operator-visible condition.
+    return fence_path(state_dir=engine.state_dir, record_id=record_id).unwrap()
