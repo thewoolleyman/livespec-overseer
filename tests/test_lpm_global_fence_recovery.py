@@ -85,6 +85,19 @@ A PASS THAT COULD NOT BE BOUNDED ADMITS NOTHING AT ALL. A fence file no identity
 no quarantine set, so neither seam may fall back on an empty one: an identity request and a
 selection both inherit that whole-pass refusal rather than proceeding against records whose
 pending effects nobody looked at.
+
+A RESTART IS ASSERTED AS A SECOND PASS OVER THE SAME BYTES, which is the only shape a restart has
+here: recovery holds no in-memory state between invocations, so "restarted" means another pass
+reading the state directory as it stands. "The credential remains ineligible until reconciliation
+makes that revision authoritative and removes the fence", so each pass must retry only the one
+authorized revision, leave the fence and the owning operation record byte-identical, and keep
+refusing a command bound to that record — and the ONLY thing that ends it is the desired revision
+becoming authoritative in the store, proven by a final pass that settles with NO adapter call.
+
+THE OPERATION-LESS EXPIRY SHAPE IS RUN AS ITS OWN CASE rather than folded in. An owned fence has
+two things to retain and an expiry fence has one, so a pass that resolved an ambiguous expiry
+fence early would be invisible in the owned case: lifecycle expiry "is exempt from creating a
+write-ahead operation record", and that fence is the whole of the pending effect's record.
 """
 
 from __future__ import annotations
@@ -844,3 +857,88 @@ def test_a_recovery_pass_that_could_not_be_bounded_admits_no_record_and_no_candi
         assert isinstance(refused, Failure), refused
         assert refused.failure().error_type == "store-unavailable", refused
         assert "naming no record identity" in refused.failure().message, refused
+
+
+def test_a_restarted_recovery_retains_an_ambiguous_fence_until_the_store_settles_it(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Every pass retries the one authorized revision; only the store's own evidence ends it."""
+    state_dir = _state(tmp_path=tmp_path)
+    store = _genesis_store(record_ids=(_FIRST_RECORD,))
+    operation = _report_operation(record_id=_FIRST_RECORD)
+    operation_file = _seed_operation(state_dir=state_dir, operation=operation)
+    owner_bytes = operation_file.read_bytes()
+    fence = _owned_fence(record_id=_FIRST_RECORD, operation=operation)
+    _seed_fence(state_dir=state_dir, fence=fence)
+    fence_file = _fence_file(state_dir=state_dir, record_id=_FIRST_RECORD)
+    retained = fence_file.read_bytes()
+
+    for restart in ("first pass", "restarted pass"):
+        ambiguous = _ProbedStore(inner=_LostTransport(inner=store))
+
+        unsettled = _recover(state_dir=state_dir, store=ambiguous)
+
+        assert isinstance(unsettled, Success), restart
+        assert unsettled.unwrap().quarantined == (_FIRST_RECORD,), restart
+        assert ambiguous.sets == [_authorized_request(fence=fence)], restart
+        assert fence_file.read_bytes() == retained, restart
+        assert operation_file.read_bytes() == owner_bytes, restart
+        assert len(store.items[_FIRST_RECORD]) == 1, restart
+
+    _commit_through_the_fence(store=store, fence=fence)
+    authoritative = _ProbedStore(inner=store)
+
+    settled = _recover(state_dir=state_dir, store=authoritative)
+
+    assert isinstance(settled, Success), settled
+    assert settled.unwrap().reconciled == (_FIRST_RECORD,)
+    assert authoritative.sets == [], "the reread alone settles it, with no further adapter call"
+    assert not fence_file.exists()
+    assert operation_file.read_bytes() == owner_bytes, "this pass never writes an operation"
+    assert len(store.items[_FIRST_RECORD]) == 2
+
+
+def test_an_operation_less_expiry_write_survives_a_restart_and_settles_the_same_way(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Lifecycle expiry has no write-ahead operation, so nothing but its fence carries it."""
+    state_dir = _state(tmp_path=tmp_path)
+    store = _genesis_store(record_ids=(_FIRST_RECORD,))
+    fence = _expiry_fence(record_id=_FIRST_RECORD)
+    assert fence.owner_operation_id is None, "the operation-less shape is the point of this case"
+    _seed_fence(state_dir=state_dir, fence=fence)
+    fence_file = _fence_file(state_dir=state_dir, record_id=_FIRST_RECORD)
+    retained = fence_file.read_bytes()
+
+    for restart in ("first pass", "restarted pass"):
+        ambiguous = _ProbedStore(inner=_LostTransport(inner=store))
+
+        unsettled = _recover(state_dir=state_dir, store=ambiguous)
+        # The request a command owes is driven through the SAME ambiguous transport, because
+        # that request runs a recovery pass of its own: a healthy store would let that pass
+        # settle the very fence this case needs to still be unsettled.
+        refused = _admitted_identity(
+            state_dir=state_dir, store=_LostTransport(inner=store), record_id=_FIRST_RECORD
+        )
+
+        assert isinstance(unsettled, Success), restart
+        assert unsettled.unwrap().quarantined == (_FIRST_RECORD,), restart
+        assert ambiguous.sets == [_authorized_request(fence=fence)], restart
+        assert fence_file.read_bytes() == retained, restart
+        assert len(store.items[_FIRST_RECORD]) == 1, restart
+        assert isinstance(refused, Failure), restart
+        assert refused.failure().error_type == "store-unavailable", restart
+
+    _commit_through_the_fence(store=store, fence=fence)
+    authoritative = _ProbedStore(inner=store)
+
+    settled = _recover(state_dir=state_dir, store=authoritative)
+    eligible = _admitted_identity(state_dir=state_dir, store=store, record_id=_FIRST_RECORD)
+
+    assert isinstance(settled, Success), settled
+    assert settled.unwrap().reconciled == (_FIRST_RECORD,)
+    assert authoritative.sets == [], "the reread alone settles it, with no further adapter call"
+    assert not fence_file.exists()
+    assert len(store.items[_FIRST_RECORD]) == 2
+    assert store.items[_FIRST_RECORD][-1].title == fence.item_title
+    assert isinstance(eligible, Success), "ineligible only until reconciliation removed the fence"
