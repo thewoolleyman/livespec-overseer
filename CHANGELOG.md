@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.15.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.15.0...v5.15.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* require live ownership for size-debt markers ([32f9382](https://github.com/thewoolleyman/livespec-overseer/commit/32f9382a842452a0d9ca0c36ab9b9e574472cc4c))
+
 ## [5.15.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.14.1...v5.15.0) (2026-10-07)
 
 
