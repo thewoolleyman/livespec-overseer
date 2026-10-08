@@ -100,10 +100,14 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
+import herdr_identity
+import herdr_protocol
+import herdr_transport
+import herdr_write
 import pytest
 
 __all__: list[str] = [
@@ -111,26 +115,116 @@ __all__: list[str] = [
     "ChildExit",
     "ChildObservation",
     "ForegroundReading",
+    "OwnedServer",
+    "PaneIdentity",
+    "PaneReadiness",
     "ProcReading",
     "ReadyShellGate",
+    "ReadyWriter",
+    "RegisteredShell",
     "ShellIdentityPin",
     "ShellRecovery",
     "await_child_gone",
+    "await_coherent_identity",
     "await_idle_shell",
     "await_occupying_child",
+    "child_environment",
+    "child_umask",
+    "herdr_cli",
+    "kernel_executable_of",
+    "leader_name",
+    "minimal_registered_shell",
     "occupying_child_pid",
+    "owned_config",
+    "owned_environment",
+    "pane_capture",
+    "pane_identity_of",
+    "pane_ids",
     "parent_pid_of",
     "process_group_of",
     "process_info_reply",
     "raw_request",
     "read_foreground",
+    "registered_login_shells",
+    "require_herdr",
+    "run_in_pane",
+    "session_socket",
+    "split_pane",
+    "start_owned_server",
     "starttime_of",
     "startup_transient",
+    "stop_owned_server",
 ]
 
 POLL_SECONDS = 0.1
 READY_TIMEOUT = 30.0
 PidReader = Callable[..., int | None]
+# A reader of ONE pane's whole `pane.process_info` reply. Injectable so a control
+# can drive an unavailable or contradictory reading without manufacturing one on a
+# real server, which is the only way some of them can be staged at all.
+PaneReader = Callable[..., Mapping[str, Any]]
+ExecutableReader = Callable[..., str | None]
+
+# ------------------------------------------- the owned native server's own setup
+#
+# Every native exercise in this family used to start its herdr server with the
+# AMBIENT environment and no configuration of its own, so which shell its panes
+# came up in — and which startup files that shell ran — were the operator's
+# choices rather than the fixture's. Both are now DECLARED here and asserted
+# below; see `start_owned_server` and `owned_environment` for the mechanism and
+# `test_the_owned_server_runs_its_declared_minimal_shell_despite_an_inherited_config`
+# for the receipts.
+
+HERDR_BINARY = "herdr"
+SERVER_READY_TIMEOUT = 30.0
+PANE_CWD = "/tmp"
+# The host's OWN login-shell register — the same authority the adapter's
+# retained-shell proof consults, which is why a declared shell has to appear in it.
+LOGIN_SHELL_REGISTRY = "/etc/shells"
+# Candidate MINIMAL shells, in preference order. A minimal shell is the point:
+# the fewer startup hooks a pane's shell has, the less of the exercise depends on
+# host configuration. Each candidate still has to be available AND registered.
+MINIMAL_SHELL_CANDIDATES = ("/usr/bin/dash", "/bin/dash")
+# Herdr's documented startup mode for a new interactive pane shell. `non_login`
+# is the narrower of the two real modes and is deliberately not `auto`.
+OWNED_SHELL_MODE = "non_login"
+# The ONLY variables removed from the launched server's copied child environment.
+# `$ENV` is a POSIX shell's INTERACTIVE startup file, which `non_login` does not
+# disable — see `owned_environment` for the measurement.
+EXCLUDED_CHILD_VARIABLES = ("ENV",)
+
+
+@dataclass(frozen=True, kw_only=True)
+class RegisteredShell:
+    """One login-shell register entry, as DECLARED beside what it resolves to.
+
+    The declared form is kept because the NAME is load-bearing: a pane reporting
+    `sh` is reconciled with a kernel executable of `/usr/bin/dash` by the name the
+    host registers, and that name is unanswerable once the path has been resolved
+    away.
+    """
+
+    declared: str
+    name: str
+    resolved: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class OwnedServer:
+    """One owned herdr server child, its socket, its root pane and its OWN setup.
+
+    `config_path` and `declared_shell` are carried because they are what makes
+    this server's panes independent of the ambient environment, and an exercise
+    has to be able to assert them rather than trust them.
+    """
+
+    session: str
+    socket_path: str
+    server_pid: int
+    config_path: str
+    declared_shell: str
+    root: str
+
 
 # The CONTROLLED startup transient every exercise stages, instead of depending
 # on whatever the operator's login shell happens to load. A distinct name is the
@@ -711,6 +805,292 @@ def process_info_reply(*, socket_path: str, pane_id: str) -> dict[str, Any]:
     )
 
 
+def pane_capture(*, socket_path: str, pane_id: str) -> str:
+    """`pane_id`'s visible text, read from the REAL server over a raw socket."""
+    reply = raw_request(
+        socket_path=socket_path,
+        method="pane.read",
+        params={"pane_id": pane_id, "source": "visible", "format": "text", "strip_ansi": True},
+    )
+    return str(reply["result"]["read"]["text"])
+
+
+def pane_ids(*, socket_path: str) -> list[str]:
+    """Every pane the server currently holds, so a closure or survival is a fact."""
+    reply = raw_request(socket_path=socket_path, method="pane.list", params={})
+    return [str(pane["pane_id"]) for pane in reply["result"]["panes"]]
+
+
+def split_pane(
+    *, socket_path: str, pane_id: str, direction: str, ratio: float = 0.5, cwd: str = PANE_CWD
+) -> str:
+    """Split `pane_id` directly on the real server, for SETUP and for controls.
+
+    A raw split is how a control observes a pane whose creation this fixture owns
+    end to end — the one case where the exact created pane is knowable without
+    going through the adapter at all.
+    """
+    reply = raw_request(
+        socket_path=socket_path,
+        method="pane.split",
+        params={
+            "target_pane_id": pane_id,
+            "direction": direction,
+            "ratio": ratio,
+            "cwd": cwd,
+            "focus": False,
+        },
+    )
+    assert "result" in reply, f"setup split of {pane_id!r} failed: {reply}"
+    return str(reply["result"]["pane"]["pane_id"])
+
+
+def run_in_pane(*, socket_path: str, pane_id: str, command: str) -> None:
+    """Deliver `command` plus Enter to `pane_id` on the REAL server, as SETUP.
+
+    Fixture input goes straight to the real socket so it never enters whatever
+    request stream an exercise is counting the WRITER's own deliveries in.
+    """
+    _ = raw_request(
+        socket_path=socket_path,
+        method="pane.send_input",
+        params={"pane_id": pane_id, "text": command, "keys": ["Enter"]},
+    )
+
+
+def kernel_executable_of(*, pid: int) -> str | None:
+    """`pid`'s resolved `/proc/<pid>/exe`, or None when the KERNEL half is unavailable.
+
+    `readlink` rather than a realpath of the magic link: resolving the PATH of a
+    process that is GONE answers `/proc/<pid>/exe` unchanged, which would
+    manufacture an executable for a dead pid. The target is then resolved so a host
+    where `/bin/bash` symlinks to `/usr/bin/bash` compares equal either way.
+
+    This is the FIXTURE's own instrument, deliberately not the adapter's reader: an
+    exercise taking its premise from the surface under test would only prove that
+    surface self-consistent.
+    """
+    try:
+        target = Path(f"/proc/{pid}/exe").readlink()
+    except OSError:
+        return None
+    return str(target.resolve())
+
+
+def child_environment(*, pid: int) -> dict[str, str]:
+    """`pid`'s own environment, read from `/proc` — what the child ACTUALLY got.
+
+    Read from the kernel rather than from the mapping this process handed
+    `Popen`, so "the parent environment was preserved" is a claim about the
+    launched process rather than about the fixture's intent.
+    """
+    raw = Path(f"/proc/{pid}/environ").read_bytes()
+    return dict(
+        entry.split("=", 1)
+        for entry in raw.decode("utf-8", errors="replace").split("\0")
+        if "=" in entry
+    )
+
+
+def child_umask(*, pid: int) -> str:
+    """`pid`'s umask as the kernel reports it, or ``""`` when `/proc` omits it."""
+    status = Path(f"/proc/{pid}/status").read_text(encoding="utf-8")
+    for line in status.splitlines():
+        if line.startswith("Umask:"):
+            return line.split(":", 1)[1].strip()
+    return ""
+
+
+# ------------------------------------------------------ the owned native server
+
+
+def require_herdr() -> None:
+    """Skip the calling exercise when this host has no herdr to drive."""
+    if shutil.which(HERDR_BINARY) is None:
+        pytest.skip("herdr is not installed on this host")
+
+
+def herdr_cli(*, args: list[str]) -> subprocess.CompletedProcess[str]:
+    """One bounded run of the herdr CLI, for session setup and teardown only."""
+    return subprocess.run(  # noqa: S603 — the herdr CLI, not a Python child
+        [HERDR_BINARY, *args], capture_output=True, text=True, timeout=60, check=False
+    )
+
+
+def registered_login_shells() -> tuple[RegisteredShell, ...]:
+    """Every login shell this host's own register declares, under its declared name.
+
+    The register is READ rather than enumerated, and an empty answer is not
+    special-cased: it means this host registers nothing, which is a fact the
+    caller has to act on rather than a condition to paper over.
+    """
+    try:
+        raw = Path(LOGIN_SHELL_REGISTRY).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ()
+    return tuple(
+        RegisteredShell(declared=entry, name=Path(entry).name, resolved=os.path.realpath(entry))
+        for entry in (line.strip() for line in raw.splitlines())
+        if entry and not entry.startswith("#")
+    )
+
+
+def minimal_registered_shell() -> RegisteredShell | None:
+    """The first AVAILABLE and REGISTERED minimal shell, or None when there is none.
+
+    Both halves are required and neither is assumed. "Available" is an executable
+    file the kernel can actually run; "registered" is an entry in this host's own
+    login-shell register, which is the same authority the adapter's retained-shell
+    proof consults. A fixture that declared an unregistered executable would be
+    manufacturing a shell the product is entitled to refuse.
+    """
+    registered = {entry.resolved for entry in registered_login_shells()}
+    for candidate in MINIMAL_SHELL_CANDIDATES:
+        resolved = os.path.realpath(candidate)
+        if resolved in registered and os.access(resolved, os.X_OK):
+            return RegisteredShell(declared=candidate, name=Path(resolved).name, resolved=resolved)
+    return None
+
+
+def owned_config(*, scratch: Path, default_shell: str, shell_mode: str = OWNED_SHELL_MODE) -> Path:
+    """A PRIVATE herdr config selecting `default_shell`, written under `scratch`.
+
+    Herdr 0.9.3 documents `HERDR_CONFIG_PATH` as selecting the config file a
+    process reads, and `[terminal] default_shell` / `shell_mode` as the executable
+    and startup mode of every new interactive pane. An EMPTY `default_shell` is
+    herdr's documented "use `$SHELL`, then `/bin/sh`" selection, which is the
+    mechanism the alias exercises vary — so this helper EXPRESSES a shell rather
+    than imposing one, and passing `""` leaves that selection exactly as it was.
+
+    This is controlled TEST setup. It is never a statement about how a real
+    operator's panes are bootstrapped, and it must never be read as one.
+    """
+    scratch.mkdir(parents=True, exist_ok=True)
+    path = scratch / "herdr-config.toml"
+    _ = path.write_text(
+        "# Written by tests/test_herdr_live_observations.py for ONE owned server.\n"
+        "[terminal]\n"
+        f'default_shell = "{default_shell}"\n'
+        f'shell_mode = "{shell_mode}"\n',
+        encoding="utf-8",
+    )
+    return path
+
+
+def owned_environment(*, config_path: Path) -> dict[str, str]:
+    """The PARENT environment, with exactly two deliberate differences.
+
+    `HERDR_CONFIG_PATH` is repointed at this fixture's own private config, which
+    is what makes an inherited one — the operator's, or a rival fixture's —
+    inert for the launched server. And the variables in
+    :data:`EXCLUDED_CHILD_VARIABLES` are REMOVED from the copy.
+
+    **Why `ENV` is excluded even though the config already says `non_login`.**
+    `shell_mode = "non_login"` governs whether the pane's shell reads its LOGIN
+    profile. It does not disable `$ENV`, which a POSIX shell reads for every
+    INTERACTIVE invocation — measured in this sandbox 2026-10-07 with
+    `shell_mode = "non_login"` and `ENV` pointing at a file echoing a marker,
+    every freshly created pane's capture carried that marker. So the one
+    remaining startup hook is removed from the CHILD's copy of the environment.
+
+    Everything else is preserved verbatim and deliberately: `HOME`, `CODEX_HOME`,
+    `PATH`, and — because this is a copy rather than a scrub — every other
+    inherited value. The child's umask is inherited too, because nothing here
+    calls `os.umask`. The PARENT's own environment is never mutated: this returns
+    a new mapping.
+    """
+    environment = dict(os.environ)
+    environment["HERDR_CONFIG_PATH"] = str(config_path)
+    for name in EXCLUDED_CHILD_VARIABLES:
+        _ = environment.pop(name, None)
+    return environment
+
+
+def stop_owned_server(*, session: str) -> None:
+    """Stop and delete EXACTLY `session`, touching no other herdr session."""
+    _ = herdr_cli(args=["--session", session, "server", "stop"])
+    _ = herdr_cli(args=["session", "delete", session])
+
+
+def session_socket(*, session: str) -> Path:
+    """Where herdr puts `session`'s API socket."""
+    return Path.home() / ".config" / "herdr" / "sessions" / session / "herdr.sock"
+
+
+def start_owned_server(
+    *,
+    session: str,
+    scratch: Path,
+    log_name: str = "server.log",
+    default_shell: str | None = None,
+    cwd: str = PANE_CWD,
+) -> OwnedServer:
+    """One owned herdr server whose panes run a DECLARED shell, plus its root pane.
+
+    `default_shell` of None means :func:`minimal_registered_shell` — the shared
+    family's declared minimal shell — and the exercise SKIPS when this host
+    registers none, rather than silently falling back to whatever the ambient
+    environment would have produced. Passing an explicit path declares that
+    shell; passing `""` leaves herdr's own `$SHELL`-then-`/bin/sh` selection in
+    force, which is what an alias exercise needs.
+
+    **Server creation and the initial setup are enclosed in cleanup.** The socket
+    wait and the `workspace.create` are both fallible, and a failure in either
+    used to leave a live server child and a registered session behind. Anything
+    raised past the spawn now stops and deletes EXACTLY this session — its own
+    resource, named explicitly — and re-raises.
+    """
+    require_herdr()
+    declared = default_shell
+    if declared is None:
+        minimal = minimal_registered_shell()
+        if minimal is None:
+            pytest.skip(
+                f"{LOGIN_SHELL_REGISTRY} registers none of {list(MINIMAL_SHELL_CANDIDATES)}, so "
+                "this host cannot declare a minimal shell for an owned server"
+            )
+        declared = minimal.declared
+    config = owned_config(scratch=scratch / f"{session}-config", default_shell=declared)
+    log = (scratch / log_name).open("wb")
+    child = subprocess.Popen(  # noqa: S603 — the herdr CLI, not a Python child
+        [HERDR_BINARY, "--session", session, "server"],
+        stdout=log,
+        stderr=subprocess.STDOUT,
+        stdin=subprocess.DEVNULL,
+        start_new_session=True,
+        cwd=str(scratch),
+        env=owned_environment(config_path=config),
+    )
+    try:
+        address = session_socket(session=session)
+        deadline = time.monotonic() + SERVER_READY_TIMEOUT
+        while time.monotonic() < deadline and not address.exists():
+            time.sleep(POLL_SECONDS)
+        log.close()
+        assert address.exists(), (
+            f"herdr session {session!r} never created {address}; "
+            f"server log: {(scratch / log_name).read_text(errors='replace')[:500]}"
+        )
+        created = raw_request(
+            socket_path=str(address),
+            method="workspace.create",
+            params={"cwd": cwd, "label": session, "focus": False},
+        )
+        assert "result" in created, f"workspace.create failed: {created}"
+    except BaseException:
+        log.close()
+        stop_owned_server(session=session)
+        raise
+    return OwnedServer(
+        session=session,
+        socket_path=str(address),
+        server_pid=child.pid,
+        config_path=str(config),
+        declared_shell=declared,
+        root=str(created["result"]["root_pane"]["pane_id"]),
+    )
+
+
 # --------------------------------------------------------- the write-side gate
 
 
@@ -808,21 +1188,61 @@ class ReadyShellGate:
         A real setup failure must be explicit: an exercise that asserts on the
         adapter without checking this would grade a fixture timeout as product
         behaviour, which is the defect this whole file exists to retire.
+
+        **A SEPARATE DETERMINISTIC FINDING, disclosed on its own terms: an
+        `established` of None used to answer ``""``.** The predecessor read
+        `if self.established is None or not self.established.recovered: return ""
+        if self.established is None else self.established.reason`, so a gate whose
+        `_establish` had RAISED — leaving `gated` holding the pane and `established`
+        unset — reported NO refusal at all. Every consumer that wraps the
+        establishment in its own `try` therefore had to assign `established` by hand
+        for the failure to be visible, and one that forgot would grade its exercise
+        on a precondition nothing established. The missing-establishment branch is
+        now named, and it names the pane.
+
+        **This is NOT the cause of the four observed native failures** recorded in
+        work-item `overseer-3zfpz5`. Three were a created pane whose foreground
+        differed from its retained shell at the adapter's own reading, and the fourth
+        was an unusable native process reading at a raw split — all four reached an
+        observation the predecessor DID report. The control for this branch is
+        `test_an_initially_unavailable_exact_pane_setup_is_a_named_fixture_refusal`,
+        and no measured consequence is claimed for it beyond what that control shows.
         """
         if not self.gated:
             return "the adapter never read a pane's process info, so nothing was established"
-        if self.startup_transient and (self.transient is None or self.transient.pid is None):
+        staged = self._transient_refusal()
+        if staged:
+            return staged
+        if self.established is None:
+            return (
+                f"the establishment for {self.gated[0]!r} never completed its idle-shell "
+                "observation, so nothing about that pane is established"
+            )
+        if not self.established.recovered:
+            return self.established.reason
+        return ""
+
+    def _transient_refusal(self) -> str:
+        """Why the STAGED transient half of the establishment failed, or ``""``.
+
+        Split out of :meth:`refusal` by cohesion rather than by line count: these
+        three answers are all about the controlled child this gate staged — observed,
+        pinned to a retained shell, and seen to exit — while the two that remain are
+        about the pane's own idle-shell observation. An establishment configured with
+        no transient has nothing to answer here and says so by returning ``""``.
+        """
+        if not self.startup_transient:
+            return ""
+        if self.transient is None or self.transient.pid is None:
             observed = "" if self.transient is None else self.transient.reason
             return f"the controlled startup transient was never observed: {observed}"
-        if self.startup_transient and self.retained is None:
+        if self.retained is None:
             return (
                 f"the controlled startup transient's retained shell could not be pinned as an "
                 f"identity, so {self.gated[0]!r} readiness cannot be established"
             )
         if self.departed:
             return f"the controlled startup transient never exited: {self.departed}"
-        if self.established is None or not self.established.recovered:
-            return "" if self.established is None else self.established.reason
         return ""
 
     def _establish(self, *, pane_id: str) -> None:
@@ -867,6 +1287,406 @@ class ReadyShellGate:
         self.departed = await_child_gone(
             pid=child, starttime=starttime_of(pid=child), poll=BoundedPoll(seconds=self.seconds)
         )
+
+
+# ------------------------------- the exact created pane's COHERENT identity
+#
+# `ReadyShellGate` establishes that a pane is AVAILABLE — its shell owns an idle
+# foreground, observed through a real transient and a real recovery. That is only
+# half of what an exercise needs before it may grade the adapter's retained-shell
+# proof, and the missing half produced a measured host failure of its own: the
+# created pane `w1:p2` reported its shell as `'herdr'` while the kernel ran
+# `/usr/bin/bash`, and the product REFUSED — correctly, because one of two
+# truthful-looking sources must be wrong. The fixture had never observed the two
+# descriptions to agree about the pane it was about to grade.
+#
+# So readiness here is two observations, not one: AVAILABLE (the gate) and
+# COHERENT (this section). Both are bounded, both report their own expiry, and
+# neither is ever inferred from the other.
+
+
+def leader_name(*, reading: ForegroundReading) -> str:
+    """The name the server gives the entry that OWNS the foreground group, or ``""``.
+
+    Empty when the reply names no single leader, which is an unusable reading rather
+    than an approximation — the same discrimination the adapter's own reader makes.
+    """
+    named = [name for pid, name in reading.processes if pid == reading.group_id]
+    return named[0] if len(named) == 1 else ""
+
+
+@dataclass(frozen=True, kw_only=True)
+class PaneIdentity:
+    """ONE pane's server-reported shell name against the KERNEL's executable for it.
+
+    The facts are carried even on a refusal, because they are what a fixture failure
+    has to NAME: which pane, which shell pid, what the server called it, and what the
+    kernel runs. `mediated_by` is the login-shell register entry that reconciled the
+    two, and is empty when the basenames already agreed.
+    """
+
+    pane_id: str
+    shell_pid: int
+    reported: str
+    executable: str
+    mediated_by: str
+    coherent: bool
+    reason: str
+
+
+def _no_identity(*, pane_id: str, reason: str) -> PaneIdentity:
+    """An observation that established nothing, carrying only why."""
+    return PaneIdentity(
+        pane_id=pane_id,
+        shell_pid=0,
+        reported="",
+        executable="",
+        mediated_by="",
+        coherent=False,
+        reason=reason,
+    )
+
+
+def pane_identity_of(
+    *,
+    reading: ForegroundReading,
+    pane_id: str,
+    registered: tuple[RegisteredShell, ...],
+    executable_of: ExecutableReader = kernel_executable_of,
+) -> PaneIdentity:
+    """Whether `reading` shows ONE program answering to two truthful descriptions.
+
+    Four conditions, all required, because the question is only meaningful about an
+    idle shell this pane actually owns:
+
+      1. the reading is about `pane_id` and not about some other pane;
+      2. the pane's own retained shell owns its foreground group, so the leader the
+         server names IS that shell rather than a child of it;
+      3. the kernel answers for that pid at all — an unreadable `/proc/<pid>/exe` is
+         UNAVAILABLE evidence, never agreement;
+      4. the two descriptions agree: equal basenames, or a name this host REGISTERS
+         for exactly the executable the kernel reports. Matching the name alone would
+         reinstate the single-source trust the agreement rule exists to prevent.
+    """
+    if reading.pane_id != pane_id:
+        return _no_identity(
+            pane_id=pane_id,
+            reason=f"the reading describes pane {reading.pane_id!r}, not {pane_id!r}",
+        )
+    if not reading.is_idle():
+        return _no_identity(
+            pane_id=pane_id,
+            reason=(
+                f"{pane_id!r} is OCCUPIED: foreground group {reading.group_id} is not its "
+                f"retained shell {reading.shell_pid}, so its leader is not the shell"
+            ),
+        )
+    reported = leader_name(reading=reading)
+    if not reported:
+        return _no_identity(
+            pane_id=pane_id,
+            reason=f"the reply names no single foreground group leader: {list(reading.processes)}",
+        )
+    executable = executable_of(pid=reading.shell_pid)
+    if executable is None:
+        return _no_identity(
+            pane_id=pane_id,
+            reason=(
+                f"/proc/{reading.shell_pid}/exe could not be read, so the KERNEL half of "
+                f"{pane_id!r}'s shell identity is unavailable"
+            ),
+        )
+    mediating = [
+        entry.declared
+        for entry in registered
+        if entry.name == reported and entry.resolved == executable
+    ]
+    agreed = Path(executable).name == reported
+    return PaneIdentity(
+        pane_id=pane_id,
+        shell_pid=reading.shell_pid,
+        reported=reported,
+        executable=executable,
+        mediated_by="" if agreed or not mediating else mediating[0],
+        coherent=agreed or bool(mediating),
+        reason=(
+            ""
+            if agreed or mediating
+            else (
+                f"herdr calls {pane_id!r}'s shell {reading.shell_pid} {reported!r} while the "
+                f"kernel runs {executable!r}, and no registered login shell mediates them"
+            )
+        ),
+    )
+
+
+def await_coherent_identity(
+    *,
+    read: PaneReader,
+    pane_id: str,
+    poll: BoundedPoll,
+    registered: tuple[RegisteredShell, ...],
+    executable_of: ExecutableReader = kernel_executable_of,
+) -> PaneIdentity:
+    """Poll real readings until `pane_id`'s two shell descriptions agree, or say why not.
+
+    **A one-shot unusable reading is CONSUMED and retried, not accepted and not
+    fatal.** That is the whole reason this is a bounded wait rather than a single
+    read: the measured fourth native failure of this family was a raw-split pane
+    whose FIRST process reading carried no usable fields at all, taken with no wait
+    behind it. A reading that cannot be used establishes nothing and is also no
+    evidence that the pane is unsound — so the loop takes another one.
+
+    The expiry is REPORTED, carrying the last thing seen. A wait that fell out of its
+    bound silently is exactly how a fixture comes to grade the adapter on a premise it
+    never established.
+    """
+    deadline = poll.monotonic() + poll.seconds
+    verdict = _no_identity(
+        pane_id=pane_id, reason="no process reading was taken before the deadline"
+    )
+    while poll.monotonic() < deadline:
+        reading = read_foreground(reply=read())
+        if reading is None:
+            verdict = _no_identity(
+                pane_id=pane_id,
+                reason="the herdr process reading carried no usable shell/foreground fields",
+            )
+        else:
+            verdict = pane_identity_of(
+                reading=reading,
+                pane_id=pane_id,
+                registered=registered,
+                executable_of=executable_of,
+            )
+            if verdict.coherent:
+                return verdict
+        poll.sleep(POLL_SECONDS)
+    return replace(
+        verdict,
+        reason=(
+            f"{pane_id!r} never reported a coherent shell identity within {poll.seconds}s: "
+            f"{verdict.reason}"
+        ),
+    )
+
+
+@dataclass(frozen=True, kw_only=True)
+class _SetupRequests:
+    """A `BoundedRequests`-shaped forwarder to the REAL server, for SETUP only.
+
+    `ReadyShellGate` establishes a pane's readiness around a request it then forwards
+    to whatever it wraps. Here what it wraps is this: a raw round trip taken on the
+    FIXTURE's own behalf. So the gate's reading is unmistakably a setup observation —
+    it is not a request the writer made, and it is recorded in neither
+    :meth:`PaneReadiness.methods` nor :meth:`PaneReadiness.deliveries`.
+
+    `target` and `expect` are the protocol's peer-validation and
+    envelope-expectation arguments, which only a real writer acts on; this forwarder
+    ignores both, and its reply is consumed by the gate and discarded.
+    """
+
+    socket_path: str
+
+    def request(
+        self, *, target: Any, method: str, params: Mapping[str, object], expect: Any
+    ) -> dict[str, Any]:
+        return raw_request(socket_path=self.socket_path, method=method, params=dict(params))
+
+
+@dataclass(kw_only=True)
+class PaneReadiness:
+    """The EXACT created pane's AVAILABLE and COHERENT identity, established once.
+
+    Two independent observations, in this order, both about the pane the adapter just
+    created and neither taken from the adapter:
+
+      1. the delivered :class:`ReadyShellGate` — one real bounded child staged in that
+         pane, OBSERVED running under the pane's own retained shell, that shell pinned
+         as an IDENTITY (pid AND start time), the child observed exiting on its OWN,
+         and the same identity observed owning its foreground again;
+      2. :func:`await_coherent_identity` — the pane's server-reported shell name and
+         the kernel's executable for that shell observed to describe ONE program, by
+         basename or by this host's own login-shell register.
+
+    `registered` is the FIXTURE's own reading of the host register, used only for the
+    premise in (2). It is never handed to the adapter, whose own `shell_aliases` is
+    what the exercises grade.
+
+    `requests` is the WRITER's own request stream, recorded at the seam
+    :class:`ReadyWriter` interposes. The gate's traffic never enters it: the staged
+    child and the gate's own reading both go to the real socket on raw connections,
+    so a zero-delivery claim describes the surface under test alone.
+
+    `occupy_after` / `occupant` are the LATE fixture step — an occupant introduced
+    AFTER initial readiness, at a named point in the writer's own sequence. It is
+    deliberately not part of the establishment: the establishment is one-shot, so the
+    reading that meets a late occupant is the writer's RECHECK, with no establishment
+    and no waiting behind it. That is what keeps the fixture from waiting the occupant
+    away.
+    """
+
+    socket_path: str
+    transient: str
+    registered: tuple[RegisteredShell, ...] = field(default_factory=registered_login_shells)
+    seconds: float = READY_TIMEOUT
+    coherence_seconds: float = READY_TIMEOUT
+    read: PaneReader | None = None
+    occupy_after: str = ""
+    occupant: Callable[..., ChildObservation] | None = None
+    # Real, OWNED unavailability, for the controls: the fixture closes the pane it is
+    # about to establish, so the server genuinely has no reading to give for it.
+    # Never set by an exercise.
+    close_before_establishing: bool = False
+    panes: list[str] = field(default_factory=list)
+    gate: ReadyShellGate | None = None
+    identity: PaneIdentity | None = None
+    occupation: ChildObservation | None = None
+    requests: list[dict[str, Any]] = field(default_factory=list)
+
+    def methods(self) -> list[str]:
+        return [str(request["method"]) for request in self.requests]
+
+    def deliveries(self) -> list[tuple[str, str, tuple[str, ...]]]:
+        """Every `(pane, text, keys)` the WRITER delivered — this fixture's setup excluded.
+
+        The keys are carried because the launch is ONE atomic text-plus-Enter call, so
+        an empty list is the byte-level statement that neither the command nor its
+        submission reached any pane.
+        """
+        return [
+            (
+                str(request["params"].get("pane_id")),
+                str(request["params"].get("text")),
+                tuple(str(key) for key in request["params"].get("keys", [])),
+            )
+            for request in self.requests
+            if request["method"] == herdr_protocol.METHOD_PANE_SEND_INPUT
+        ]
+
+    def record(self, *, method: str, params: Mapping[str, object]) -> None:
+        self.requests.append({"method": method, "params": dict(params)})
+
+    def _read_for(self, *, pane_id: str) -> PaneReader:
+        if self.read is not None:
+            return self.read
+        return lambda: process_info_reply(socket_path=self.socket_path, pane_id=pane_id)
+
+    def establish(self, *, pane_id: str) -> None:
+        """Establish both observations for `pane_id`, REPORTING rather than raising.
+
+        A raise here would surface as whatever the writer's next request happened to
+        do, which is how a fixture comes to grade an establishment it never made.
+        Every failure is recorded and answered by :meth:`refusal`.
+        """
+        self.panes.append(pane_id)
+        gate = ReadyShellGate(
+            inner=_SetupRequests(socket_path=self.socket_path),
+            socket_path=self.socket_path,
+            startup_transient=self.transient,
+            transient_name=TRANSIENT_NAME,
+            seconds=self.seconds,
+        )
+        self.gate = gate
+        try:
+            if self.close_before_establishing:
+                _ = raw_request(
+                    socket_path=self.socket_path,
+                    method="pane.close",
+                    params={"pane_id": pane_id},
+                )
+            _ = gate.request(
+                target=None,
+                method=herdr_protocol.METHOD_PANE_PROCESS_INFO,
+                params={"pane_id": pane_id},
+                expect=None,
+            )
+            self.identity = await_coherent_identity(
+                read=self._read_for(pane_id=pane_id),
+                pane_id=pane_id,
+                poll=BoundedPoll(seconds=self.coherence_seconds),
+                registered=self.registered,
+            )
+        except OSError as failed:
+            gate.established = ShellRecovery(
+                recovered=False, reason=f"the readiness step failed: {failed}"
+            )
+
+    def stage_occupant(self) -> None:
+        """Run the LATE fixture step against the established pane, reporting failures.
+
+        One-shot, and only after an establishment has named a pane: an occupant staged
+        before there is a pane to stage it in would be a different exercise.
+        """
+        if self.occupant is None or not self.panes or self.occupation is not None:
+            return
+        try:
+            self.occupation = self.occupant(pane_id=self.panes[0])
+        except OSError as failed:
+            self.occupation = ChildObservation(
+                pid=None, reason=f"the late occupation step failed: {failed}"
+            )
+
+    def refusal(self) -> str:
+        """Why this fixture did NOT establish the created pane's readiness, or ``""``."""
+        if self.gate is None:
+            return "the readiness step never ran, so nothing about the created pane is established"
+        if self.gate.refusal():
+            return self.gate.refusal()
+        if self.identity is None:
+            return "the created pane's server/kernel shell identity was never observed at all"
+        return self.identity.reason
+
+
+@dataclass(frozen=True, kw_only=True)
+class ReadyWriter(herdr_write.HerdrWriter):
+    """The SHIPPED writer, with the created pane's readiness established mid-sequence.
+
+    `split_window_top` is INHERITED verbatim — this class adds no facade, and callers
+    assert that identity rather than trusting it. So the sequence, the proofs, the
+    `ShellProof` built from this writer's own fields, the socket, the per-request
+    deadline and the peer revalidation are all the shipped facade's. Reaching
+    `herdr_layout.place_above` directly instead would enter one layer BELOW the
+    surface these exercises are about.
+
+    The one interposition is at `request`, which is PUBLIC precisely because
+    `herdr_layout` runs its whole sequence on it. Before the FIRST
+    `pane.process_info` naming a pane, and only the first, the readiness
+    establishment runs; then the writer's own request goes through unchanged. After
+    the request named by `PaneReadiness.occupy_after` returns, the late fixture step
+    runs — which is how an occupant arrives AFTER initial readiness and before the
+    writer's own recheck.
+
+    **The establishment costs no request its deadline**, because it completes before
+    `super().request` hands anything to `herdr_transport`.
+
+    All mutable state lives on the `PaneReadiness`: this writer is frozen because the
+    shipped one is, and a frozen dataclass cannot record anything on itself.
+    """
+
+    readiness: PaneReadiness
+
+    def request(
+        self,
+        *,
+        target: herdr_identity.HerdrPaneTarget,
+        method: str,
+        params: Mapping[str, object],
+        expect: herdr_protocol.ReplyExpectation,
+    ) -> herdr_transport.RpcOutcome:
+        pane_id = str(params.get("pane_id", ""))
+        self.readiness.record(method=method, params=params)
+        first_reading = (
+            method == herdr_protocol.METHOD_PANE_PROCESS_INFO
+            and bool(pane_id)
+            and pane_id not in self.readiness.panes
+        )
+        if first_reading:
+            self.readiness.establish(pane_id=pane_id)
+        outcome = super().request(target=target, method=method, params=params, expect=expect)
+        if method and method == self.readiness.occupy_after:
+            self.readiness.stage_occupant()
+        return outcome
 
 
 # ------------------------------------------------------------------- controls
@@ -1488,4 +2308,336 @@ def test_the_startup_transient_runs_where_sleep_dispatches_on_its_invocation_nam
     assert starttime_of(pid=run.observed[0]) != run.starttime, (
         f"{TRANSIENT_NAME} {run.observed[0]} still carries start time {run.starttime}, so it "
         "never exited"
+    )
+
+
+# ------------------------- the exact created pane's INITIAL setup, as a premise
+#
+# The two controls below are the accepted behavioural regression for work-item
+# `overseer-3zfpz5`. Each drives the DELIVERED, pre-change helper in this file and
+# fails on what that helper does, not on a symbol it lacks.
+
+
+def test_an_initially_unavailable_exact_pane_setup_is_a_named_fixture_refusal(
+    *, tmp_path: Path
+) -> None:
+    """An establishment that could not be TAKEN at all must refuse, naming the pane.
+
+    Every consumer of this gate wraps the establishment in its own `try`, because
+    `_establish` talks to a real socket and a real socket can be gone. So the
+    question this control asks is the one those consumers depend on the answer to:
+    after an establishment that raised, does the gate REPORT that nothing about the
+    pane was established?
+
+    The unavailability is real and owned — the socket path names a file this
+    exercise never created, so the very first `pane.process_info` for the exact
+    pane raises — and the gate is driven in its DEFAULT configuration, with no
+    staged transient, which is the configuration whose establishment is a single
+    bounded idle-shell observation and nothing else.
+
+    `gated` already holds the pane, so the gate knows exactly which pane it failed
+    to establish; a refusal that does not name it leaves a consumer unable to say
+    which pane its exercise is unsound about.
+    """
+    missing = tmp_path / "no-such-herdr.sock"
+
+    gate = ReadyShellGate(inner=None, socket_path=str(missing))
+    with pytest.raises(FileNotFoundError, match="No such file or directory"):
+        _ = gate.request(
+            target=None, method="pane.process_info", params={"pane_id": PANE}, expect=None
+        )
+
+    assert gate.gated == [PANE], gate.gated
+    assert gate.transient is None, "this configuration stages no transient at all"
+    assert gate.established is None, "the idle-shell observation never completed"
+    assert gate.refusal() != "", (
+        "an establishment that could not be taken at all reported NO refusal, so a consumer "
+        "catching that error grades its exercise on a precondition nothing established"
+    )
+    assert PANE in gate.refusal(), gate.refusal()
+
+
+# ------------------- the exact created pane's COHERENT identity, as controls
+#
+# Deterministic controls over scripted readings, plus one native control at an
+# OWNED fixture boundary. The host receipt each deterministic control is built from
+# is named in its docstring, so a regression fails here rather than in a native
+# exercise where it would read as an adapter failure.
+
+# The measured host receipt from work-item `overseer-3kojxx`: the created pane
+# `w1:p2` reported its shell as `'herdr'` while the kernel ran `/usr/bin/bash`.
+HOST_INCOHERENT_PANE = "w1:p2"
+HOST_INCOHERENT_NAME = "herdr"
+HOST_INCOHERENT_EXECUTABLE = "/usr/bin/bash"
+# The Debian-family mediation this family's alias case turns on: `/bin/sh` is
+# declared, reports `sh`, and resolves to `/usr/bin/dash`.
+_DEBIAN_SH = RegisteredShell(declared="/bin/sh", name="sh", resolved="/usr/bin/dash")
+
+
+def _identity_reading(
+    *, pane_id: str, name: str, shell_pid: int = HOST_SHELL_PID
+) -> dict[str, Any]:
+    """An IDLE reading for `pane_id` whose foreground leader is its own shell."""
+    return {
+        "result": {
+            "process_info": {
+                "pane_id": pane_id,
+                "shell_pid": shell_pid,
+                "foreground_process_group_id": shell_pid,
+                "foreground_processes": [
+                    {"pid": shell_pid, "name": name, "cmdline": name, "cwd": "/tmp"}
+                ],
+            }
+        }
+    }
+
+
+def test_a_pane_whose_two_shell_descriptions_agree_by_basename_is_coherent() -> None:
+    """The positive control, so every refusal below cannot pass by refusing all.
+
+    The declared minimal shell this family's owned servers run is exactly this
+    shape: herdr reports `dash` and the kernel runs `/usr/bin/dash`, so the two
+    agree without any register entry having to mediate them.
+    """
+    reading = read_foreground(reply=_identity_reading(pane_id=PANE, name="dash"))
+
+    assert reading is not None
+    identity = pane_identity_of(
+        reading=reading,
+        pane_id=PANE,
+        registered=(),
+        executable_of=lambda pid: "/usr/bin/dash" if pid == HOST_SHELL_PID else None,
+    )
+
+    assert identity.coherent is True, identity.reason
+    assert identity.mediated_by == "", "agreement by basename needs no register entry"
+    assert identity.shell_pid == HOST_SHELL_PID
+    assert identity.reason == ""
+
+
+def test_a_registered_name_mediates_two_descriptions_that_do_not_match_by_basename() -> None:
+    """The alias case the family must keep supporting: `sh` running `/usr/bin/dash`.
+
+    Both sources are truthful — `sh` is what the shell was INVOKED as, `dash` is
+    what the kernel RESOLVED it to — and the host's own register is what reconciles
+    them. The entry that did so is NAMED, so an exercise can assert it reached the
+    alias path rather than a pane that happened to agree.
+    """
+    reading = read_foreground(reply=_identity_reading(pane_id=PANE, name="sh"))
+
+    assert reading is not None
+    identity = pane_identity_of(
+        reading=reading,
+        pane_id=PANE,
+        registered=(_DEBIAN_SH,),
+        executable_of=lambda pid: _DEBIAN_SH.resolved if pid == HOST_SHELL_PID else None,
+    )
+
+    assert identity.coherent is True, identity.reason
+    assert identity.mediated_by == _DEBIAN_SH.declared, identity
+    assert Path(identity.executable).name != identity.reported, identity
+
+
+def test_a_contradictory_exact_pane_identity_is_a_bounded_fixture_refusal() -> None:
+    """THE measured host receipt: `'herdr'` against `/usr/bin/bash`, nothing mediating.
+
+    This is the reading the product refused and the fixture had never looked at. An
+    unmediated disagreement must expire the bound and NAME all four facts — the
+    pane, the shell pid, what the server called it, what the kernel runs — because a
+    refusal that names none of them leaves a reader unable to tell a contradictory
+    pane from an unavailable one.
+    """
+    identity = await_coherent_identity(
+        read=lambda: _identity_reading(pane_id=HOST_INCOHERENT_PANE, name=HOST_INCOHERENT_NAME),
+        pane_id=HOST_INCOHERENT_PANE,
+        poll=_frozen_poll(seconds=2.0, ticks=[0.0, 1.0, 3.0]),
+        registered=(_DEBIAN_SH,),
+        executable_of=lambda pid: HOST_INCOHERENT_EXECUTABLE,
+    )
+
+    assert identity.coherent is False
+    assert (
+        "never reported a coherent shell identity within 2.0s" in identity.reason
+    ), identity.reason
+    assert repr(HOST_INCOHERENT_NAME) in identity.reason, identity.reason
+    assert repr(HOST_INCOHERENT_EXECUTABLE) in identity.reason, identity.reason
+    assert str(HOST_SHELL_PID) in identity.reason, identity.reason
+    assert HOST_INCOHERENT_PANE in identity.reason, identity.reason
+
+
+def test_a_one_shot_unusable_first_reading_is_followed_by_real_coherent_evidence() -> None:
+    """A DISCLOSED one-shot fault at the initial setup seam, then real evidence.
+
+    The fault is this control's own: the first reply carries no usable shell or
+    foreground fields at all, which is the shape of the measured fourth native
+    failure — a raw-split pane read immediately, with no wait behind it. It is NOT a
+    reconstruction of that failure's timing, and nothing here claims to reproduce
+    when or why the host produced it.
+
+    What is asserted is the property the wait owes: an unusable reading establishes
+    nothing AND condemns nothing, so it is consumed and another is taken. Both
+    replies must be used — a wait that returned on the first would never see the
+    second, and a wait that refused on the first would turn a transient into a
+    fixture failure.
+    """
+    replies = [
+        {"result": {"process_info": {"pane_id": PANE, "shell_pid": HOST_SHELL_PID}}},
+        _identity_reading(pane_id=PANE, name="dash"),
+    ]
+
+    identity = await_coherent_identity(
+        read=lambda: replies.pop(0) if replies else _identity_reading(pane_id=PANE, name="dash"),
+        pane_id=PANE,
+        poll=_frozen_poll(seconds=5.0, ticks=[0.0, 0.1, 0.2]),
+        registered=(),
+        executable_of=lambda pid: "/usr/bin/dash",
+    )
+
+    assert identity.coherent is True, identity.reason
+    assert replies == [], "the unusable first reading must have been consumed, not returned on"
+
+
+def test_a_persistently_unavailable_reading_is_a_bounded_fixture_refusal() -> None:
+    """An unusable reading that never becomes usable is a NAMED expiry, not a pass."""
+    identity = await_coherent_identity(
+        read=lambda: {"error": {"code": "no_such_pane"}},
+        pane_id=PANE,
+        poll=_frozen_poll(seconds=2.0, ticks=[0.0, 1.0, 3.0]),
+        registered=(),
+    )
+
+    assert identity.coherent is False
+    assert "no usable shell/foreground fields" in identity.reason, identity.reason
+    assert f"{PANE!r} never reported a coherent shell identity" in identity.reason, identity.reason
+
+
+def test_an_occupied_pane_cannot_testify_about_its_own_shell_identity() -> None:
+    """A pane whose foreground is a CHILD names a child, not the shell.
+
+    So coherence is only asked of an idle pane, and an occupied one is reported as
+    occupied rather than graded on whatever its foreground leader happens to be
+    called.
+    """
+    reading = read_foreground(
+        reply=_reading(group_id=HOST_SLEEP_PID, processes=((HOST_SLEEP_PID, "sleep"),))
+    )
+
+    assert reading is not None
+    identity = pane_identity_of(reading=reading, pane_id=PANE, registered=())
+
+    assert identity.coherent is False
+    assert "is OCCUPIED" in identity.reason, identity.reason
+
+
+def test_an_unreadable_kernel_half_is_unavailable_evidence_rather_than_agreement() -> None:
+    """A `/proc/<pid>/exe` that cannot be read is not two sources agreeing."""
+    reading = read_foreground(reply=_identity_reading(pane_id=PANE, name="dash"))
+
+    assert reading is not None
+    identity = pane_identity_of(
+        reading=reading, pane_id=PANE, registered=(), executable_of=lambda pid: None
+    )
+
+    assert identity.coherent is False
+    assert "could not be read" in identity.reason, identity.reason
+    assert "unavailable" in identity.reason, identity.reason
+
+
+def test_the_shared_readiness_establishes_the_exact_raw_split_pane(*, tmp_path: Path) -> None:
+    """The NATIVE control at an OWNED fixture boundary: a pane this file itself split.
+
+    The raw-split boundary is the one case where the exact created pane is knowable
+    without going through the adapter at all, and it is where the measured fourth
+    native failure landed — `_reading` taken immediately after a raw split got an
+    unusable native process reading and failed the exercise before it reached any
+    adapter.
+
+    So the delivered :class:`PaneReadiness` is driven over a pane this control splits
+    itself, on a real owned server running the declared minimal shell, and every part
+    of what it establishes is read back rather than inferred: the exact pane, a real
+    bounded child under that pane's own pinned retained shell, that child's own exit,
+    the same shell identity owning its foreground again, and the pane's two shell
+    descriptions agreeing about that same shell.
+
+    The server is this exercise's own resource and is stopped by name.
+    """
+    session = f"overseer-test-{os.getpid()}-raw-split-readiness"
+    server = start_owned_server(session=session, scratch=tmp_path, log_name="rawsplit.log")
+    try:
+        pane_id = split_pane(socket_path=server.socket_path, pane_id=server.root, direction="down")
+        before = pane_ids(socket_path=server.socket_path)
+        readiness = PaneReadiness(
+            socket_path=server.socket_path, transient=startup_transient(scratch=tmp_path)
+        )
+        readiness.establish(pane_id=pane_id)
+        gate = readiness.gate
+        identity = readiness.identity
+        surviving = pane_ids(socket_path=server.socket_path)
+        staged_parent = (
+            None
+            if gate is None or gate.transient is None or gate.transient.pid is None
+            else parent_pid_of(pid=gate.transient.pid)
+        )
+    finally:
+        stop_owned_server(session=session)
+
+    assert readiness.refusal() == "", readiness.refusal()
+    assert readiness.panes == [pane_id], readiness.panes
+    assert pane_id in before and pane_id in surviving, "the established pane must survive its setup"
+    assert gate is not None and gate.gated == [pane_id], gate
+    assert gate.transient is not None and gate.transient.pid is not None, gate.transient
+    assert gate.retained is not None, "the raw-split pane's retained shell was never pinned"
+    assert staged_parent in (None, gate.retained.pid), (
+        f"the controlled child {gate.transient.pid} is not a child of the pinned retained "
+        f"shell {gate.retained.pid}"
+    )
+    assert gate.departed == "", gate.departed
+    assert gate.established is not None and gate.established.recovered is True, gate.established
+    assert identity is not None and identity.coherent is True, readiness.refusal()
+    assert identity.pane_id == pane_id, identity
+    assert identity.shell_pid == gate.retained.pid, (
+        f"the coherent identity describes shell {identity.shell_pid} while the pinned retained "
+        f"shell is {gate.retained.pid}"
+    )
+    assert Path(identity.executable).name == identity.reported, (
+        "the owned server declares a minimal shell whose reported name and kernel executable "
+        f"agree by basename; this pane reported {identity!r}"
+    )
+
+
+def test_a_closed_exact_pane_is_a_bounded_fixture_refusal_with_its_server_cleaned_up(
+    *, tmp_path: Path
+) -> None:
+    """Real, OWNED unavailability at the same boundary: the pane is closed first.
+
+    The fixture closes the pane it is about to establish — its own resource, closed
+    over the real socket — so the server genuinely has no reading to give for it.
+    That must be a NAMED bounded refusal carrying the pane, never an establishment,
+    and the owned server must still be stopped and deleted afterwards.
+
+    The cleanup half is asserted from OUTSIDE: after teardown the session's socket is
+    gone, so the exercise left no live server behind for the next one to collide with.
+    """
+    session = f"overseer-test-{os.getpid()}-closed-pane-readiness"
+    server = start_owned_server(session=session, scratch=tmp_path, log_name="closed.log")
+    try:
+        pane_id = split_pane(socket_path=server.socket_path, pane_id=server.root, direction="down")
+        readiness = PaneReadiness(
+            socket_path=server.socket_path,
+            transient=startup_transient(scratch=tmp_path),
+            seconds=1.0,
+            coherence_seconds=1.0,
+            close_before_establishing=True,
+        )
+        readiness.establish(pane_id=pane_id)
+    finally:
+        stop_owned_server(session=session)
+
+    refusal = readiness.refusal()
+    assert refusal != "", "a closed pane established nothing, so the refusal must say so"
+    assert readiness.panes == [pane_id], readiness.panes
+    assert readiness.identity is None or readiness.identity.coherent is False, readiness.identity
+    assert not session_socket(session=session).exists(), (
+        f"the owned server for {session!r} outlived its exercise; a fixture failure must clean "
+        "only its own resources, but it must clean them"
     )

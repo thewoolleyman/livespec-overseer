@@ -61,32 +61,42 @@ NAME, so no other session — including the operator's `default` — is touched.
 
 from __future__ import annotations
 
-import importlib
 import os
-import shutil
-import subprocess
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import claude_sessions
+import herdr_identity
+import herdr_write
 import pytest
 from test_herdr_live_observations import (
     TRANSIENT_NAME,
     BoundedPoll,
     ForegroundReading,
-    ReadyShellGate,
+    PaneIdentity,
+    PaneReadiness,
+    ReadyWriter,
+    RegisteredShell,
     ShellIdentityPin,
+    await_coherent_identity,
     await_idle_shell,
     await_occupying_child,
+    pane_capture,
+    pane_ids,
     parent_pid_of,
     process_group_of,
     process_info_reply,
-    raw_request,
     read_foreground,
+    registered_login_shells,
+    run_in_pane,
+    split_pane,
+    start_owned_server,
     starttime_of,
     startup_transient,
+    stop_owned_server,
 )
 
 __all__: list[str] = []
@@ -141,16 +151,10 @@ class ServerPair:
     unrelated: str
     decoy: LiveServer
     transient: str
-
-
-def _socket_for(*, session: str) -> Path:
-    return Path.home() / ".config" / "herdr" / "sessions" / session / "herdr.sock"
-
-
-def _cli(*, args: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603 — the herdr CLI, not a Python child
-        [HERDR_BINARY, *args], capture_output=True, text=True, timeout=60, check=False
-    )
+    # The FIXTURE's own reading of the host login-shell register, used only to
+    # establish the created pane's identity premise. It is never handed to the
+    # adapter, whose own `shell_aliases` is what these exercises grade.
+    registered: tuple[RegisteredShell, ...] = ()
 
 
 def _reading(*, socket_path: str, pane_id: str) -> ForegroundReading:
@@ -164,20 +168,6 @@ def _reading(*, socket_path: str, pane_id: str) -> ForegroundReading:
     reading = read_foreground(reply=process_info_reply(socket_path=socket_path, pane_id=pane_id))
     assert reading is not None, f"herdr returned no usable process reading for {pane_id!r}"
     return reading
-
-
-def _capture(*, socket_path: str, pane_id: str) -> str:
-    reply = raw_request(
-        socket_path=socket_path,
-        method="pane.read",
-        params={"pane_id": pane_id, "source": "visible", "format": "text", "strip_ansi": True},
-    )
-    return str(reply["result"]["read"]["text"])
-
-
-def _pane_ids(*, socket_path: str) -> list[str]:
-    reply = raw_request(socket_path=socket_path, method="pane.list", params={})
-    return [str(pane["pane_id"]) for pane in reply["result"]["panes"]]
 
 
 def _observe_launched_child(*, socket_path: str, pane_id: str, name: str) -> int:
@@ -198,111 +188,85 @@ def _observe_launched_child(*, socket_path: str, pane_id: str, name: str) -> int
 
 
 def _start_server(*, session: str, scratch: Path, log_name: str) -> LiveServer:
-    log = (scratch / log_name).open("wb")
-    child = subprocess.Popen(  # noqa: S603 — the herdr CLI, not a Python child
-        [HERDR_BINARY, "--session", session, "server"],
-        stdout=log,
-        stderr=subprocess.STDOUT,
-        stdin=subprocess.DEVNULL,
-        start_new_session=True,
-        cwd=str(scratch),
-    )
-    address = _socket_for(session=session)
-    deadline = time.monotonic() + SERVER_READY_TIMEOUT
-    while time.monotonic() < deadline and not address.exists():
-        time.sleep(0.1)
-    log.close()
-    assert address.exists(), (
-        f"herdr session {session!r} never created {address}; "
-        f"server log: {(scratch / log_name).read_text(errors='replace')[:500]}"
-    )
-    created = raw_request(
-        socket_path=str(address),
-        method="workspace.create",
-        params={"cwd": PANE_CWD, "label": session, "focus": False},
-    )
-    assert "result" in created, f"workspace.create failed: {created}"
+    """One OWNED server, started through the shared seam, plus its root pane.
+
+    The shared seam is what makes the shell this server's panes run a DECLARED
+    fixture choice rather than an inherited one; see
+    `test_herdr_live_observations.start_owned_server`.
+    """
+    owned = start_owned_server(session=session, scratch=scratch, log_name=log_name, cwd=PANE_CWD)
     return LiveServer(
         session=session,
-        socket_path=str(address),
-        server_pid=child.pid,
-        root=str(created["result"]["root_pane"]["pane_id"]),
+        socket_path=owned.socket_path,
+        server_pid=owned.server_pid,
+        root=owned.root,
     )
 
 
 def _split(*, server: LiveServer, pane_id: str, direction: str) -> str:
-    reply = raw_request(
-        socket_path=server.socket_path,
-        method="pane.split",
-        params={
-            "target_pane_id": pane_id,
-            "direction": direction,
-            "ratio": 0.5,
-            "cwd": PANE_CWD,
-            "focus": False,
-        },
-    )
-    assert "result" in reply, f"setup split failed: {reply}"
-    return str(reply["result"]["pane"]["pane_id"])
-
-
-def _run_in_pane(*, socket_path: str, pane_id: str, command: str) -> None:
-    _ = raw_request(
-        socket_path=socket_path,
-        method="pane.send_input",
-        params={"pane_id": pane_id, "text": command, "keys": ["Enter"]},
-    )
+    return split_pane(socket_path=server.socket_path, pane_id=pane_id, direction=direction)
 
 
 @pytest.fixture(name="pair")
 def _pair(*, tmp_path: Path) -> Iterator[ServerPair]:
-    if shutil.which(HERDR_BINARY) is None:
-        pytest.skip("herdr is not installed on this host")
+    """Two OWNED servers, each cleaned up by name whatever the setup does.
+
+    The second server's panes are built AFTER the first exists, so a failure
+    anywhere in that build used to leave the first running. Both sessions are
+    registered before anything can fail and torn down in one `finally`.
+    """
     sessions = (
         f"overseer-test-{os.getpid()}-launch-target",
         f"overseer-test-{os.getpid()}-launch-decoy",
     )
-    target = _start_server(session=sessions[0], scratch=tmp_path, log_name="target.log")
-    unrelated = _split(server=target, pane_id=target.root, direction="right")
-    decoy = _start_server(session=sessions[1], scratch=tmp_path, log_name="decoy.log")
-    latest = decoy.root
-    for _ in range(DECOY_PANES - 1):
-        latest = _split(server=decoy, pane_id=latest, direction="right")
     try:
+        target = _start_server(session=sessions[0], scratch=tmp_path, log_name="target.log")
+        unrelated = _split(server=target, pane_id=target.root, direction="right")
+        decoy = _start_server(session=sessions[1], scratch=tmp_path, log_name="decoy.log")
+        latest = decoy.root
+        for _ in range(DECOY_PANES - 1):
+            latest = _split(server=decoy, pane_id=latest, direction="right")
         yield ServerPair(
             target=target,
             unrelated=unrelated,
             decoy=decoy,
             transient=startup_transient(scratch=tmp_path),
+            registered=registered_login_shells(),
         )
     finally:
         for session in sessions:
-            _ = _cli(args=["--session", session, "server", "stop"])
-            _ = _cli(args=["session", "delete", session])
+            stop_owned_server(session=session)
 
 
-def _split_top(*, pair: ServerPair, command: str) -> Any:
-    """The real layout sequence, with the created pane's ready shell ESTABLISHED.
+def _split_top(*, pair: ServerPair, command: str) -> tuple[Any, PaneReadiness]:
+    """The writer's own PUBLIC entrypoint, with the created pane's readiness ESTABLISHED.
 
-    The gate forwards every request to the shipped writer — which keeps the
-    socket, the deadline and the peer validation against the REAL server, whose
-    pid and `/proc` start time this target names — and the proof it runs with is
-    taken from that writer's own fields. Its only effect is to stage and clear a
-    real transient startup child between two of the adapter's own requests.
+    **This enters `HerdrWriter.split_window_top` rather than
+    `herdr_layout.place_above`, and that is the repair.** The facade is part of what
+    these exercises are about; a sequence entered one layer below it is a different
+    subject, and reducing the coverage to the internal layout call is exactly what the
+    inherited-facade assertion below prevents from happening silently again.
+
+    The seam is `ReadyWriter` — the shipped writer with its PUBLIC `request` interposed
+    — so the socket, the per-request deadline, the peer revalidation against the REAL
+    server whose pid and `/proc` start time this target names, and the `ShellProof`
+    built from the writer's own fields are all the shipped facade's. Its only effect is
+    to establish the EXACT created pane's available and coherent identity between two
+    of the writer's own requests, where it costs no request its deadline.
+
+    The readiness is returned alongside the outcome because an unestablished or expired
+    premise has to be gradeable as a FIXTURE failure by every caller.
     """
-    writer_module = importlib.import_module("herdr_write")
-    identity = importlib.import_module("herdr_identity")
-    claude_sessions = importlib.import_module("claude_sessions")
     starttime = claude_sessions.proc_starttime(pid=pair.target.server_pid)
     assert starttime is not None, "the live herdr server must have a readable start time"
-    gate = ReadyShellGate(
-        inner=writer_module.HerdrWriter(),
-        socket_path=pair.target.socket_path,
-        startup_transient=pair.transient,
-        transient_name=TRANSIENT_NAME,
+    assert (
+        ReadyWriter.split_window_top is herdr_write.HerdrWriter.split_window_top
+    ), "the exercise must enter the SHIPPED public facade, not a fixture reimplementation"
+    readiness = PaneReadiness(
+        socket_path=pair.target.socket_path, transient=pair.transient, registered=pair.registered
     )
-    outcome = gate.place_above(
-        target=identity.HerdrPaneTarget(
+    outcome = ReadyWriter(readiness=readiness).split_window_top(
+        target=herdr_identity.HerdrPaneTarget(
             socket_path=pair.target.socket_path,
             server_pid=pair.target.server_pid,
             server_starttime=starttime,
@@ -312,8 +276,48 @@ def _split_top(*, pair: ServerPair, command: str) -> Any:
         command=command,
         ratio=TOP_RATIO,
     )
-    assert gate.refusal() == "", gate.refusal()
-    return outcome
+    return outcome, readiness
+
+
+def _established(*, readiness: PaneReadiness, pane_id: str) -> PaneIdentity:
+    """Grade the created pane's readiness premise before anything grades the adapter.
+
+    Every fact separately, so a failure says which one was missing: the step ran
+    exactly once and for the pane the writer reported creating, the gate established
+    what it establishes, the controlled child was the pinned shell's own, it exited,
+    that shell recovered, and the pane's two shell descriptions agree about it. An
+    unavailable or contradictory observation therefore fails HERE, carrying the bound
+    it expired under, and is never reported as the adapter declining a launch.
+    """
+    assert readiness.panes == [pane_id], (
+        "readiness must have been established exactly once, for the pane the writer created; "
+        f"it ran for {readiness.panes} against {pane_id!r} while the writer sent "
+        f"{readiness.methods()}"
+    )
+    assert readiness.refusal() == "", f"{pane_id!r} readiness: {readiness.refusal()}"
+    gate = readiness.gate
+    assert gate is not None, "a refusal-free run established something, so it must hold a gate"
+    staged = gate.transient
+    assert staged is not None and staged.pid is not None, staged
+    assert gate.retained is not None, "the created pane's retained shell was never pinned"
+    assert parent_pid_of(pid=staged.pid) in (None, gate.retained.pid), (
+        f"the controlled child {staged.pid} is not a child of the pinned retained "
+        f"shell {gate.retained.pid}"
+    )
+    assert gate.departed == "", gate.departed
+    recovery = gate.established
+    assert recovery is not None and recovery.recovered is True, recovery
+    identity = readiness.identity
+    assert identity is not None and identity.coherent is True, readiness.refusal()
+    assert identity.shell_pid == gate.retained.pid, (
+        f"the coherent identity describes shell {identity.shell_pid} while the pinned retained "
+        f"shell is {gate.retained.pid}"
+    )
+    assert readiness.methods().count("pane.process_info") == 2, (
+        "the writer must still take BOTH of its own readings — the establish and the recheck: "
+        f"{readiness.methods()}"
+    )
+    return identity
 
 
 def test_the_command_runs_once_as_a_child_of_the_verified_retained_shell(*, pair: ServerPair):
@@ -342,9 +346,10 @@ def test_the_command_runs_once_as_a_child_of_the_verified_retained_shell(*, pair
     adapter's writes are exactly `[created]`, and the deterministic files assert
     `pane.send_input` appears exactly once.
     """
-    outcome = _split_top(pair=pair, command=LAUNCH_COMMAND)
+    outcome, readiness = _split_top(pair=pair, command=LAUNCH_COMMAND)
 
     assert outcome.ok is True, outcome.error
+    identity = _established(readiness=readiness, pane_id=outcome.pane_id)
     child = _observe_launched_child(
         socket_path=pair.target.socket_path, pane_id=outcome.pane_id, name=LAUNCH_NAME
     )
@@ -358,7 +363,17 @@ def test_the_command_runs_once_as_a_child_of_the_verified_retained_shell(*, pair
         f"the launched process {child} is not a child of the verified "
         f"retained shell {reading.shell_pid}"
     )
-    text = _capture(socket_path=pair.target.socket_path, pane_id=outcome.pane_id)
+    # The SAME retained shell the readiness premise was established on, not merely
+    # whichever shell the pane reported afterwards: without this the launch could be
+    # running under a replacement and every assertion above would still hold.
+    assert reading.shell_pid == identity.shell_pid, (
+        f"the command runs under shell {reading.shell_pid}, not the established retained "
+        f"shell {identity.shell_pid}"
+    )
+    assert readiness.deliveries() == [
+        (outcome.pane_id, LAUNCH_COMMAND, ("Enter",))
+    ], readiness.deliveries()
+    text = pane_capture(socket_path=pair.target.socket_path, pane_id=outcome.pane_id)
     assert MARKER in text, f"the command never reached {outcome.pane_id}: {text!r}"
 
 
@@ -458,9 +473,10 @@ def test_the_retained_shell_outlives_an_ordinary_child_exit(*, pair: ServerPair)
          same start time, so a replacement at a recycled pid cannot pass —
          owning its foreground again, pane still open.
     """
-    outcome = _split_top(pair=pair, command=_brief_then_busy(pair=pair))
+    outcome, readiness = _split_top(pair=pair, command=_brief_then_busy(pair=pair))
 
     assert outcome.ok is True, outcome.error
+    _ = _established(readiness=readiness, pane_id=outcome.pane_id)
     before = _reading(socket_path=pair.target.socket_path, pane_id=outcome.pane_id).shell_pid
     before_starttime = starttime_of(pid=before)
     assert before_starttime is not None, f"the retained shell {before} must be alive to begin with"
@@ -489,7 +505,7 @@ def test_the_retained_shell_outlives_an_ordinary_child_exit(*, pair: ServerPair)
         expected=ShellIdentityPin(pid=before, starttime=before_starttime),
     )
     assert recovery.recovered is True, recovery.reason
-    assert outcome.pane_id in _pane_ids(
+    assert outcome.pane_id in pane_ids(
         socket_path=pair.target.socket_path
     ), "the pane must survive its command finishing"
 
@@ -524,12 +540,28 @@ def test_a_child_exit_before_shell_idle_is_a_bounded_discriminating_case(*, pair
     def read() -> dict[str, Any]:
         return process_info_reply(socket_path=pair.target.socket_path, pane_id=pane_id)
 
-    shell = _reading(socket_path=pair.target.socket_path, pane_id=pane_id).shell_pid
+    # THE RAW-SPLIT DIRECT OBSERVATION CONTROL, and the measured failure it carries.
+    # This used to read the pane's process info IMMEDIATELY after the split, with no
+    # wait behind it, and assert the reading was usable. On the operator host that
+    # reading carried no usable native fields at all and the exercise failed here —
+    # before it entered the layout adapter, on its own fixture premise. The exact
+    # pane is knowable at this boundary because this exercise split it itself, so the
+    # fix is a BOUNDED establishment of that pane's available and coherent identity:
+    # a one-shot unusable reading is consumed and retried, and a persistently
+    # unavailable or contradictory one expires as a NAMED fixture refusal.
+    identity = await_coherent_identity(
+        read=read,
+        pane_id=pane_id,
+        poll=BoundedPoll(seconds=LAUNCH_TIMEOUT),
+        registered=pair.registered,
+    )
+    assert identity.coherent is True, identity.reason
+    shell = identity.shell_pid
     starttime = starttime_of(pid=shell)
     assert starttime is not None, f"the pane's shell {shell} must be alive to begin with"
     pin = ShellIdentityPin(pid=shell, starttime=starttime)
 
-    _run_in_pane(
+    run_in_pane(
         socket_path=pair.target.socket_path, pane_id=pane_id, command=_brief_then_busy(pair=pair)
     )
     child = _observe_launched_child(
@@ -568,10 +600,11 @@ def test_no_other_pane_on_either_server_receives_the_launch(*, pair: ServerPair)
     written to, so "it went to the right pane" is a claim about instance
     routing and not just about a string.
     """
-    outcome = _split_top(pair=pair, command=LAUNCH_COMMAND)
+    outcome, readiness = _split_top(pair=pair, command=LAUNCH_COMMAND)
 
     assert outcome.ok is True, outcome.error
-    decoy_panes = _pane_ids(socket_path=pair.decoy.socket_path)
+    identity = _established(readiness=readiness, pane_id=outcome.pane_id)
+    decoy_panes = pane_ids(socket_path=pair.decoy.socket_path)
     assert outcome.pane_id in decoy_panes, (
         f"fixture precondition: the decoy server must also hold {outcome.pane_id!r}; "
         f"it holds {decoy_panes}"
@@ -582,9 +615,18 @@ def test_no_other_pane_on_either_server_receives_the_launch(*, pair: ServerPair)
         (pair.target.socket_path, pair.unrelated),
         *((pair.decoy.socket_path, pane_id) for pane_id in decoy_panes),
     ]
+    assert pair.decoy.server_pid != pair.target.server_pid, "fixture precondition: two servers"
     for socket_path, pane_id in untouched:
         reading = _reading(socket_path=socket_path, pane_id=pane_id)
         assert reading.is_idle(), f"{pane_id} was given something to run: {reading}"
-        assert MARKER not in _capture(
+        # Distinct SHELL PROCESSES, not merely distinct id strings. Herdr pane ids are
+        # unique only within a server, so the decoy holds panes named exactly like the
+        # target's; a reading that happened to be about the wrong instance would carry
+        # the established created pane's own shell and pass every other assertion here.
+        assert reading.shell_pid != identity.shell_pid, (
+            f"{pane_id} on {socket_path} reports shell {reading.shell_pid}, which is the "
+            "created pane's own established retained shell, so these are not separate panes"
+        )
+        assert MARKER not in pane_capture(
             socket_path=socket_path, pane_id=pane_id
         ), f"the command text reached {pane_id}"
