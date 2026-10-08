@@ -480,14 +480,29 @@ def _launched(*, received: list[bytes]) -> bool:
     return any(json.loads(raw)["method"] == "pane.send_input" for raw in received)
 
 
+# How many cases the refusal table below holds. Named because the table asserts
+# it against its own dict, and because the collision control at the foot of this
+# file requires exactly this many real peers to have been bound — a case silently
+# dropping out is the failure both of them exist to catch.
+REFUSAL_CASE_COUNT = 7
+
+
 def test_every_unmet_proof_refuses_before_the_command_is_launched(*, socket_dir: Path):
     """Each verification the sequence rests on fails CLOSED, and none of them launches.
 
     Driven as a table because the interesting property is uniformity: these are
-    six different ways to be unable to prove the new pane is real, new, in the
+    seven different ways to be unable to prove the new pane is real, new, in the
     right tab and above the target, and not one of them may end with a daemon
-    command in a pane. A per-case test would state the same thing six times and
+    command in a pane. A per-case test would state the same thing seven times and
     make an inconsistency easier to miss.
+
+    Each case's address is ENUMERATED, so no two of them can ever be the same.
+    They used to be derived from `abs(hash(name)) % 10000`, which two names can
+    land in the same bucket of — and because `_serve_script` binds directly and a
+    closed listener leaves its socket file behind, the colliding case's `bind`
+    raised `EADDRINUSE` and every case after it went unexercised. `str` hashing is
+    randomized per interpreter, so that was a per-process accident rather than a
+    property of the table.
     """
     unreadable_rows: dict[str, object] = {"type": "pane_list", "panes": [{"no": "id"}]}
     cases: dict[str, dict[str, list[dict[str, object] | None]]] = {
@@ -517,8 +532,9 @@ def test_every_unmet_proof_refuses_before_the_command_is_launched(*, socket_dir:
         ),
     }
 
-    for name, replies in cases.items():
-        address = socket_dir / f"{abs(hash(name)) % 10000}.sock"
+    assert len(cases) == REFUSAL_CASE_COUNT, f"the table holds {len(cases)} cases"
+    for index, (name, replies) in enumerate(cases.items()):
+        address = socket_dir / f"case-{index}.sock"
         received = _serve_script(address=address, replies=replies)
         outcome = _split_top(address=address)
         assert outcome.ok is False, f"{name}: accepted without proof"
@@ -567,3 +583,61 @@ def test_unreadable_geometry_shapes_all_yield_no_tops(*, socket_dir: Path):
         )
         is None
     ), "a bool is an int in Python, and a pane cannot be at row True"
+
+
+# ------------------------- each refusal case needs its OWN AF_UNIX address
+
+
+# The single value the forced name lookup answers for every case name, so each
+# one derives the same address. Any constant does; this one is distinctive in a
+# directory listing.
+COLLIDING_NAME_HASH = 4242
+
+
+def _collide_every_case_name(*, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Force THIS module's own `hash` lookup to answer ONE value for every name.
+
+    A DISCLOSED local control seam, and deliberately the narrowest one available:
+    `monkeypatch.setattr` installs a module-level `hash`, which Python's name
+    resolution consults BEFORE builtins for code defined in this module, and
+    removes it again at teardown. The builtins are not touched, no other module
+    can see it, and the interpreter's hash seed is neither pinned nor read — so
+    this control works identically under any seed, which is the whole point.
+    """
+    monkeypatch.setattr(f"{__name__}.hash", lambda _name: COLLIDING_NAME_HASH, raising=False)
+
+
+def test_every_refusal_case_gets_its_own_peer_even_when_every_name_collides(
+    *, socket_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A case name that derives another case's address must not stop the table.
+
+    The refusal table gave each case a peer at `abs(hash(name)) % 10000`, and
+    `_serve_script` binds that address directly. Two names landing in the same
+    bucket therefore made the SECOND `bind` raise `EADDRINUSE` — the first case's
+    socket file outlives its listener, since closing a listener does not unlink
+    its path — out of the MAIN thread, before `_split_top` was ever called. Every
+    case after the collision was then never exercised at all, and the table that
+    exists to prove uniformity across all of them silently stopped proving it.
+
+    `hash` of a `str` is randomized per interpreter, so which run collides is not
+    a property of the test: it is a property of the process it happens to run in.
+    This control removes the randomness from the question by forcing EVERY name
+    to collide, then requires the table to come through with one real AF_UNIX peer
+    per case anyway — which only guaranteed-distinct addresses can satisfy.
+
+    It drives the SHIPPED table exercise, with its real peers, its real
+    production refusals and its real zero-launch assertions, rather than a
+    restatement of it; and it is an independently reproduced fixture defect, NOT
+    a reproduction of this run's unexplained full-suite refusal, whose captured
+    text was truncated and whose cause remains unknown.
+    """
+    _collide_every_case_name(monkeypatch=monkeypatch)
+
+    test_every_unmet_proof_refuses_before_the_command_is_launched(socket_dir=socket_dir)
+
+    bound = sorted(entry.name for entry in socket_dir.iterdir())
+    assert len(bound) == REFUSAL_CASE_COUNT, (
+        f"the table bound {len(bound)} peer(s), {bound}, for {REFUSAL_CASE_COUNT} cases; "
+        "each case needs its own address, so no two case names may derive the same one"
+    )

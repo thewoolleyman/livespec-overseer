@@ -125,6 +125,22 @@ registered minimal shell in `non_login` mode and excludes the one interactive
 startup hook `non_login` does not close, while preserving the rest of the parent
 environment; see `tests/test_herdr_live_observations.py`.
 
+**ONE MORE SEAM CLAIMED A BOUNDED OBSERVATION AND DID NOT MAKE ONE, and it is
+repaired separately from all of the above.** `_await_named` polls for the first
+reading in which a pane lists a named foreground process, and it took those
+readings through the single-shot `_reading`, whose `assert` turned ONE unusable
+reply into the end of the exercise. Separately observed on the host as
+`run_in_pane` (transient) then `_await_named` then `_reading` asserting None, it
+never entered the layout adapter. That is POST-COMMAND child observation — not
+the initial readiness above, and not a production guard — so the repair is
+confined to that loop: tolerate an unusable reading within the SAME bound,
+report the last reason at expiry, and leave `_reading` asserting for the
+single-shot callers it belongs to. The scripted controls at the foot of this
+file put that question; the native `test_a_real_transient_is_not_mistaken_for_
+the_requested_occupant` above is its real-transient pair. The controlled
+unavailability is a DISCLOSED fault control and claims no reproduction of the
+historical host timing, whose origin remains unknown.
+
 Session isolation is herdr's own `--session` mechanism: the name carries this
 test process's pid, and teardown stops and deletes BY THAT EXACT NAME, so no
 other session — including the operator's `default` — is touched.
@@ -134,7 +150,7 @@ from __future__ import annotations
 
 import os
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -144,6 +160,7 @@ import herdr_identity
 import herdr_write
 import pytest
 from test_herdr_live_observations import (
+    POLL_SECONDS,
     TRANSIENT_NAME,
     TRANSIENT_SECONDS,
     BoundedPoll,
@@ -222,14 +239,39 @@ def _await_named(*, socket_path: str, pane_id: str, name: str) -> ForegroundRead
     The READING is returned, not just a pid, so a control can interrogate one
     single point-in-time observation from several angles without a second round
     trip the subject could change under.
+
+    **An unusable reading is tolerated WITHIN the existing bound, and the expiry
+    REPORTS why it expired.** This wait used to take its readings through
+    `_reading`, whose `assert` is right for the SINGLE-SHOT callers it belongs to
+    and wrong inside a poll: one unavailable reply is a fact about the READING,
+    not about the pane, and it ended the exercise a bounded wait had promised to
+    look past — in the separately observed host failure, before the layout
+    adapter had been entered at all. The shape here is now the shared
+    `await_occupying_child`'s: tolerate, remember the last reason, look again
+    until the bound, then fail naming both what was awaited and what the pane
+    actually held.
+
+    The bound is `OCCUPY_TIMEOUT` and the interval is the shared `POLL_SECONDS`,
+    both unchanged; nothing here waits globally, and `_reading` still asserts for
+    its own single-shot callers.
     """
     deadline = time.monotonic() + OCCUPY_TIMEOUT
+    reason = "no process reading was taken before the deadline"
     while time.monotonic() < deadline:
-        reading = _reading(socket_path=socket_path, pane_id=pane_id)
-        if reading.pids_named(name=name):
+        reading = read_foreground(
+            reply=process_info_reply(socket_path=socket_path, pane_id=pane_id)
+        )
+        if reading is None:
+            reason = "no reading carried usable shell/foreground fields"
+        elif reading.pids_named(name=name):
             return reading
-        time.sleep(0.1)
-    pytest.fail(f"{pane_id!r} never reported a foreground process named {name!r}")
+        else:
+            reason = f"its foreground is {list(reading.processes)}"
+        time.sleep(POLL_SECONDS)
+    pytest.fail(
+        f"{pane_id!r} never reported a foreground process named {name!r} within "
+        f"{OCCUPY_TIMEOUT}s: {reason}"
+    )
 
 
 def _geometry(*, socket_path: str, pane_id: str) -> dict[str, int]:
@@ -598,4 +640,203 @@ def test_the_staged_transient_is_a_bounded_child_the_shell_recovers_from(
     assert starttime_of(pid=observed.pid) != child_starttime, (
         f"{TRANSIENT_NAME} {observed.pid} still carries start time {child_starttime}, so the "
         "pane reported an idle shell while its declared transient was still running"
+    )
+
+
+# ------------------------------- the bounded named-child observation itself
+
+
+# The pane and the pids are the operator host's, carried over from the shared
+# module's own scripted controls so the two describe ONE measured situation.
+OBSERVED_PANE = "w1:p4"
+OBSERVED_SHELL_PID = 3584980
+OBSERVED_TRANSIENT_PID = 3585294
+OBSERVED_FOREIGN_PID = 3585295
+# The real foreground process measured on the operator host: a child of `zsh`'s
+# own startup, usable and coherent, and simply not what anyone asked for.
+FOREIGN_NAME = "mv"
+# An envelope carrying no `process_info` at all. `read_foreground` reduces it to
+# None — an UNSUCCESSFUL OBSERVATION, which is a fact about the READING rather
+# than about the pane, and is the condition a bounded wait has to look past.
+UNUSABLE_REPLY: dict[str, Any] = {"result": {}}
+# Deliberately not a socket: every reading in this section comes from the
+# scripted seam, so a path that could never connect proves none of them went out.
+SCRIPTED_SOCKET = "/nonexistent/scripted-observations.sock"
+
+
+@dataclass(frozen=True, kw_only=True)
+class _Clock:
+    """The two `time` entries a bounded wait reads, under a control's command.
+
+    Field-held callables rather than methods, mirroring the shared `BoundedPoll`,
+    so a wait's own `time.monotonic()` and `time.sleep(...)` calls reach them
+    unchanged.
+    """
+
+    monotonic: Callable[[], float]
+    sleep: Callable[[float], None]
+
+
+def _named_reply(*, pid: int, name: str) -> dict[str, Any]:
+    """A `pane.process_info` reply whose foreground is `pid`, listed as `name`."""
+    return {
+        "result": {
+            "process_info": {
+                "pane_id": OBSERVED_PANE,
+                "shell_pid": OBSERVED_SHELL_PID,
+                "foreground_process_group_id": pid,
+                "foreground_processes": [
+                    {"pid": pid, "name": name, "cmdline": name, "cwd": PANE_CWD}
+                ],
+            }
+        }
+    }
+
+
+def _scripted_observations(
+    *, monkeypatch: pytest.MonkeyPatch, replies: list[dict[str, Any]]
+) -> list[str]:
+    """Interpose THIS module's OWN observation seam with `replies`, in order.
+
+    The seam is `process_info_reply`, which is how every pane in this module is
+    already read, so a control drives the wait from exactly where the real server
+    does: no parameter is added, and the helper under test is entered unchanged.
+
+    The LAST reply repeats indefinitely, which is what lets a control describe a
+    PERMANENT condition without sizing a list against the wait's poll count.
+
+    Returns the pane ids actually asked for, in order. That list is how a control
+    tells "looked again" apart from "answered on the first reading".
+    """
+    remaining = list(replies)
+    asked: list[str] = []
+
+    def observe(*, socket_path: str, pane_id: str) -> dict[str, Any]:
+        _ = socket_path
+        asked.append(pane_id)
+        return remaining.pop(0) if len(remaining) > 1 else remaining[0]
+
+    monkeypatch.setattr(f"{__name__}.process_info_reply", observe)
+    return asked
+
+
+def _frozen_clock(*, monkeypatch: pytest.MonkeyPatch, ticks: list[float]) -> None:
+    """Advance THIS module's clock only through `ticks`, and never really sleep.
+
+    A DISCLOSED fault control over the wait's CLOCK, never over its observations.
+    It makes no claim about the historical host timing, and it is here only so a
+    deadline control does not spend `OCCUPY_TIMEOUT` real seconds asserting a
+    timer. The bound itself is untouched, and nothing it does is visible to the
+    native exercises above, which read the real clock.
+
+    Three ticks minimum, for the reason the shared `_frozen_poll` records: the
+    wait reads the clock once to compute its deadline and again on each `while`
+    test, so an intermediate tick is what buys exactly one reading before expiry.
+    """
+    remaining = list(ticks)
+
+    def monotonic() -> float:
+        return remaining.pop(0) if remaining else 1e9
+
+    monkeypatch.setattr(
+        f"{__name__}.time", _Clock(monotonic=monotonic, sleep=lambda _seconds: None)
+    )
+
+
+def test_a_one_shot_unusable_reading_does_not_end_the_named_child_wait(
+    *, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """THE separately observed host failure: one unusable reply ended the exercise.
+
+    `_await_named` promises the FIRST reading in which the pane lists a
+    foreground process by name, within its own bound. It took those readings
+    through `_reading`, whose `assert` is right for a SINGLE-SHOT caller and
+    wrong inside a poll: one unavailable reply is a fact about the READING, not
+    about the pane, and it failed the whole exercise — in the measured host run,
+    before the layout adapter had been entered at all.
+
+    One unusable reply, then the real expected observation. The bound is not
+    touched and this control waits for nothing in real time beyond the wait's own
+    existing poll interval; the second reading is simply TAKEN, which is the
+    behaviour the promise already claimed.
+
+    This is post-command child observation, not initial readiness and not a
+    production guard, and the controlled unavailability makes no claim to
+    reproduce the historical timing — only to put the question.
+    """
+    asked = _scripted_observations(
+        monkeypatch=monkeypatch,
+        replies=[
+            UNUSABLE_REPLY,
+            _named_reply(pid=OBSERVED_TRANSIENT_PID, name=TRANSIENT_NAME),
+        ],
+    )
+
+    reading = _await_named(socket_path=SCRIPTED_SOCKET, pane_id=OBSERVED_PANE, name=TRANSIENT_NAME)
+
+    assert asked == [OBSERVED_PANE, OBSERVED_PANE], (
+        f"the wait took {len(asked)} reading(s), {asked}; an unusable FIRST reading must be "
+        "followed by a second of the same pane rather than ending the exercise"
+    )
+    # The EXPECTED child's identity, not merely a reading that came back: the
+    # returned observation has to be the one that actually lists it.
+    assert reading.pane_id == OBSERVED_PANE, reading
+    assert reading.shell_pid == OBSERVED_SHELL_PID, reading
+    assert reading.pids_named(name=TRANSIENT_NAME) == (OBSERVED_TRANSIENT_PID,), reading
+
+
+def test_a_permanently_unavailable_reading_is_a_bounded_named_wait_failure(
+    *, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Tolerating one gap must not become waiting forever, nor failing for the wrong thing.
+
+    Every reading is unusable. The wait must still END at its own bound and fail
+    NAMING what it was waiting for AND why no reading could answer, so an
+    operator learns that the pane never reported the process rather than that one
+    control read came back empty. Failing on the first unusable reply — what the
+    measured helper did — reports a failed control read as though it were an
+    answer about the pane.
+    """
+    _frozen_clock(monkeypatch=monkeypatch, ticks=[0.0, 1.0, OCCUPY_TIMEOUT + 1.0])
+    asked = _scripted_observations(monkeypatch=monkeypatch, replies=[UNUSABLE_REPLY])
+
+    with pytest.raises(pytest.fail.Exception) as refusal:
+        _await_named(socket_path=SCRIPTED_SOCKET, pane_id=OBSERVED_PANE, name=TRANSIENT_NAME)
+
+    assert asked == [OBSERVED_PANE], f"the bound must hold the readings to exactly one: {asked}"
+    assert OBSERVED_PANE in str(refusal.value), refusal.value
+    assert TRANSIENT_NAME in str(refusal.value), refusal.value
+    assert "usable" in str(
+        refusal.value
+    ), f"the bounded failure does not say why no reading could answer: {refusal.value}"
+
+
+def test_a_foreign_foreground_process_is_never_returned_as_the_named_child(
+    *, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A usable reading about ANOTHER process is refused, and the refusal says which.
+
+    Two halves, disclosed separately because they stood differently before the
+    repair. The REJECTION held already: a reading that lists no process under the
+    requested name was never returned, and tolerating an unusable reading must
+    not slacken into tolerating a usable one that is simply about something else.
+    The REPORT did not hold: the expiry named only what was awaited, so the
+    operator could not see that the pane's foreground was held by the real `mv`
+    from shell startup measured on the host — the very process whose silent
+    acceptance this family's original defect turned on.
+    """
+    _frozen_clock(monkeypatch=monkeypatch, ticks=[0.0, 1.0, OCCUPY_TIMEOUT + 1.0])
+    asked = _scripted_observations(
+        monkeypatch=monkeypatch,
+        replies=[_named_reply(pid=OBSERVED_FOREIGN_PID, name=FOREIGN_NAME)],
+    )
+
+    with pytest.raises(pytest.fail.Exception) as refusal:
+        _await_named(socket_path=SCRIPTED_SOCKET, pane_id=OBSERVED_PANE, name=TRANSIENT_NAME)
+
+    assert asked == [OBSERVED_PANE], f"the bound must hold the readings to exactly one: {asked}"
+    assert TRANSIENT_NAME in str(refusal.value), refusal.value
+    assert FOREIGN_NAME in str(refusal.value), (
+        "the bounded failure does not report what the pane's foreground actually held: "
+        f"{refusal.value}"
     )
