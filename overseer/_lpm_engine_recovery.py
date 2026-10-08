@@ -34,7 +34,7 @@ from _lpm_engine_context import OperationEngine
 from _lpm_fence import MetadataFence, fence_from_object
 from _lpm_fence_inventory import pending_fence_records
 from _lpm_fence_owner import validated_writer_role
-from _lpm_fence_recovery import DESIRED_REVISION, GlobalRecovery
+from _lpm_fence_recovery import DESIRED_REVISION, GlobalRecovery, recover_pending_fences
 from _lpm_fence_reread import apply_fenced_set, authoritative_reread
 from _lpm_fence_store import fence_path, resolve_fence
 from _lpm_localstate import read_local_record
@@ -50,21 +50,24 @@ __all__: list[str] = [
 
 
 def recover_metadata_fences(*, engine: OperationEngine) -> Result[GlobalRecovery, ManagerError]:
-    """Attempt every pending metadata-effect fence on disk, in lexical `record_id` order."""
+    """Attempt every pending metadata-effect fence on disk, in lexical `record_id` order.
+
+    Every fence is attempted, however many of them fail. A record whose own fence cannot be
+    reconciled is quarantined and the traversal carries on, because that bound is the whole
+    point: an unreconcilable fence must not wedge records it has nothing to do with.
+    """
     records = pending_fence_records(state_dir=engine.state_dir)
     if isinstance(records, Failure):
         return Failure(records.failure())
-    return Success(_attempted_pass(engine=engine, record_ids=records.unwrap()))
-
-
-def _attempted_pass(*, engine: OperationEngine, record_ids: tuple[str, ...]) -> GlobalRecovery:
-    """Visit `record_ids` in order, stopping at the first fence that cannot be reconciled."""
-    reconciled: list[str] = []
-    for record_id in record_ids:
-        if isinstance(_attempted(engine=engine, record_id=record_id), Failure):
-            return GlobalRecovery(reconciled=tuple(reconciled), quarantined=(record_id,))
-        reconciled.append(record_id)
-    return GlobalRecovery(reconciled=tuple(reconciled), quarantined=())
+    return Success(
+        recover_pending_fences(
+            record_ids=records.unwrap(),
+            # `recover_pending_fences` calls this POSITIONALLY, which its own published
+            # callable type fixes, so it is supplied as a lambda rather than as a nested
+            # definition carrying a positional parameter of its own.
+            reconcile=lambda record_id: _attempted(engine=engine, record_id=record_id),
+        )
+    )
 
 
 def _attempted(*, engine: OperationEngine, record_id: str) -> Result[None, ManagerError]:
