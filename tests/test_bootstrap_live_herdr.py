@@ -50,6 +50,7 @@ this test process's pid, and teardown stops and deletes BY THAT EXACT NAME.
 from __future__ import annotations
 
 import contextlib
+import itertools
 import json
 import os
 import shutil
@@ -79,13 +80,26 @@ from test_herdr_live_observations import (
 __all__: list[str] = []
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-BOOTSTRAP_TIMEOUT = 120.0
-DAEMON_TIMEOUT = 60.0
+# Both bounds are LIVENESS floors rather than latency budgets, and both are
+# generous on purpose: this file installs a fresh runtime prefix, starts a real
+# herdr server and waits for a real daemon to come up, all while `just check` runs
+# the rest of the suite across four xdist workers on the same host. A bound tight
+# enough to be interesting here would be measuring the host's load, not the
+# bootstrap.
+BOOTSTRAP_TIMEOUT = 300.0
+DAEMON_TIMEOUT = 180.0
 POLL_SECONDS = 0.2
 ACCEPT_POLL = 0.5
 INSTALL_TIMEOUT = 600.0
 SENTINEL_COMMAND = "sleep 600"
 SENTINEL_NAME = "sleep"
+
+# A per-exercise suffix for the herdr session name, on top of this process's pid.
+# The pid alone was not enough: both exercises here are function-scoped, so the
+# second one's `herdr --session NAME server` raced the first one's stop-and-delete
+# of the SAME name. Teardown still names exactly the session it created, so
+# isolation is unchanged — what this removes is a collision between two of our own.
+_session_counter = itertools.count(1)
 
 # The in-pane driver. It builds the REAL probe, the REAL herdr bootstrap backend
 # and the REAL `/proc` parent reader, so what runs in the pane is the shipped
@@ -279,7 +293,7 @@ def _write_driver(*, scratch: Path) -> Path:
 @pytest.fixture(name="live_tab")
 def _live_tab(*, tmp_path: Path) -> Iterator[LiveTab]:
     """One owned server, an invoking pane, and one unrelated sibling pane below it."""
-    session = f"overseer-bootstrap-{os.getpid()}"
+    session = f"overseer-bootstrap-{os.getpid()}-{next(_session_counter)}"
     try:
         owned = start_owned_server(session=session, scratch=tmp_path, cwd=PANE_CWD)
         sibling = split_pane(
