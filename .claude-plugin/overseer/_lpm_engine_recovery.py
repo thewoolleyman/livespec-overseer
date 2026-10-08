@@ -33,8 +33,9 @@ from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 from _lpm_engine_context import OperationEngine
 from _lpm_fence import MetadataFence, fence_from_object
 from _lpm_fence_inventory import pending_fence_records
+from _lpm_fence_owner import validated_writer_role
 from _lpm_fence_recovery import DESIRED_REVISION, GlobalRecovery
-from _lpm_fence_reread import authoritative_reread
+from _lpm_fence_reread import apply_fenced_set, authoritative_reread
 from _lpm_fence_store import fence_path, resolve_fence
 from _lpm_localstate import read_local_record
 from _lpm_results import ManagerError, store_unavailable
@@ -84,12 +85,40 @@ def _attempted(*, engine: OperationEngine, record_id: str) -> Result[None, Manag
 def _settled(
     *, engine: OperationEngine, fence: MetadataFence, path: Path
 ) -> Result[None, ManagerError]:
-    """Decide `fence` against the authoritative chain, removing it only once settled."""
+    """Decide `fence` against the authoritative chain, retrying only its own revision."""
     if authoritative_reread(store=engine.store, fence=fence) == DESIRED_REVISION:
         return resolve_fence(path=path, owner_uid=engine.owner_uid)
-    return Failure(
-        store_unavailable(message="this record's fenced revision is not yet authoritative")
-    )
+    replay = validated_writer_role(engine=engine, fence=fence)
+    if isinstance(replay, Failure):
+        return Failure(replay.failure())
+    return _retried(engine=engine, fence=fence, path=path, writer_role=replay.unwrap())
+
+
+def _retried(
+    *, engine: OperationEngine, fence: MetadataFence, path: Path, writer_role: str
+) -> Result[None, ManagerError]:
+    """Issue the one revision `fence` records, as the role its own owner authorized.
+
+    A RECOVERY PASS ALWAYS INHERITS ITS FENCE, so the retry is made with
+    `created_from_absence` false, always. "Every call that found the fence already present MUST
+    conservatively treat it as having a prior unknown outcome": this pass did not create any of
+    these fences and cannot distinguish a crash before the original adapter call from one after
+    it, so a later definitive `condition-failed` or `uncommitted` RETAINS the fence here rather
+    than resolving it.
+    """
+    # `apply_fenced_set` refuses only an unencodable record or a classification outside its own
+    # closed sets; this fence's records came back through `fence_from_object` a moment ago and
+    # both classifications are computed in there, so neither refusal is reachable.
+    decision = apply_fenced_set(
+        store=engine.store, fence=fence, created_from_absence=False
+    ).unwrap()
+    if decision.retain_fence:
+        return Failure(
+            store_unavailable(
+                message=f"this record's {writer_role} retry resolved to {decision.disposition}"
+            )
+        )
+    return resolve_fence(path=path, owner_uid=engine.owner_uid)
 
 
 def _fence_file(*, engine: OperationEngine, record_id: str) -> Path:
