@@ -1007,7 +1007,29 @@ def owned_environment(*, config_path: Path) -> dict[str, str]:
 
 
 def stop_owned_server(*, session: str) -> None:
-    """Stop and delete EXACTLY `session`, touching no other herdr session."""
+    """Stop and delete EXACTLY `session`, touching no other herdr session.
+
+    **An absent binary means there is nothing of ours to stop, and saying so is
+    not a swallowed error.** :func:`start_owned_server` calls
+    :func:`require_herdr` before it spawns anything, so a session can only exist
+    if the binary was reachable; when it is not, no owned server was ever created
+    and this cleanup has no work. Returning here is therefore the ACCURATE answer
+    for that one condition, not a tolerance for failure: nothing is caught, and a
+    reachable binary that then refuses, times out, or exits non-zero is left to
+    behave exactly as it did before.
+
+    Why the distinction is load-bearing. Every caller runs this from a `finally`
+    guarding a `try` that may have raised `Skipped` out of `require_herdr`. Since
+    `herdr_cli` execs the binary by name, an unreachable one raised
+    `FileNotFoundError` from inside that `finally` and REPLACED the in-flight
+    skip, so a host simply lacking the capability reported errors instead of
+    skips — thirteen of them on CI run 37722427716 (nine at setup, four at
+    teardown), each chained as "During handling of the above exception, another
+    exception occurred". See
+    `tests/test_herdr_live_retained_shell_launch.py::test_an_absent_herdr_lets_this_fixtures_setup_skip_reach_the_runner`.
+    """
+    if shutil.which(HERDR_BINARY) is None:
+        return
     _ = herdr_cli(args=["--session", session, "server", "stop"])
     _ = herdr_cli(args=["session", "delete", session])
 
