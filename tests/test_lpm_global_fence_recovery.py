@@ -66,6 +66,25 @@ settled, and asserts the probe was still asked about the records past them. A pa
 the traversal at its first failure would leave the same three fences retained and the same pass
 successful; only the reads the store actually received distinguish it, which is why the quarantine
 set alone is not the assertion.
+
+THE QUARANTINE IS EXERCISED THROUGH THE ENGINE SEAM A COMMAND ACTUALLY ASKS, not through the pure
+rule. "A requested command MUST return `store-unavailable` when its explicit or resolved record
+identity is quarantined" and "Provision MUST exclude a quarantined record", so each case drives
+one public entry point over the real state directory and the real store protocol — no installed
+CLI composition, and no hand-assembled quarantine set, because a set a test supplies itself proves
+nothing about which records a pass over these bytes would actually bound.
+
+EMPTINESS IS ASSERTED THREE WAYS ON PURPOSE, since the whole rule is that two of them differ. A
+pool narrowed by quarantine still selects, a pool EMPTIED by quarantine is `store-unavailable`
+because nobody can say what that record holds, and a pool that never matched anything is
+`retryable-exhaustion`, which asks to be retried. An implementation that reported the second as
+the first would have a consumer retry forever against a record nobody can read, so the third case
+is what keeps the distinction honest rather than accidental.
+
+A PASS THAT COULD NOT BE BOUNDED ADMITS NOTHING AT ALL. A fence file no identity binds to supplies
+no quarantine set, so neither seam may fall back on an empty one: an identity request and a
+selection both inherit that whole-pass refusal rather than proceeding against records whose
+pending effects nobody looked at.
 """
 
 from __future__ import annotations
@@ -349,6 +368,36 @@ def _recover(*, state_dir: pathlib.Path, store):
     return _module("_lpm_engine_recovery").recover_metadata_fences(
         engine=_engine(state_dir=state_dir, store=store)
     )
+
+
+def _published(*, name: str):
+    """One public recovery entry point, asserted to be PUBLISHED rather than merely present."""
+    recovery = _module("_lpm_engine_recovery")
+    assert name in recovery.__all__, f"recovery must publish {name} to commands"
+    return getattr(recovery, name)
+
+
+def _admitted_identity(*, state_dir: pathlib.Path, store, record_id: str):
+    """What a command bound to `record_id` is told once global recovery has run."""
+    return _published(name="admitted_record_identity")(
+        engine=_engine(state_dir=state_dir, store=store), record_id=record_id
+    )
+
+
+def _admitted_selection(*, state_dir: pathlib.Path, store, matching: tuple[str, ...]):
+    """What provision may still select from, once global recovery has run."""
+    return _published(name="admitted_selection")(
+        engine=_engine(state_dir=state_dir, store=store), matching=matching
+    )
+
+
+def _malformed_fence(*, state_dir: pathlib.Path, record_id: str) -> pathlib.Path:
+    """A fence that names its own record and cannot be validated, so it quarantines just it."""
+    members = _expiry_fence_object(record_id=record_id)
+    del members["version"]
+    path = _fence_file(state_dir=state_dir, record_id=record_id)
+    _seed(path=path, value=members)
+    return path
 
 
 def test_global_recovery_visits_pending_fences_in_lexical_record_identity_order(
@@ -731,3 +780,67 @@ def test_an_unreconcilable_fence_quarantines_only_its_own_record(
         assert fence_file.read_bytes() == bytes_at_rest, record_id
         assert len(store.items[record_id]) == 1, record_id
     assert owner_file.read_bytes() == owner_bytes, "the owning safety state is retained too"
+
+
+def test_an_identity_dependent_request_for_a_quarantined_record_is_store_unavailable(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The refusal's scope is one record: its neighbour's command proceeds normally."""
+    state_dir = _state(tmp_path=tmp_path)
+    store = _genesis_store(record_ids=(_FIRST_RECORD, _SECOND_RECORD))
+    quarantining = _malformed_fence(state_dir=state_dir, record_id=_FIRST_RECORD)
+    retained = quarantining.read_bytes()
+    settled = _expiry_fence(record_id=_SECOND_RECORD)
+    _seed_fence(state_dir=state_dir, fence=settled)
+    _commit_through_the_fence(store=store, fence=settled)
+
+    refused = _admitted_identity(state_dir=state_dir, store=store, record_id=_FIRST_RECORD)
+    unaffected = _admitted_identity(state_dir=state_dir, store=store, record_id=_SECOND_RECORD)
+
+    assert isinstance(refused, Failure), refused
+    assert refused.failure().error_type == "store-unavailable"
+    assert "quarantined" in refused.failure().message
+    assert isinstance(unaffected, Success), unaffected
+    assert unaffected.unwrap() == _SECOND_RECORD, "a command with no dependency on it continues"
+    assert quarantining.read_bytes() == retained, "the refusal mutates nothing"
+
+
+def test_selection_excludes_a_quarantined_candidate_rather_than_calling_it_exhaustion(
+    tmp_path: pathlib.Path,
+) -> None:
+    """An emptied pool and a pool that never matched earn two DIFFERENT refusals."""
+    state_dir = _state(tmp_path=tmp_path)
+    store = _genesis_store(record_ids=(_FIRST_RECORD, _SECOND_RECORD))
+    _malformed_fence(state_dir=state_dir, record_id=_FIRST_RECORD)
+
+    narrowed = _admitted_selection(
+        state_dir=state_dir, store=store, matching=(_FIRST_RECORD, _SECOND_RECORD)
+    )
+    emptied = _admitted_selection(state_dir=state_dir, store=store, matching=(_FIRST_RECORD,))
+    never_matched = _admitted_selection(state_dir=state_dir, store=store, matching=())
+
+    assert isinstance(narrowed, Success), narrowed
+    assert narrowed.unwrap() == (_SECOND_RECORD,), "an unrelated candidate stays selectable"
+    assert isinstance(emptied, Failure), emptied
+    assert emptied.failure().error_type == "store-unavailable", "unknown, not none-available"
+    assert isinstance(never_matched, Failure), never_matched
+    assert never_matched.failure().error_type == "retryable-exhaustion", "ordinary exhaustion"
+
+
+def test_a_recovery_pass_that_could_not_be_bounded_admits_no_record_and_no_candidate(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A fence binding to no record supplies no quarantine set, so neither seam may answer."""
+    state_dir = _state(tmp_path=tmp_path)
+    store = _genesis_store(record_ids=(_FIRST_RECORD,))
+    _seed_fence(state_dir=state_dir, fence=_expiry_fence(record_id=_FIRST_RECORD))
+    stray = _fence_directory(state_dir=state_dir) / "stray.json"
+    _seed(path=stray, value={"record_id": _SECOND_RECORD})
+
+    identity = _admitted_identity(state_dir=state_dir, store=store, record_id=_FIRST_RECORD)
+    selection = _admitted_selection(state_dir=state_dir, store=store, matching=(_FIRST_RECORD,))
+
+    for refused in (identity, selection):
+        assert isinstance(refused, Failure), refused
+        assert refused.failure().error_type == "store-unavailable", refused
+        assert "naming no record identity" in refused.failure().message, refused
