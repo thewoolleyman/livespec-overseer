@@ -62,6 +62,7 @@ NAME, so no other session — including the operator's `default` — is touched.
 from __future__ import annotations
 
 import os
+import shutil
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -630,3 +631,59 @@ def test_no_other_pane_on_either_server_receives_the_launch(*, pair: ServerPair)
         assert MARKER not in pane_capture(
             socket_path=socket_path, pane_id=pane_id
         ), f"the command text reached {pane_id}"
+
+
+# ------------------------------- this fixture's cleanup on a host without herdr
+
+
+def test_an_absent_herdr_lets_this_fixtures_setup_skip_reach_the_runner(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A host with no `herdr` must SKIP here, never error inside the fixture's cleanup.
+
+    `require_herdr` raises `Skipped` inside `_pair`'s `try`, which is the right
+    outcome on a host that cannot run the binary at all. The `finally` then stops
+    both sessions by name — and `stop_owned_server` shells out to that same absent
+    binary, so `subprocess.run` raised `FileNotFoundError` OUT OF THE CLEANUP and
+    replaced the in-flight skip. Measured on the original CI run 37722427716 (job
+    113132921672): thirteen outcomes reported as ERRORS — nine at setup, four at
+    teardown — each carrying "During handling of the above exception, another
+    exception occurred", against a suite otherwise 3470 passed / 36 skipped.
+
+    **The control is ONE disclosed environment fact and nothing is stubbed.**
+    `PATH` is pointed at an empty directory this test owns, so `shutil.which`
+    genuinely answers None for `require_herdr` AND `subprocess.run` genuinely
+    cannot exec the binary for the cleanup — the same two real behaviors the CI
+    host had, from one real cause rather than from two patched seams. The
+    DELIVERED fixture body is entered verbatim through its own generator, so what
+    runs here is the real setup-finally path and not a restatement of it.
+
+    Only the two outcomes actually in contention are caught, so a third kind of
+    failure would surface as itself rather than being absorbed by this exercise.
+
+    This is an absent-capability claim ONLY. It must never turn a herdr-capable
+    host's native proof into a skip: every exercise above still starts real
+    servers on this host, and this one touches no server because none can exist
+    when the binary is unreachable.
+    """
+    only_dir_on_path = tmp_path / "no-herdr-bin"
+    only_dir_on_path.mkdir()
+    monkeypatch.setenv("PATH", str(only_dir_on_path))
+    assert shutil.which(HERDR_BINARY) is None, (
+        "control precondition: the empty PATH must make the binary genuinely unreachable, "
+        "because both halves of this exercise depend on that one fact"
+    )
+
+    setup = _pair.__wrapped__(tmp_path=tmp_path)
+    arrived: BaseException | None = None
+    try:
+        _ = next(setup)
+    except (pytest.skip.Exception, OSError) as error:
+        arrived = error
+
+    masked_over = None if arrived is None else type(arrived.__context__).__name__
+    assert isinstance(arrived, pytest.skip.Exception), (
+        "an absent herdr must reach the runner as this fixture's own skip, but the cleanup "
+        f"raised {type(arrived).__name__}({arrived}) over the in-flight {masked_over}"
+    )
+    assert "herdr is not installed" in str(arrived), arrived
