@@ -77,36 +77,40 @@ test process's pid, and teardown stops and deletes BY THAT EXACT NAME.
 from __future__ import annotations
 
 import contextlib
-import importlib
 import json
 import os
 import shutil
 import socket
-import subprocess
 import threading
-import time
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import claude_sessions
+import herdr_identity
+import herdr_write
 import pytest
 from test_herdr_live_observations import (
-    TRANSIENT_NAME,
     BoundedPoll,
     ForegroundReading,
-    ReadyShellGate,
+    OwnedServer,
+    PaneIdentity,
+    PaneReadiness,
+    ReadyWriter,
     await_occupying_child,
     parent_pid_of,
     process_info_reply,
     read_foreground,
+    registered_login_shells,
+    split_pane,
+    start_owned_server,
     startup_transient,
+    stop_owned_server,
 )
 
 __all__: list[str] = []
 
-HERDR_BINARY = "herdr"
-SERVER_READY_TIMEOUT = 30.0
 # A liveness floor, not a latency budget. This was briefly raised to 120.0 on a
 # diagnosis that did not hold up — the clean control's failures were traced to
 # its wait PREDICATE, not to this bound, so the raise is backed out rather than
@@ -163,16 +167,6 @@ class LiveProxiedTab:
     unrelated: str
     transient: str
     state: ProxyState
-
-
-def _socket_for(*, session: str) -> Path:
-    return Path.home() / ".config" / "herdr" / "sessions" / session / "herdr.sock"
-
-
-def _cli(*, args: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603 — the herdr CLI, not a Python child
-        [HERDR_BINARY, *args], capture_output=True, text=True, timeout=60, check=False
-    )
 
 
 def _read_frame(*, conn: socket.socket) -> bytes | None:
@@ -305,26 +299,14 @@ def _serve_proxy(*, listener: socket.socket, real_socket: str, state: ProxyState
                 continue
 
 
-def _start_server(*, session: str, scratch: Path, log_name: str) -> str:
-    log = (scratch / log_name).open("wb")
-    _ = subprocess.Popen(  # noqa: S603 — the herdr CLI, not a Python child
-        [HERDR_BINARY, "--session", session, "server"],
-        stdout=log,
-        stderr=subprocess.STDOUT,
-        stdin=subprocess.DEVNULL,
-        start_new_session=True,
-        cwd=str(scratch),
-    )
-    address = _socket_for(session=session)
-    deadline = time.monotonic() + SERVER_READY_TIMEOUT
-    while time.monotonic() < deadline and not address.exists():
-        time.sleep(0.1)
-    log.close()
-    assert address.exists(), (
-        f"herdr session {session!r} never created {address}; "
-        f"server log: {(scratch / log_name).read_text(errors='replace')[:500]}"
-    )
-    return str(address)
+def _start_server(*, session: str, scratch: Path, log_name: str) -> OwnedServer:
+    """One OWNED server whose panes run a DECLARED minimal shell, plus its root pane.
+
+    The shared seam is what makes that shell the fixture's choice rather than an
+    inherited one, and it encloses its own socket wait and workspace creation in
+    cleanup; see `tests/test_herdr_live_observations.py`.
+    """
+    return start_owned_server(session=session, scratch=scratch, log_name=log_name, cwd=PANE_CWD)
 
 
 @dataclass(kw_only=True)
@@ -351,29 +333,15 @@ class OwnedProxies:
 def _build(
     *, session: str, scratch: Path, proxy_dir: Path, decline: bool, owned: OwnedProxies
 ) -> LiveProxiedTab:
-    real_socket = _start_server(session=session, scratch=scratch, log_name=f"{session}.log")
-    created = _raw_request(
-        socket_path=real_socket,
-        method="workspace.create",
-        params={"cwd": PANE_CWD, "label": session, "focus": False},
-    )
-    assert "result" in created, f"workspace.create failed: {created}"
-    original = str(created["result"]["root_pane"]["pane_id"])
+    owned_server = _start_server(session=session, scratch=scratch, log_name=f"{session}.log")
+    real_socket = owned_server.socket_path
+    original = owned_server.root
     # An unrelated sibling in its OWN column, so any input or reshuffle reaching
     # it is unmistakable. The swap under test exchanges two panes in the
     # original's column; this one must come through untouched either way.
-    sibling = _raw_request(
-        socket_path=real_socket,
-        method="pane.split",
-        params={
-            "target_pane_id": original,
-            "direction": "right",
-            "ratio": 0.5,
-            "cwd": PANE_CWD,
-            "focus": False,
-        },
+    unrelated = split_pane(
+        socket_path=real_socket, pane_id=original, direction="right", cwd=PANE_CWD
     )
-    assert "result" in sibling, f"sibling split failed: {sibling}"
     state = ProxyState(decline=decline)
     listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     proxy_socket = proxy_dir / f"{'decline' if decline else 'clean'}.sock"
@@ -391,7 +359,7 @@ def _build(
         real_socket=real_socket,
         proxy_socket=str(proxy_socket),
         original=original,
-        unrelated=str(sibling["result"]["pane"]["pane_id"]),
+        unrelated=unrelated,
         transient=startup_transient(scratch=scratch),
         state=state,
     )
@@ -400,8 +368,6 @@ def _build(
 @pytest.fixture(name="proxied")
 def _proxied(*, tmp_path: Path) -> Iterator[Any]:
     """A factory: the declining harness and the clean one differ by one flag."""
-    if shutil.which(HERDR_BINARY) is None:
-        pytest.skip("herdr is not installed on this host")
     proxy_dir = Path(os.environ.get("TMPDIR", "/tmp")) / f"hrdrn-{os.getpid()}"
     proxy_dir.mkdir(parents=True, exist_ok=True)
     sessions: list[str] = []
@@ -423,42 +389,47 @@ def _proxied(*, tmp_path: Path) -> Iterator[Any]:
     finally:
         owned.shut_down()
         for session in sessions:
-            _ = _cli(args=["--session", session, "server", "stop"])
-            _ = _cli(args=["session", "delete", session])
+            stop_owned_server(session=session)
         shutil.rmtree(proxy_dir, ignore_errors=True)
 
 
-def _split_top(*, live: LiveProxiedTab) -> tuple[Any, ReadyShellGate]:
-    """The real layout sequence, with the created pane's ready shell ESTABLISHED.
+def _split_top(*, live: LiveProxiedTab) -> tuple[Any, PaneReadiness]:
+    """The writer's own PUBLIC entrypoint, with the created pane's readiness ESTABLISHED.
 
-    The gate forwards every request to the shipped writer, so the socket, the
-    deadline and the PEER VALIDATION stay exactly as the public facade runs them
-    — against this proxy, whose pid and `/proc` start time the target names — and
-    the shell proof is taken from that writer's own fields rather than rebuilt
-    here. `split_window_top` is the three-line facade over this same call with
-    this same proof.
+    **This enters `HerdrWriter.split_window_top` rather than
+    `herdr_layout.place_above`, and that is the repair.** The facade is part of what
+    this exercise is about; a sequence entered one layer below it is a different
+    subject, and the inherited-facade assertion is what keeps a fixture from quietly
+    reducing the coverage to the internal layout call again.
 
-    Its establishment requests go to the REAL socket, which is what keeps this
-    fixture's setup input out of `ProxyState.writes()` and therefore out of the
-    byte-level claim about what the WRITER delivered.
+    The seam is the shared `ReadyWriter` — the shipped writer with its PUBLIC
+    `request` interposed — so the socket, the per-request deadline and the PEER
+    VALIDATION stay exactly as the public facade runs them (against this proxy, whose
+    pid and `/proc` start time the target names), and the `ShellProof` is built from
+    the writer's own fields rather than rebuilt here.
 
-    The gate is returned alongside the outcome because an unestablished or
-    expired readiness has to be gradeable as a FIXTURE failure by every caller,
-    not swallowed here.
+    The readiness establishment's requests go to the REAL socket, which is what keeps
+    this fixture's setup input out of `ProxyState.writes()` and therefore out of the
+    byte-level claim about what the WRITER delivered. It also completes before
+    `super().request` hands anything to `herdr_transport`, so it costs no request its
+    deadline.
+
+    The readiness is returned alongside the outcome because an unestablished or
+    expired premise has to be gradeable as a FIXTURE failure by every caller, not
+    swallowed here.
     """
-    writer_module = importlib.import_module("herdr_write")
-    identity = importlib.import_module("herdr_identity")
-    claude_sessions = importlib.import_module("claude_sessions")
     starttime = claude_sessions.proc_starttime(pid=os.getpid())
     assert starttime is not None, "this process must have a readable /proc start time"
-    gate = ReadyShellGate(
-        inner=writer_module.HerdrWriter(timeout_seconds=10.0),
+    assert (
+        ReadyWriter.split_window_top is herdr_write.HerdrWriter.split_window_top
+    ), "the exercise must enter the SHIPPED public facade, not a fixture reimplementation"
+    readiness = PaneReadiness(
         socket_path=live.real_socket,
-        startup_transient=live.transient,
-        transient_name=TRANSIENT_NAME,
+        transient=live.transient,
+        registered=registered_login_shells(),
     )
-    outcome = gate.place_above(
-        target=identity.HerdrPaneTarget(
+    outcome = ReadyWriter(readiness=readiness, timeout_seconds=10.0).split_window_top(
+        target=herdr_identity.HerdrPaneTarget(
             socket_path=live.proxy_socket,
             server_pid=os.getpid(),
             server_starttime=starttime,
@@ -468,22 +439,26 @@ def _split_top(*, live: LiveProxiedTab) -> tuple[Any, ReadyShellGate]:
         command=DAEMON_COMMAND,
         ratio=TOP_RATIO,
     )
-    return outcome, gate
+    return outcome, readiness
 
 
-def _established(*, live: LiveProxiedTab, gate: ReadyShellGate) -> None:
+def _established(*, live: LiveProxiedTab, readiness: PaneReadiness) -> PaneIdentity:
     """Grade the fixture's own precondition before anything grades the adapter.
 
-    Three facts, each named separately so a failure says which one was missing:
-    the controlled child was observed in the EXACT pane the adapter created, that
-    child exited on its own, and the pinned retained shell owns its foreground
-    again. `refusal()` carries all three plus the expiry of any of their bounds.
+    Each fact named separately so a failure says which one was missing: the step ran
+    exactly once and for the EXACT pane the adapter created, the controlled child was
+    that pane's own pinned retained shell's child, it exited on its own, that shell
+    owns its foreground again, and the pane's server-reported name and kernel
+    executable describe one program. `refusal()` carries all of those plus the expiry
+    of any of their bounds.
     """
-    assert gate.refusal() == "", gate.refusal()
-    assert gate.gated == [live.state.created], (
-        "the readiness gate must have established the pane the adapter actually "
-        f"created; it gated {gate.gated} against created {live.state.created!r}"
+    assert readiness.panes == [live.state.created], (
+        "readiness must have been established exactly once, for the pane the adapter "
+        f"created; it ran for {readiness.panes} against created {live.state.created!r}"
     )
+    assert readiness.refusal() == "", readiness.refusal()
+    gate = readiness.gate
+    assert gate is not None, "a refusal-free run established something, so it must hold a gate"
     transient = gate.transient
     assert transient is not None and transient.pid is not None, transient
     assert gate.retained is not None, "the retained shell was never pinned as an identity"
@@ -494,6 +469,13 @@ def _established(*, live: LiveProxiedTab, gate: ReadyShellGate) -> None:
     assert gate.departed == "", gate.departed
     established = gate.established
     assert established is not None and established.recovered is True, established
+    identity = readiness.identity
+    assert identity is not None and identity.coherent is True, readiness.refusal()
+    assert identity.shell_pid == gate.retained.pid, (
+        f"the coherent identity describes shell {identity.shell_pid} while the pinned retained "
+        f"shell is {gate.retained.pid}"
+    )
+    return identity
 
 
 def _launched_child(*, live: LiveProxiedTab, pane_id: str) -> int:
@@ -532,9 +514,9 @@ def test_a_declined_swap_leaves_a_real_unmoved_pane_and_writes_nothing(*, proxie
     """
     live = proxied(decline=True)
 
-    outcome, gate = _split_top(live=live)
+    outcome, readiness = _split_top(live=live)
 
-    _established(live=live, gate=gate)
+    identity = _established(live=live, readiness=readiness)
     assert live.state.declined is True, "the decline was never actually injected"
     assert outcome.ok is False, "a declined swap is not a completed layout change"
     assert outcome.pane_id == live.state.created, "the created pane must still be named"
@@ -553,9 +535,9 @@ def test_a_declined_swap_leaves_a_real_unmoved_pane_and_writes_nothing(*, proxie
         assert MARKER not in _capture(
             socket_path=live.real_socket, pane_id=pane_id
         ), f"the command text reached {pane_id}"
-    assert gate.retained is not None and original_shell != gate.retained.pid, (
-        "fixture precondition: the original pane's shell is not the created pane's, so the "
-        "readings above are about three distinct shells"
+    assert original_shell != identity.shell_pid, (
+        "fixture precondition: the original pane's shell is not the created pane's established "
+        "retained shell, so the readings above are about three distinct shells"
     )
 
 
@@ -576,9 +558,9 @@ def test_the_same_harness_without_the_decline_still_launches(*, proxied: Any):
     """
     live = proxied(decline=False)
 
-    outcome, gate = _split_top(live=live)
+    outcome, readiness = _split_top(live=live)
 
-    _established(live=live, gate=gate)
+    identity = _established(live=live, readiness=readiness)
     assert live.state.declined is False, "the control must inject nothing"
     assert outcome.ok is True, outcome.error
     tops = _geometry(socket_path=live.real_socket, pane_id=live.original)
@@ -586,10 +568,9 @@ def test_the_same_harness_without_the_decline_still_launches(*, proxied: Any):
     child = _launched_child(live=live, pane_id=outcome.pane_id)
     reading = _reading(socket_path=live.real_socket, pane_id=outcome.pane_id)
     assert reading.pids_named(name=LAUNCH_NAME) == (child,), reading
-    assert gate.retained is not None
-    assert reading.shell_pid == gate.retained.pid, (
+    assert reading.shell_pid == identity.shell_pid, (
         f"the command must run under the SAME retained shell readiness was established "
-        f"on ({gate.retained.pid}), not under {reading.shell_pid}"
+        f"on ({identity.shell_pid}), not under {reading.shell_pid}"
     )
     assert (
         parent_pid_of(pid=child) == reading.shell_pid

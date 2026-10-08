@@ -86,9 +86,7 @@ import json
 import os
 import shutil
 import socket
-import subprocess
 import threading
-import time
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -96,16 +94,18 @@ from typing import Any
 
 import pytest
 from test_herdr_live_observations import (
-    TRANSIENT_NAME,
-    ReadyShellGate,
+    OwnedServer,
+    PaneReadiness,
+    ReadyWriter,
     parent_pid_of,
+    registered_login_shells,
+    start_owned_server,
     startup_transient,
+    stop_owned_server,
 )
 
 __all__: list[str] = []
 
-HERDR_BINARY = "herdr"
-SERVER_READY_TIMEOUT = 30.0
 # Short enough that teardown closing a listener ends its relay thread promptly,
 # long enough that the loop is not spinning. The establishment window this has to
 # survive is seconds of real waiting with no connection arriving.
@@ -155,16 +155,6 @@ class LiveProxiedTab:
     original: str
     transient: str
     state: ProxyState
-
-
-def _socket_for(*, session: str) -> Path:
-    return Path.home() / ".config" / "herdr" / "sessions" / session / "herdr.sock"
-
-
-def _cli(*, args: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603 — the herdr CLI, not a Python child
-        [HERDR_BINARY, *args], capture_output=True, text=True, timeout=60, check=False
-    )
 
 
 def _read_frame(*, conn: socket.socket) -> bytes | None:
@@ -272,26 +262,14 @@ def _serve_proxy(*, listener: socket.socket, real_socket: str, state: ProxyState
                 continue
 
 
-def _start_server(*, session: str, scratch: Path) -> str:
-    log = (scratch / "server.log").open("wb")
-    _ = subprocess.Popen(  # noqa: S603 — the herdr CLI, not a Python child
-        [HERDR_BINARY, "--session", session, "server"],
-        stdout=log,
-        stderr=subprocess.STDOUT,
-        stdin=subprocess.DEVNULL,
-        start_new_session=True,
-        cwd=str(scratch),
-    )
-    address = _socket_for(session=session)
-    deadline = time.monotonic() + SERVER_READY_TIMEOUT
-    while time.monotonic() < deadline and not address.exists():
-        time.sleep(0.1)
-    log.close()
-    assert address.exists(), (
-        f"herdr session {session!r} never created {address}; "
-        f"server log: {(scratch / 'server.log').read_text(errors='replace')[:500]}"
-    )
-    return str(address)
+def _start_server(*, session: str, scratch: Path) -> OwnedServer:
+    """One OWNED server whose panes run a DECLARED minimal shell, plus its root pane.
+
+    The shared seam is what makes that shell the fixture's choice rather than an
+    inherited one, and it encloses its own socket wait and workspace creation in
+    cleanup; see `tests/test_herdr_live_observations.py`.
+    """
+    return start_owned_server(session=session, scratch=scratch, cwd=PANE_CWD)
 
 
 @dataclass(kw_only=True)
@@ -318,14 +296,9 @@ class OwnedProxies:
 def _build(
     *, session: str, scratch: Path, proxy_dir: Path, fault: str, owned: OwnedProxies
 ) -> LiveProxiedTab:
-    real_socket = _start_server(session=session, scratch=scratch)
-    created = _raw_request(
-        socket_path=real_socket,
-        method="workspace.create",
-        params={"cwd": PANE_CWD, "label": session, "focus": False},
-    )
-    assert "result" in created, f"workspace.create failed: {created}"
-    original = str(created["result"]["root_pane"]["pane_id"])
+    owned_server = _start_server(session=session, scratch=scratch)
+    real_socket = owned_server.socket_path
+    original = owned_server.root
     state = ProxyState(fault=fault)
     listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     proxy_socket = proxy_dir / f"{fault}.sock"
@@ -351,8 +324,6 @@ def _build(
 @pytest.fixture(name="faulted")
 def _faulted(*, tmp_path: Path) -> Iterator[Any]:
     """A factory, because each test injects a DIFFERENT single fault."""
-    if shutil.which(HERDR_BINARY) is None:
-        pytest.skip("herdr is not installed on this host")
     proxy_dir = Path(os.environ.get("TMPDIR", "/tmp")) / f"hrdru-{os.getpid()}"
     proxy_dir.mkdir(parents=True, exist_ok=True)
     sessions: list[str] = []
@@ -370,12 +341,11 @@ def _faulted(*, tmp_path: Path) -> Iterator[Any]:
     finally:
         owned.shut_down()
         for session in sessions:
-            _ = _cli(args=["--session", session, "server", "stop"])
-            _ = _cli(args=["session", "delete", session])
+            stop_owned_server(session=session)
         shutil.rmtree(proxy_dir, ignore_errors=True)
 
 
-def _split_top(*, live: LiveProxiedTab) -> tuple[Any, ReadyShellGate]:
+def _split_top(*, live: LiveProxiedTab) -> tuple[Any, PaneReadiness]:
     """The real layout sequence, with the created pane's ready shell ESTABLISHED.
 
     The gate forwards every request to the shipped writer, so the socket, the
@@ -399,13 +369,15 @@ def _split_top(*, live: LiveProxiedTab) -> tuple[Any, ReadyShellGate]:
     claude_sessions = importlib.import_module("claude_sessions")
     starttime = claude_sessions.proc_starttime(pid=os.getpid())
     assert starttime is not None, "this process must have a readable /proc start time"
-    gate = ReadyShellGate(
-        inner=writer_module.HerdrWriter(timeout_seconds=10.0),
+    assert (
+        ReadyWriter.split_window_top is writer_module.HerdrWriter.split_window_top
+    ), "the exercise must enter the SHIPPED public facade, not a fixture reimplementation"
+    readiness = PaneReadiness(
         socket_path=live.real_socket,
-        startup_transient=live.transient,
-        transient_name=TRANSIENT_NAME,
+        transient=live.transient,
+        registered=registered_login_shells(),
     )
-    outcome = gate.place_above(
+    outcome = ReadyWriter(readiness=readiness, timeout_seconds=10.0).split_window_top(
         target=identity.HerdrPaneTarget(
             socket_path=live.proxy_socket,
             server_pid=os.getpid(),
@@ -416,27 +388,31 @@ def _split_top(*, live: LiveProxiedTab) -> tuple[Any, ReadyShellGate]:
         command=DAEMON_COMMAND,
         ratio=TOP_RATIO,
     )
-    return outcome, gate
+    return outcome, readiness
 
 
-def _assert_readiness_was_established(*, live: LiveProxiedTab, gate: ReadyShellGate) -> None:
+def _assert_readiness_was_established(*, live: LiveProxiedTab, readiness: PaneReadiness) -> None:
     """Grade the fixture's own precondition before anything grades the adapter.
 
-    Three facts, each named separately so a failure says which one was missing:
-    the controlled child was observed in the EXACT pane the adapter created, that
-    child exited on its own, and the pinned retained shell owns its foreground
-    again. `refusal()` carries all three plus the expiry of any of their bounds.
+    Each fact named separately so a failure says which one was missing: the step ran
+    exactly once and for the EXACT pane the adapter created, the controlled child was
+    that pane's own pinned retained shell's child, it exited on its own, that shell
+    owns its foreground again, and the pane's server-reported name and kernel
+    executable describe one program. `refusal()` carries all of those plus the expiry
+    of any of their bounds.
 
-    Without this, an occupied created pane refuses one guard BEFORE the swap, so
-    neither fault below is ever reached and the exercise reports a refusal about
-    something else entirely — the measured shape recorded in this module's
+    Without this, an occupied or incoherent created pane refuses one guard BEFORE the
+    swap, so neither fault below is ever reached and the exercise reports a refusal
+    about something else entirely — the measured shape recorded in this module's
     docstring.
     """
-    assert gate.refusal() == "", gate.refusal()
-    assert gate.gated == [live.state.created], (
-        "the readiness gate must have established the pane the adapter actually "
-        f"created; it gated {gate.gated} against created {live.state.created!r}"
+    assert readiness.panes == [live.state.created], (
+        "readiness must have been established exactly once, for the pane the adapter "
+        f"created; it ran for {readiness.panes} against created {live.state.created!r}"
     )
+    assert readiness.refusal() == "", readiness.refusal()
+    gate = readiness.gate
+    assert gate is not None, "a refusal-free run established something, so it must hold a gate"
     transient = gate.transient
     assert transient is not None and transient.pid is not None, transient
     assert gate.retained is not None, "the retained shell was never pinned as an identity"
@@ -447,6 +423,12 @@ def _assert_readiness_was_established(*, live: LiveProxiedTab, gate: ReadyShellG
     assert gate.departed == "", gate.departed
     established = gate.established
     assert established is not None and established.recovered is True, established
+    identity = readiness.identity
+    assert identity is not None and identity.coherent is True, readiness.refusal()
+    assert identity.shell_pid == gate.retained.pid, (
+        f"the coherent identity describes shell {identity.shell_pid} while the pinned retained "
+        f"shell is {gate.retained.pid}"
+    )
 
 
 def _assert_unresolved_but_landed(*, live: LiveProxiedTab, outcome: Any) -> None:
@@ -482,9 +464,9 @@ def test_a_landed_swap_with_a_corrupted_answer_is_unresolved(*, faulted: Any):
     """
     live = faulted(fault=CORRUPT_SWAP)
 
-    outcome, gate = _split_top(live=live)
+    outcome, readiness = _split_top(live=live)
 
-    _assert_readiness_was_established(live=live, gate=gate)
+    _assert_readiness_was_established(live=live, readiness=readiness)
     _assert_unresolved_but_landed(live=live, outcome=outcome)
     assert (
         "pane.layout" not in live.state.methods()
@@ -500,9 +482,9 @@ def test_a_landed_swap_with_a_withheld_geometry_answer_is_unresolved(*, faulted:
     """
     live = faulted(fault=WITHHOLD_LAYOUT)
 
-    outcome, gate = _split_top(live=live)
+    outcome, readiness = _split_top(live=live)
 
-    _assert_readiness_was_established(live=live, gate=gate)
+    _assert_readiness_was_established(live=live, readiness=readiness)
     _assert_unresolved_but_landed(live=live, outcome=outcome)
     assert (
         live.state.methods().count("pane.layout") == 1

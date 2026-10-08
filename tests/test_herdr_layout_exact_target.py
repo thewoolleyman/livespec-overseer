@@ -39,10 +39,8 @@ import json
 import os
 import shutil
 import socket
-import subprocess
 import tempfile
 import threading
-import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -51,15 +49,19 @@ from typing import Any
 import claude_sessions
 import pytest
 from test_herdr_live_observations import (
-    TRANSIENT_NAME,
     BoundedPoll,
     ForegroundReading,
-    ReadyShellGate,
+    PaneReadiness,
+    ReadyWriter,
     await_occupying_child,
     parent_pid_of,
     process_info_reply,
     read_foreground,
+    registered_login_shells,
+    split_pane,
+    start_owned_server,
     startup_transient,
+    stop_owned_server,
 )
 
 __all__: list[str] = []
@@ -81,7 +83,6 @@ def _shell_evidence(*, pid: int) -> Any:
 
 
 HERDR_BINARY = "herdr"
-SERVER_READY_TIMEOUT = 30.0
 PANE_CWD = "/tmp"
 TOP_RATIO = 0.25
 LAUNCH_COMMAND = "sleep 120"
@@ -192,16 +193,6 @@ class UnfocusedTab:
     transient: str
 
 
-def _socket_for(*, session: str) -> Path:
-    return Path.home() / ".config" / "herdr" / "sessions" / session / "herdr.sock"
-
-
-def _cli(*, args: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603 — the herdr CLI, not a Python child
-        [HERDR_BINARY, *args], capture_output=True, text=True, timeout=60, check=False
-    )
-
-
 def _raw_request(*, socket_path: str, method: str, params: dict[str, object]) -> dict[str, Any]:
     """One raw socket round trip, used ONLY to set the tab up or read a control fact."""
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -238,49 +229,38 @@ def _rects(*, tab: UnfocusedTab) -> tuple[dict[str, tuple[int, int, int, int]], 
 
 
 def _start_unfocused_tab(*, session: str, scratch: Path) -> UnfocusedTab:
-    """Build a two-pane tab and move focus AWAY from the pane under supervision."""
-    log = (scratch / "server.log").open("wb")
-    child = subprocess.Popen(  # noqa: S603 — the herdr CLI, not a Python child
-        [HERDR_BINARY, "--session", session, "server"],
-        stdout=log,
-        stderr=subprocess.STDOUT,
-        stdin=subprocess.DEVNULL,
-        start_new_session=True,
-        cwd=str(scratch),
-    )
-    address = _socket_for(session=session)
-    deadline = time.monotonic() + SERVER_READY_TIMEOUT
-    while time.monotonic() < deadline and not address.exists():
-        time.sleep(0.1)
-    log.close()
-    assert address.exists(), f"herdr session {session!r} never created {address}"
-    created = _raw_request(
-        socket_path=str(address),
-        method="workspace.create",
-        params={"cwd": PANE_CWD, "label": session, "focus": False},
-    )
-    assert "result" in created, f"workspace.create failed: {created}"
-    supervised = str(created["result"]["root_pane"]["pane_id"])
-    # The sibling is created to the RIGHT, so the two panes occupy separate
-    # columns and a split landing in the wrong one is unmistakable.
-    sibling = _raw_request(
-        socket_path=str(address),
-        method="pane.split",
-        params={
-            "target_pane_id": supervised,
-            "direction": "right",
-            "ratio": 0.5,
-            "cwd": PANE_CWD,
-            "focus": False,
-        },
-    )
-    assert "result" in sibling, f"sibling split failed: {sibling}"
-    other = str(sibling["result"]["pane"]["pane_id"])
-    _ = _raw_request(socket_path=str(address), method="pane.focus", params={"pane_id": other})
+    """Build a two-pane OWNED tab and move focus AWAY from the pane under supervision.
+
+    The server comes from the shared `start_owned_server` seam, so the shell its
+    panes run is a DECLARED fixture choice — an available, registered minimal shell
+    in `non_login` mode, with the one interactive startup hook that mode does not
+    close excluded from the launched server's copied environment — rather than
+    whatever this host's ambient configuration happens to select.
+
+    The setup past the server is enclosed in cleanup: the sibling split and the
+    focus move are both fallible, and a failure in either used to leave a live
+    server and a registered session behind.
+    """
+    owned = start_owned_server(session=session, scratch=scratch, cwd=PANE_CWD)
+    try:
+        # The sibling is created to the RIGHT, so the two panes occupy separate
+        # columns and a split landing in the wrong one is unmistakable.
+        other = split_pane(
+            socket_path=owned.socket_path,
+            pane_id=owned.root,
+            direction="right",
+            cwd=PANE_CWD,
+        )
+        _ = _raw_request(
+            socket_path=owned.socket_path, method="pane.focus", params={"pane_id": other}
+        )
+    except BaseException:
+        stop_owned_server(session=session)
+        raise
     return UnfocusedTab(
-        socket_path=str(address),
-        server_pid=child.pid,
-        supervised=supervised,
+        socket_path=owned.socket_path,
+        server_pid=owned.server_pid,
+        supervised=owned.root,
         focused=other,
         transient=startup_transient(scratch=scratch),
     )
@@ -320,15 +300,12 @@ def _assert_child_on_the_created_pane(*, tab: UnfocusedTab, pane_id: str) -> Non
 
 @pytest.fixture(name="tab")
 def _tab(*, tmp_path: Path) -> Iterator[UnfocusedTab]:
-    if shutil.which(HERDR_BINARY) is None:
-        pytest.skip("herdr is not installed on this host")
     session = f"overseer-test-{os.getpid()}-exact"
     built = _start_unfocused_tab(session=session, scratch=tmp_path)
     try:
         yield built
     finally:
-        _ = _cli(args=["--session", session, "server", "stop"])
-        _ = _cli(args=["session", "delete", session])
+        stop_owned_server(session=session)
 
 
 def test_the_split_lands_on_the_supervised_pane_not_the_focused_one(*, tab: UnfocusedTab):
@@ -388,14 +365,16 @@ def test_the_split_lands_on_the_supervised_pane_not_the_focused_one(*, tab: Unfo
     assert starttime is not None
     before, focused_before = _rects(tab=tab)
     assert focused_before == tab.focused, "fixture precondition: the target is NOT focused"
-    gate = ReadyShellGate(
-        inner=writer_module.HerdrWriter(),
+    assert (
+        ReadyWriter.split_window_top is writer_module.HerdrWriter.split_window_top
+    ), "the exercise must enter the SHIPPED public facade, not a fixture reimplementation"
+    readiness = PaneReadiness(
         socket_path=tab.socket_path,
-        startup_transient=tab.transient,
-        transient_name=TRANSIENT_NAME,
+        transient=tab.transient,
+        registered=registered_login_shells(),
     )
 
-    outcome = gate.place_above(
+    outcome = ReadyWriter(readiness=readiness).split_window_top(
         target=identity.HerdrPaneTarget(
             socket_path=tab.socket_path,
             server_pid=tab.server_pid,
@@ -407,7 +386,13 @@ def test_the_split_lands_on_the_supervised_pane_not_the_focused_one(*, tab: Unfo
         ratio=TOP_RATIO,
     )
 
-    assert gate.refusal() == "", gate.refusal()
+    assert readiness.panes == [outcome.pane_id], (
+        "readiness must have been established exactly once, for the pane the writer created; "
+        f"it ran for {readiness.panes} against {outcome.pane_id!r}"
+    )
+    assert readiness.refusal() == "", readiness.refusal()
+    established = readiness.identity
+    assert established is not None and established.coherent is True, readiness.refusal()
     assert outcome.ok is True, outcome.error
     after, _focused_after = _rects(tab=tab)
     assert after[tab.focused] == before[tab.focused], (
@@ -424,6 +409,10 @@ def test_the_split_lands_on_the_supervised_pane_not_the_focused_one(*, tab: Unfo
     for bystander in (tab.supervised, tab.focused):
         reading = _live_reading(tab=tab, pane_id=bystander)
         assert reading.is_idle(), f"{bystander} was given something to run: {reading}"
+        assert reading.shell_pid != established.shell_pid, (
+            f"{bystander} reports the created pane's own established shell "
+            f"{established.shell_pid}, so this reading is not about a separate pane"
+        )
 
 
 def test_the_split_parameters_name_the_target_pane_explicitly():
