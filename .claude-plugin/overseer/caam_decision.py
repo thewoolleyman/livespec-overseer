@@ -1,5 +1,5 @@
 """Pure decision helpers for caam account rotation."""
-# livespec-lloc-soft-band-owner: overseer-dyt6
+# livespec-lloc-soft-band-owner: overseer-4z97.2
 
 from __future__ import annotations
 

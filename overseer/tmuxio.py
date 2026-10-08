@@ -33,7 +33,7 @@ Design invariants honored here (see ``design.md``):
     failure the "let it crash, systemd restarts" posture cannot address, because
     it never crashes.
 """
-# livespec-lloc-soft-band-owner: overseer-hgq4wi
+# livespec-lloc-soft-band-owner: overseer-4z97.2
 
 from __future__ import annotations
 
