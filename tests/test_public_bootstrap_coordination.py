@@ -88,18 +88,30 @@ def test_public_coordinator_reports_refusals_successes_and_tmux_adoption(
 
     monkeypatch.setattr(public_bootstrap.bootstrap, "bootstrap_two_pane", coordinate)
     explicit_journal = bootstrap_journal.NoMutationJournal()
+    daemon_executable = tmp_path / "runtime" / "bin" / "overseerd"
 
-    assert (
-        public_bootstrap.run_verified_bootstrap(
-            core=tmp_path, command="overseerd", journal=explicit_journal
-        )
-        == 1
-    )
-    assert public_bootstrap.run_verified_bootstrap(core=tmp_path, command="overseerd") == 1
     assert (
         public_bootstrap.run_verified_bootstrap(
             core=tmp_path,
             command="overseerd",
+            daemon_executable=daemon_executable,
+            journal=explicit_journal,
+        )
+        == 1
+    )
+    assert (
+        public_bootstrap.run_verified_bootstrap(
+            core=tmp_path,
+            command="overseerd",
+            daemon_executable=daemon_executable,
+        )
+        == 1
+    )
+    assert (
+        public_bootstrap.run_verified_bootstrap(
+            core=tmp_path,
+            command="overseerd",
+            daemon_executable=daemon_executable,
             build_supervisor=lambda: _Supervisor(
                 adopted=(_Track(tmux="work", repo="/repo", topic="plan"),)
             ),
@@ -107,13 +119,30 @@ def test_public_coordinator_reports_refusals_successes_and_tmux_adoption(
         == 0
     )
     monkeypatch.setattr(public_bootstrap.supervisor, "build_supervisor", lambda: _Supervisor())
-    assert public_bootstrap.run_verified_bootstrap(core=tmp_path, command="overseerd") == 0
-    assert public_bootstrap.run_verified_bootstrap(core=tmp_path, command="overseerd") == 0
+    assert (
+        public_bootstrap.run_verified_bootstrap(
+            core=tmp_path,
+            command="overseerd",
+            daemon_executable=daemon_executable,
+        )
+        == 0
+    )
+    assert (
+        public_bootstrap.run_verified_bootstrap(
+            core=tmp_path,
+            command="overseerd",
+            daemon_executable=daemon_executable,
+        )
+        == 0
+    )
 
     first = calls[0]
     assert first["journal"] is explicit_journal
     assert {probe.backend for probe in first["caller"].probes} == {"tmux", "herdr"}
     assert set(first["backends"]) == {"tmux", "herdr"}
+    assert all(
+        backend.daemon_executable == daemon_executable for backend in first["backends"].values()
+    )
     err = capsys.readouterr().err
     assert "terminal probe warning: tmux endpoint stale" in err
     assert "effect is unknown" in err
@@ -222,14 +251,17 @@ def test_verified_start_prepares_runtime_and_preserves_operator_home(
     *, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     executable = tmp_path / "candidate" / "bin" / "overseerd"
-    calls: list[tuple[Path, str]] = []
+    calls: list[tuple[Path, str, Path]] = []
     monkeypatch.setattr(start, "_running_under_supported_agent", lambda: True)
     monkeypatch.setenv(terminal_probes.HERDR_SOCKET_ENV, "/run/user/1000/herdr.sock")
     monkeypatch.setenv("HOME", str(tmp_path / "operator-home"))
     monkeypatch.setattr(
         start.public_bootstrap,
         "run_verified_bootstrap",
-        lambda *, core, command, build_supervisor: calls.append((core, command)) or 0,
+        lambda *, core, command, daemon_executable, build_supervisor: calls.append(
+            (core, command, daemon_executable)
+        )
+        or 0,
     )
 
     assert (
@@ -244,6 +276,7 @@ def test_verified_start_prepares_runtime_and_preserves_operator_home(
     assert calls[0][1].startswith(f"HOME={tmp_path / 'operator-home'} ")
     assert str(executable) in calls[0][1]
     assert "--warn-percent 37" in calls[0][1]
+    assert calls[0][2] == executable
 
 
 def test_verified_start_covers_runtime_refusal_defaults_and_legacy_pane_guard(
@@ -258,14 +291,17 @@ def test_verified_start_covers_runtime_refusal_defaults_and_legacy_pane_guard(
     monkeypatch.setattr(start, "_default_core_root", lambda: tmp_path)
     monkeypatch.setattr(start.runtime_prefix, "ensure_current_runtime", lambda: executable)
     monkeypatch.delenv("HOME", raising=False)
-    commands: list[str] = []
+    commands: list[tuple[str, Path]] = []
     monkeypatch.setattr(
         start.public_bootstrap,
         "run_verified_bootstrap",
-        lambda *, core, command, build_supervisor: commands.append(command) or 0,
+        lambda *, core, command, daemon_executable, build_supervisor: commands.append(
+            (command, daemon_executable)
+        )
+        or 0,
     )
     assert start.main(argv=[]) == 0
-    assert commands == [f"{executable} 2>> {tmp_path / 'tmp/overseer/daemon.log'}"]
+    assert commands == [(f"{executable} 2>> {tmp_path / 'tmp/overseer/daemon.log'}", executable)]
 
     monkeypatch.delenv("TMUX_PANE", raising=False)
     assert start.main(argv=[], io=object()) == 1
