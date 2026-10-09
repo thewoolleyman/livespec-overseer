@@ -16,10 +16,11 @@ probe is a read, it runs first, and it names the method.
 
 **The reading is three-way, not two-way.** A pane above the invoking one is
 accepted only when the server reports a foreground group that is NOT its own
-retained shell AND whose command names the daemon; anything else up there is
-UNRESOLVED rather than absent. The distinction is load-bearing in the direction
-that costs a mutation: calling an unaccountable pane "absent" would split again,
-which is exactly what must not happen after a lost acknowledgement.
+retained shell AND fresh kernel evidence binds that exact group leader to this
+installed command's daemon runtime; anything else up there is UNRESOLVED rather
+than absent. The distinction is load-bearing in the direction that costs a
+mutation: calling an unaccountable pane "absent" would split again, which is
+exactly what must not happen after a lost acknowledgement.
 
 **More than one pane above is unresolved too.** The bootstrap owns a two-pane
 layout; a tab carrying several panes above the invoking one is a shape this
@@ -39,16 +40,17 @@ carried out by name for re-observation rather than cleaned up.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
 import bootstrap
-import daemon_liveness
 import herdr_adapter
 import herdr_identity
 import herdr_write
 import herdr_write_calls
 import terminal_ownership
+import tmux_daemon_liveness
 
 __all__: list[str] = ["HerdrBootstrap"]
 
@@ -67,6 +69,9 @@ class HerdrBootstrap:
     backend: str = herdr_identity.HERDR_BACKEND
     adapter: Any = field(default_factory=herdr_adapter.HerdrAdapter)
     writer: Any = field(default_factory=herdr_write.HerdrWriter)
+    daemon_process_of: Callable[..., tmux_daemon_liveness.DaemonProcessIdentity | None] = field(
+        default_factory=lambda: tmux_daemon_liveness.foreground_daemon_process
+    )
     ratio: float = herdr_write.DEFAULT_TOP_RATIO
 
     def capability_error(self, *, claim: terminal_ownership.OwnershipClaim) -> str:
@@ -181,7 +186,8 @@ class HerdrBootstrap:
                 ),
                 error="",
             )
-        if not daemon_liveness.is_daemon_command(text=f"{process.name} {process.cmdline}"):
+        identity = self.daemon_process_of(root_pid=process.shell_pid)
+        if identity is None or identity.pid != process.process_group_id:
             return bootstrap.DaemonHostReading(
                 pane_id="",
                 unresolved=(
