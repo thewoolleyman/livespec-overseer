@@ -42,6 +42,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import bootstrap
@@ -66,6 +67,7 @@ class HerdrBootstrap:
     unreadable layout, an occupied pane above, and a lost acknowledgement.
     """
 
+    daemon_executable: Path
     backend: str = herdr_identity.HERDR_BACKEND
     adapter: Any = field(default_factory=herdr_adapter.HerdrAdapter)
     writer: Any = field(default_factory=herdr_write.HerdrWriter)
@@ -186,7 +188,10 @@ class HerdrBootstrap:
                 ),
                 error="",
             )
-        identity = self.daemon_process_of(root_pid=process.shell_pid)
+        identity = self.daemon_process_of(
+            root_pid=process.shell_pid,
+            daemon_executable=self.daemon_executable,
+        )
         if identity is None or identity.pid != process.process_group_id:
             return bootstrap.DaemonHostReading(
                 pane_id="",

@@ -49,6 +49,7 @@ from __future__ import annotations
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import bootstrap
@@ -99,6 +100,7 @@ class TmuxBootstrap:
     call was addressed to.
     """
 
+    daemon_executable: Path | None = None
     backend: str = herdr_identity.TMUX_BACKEND
     driver_for: Callable[..., Any] = socket_scoped_driver
     daemon_pane_title: str = DAEMON_PANE_TITLE
@@ -200,11 +202,15 @@ class TmuxBootstrap:
             )
         pane_pid_reader = getattr(driver, "pane_pid", None)
         pane_pid = pane_pid_reader(session=candidate) if pane_pid_reader is not None else None
-        daemon_process = (
-            tmux_daemon_liveness.foreground_daemon_process(root_pid=pane_pid)
-            if pane_pid is not None
-            else None
-        )
+        if pane_pid is None:
+            daemon_process = None
+        elif self.daemon_executable is None:
+            daemon_process = tmux_daemon_liveness.foreground_daemon_process(root_pid=pane_pid)
+        else:
+            daemon_process = tmux_daemon_liveness.foreground_daemon_process(
+                root_pid=pane_pid,
+                daemon_executable=self.daemon_executable,
+            )
         if daemon_process is not None:
             return bootstrap.DaemonHostReading(pane_id=candidate, unresolved="", error="")
         if daemon_liveness.is_retained_shell(name=command):

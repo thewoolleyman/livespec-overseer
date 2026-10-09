@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -24,7 +23,6 @@ __all__: list[str] = [
 MAX_DESCENDANT_PROCESSES = 64
 _MODULE_ARG_COUNT = 3
 _PROCESS_STAT_FIELDS = 20
-_RUNTIME_EXECUTABLE = str(Path(sys.executable).resolve())
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -43,6 +41,12 @@ class _ProcessStatus:
     process_group: int
     foreground_group: int
     starttime: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class _PreparedDaemon:
+    executable: str
+    runtime: str
 
 
 def is_daemon_argv(*, command: str) -> bool:
@@ -89,14 +93,27 @@ def _process_status(*, raw: str | None) -> _ProcessStatus | None:
         return None
 
 
-def _daemon_role(*, argv: tuple[str, ...]) -> bool:
-    padded = (*argv, "", "")
-    return any(
-        (
-            padded[1:_MODULE_ARG_COUNT] == ("-m", "overseer.daemon"),
-            Path(padded[1]).name == "overseerd",
+def _prepared_daemon(*, daemon_executable: Path) -> _PreparedDaemon | None:
+    runtime = daemon_executable.parent / "python"
+    if not daemon_executable.is_file() or not runtime.is_file():
+        return None
+    try:
+        return _PreparedDaemon(
+            executable=str(daemon_executable.resolve(strict=True)),
+            runtime=str(runtime.resolve(strict=True)),
         )
-    )
+    except OSError:
+        return None
+
+
+def _daemon_role(*, argv: tuple[str, ...], prepared: _PreparedDaemon) -> bool:
+    padded = (*argv, "", "")
+    if padded[1:_MODULE_ARG_COUNT] == ("-m", "overseer.daemon"):
+        return True
+    try:
+        return str(Path(padded[1]).resolve(strict=True)) == prepared.executable
+    except OSError:
+        return False
 
 
 def _daemon_identity(
@@ -105,6 +122,7 @@ def _daemon_identity(
     cmdline_of: PidToOptionalBytes,
     stat_of: PidToOptionalStr,
     executable_of: PidToOptionalStr,
+    prepared: _PreparedDaemon,
 ) -> DaemonProcessIdentity | None:
     raw_command = cmdline_of(pid=pid)
     status = _process_status(raw=stat_of(pid=pid))
@@ -123,8 +141,8 @@ def _daemon_identity(
         return None
     if (
         runtime != resolved_executable
-        or runtime != _RUNTIME_EXECUTABLE
-        or not _daemon_role(argv=argv)
+        or runtime != prepared.runtime
+        or not _daemon_role(argv=argv, prepared=prepared)
     ):
         return None
     return DaemonProcessIdentity(
@@ -139,19 +157,24 @@ def _daemon_identity(
 def foreground_daemon_process(
     *,
     root_pid: int,
+    daemon_executable: Path | None = None,
     children_of: PidToIntList = claude_sessions.proc_children,
     cmdline_of: PidToOptionalBytes = claude_sessions.proc_cmdline,
     stat_of: PidToOptionalStr = _proc_stat,
     executable_of: PidToOptionalStr = _proc_executable,
-    max_processes: int = MAX_DESCENDANT_PROCESSES,
 ) -> DaemonProcessIdentity | None:
-    """Return the fresh exact daemon owning ``root_pid``'s foreground, or None."""
+    """Return the prepared exact daemon owning ``root_pid``'s foreground, or None."""
+    prepared = (
+        _prepared_daemon(daemon_executable=daemon_executable)
+        if daemon_executable is not None
+        else None
+    )
     root_before = _process_status(raw=stat_of(pid=root_pid))
-    if root_before is None or root_before.foreground_group <= 0:
+    if prepared is None or root_before is None or root_before.foreground_group <= 0:
         return None
     pending = [root_pid]
     seen: set[int] = set()
-    while pending and len(seen) < max_processes:
+    while pending and len(seen) < MAX_DESCENDANT_PROCESSES:
         pid = pending.pop()
         if pid in seen:
             continue
@@ -161,6 +184,7 @@ def foreground_daemon_process(
             cmdline_of=cmdline_of,
             stat_of=stat_of,
             executable_of=executable_of,
+            prepared=prepared,
         )
         if first is not None and first.process_group == root_before.foreground_group:
             second = _daemon_identity(
@@ -168,6 +192,7 @@ def foreground_daemon_process(
                 cmdline_of=cmdline_of,
                 stat_of=stat_of,
                 executable_of=executable_of,
+                prepared=prepared,
             )
             root_after = _process_status(raw=stat_of(pid=root_pid))
             if first == second and root_before == root_after:

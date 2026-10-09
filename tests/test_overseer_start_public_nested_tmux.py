@@ -153,8 +153,10 @@ class Candidate:
     start: Path
     codex: Path
     daemon: Path
-    python: Path
+    daemon_python: Path
+    caller_python: Path
     module_dir: Path
+    caller_module_dir: Path
     version: str
 
 
@@ -169,15 +171,7 @@ class NativeCase:
     candidate: Candidate
 
 
-def _candidate(*, scratch: Path) -> Candidate:
-    home = scratch / "candidate-home"
-    prefix = runtime_prefix.runtime_prefix(home=home)
-    daemon = runtime_prefix.ensure_runtime(prefix=prefix, install_source=str(REPO_ROOT))
-    assert daemon is not None
-    assert daemon == prefix / "venv" / "bin" / "overseerd"
-    python = prefix / "venv" / "bin" / "python"
-    codex = prefix / "venv" / "bin" / "codex"
-    codex.symlink_to(python.resolve())
+def _installed_metadata(*, python: Path) -> tuple[Path, str]:
     completed = subprocess.run(  # noqa: S603
         [
             str(python),
@@ -200,21 +194,68 @@ def _candidate(*, scratch: Path) -> Candidate:
     assert isinstance(raw_metadata, dict)
     metadata = cast(dict[str, object], raw_metadata)
     module_file = Path(str(metadata["module"])).resolve()
-    assert module_file.is_relative_to((prefix / "venv").resolve())
+    assert module_file.is_relative_to(python.parent.parent.resolve())
     direct = metadata["direct"]
     assert isinstance(direct, dict)
     raw_dir_info = cast(dict[str, object], direct).get("dir_info")
     assert isinstance(raw_dir_info, dict)
     assert cast(dict[str, object], raw_dir_info).get("editable") is not True
+    return module_file, str(metadata["version"])
+
+
+def _candidate(*, scratch: Path) -> Candidate:
+    home = scratch / "candidate-home"
+    prefix = runtime_prefix.runtime_prefix(home=home)
+    daemon = runtime_prefix.ensure_runtime(prefix=prefix, install_source=str(REPO_ROOT))
+    assert daemon is not None
+    assert daemon == prefix / "venv" / "bin" / "overseerd"
+    daemon_python = prefix / "venv" / "bin" / "python"
+    module_file, version = _installed_metadata(python=daemon_python)
+
+    caller_interpreter = Path("/usr/bin/python3.12")
+    if not caller_interpreter.is_file():
+        pytest.skip("a supported interpreter distinct from the prepared daemon is unavailable")
+    uv = shutil.which("uv")
+    assert uv is not None
+    caller_venv = scratch / "caller-runtime" / "venv"
+    created = subprocess.run(  # noqa: S603
+        [uv, "venv", "--python", str(caller_interpreter), str(caller_venv)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert created.returncode == 0, created.stderr
+    caller_python = caller_venv / "bin" / "python"
+    installed = subprocess.run(  # noqa: S603
+        [
+            uv,
+            "pip",
+            "install",
+            "--python",
+            str(caller_python),
+            "--no-deps",
+            str(REPO_ROOT),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert installed.returncode == 0, installed.stderr
+    caller_module_file, caller_version = _installed_metadata(python=caller_python)
+    assert caller_version == version
+    codex = caller_venv / "bin" / "codex"
+    codex.symlink_to(caller_python.resolve())
     return Candidate(
         home=home,
         prefix=prefix,
-        start=prefix / "venv" / "bin" / "overseer-start",
+        start=caller_venv / "bin" / "overseer-start",
         codex=codex,
         daemon=daemon,
-        python=python,
+        daemon_python=daemon_python,
+        caller_python=caller_python,
         module_dir=module_file.parent,
-        version=str(metadata["version"]),
+        caller_module_dir=caller_module_file.parent,
+        version=version,
     )
 
 
@@ -278,7 +319,7 @@ def _descendant_daemon(*, root_pid: int, candidate: Candidate) -> CandidateProce
         starttime = claude_sessions.proc_starttime(pid=pid)
         if (
             starttime is not None
-            and executable == candidate.python.resolve()
+            and executable == candidate.daemon_python.resolve()
             and str(candidate.daemon).encode() in command.split(b"\0")
             and process_group == root_foreground_group
         ):
@@ -354,6 +395,13 @@ def test_public_start_selects_named_tmux_nested_in_herdr_and_reuses_it(
     assert daemon_identity.process_group == _process_groups(pid=int(daemon_row["pane_pid"]))[1]
     assert native_case.candidate.version
     assert native_case.candidate.module_dir.is_relative_to(native_case.candidate.prefix)
+    assert native_case.candidate.caller_module_dir.is_relative_to(
+        native_case.candidate.caller_python.parent.parent
+    )
+    assert (
+        native_case.candidate.caller_python.resolve()
+        != native_case.candidate.daemon_python.resolve()
+    )
 
     repeat_rc, repeat_stderr = _run_public(case=native_case, stem="repeat")
 

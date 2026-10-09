@@ -22,7 +22,10 @@ what would split again after a lost acknowledgement.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
+
+import pytest
 
 from overseer import (
     daemon_liveness,
@@ -39,6 +42,7 @@ HERDR_SOCKET = "/run/user/1000/herdr.sock"
 NAMED_TMUX_SOCKET = "/run/user/1000/tmux-named/socket"
 CORE_ROOT = "/data/projects/livespec-overseer"
 DAEMON_COMMAND = "overseerd 2>> /tmp/overseer/daemon.log"
+PREPARED_DAEMON = Path("/tmp/candidate/venv/bin/overseerd")
 
 
 def _claim(*, backend: str, socket_path: str, pane_id: str) -> terminal_ownership.OwnershipClaim:
@@ -151,9 +155,13 @@ class FakeAdapter:
 class FakeDaemonProcesses:
     identities: dict[int, tmux_daemon_liveness.DaemonProcessIdentity] = field(default_factory=dict)
     roots: list[int] = field(default_factory=list)
+    executables: list[Path] = field(default_factory=list)
 
-    def __call__(self, *, root_pid: int) -> tmux_daemon_liveness.DaemonProcessIdentity | None:
+    def __call__(
+        self, *, root_pid: int, daemon_executable: Path
+    ) -> tmux_daemon_liveness.DaemonProcessIdentity | None:
         self.roots.append(root_pid)
+        self.executables.append(daemon_executable)
         return self.identities.get(root_pid)
 
 
@@ -181,6 +189,7 @@ def _herdr(
     daemon_processes: FakeDaemonProcesses | None = None,
 ) -> herdr_bootstrap.HerdrBootstrap:
     return herdr_bootstrap.HerdrBootstrap(
+        daemon_executable=PREPARED_DAEMON,
         adapter=FakeAdapter() if adapter is None else adapter,
         writer=FakeWriter() if writer is None else writer,
         daemon_process_of=(FakeDaemonProcesses() if daemon_processes is None else daemon_processes),
@@ -323,6 +332,7 @@ def test_a_live_daemon_above_the_herdr_pane_is_the_verified_host() -> None:
     assert adapter.targets[0].server_starttime == "gen-1"
     assert adapter.targets[0].socket_path == HERDR_SOCKET
     assert daemon_processes.roots == [811]
+    assert daemon_processes.executables == [PREPARED_DAEMON]
 
 
 def test_a_herdr_foreground_group_that_differs_from_the_exact_daemon_pid_is_unresolved() -> None:
@@ -396,6 +406,7 @@ class FakeTmuxDriver:
 
     geometries: tuple[Geometry, ...] = ()
     commands: dict[str, str | None] = field(default_factory=dict)
+    pane_pids: dict[str, int | None] = field(default_factory=dict)
     split_result: str | None = "%88"
     pane_alive: bool = True
     calls: list[tuple[str, Any]] = field(default_factory=list)
@@ -407,6 +418,10 @@ class FakeTmuxDriver:
     def pane_current_command(self, *, session: str) -> str | None:
         self.calls.append(("pane_current_command", session))
         return self.commands.get(session)
+
+    def pane_pid(self, *, session: str) -> int | None:
+        self.calls.append(("pane_pid", session))
+        return self.pane_pids.get(session)
 
     def split_window_top(self, *, pane: str, cwd: str, command: str) -> str | None:
         self.calls.append(("split_window_top", (pane, cwd, command)))
@@ -591,6 +606,41 @@ def test_a_daemon_name_without_exact_tmux_process_identity_is_unresolved() -> No
 
     assert reading.pane_id == ""
     assert "fresh exact-instance, pane and process evidence" in reading.unresolved
+
+
+def test_a_tmux_live_daemon_is_bound_to_the_prepared_executable(
+    *, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    observed: list[tuple[int, Path]] = []
+
+    def daemon_process(
+        *, root_pid: int, daemon_executable: Path
+    ) -> tmux_daemon_liveness.DaemonProcessIdentity:
+        observed.append((root_pid, daemon_executable))
+        return _daemon_identity(pid=822)
+
+    monkeypatch.setattr(
+        tmux_bootstrap.tmux_daemon_liveness,
+        "foreground_daemon_process",
+        daemon_process,
+    )
+    driver = FakeTmuxDriver(
+        geometries=(
+            Geometry(pane="%88", top=0, height=20),
+            Geometry(pane="%7", top=20, height=10),
+        ),
+        commands={"%88": "overseerd"},
+        pane_pids={"%88": 811},
+    )
+    backend = tmux_bootstrap.TmuxBootstrap(
+        daemon_executable=PREPARED_DAEMON,
+        driver_for=lambda *, socket_path: driver,
+    )
+
+    reading = backend.daemon_host(claim=_tmux_claim())
+
+    assert (reading.pane_id, reading.unresolved, reading.error) == ("%88", "", "")
+    assert observed == [(811, PREPARED_DAEMON)]
 
 
 def test_a_tmux_placement_titles_normalizes_and_resizes_the_new_top_pane() -> None:

@@ -184,6 +184,7 @@ def _start_verified(
     return public_bootstrap.run_verified_bootstrap(
         core=core,
         command=command,
+        daemon_executable=daemon_executable,
         build_supervisor=build_supervisor,
     )
 
