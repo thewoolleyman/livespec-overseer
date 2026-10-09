@@ -658,6 +658,21 @@ class _ListenerFailureReceipt:
     peer_usable: bool
 
 
+@dataclass(kw_only=True)
+class _ListenerFailureClock:
+    """Keep deadline establishment separate from readiness observations."""
+
+    address: Path
+    ticks: Iterator[float] = field(default_factory=lambda: iter([0.0, 1.0, 3.0]))
+    deadline_pending: bool = True
+
+    def __call__(self) -> float:
+        if self.deadline_pending:
+            self.deadline_pending = False
+            return 0.0
+        return next(self.ticks, 1e9) if self.address.exists() else 0.0
+
+
 def _exercise_listener_failure(*, tmp_path: Path, failure: str) -> _ListenerFailureReceipt:
     """Drive one controlled listener failure against an unrelated live peer."""
     peer_scratch = tmp_path / "peer"
@@ -669,11 +684,8 @@ def _exercise_listener_failure(*, tmp_path: Path, failure: str) -> _ListenerFail
     target_label = f"listener-{failure}"
     target_session = f"overseer-test-{os.getpid()}-alias-{target_label}"
     target_address = _socket_for(session=target_session)
-    accepting_ticks = iter([0.0, 1.0, 3.0])
+    controlled_clock = _ListenerFailureClock(address=target_address)
     attempts = [0]
-
-    def controlled_clock() -> float:
-        return next(accepting_ticks, 1e9) if target_address.exists() else 0.0
 
     def controlled_refusal(*, socket_path: str, expected_pid: int) -> int:
         attempts[0] += 1
@@ -747,24 +759,31 @@ RawRequest = Callable[..., dict[str, Any]]
 
 @dataclass(kw_only=True)
 class _DelayedListenerSetup:
-    """One disclosed pre-listen refusal plus every setup effect transmission."""
+    """One disclosed pre-listen refusal and the ordered setup effects."""
 
     actual_request: RawRequest
     probe_calls: int = 0
-    setup_methods: list[str] = field(default_factory=list)
+    events: list[str] = field(default_factory=list)
 
     def listener_probe(self, *, socket_path: str, expected_pid: int) -> int:
         self.probe_calls += 1
         assert Path(socket_path).exists(), "the controlled refusal follows pathname publication"
         if self.probe_calls == 1:
+            self.events.append("listener-refused")
             raise ConnectionRefusedError("controlled native path-before-listen refusal")
-        return owned_listener_peer_pid(socket_path=socket_path, expected_pid=expected_pid)
+        peer_pid = owned_listener_peer_pid(socket_path=socket_path, expected_pid=expected_pid)
+        self.events.append("listener-owned")
+        return peer_pid
 
     def request(
         self, *, socket_path: str, method: str, params: dict[str, object]
     ) -> dict[str, Any]:
         if method == "workspace.create":
-            self.setup_methods.append(method)
+            self.events.append(method)
+            assert self.events == ["listener-refused", "listener-owned", "workspace.create"], (
+                "workspace.create reached the real transport before the fixture established "
+                f"owned-listener readiness: {self.events}"
+            )
         return self.actual_request(socket_path=socket_path, method=method, params=params)
 
 
@@ -794,7 +813,11 @@ def test_listener_recovery_preserves_one_workspace_and_native_shell_guards(
             listener, ListenerReadiness
         ), "successful setup must retain its owned-listener observation for native proof"
         assert listener.attempts == 2 and listener.peer_pid == server.server_pid, listener
-        assert setup.setup_methods == ["workspace.create"], setup.setup_methods
+        assert setup.events == [
+            "listener-refused",
+            "listener-owned",
+            "workspace.create",
+        ], setup.events
         readiness = _readiness_for(server=server, scratch=tmp_path)
         outcome, coherence = _graded_launch(server=server, readiness=readiness)
         assert outcome.ok is True, outcome.error
