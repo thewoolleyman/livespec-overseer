@@ -118,7 +118,6 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-import time
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -130,6 +129,12 @@ import herdr_protocol
 import herdr_transport
 import herdr_write
 import pytest
+from herdr_listener_readiness import (
+    ListenerPoll,
+    ListenerProbe,
+    await_owned_listener,
+    owned_listener_peer_pid,
+)
 from test_herdr_live_observations import (
     TRANSIENT_NAME,
     TRANSIENT_SECONDS,
@@ -432,6 +437,8 @@ def _start_server(
     scratch: Path,
     shell_path: str | None,
     root_poll: BoundedPoll | None = None,
+    listener_poll: ListenerPoll | None = None,
+    listener_probe: ListenerProbe = owned_listener_peer_pid,
 ) -> LiveServer:
     """A server whose panes are rooted at `shell_path`, or at herdr's own fallback.
 
@@ -464,14 +471,16 @@ def _start_server(
         env=environment,
     )
     address = _socket_for(session=session)
-    deadline = time.monotonic() + SERVER_READY_TIMEOUT
-    while time.monotonic() < deadline and not address.exists():
-        time.sleep(READY_POLL)
-    log.close()
-    assert address.exists(), (
-        f"herdr session {session!r} never created {address}; "
-        f"server log: {(scratch / log_name).read_text(errors='replace')[:500]}"
-    )
+    try:
+        _ = await_owned_listener(
+            socket_path=address,
+            session=session,
+            child=child,
+            poll=listener_poll or ListenerPoll(seconds=SERVER_READY_TIMEOUT),
+            probe=listener_probe,
+        )
+    finally:
+        log.close()
     created = raw_request(
         socket_path=str(address),
         method="workspace.create",
@@ -504,6 +513,8 @@ def _serve(
     label: str,
     shell_path: str | None,
     root_poll: BoundedPoll | None = None,
+    listener_poll: ListenerPoll | None = None,
+    listener_probe: ListenerProbe = owned_listener_peer_pid,
 ) -> Iterator[LiveServer]:
     if shutil.which(HERDR_BINARY) is None:
         pytest.skip("herdr is not installed on this host")
@@ -514,6 +525,8 @@ def _serve(
             scratch=scratch,
             shell_path=shell_path,
             root_poll=root_poll,
+            listener_poll=listener_poll,
+            listener_probe=listener_probe,
         )
         yield server
     finally:
@@ -531,6 +544,56 @@ def _alias_server(*, tmp_path: Path) -> Iterator[LiveServer]:
 def _exact_server(*, tmp_path: Path) -> Iterator[LiveServer]:
     """A server with `SHELL=/bin/bash`, whose reported name needs no alias."""
     yield from _serve(scratch=tmp_path, label="bash", shell_path="/bin/bash")
+
+
+@dataclass(kw_only=True)
+class _ControlledServerChild:
+    """A deterministic running child for the pre-request listener wait."""
+
+    pid: int
+    status: int | None = None
+
+    def poll(self) -> int | None:
+        return self.status
+
+
+def test_listener_wait_consumes_path_before_listen_refusal_before_workspace_creation(
+    *, tmp_path: Path
+) -> None:
+    """Controlled timing: pathname publication precedes listener acceptance.
+
+    This is not presented as a reproduction of Herdr's startup timing. The
+    injected probe reports one connection refusal after the pathname exists,
+    then reports the owned pid. Only after that discriminator returns does this
+    test model the fixture's one ``workspace.create`` transmission.
+    """
+    address = tmp_path / "herdr.sock"
+    address.touch()
+    child = _ControlledServerChild(pid=4173)
+    events: list[str] = []
+
+    def path_before_listener(*, socket_path: str, expected_pid: int) -> int:
+        assert Path(socket_path).is_socket() is False
+        assert Path(socket_path).exists() is True
+        assert expected_pid == child.pid
+        if not events:
+            events.append("listener-refused")
+            raise ConnectionRefusedError("controlled path-before-listen refusal")
+        events.append("listener-owned")
+        return child.pid
+
+    observed = await_owned_listener(
+        socket_path=address,
+        session="controlled-alias",
+        child=child,
+        poll=ListenerPoll(seconds=SERVER_READY_TIMEOUT, sleep=lambda _seconds: None),
+        probe=path_before_listener,
+    )
+    events.append("workspace.create")
+
+    assert events == ["listener-refused", "listener-owned", "workspace.create"], events
+    assert observed.attempts == 2
+    assert observed.peer_pid == child.pid
 
 
 def _readiness_for(*, server: LiveServer, scratch: Path, **overrides: Any) -> _Readiness:
