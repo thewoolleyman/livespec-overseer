@@ -30,6 +30,7 @@ from overseer import (
     terminal_ownership,
     terminal_probes,
     tmux_bootstrap,
+    tmux_daemon_liveness,
 )
 
 __all__: list[str] = []
@@ -146,6 +147,26 @@ class FakeAdapter:
         return _Foreground(ok=True, process=self.processes.get(target.pane_id), error="")
 
 
+@dataclass(kw_only=True)
+class FakeDaemonProcesses:
+    identities: dict[int, tmux_daemon_liveness.DaemonProcessIdentity] = field(default_factory=dict)
+    roots: list[int] = field(default_factory=list)
+
+    def __call__(self, *, root_pid: int) -> tmux_daemon_liveness.DaemonProcessIdentity | None:
+        self.roots.append(root_pid)
+        return self.identities.get(root_pid)
+
+
+def _daemon_identity(*, pid: int) -> tmux_daemon_liveness.DaemonProcessIdentity:
+    return tmux_daemon_liveness.DaemonProcessIdentity(
+        pid=pid,
+        starttime="daemon-start",
+        executable="/tmp/candidate/venv/bin/python",
+        argv=("/tmp/candidate/venv/bin/python", "/tmp/candidate/venv/bin/overseerd"),
+        process_group=pid,
+    )
+
+
 @dataclass(frozen=True, kw_only=True)
 class _Foreground:
     ok: bool
@@ -157,10 +178,12 @@ def _herdr(
     *,
     writer: FakeWriter | None = None,
     adapter: FakeAdapter | None = None,
+    daemon_processes: FakeDaemonProcesses | None = None,
 ) -> herdr_bootstrap.HerdrBootstrap:
     return herdr_bootstrap.HerdrBootstrap(
         adapter=FakeAdapter() if adapter is None else adapter,
         writer=FakeWriter() if writer is None else writer,
+        daemon_process_of=(FakeDaemonProcesses() if daemon_processes is None else daemon_processes),
     )
 
 
@@ -274,6 +297,7 @@ def test_a_herdr_pane_above_running_something_else_is_unresolved() -> None:
 
 
 def test_a_live_daemon_above_the_herdr_pane_is_the_verified_host() -> None:
+    daemon_processes = FakeDaemonProcesses(identities={811: _daemon_identity(pid=822)})
     adapter = FakeAdapter(
         processes={
             "w1:p2": FakeProcess(
@@ -286,7 +310,9 @@ def test_a_live_daemon_above_the_herdr_pane_is_the_verified_host() -> None:
         }
     )
     backend = _herdr(
-        writer=FakeWriter(layout_result=_layout(tops={"w1:p2": 0, "w1:p5": 10})), adapter=adapter
+        writer=FakeWriter(layout_result=_layout(tops={"w1:p2": 0, "w1:p5": 10})),
+        adapter=adapter,
+        daemon_processes=daemon_processes,
     )
 
     reading = backend.daemon_host(claim=_herdr_claim())
@@ -296,6 +322,30 @@ def test_a_live_daemon_above_the_herdr_pane_is_the_verified_host() -> None:
     assert adapter.targets[0].server_pid == 300
     assert adapter.targets[0].server_starttime == "gen-1"
     assert adapter.targets[0].socket_path == HERDR_SOCKET
+    assert daemon_processes.roots == [811]
+
+
+def test_a_herdr_foreground_group_that_differs_from_the_exact_daemon_pid_is_unresolved() -> None:
+    backend = _herdr(
+        writer=FakeWriter(layout_result=_layout(tops={"w1:p2": 0, "w1:p5": 10})),
+        adapter=FakeAdapter(
+            processes={
+                "w1:p2": FakeProcess(
+                    pane_id="w1:p2",
+                    shell_pid=811,
+                    process_group_id=822,
+                    name="overseerd",
+                    cmdline="/tmp/candidate/venv/bin/overseerd",
+                )
+            }
+        ),
+        daemon_processes=FakeDaemonProcesses(identities={811: _daemon_identity(pid=823)}),
+    )
+
+    reading = backend.daemon_host(claim=_herdr_claim())
+
+    assert reading.pane_id == ""
+    assert "not the overseer daemon" in reading.unresolved
 
 
 def test_the_herdr_placement_carries_the_layout_outcome_through_unchanged() -> None:
