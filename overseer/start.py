@@ -21,22 +21,21 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import daemon_log
+import legacy_start
+import public_bootstrap
 import runtime_prefix
+import start_daemon_command
 import streams
 import supervisor
+import terminal_probes
 import tmuxio
 from _seams import PidToOptionalInt, PidToOptionalStr
 from claude_sessions import proc_comm, proc_ppid
 
 __all__: list[str] = ["daemon_command", "default_core_root", "main"]
 
-_DAEMON_PANE_TITLE = "overseer-daemon"
-_OVERSEER_PANE_COUNT = 2
-
-# The daemon pane's share of the window height. It carries the live table AND the
-# `NEEDS YOU` block — the surfaces that actually answer "what needs my attention?" —
-# so it gets the room; the bottom pane is a command prompt (maintainer 2026-07-14).
-_DAEMON_PANE_HEIGHT_PERCENT = 66
+_DAEMON_PANE_TITLE = legacy_start.DAEMON_PANE_TITLE
+_DAEMON_PANE_HEIGHT_PERCENT = legacy_start.DAEMON_PANE_HEIGHT_PERCENT
 _MAX_PARENT_WALK = 64
 _CODEX_AGENT_COMMS = frozenset({"codex", "codex-acp"})
 _CLAUDE_AGENT_COMMS = frozenset({"claude", "node"})
@@ -129,31 +128,49 @@ def daemon_command(
     bound, the retained generations, and the recovery procedure), which is why this
     command and the retention policy resolve the filename from the same constant.
     """
-    base = shlex.quote(str(daemon_executable)) if daemon_executable is not None else "overseerd"
-    if warn_percent is not None:
-        base += f" --warn-percent {warn_percent}"
     target = log_path if log_path is not None else _default_daemon_log_path()
-    return base + f" 2>> {shlex.quote(str(target))}"
+    return start_daemon_command.build_daemon_command(
+        warn_percent=warn_percent,
+        log_path=target,
+        daemon_executable=daemon_executable,
+    )
 
 
-_daemon_command = daemon_command
-
-
-def _daemon_pane_is_top_of_two(*, layout: tmuxio.WindowLayoutDriver, pane: str) -> bool:
-    geometries = layout.window_pane_geometries(pane=pane)
-    if len(geometries) != _OVERSEER_PANE_COUNT:
-        return False
-    return any(geometry.pane == pane and geometry.top == 0 for geometry in geometries)
-
-
-def _start_daemon_pane(
+def _start_verified(
     *,
-    layout: tmuxio.WindowLayoutDriver,
-    pane: str,
-    core: Path,
     warn_percent: int | None,
-    daemon_executable: Path,
-) -> bool:
+    build_supervisor: Callable[[], supervisor.Supervisor] | None,
+    core_root: Path | None,
+    ensure_daemon_runtime: Callable[[], Path | None] | None,
+) -> int:
+    """Run the shipped exact-instance bootstrap path."""
+    if not any(
+        os.environ.get(name)
+        for name in (terminal_probes.TMUX_ENV, "TMUX_PANE", terminal_probes.HERDR_SOCKET_ENV)
+    ):
+        streams.write_stderr(
+            text=(
+                "overseer-start: not inside a tmux pane ($TMUX_PANE unset) and no "
+                "Herdr endpoint is declared. Run /overseer from a Claude Code or "
+                "Codex session inside a supported terminal pane.\n"
+            )
+        )
+        return 1
+    core = core_root if core_root is not None else _default_core_root()
+    ensure_runtime = (
+        ensure_daemon_runtime
+        if ensure_daemon_runtime is not None
+        else runtime_prefix.ensure_current_runtime
+    )
+    daemon_executable = ensure_runtime()
+    if daemon_executable is None:
+        streams.write_stderr(
+            text=(
+                "overseer-start: failed to prepare the daemon-owned runtime prefix; "
+                "overseerd was not launched from the working tree.\n"
+            )
+        )
+        return 1
     log_path = core / "tmp" / "overseer" / daemon_log.HISTORY_FILENAME
     log_path.parent.mkdir(parents=True, exist_ok=True)
     command = daemon_command(
@@ -161,23 +178,14 @@ def _start_daemon_pane(
         log_path=log_path,
         daemon_executable=daemon_executable,
     )
-    new_pane = layout.split_window_top(pane=pane, cwd=str(core), command=command)
-    if new_pane is None:
-        streams.write_stderr(
-            text="overseer-start: FAILED to split the window for the daemon pane.\n"
-        )
-        return False
-    _ = layout.set_pane_title(pane=new_pane, title=_DAEMON_PANE_TITLE)
-    if not layout.pane_exists(pane=new_pane):
-        streams.write_stderr(
-            text=(
-                "overseer-start: overseerd did not stay alive in the daemon pane; "
-                f"check {log_path} for startup errors.\n"
-            )
-        )
-        return False
-    streams.write_stderr(text=f"overseer-start: started overseerd in top pane {new_pane}.\n")
-    return True
+    operator_home = os.environ.get("HOME")
+    if operator_home:
+        command = f"HOME={shlex.quote(operator_home)} {command}"
+    return public_bootstrap.run_verified_bootstrap(
+        core=core,
+        command=command,
+        build_supervisor=build_supervisor,
+    )
 
 
 def main(
@@ -188,7 +196,7 @@ def main(
     core_root: Path | None = None,
     ensure_daemon_runtime: Callable[[], Path | None] | None = None,
 ) -> int:
-    """Bootstrap the two-pane overseer layout in the CURRENT tmux window.
+    """Bootstrap beside the nearest verified owning tmux or Herdr pane.
 
     ``io``, ``build_supervisor``, and ``core_root`` are injectable for the same
     reason ``Supervisor.tmux`` is: everything below them is orchestration — the
@@ -237,6 +245,13 @@ def main(
         )
         return 1
 
+    if io is None:
+        return _start_verified(
+            warn_percent=args.warn_percent,
+            build_supervisor=build_supervisor,
+            core_root=core_root,
+            ensure_daemon_runtime=ensure_daemon_runtime,
+        )
     pane = os.environ.get("TMUX_PANE")
     if not pane:
         streams.write_stderr(
@@ -247,70 +262,19 @@ def main(
             )
         )
         return 1
-
-    # Prefer the operator checkout over a plugin build that imported this module;
-    # cwd wins Python's module resolution for `python -m` when it contains overseer.
-    core = core_root if core_root is not None else _default_core_root()
-    layout: tmuxio.WindowLayoutDriver = io if io is not None else tmuxio.TmuxIO()
-
-    # 1. Start the daemon in a TOP pane of THIS window (idempotent). The title is
-    # only an identity anchor; pane indexes are deliberately avoided because tmux
-    # renumbers after a collapse. The geometry read proves the titled pane itself
-    # is the top pane in the two-pane operator window. The daemon self-update path
-    # uses process re-exec, so it preserves its pane by construction; this bootstrap
-    # handles the recovery case where a pane-command shape closed the daemon pane.
-    existing_daemon_pane = layout.pane_by_title(pane=pane, title=_DAEMON_PANE_TITLE)
-    if existing_daemon_pane is not None and _daemon_pane_is_top_of_two(
-        layout=layout, pane=existing_daemon_pane
-    ):
-        streams.write_stderr(
-            text="overseer-start: daemon pane already present in this window; leaving it.\n"
-        )
-    else:
-        ensure_runtime = (
-            ensure_daemon_runtime
-            if ensure_daemon_runtime is not None
-            else runtime_prefix.ensure_current_runtime
-        )
-        daemon_executable = ensure_runtime()
-        if daemon_executable is None:
-            streams.write_stderr(
-                text=(
-                    "overseer-start: failed to prepare the daemon-owned runtime prefix; "
-                    "overseerd was not launched from the working tree.\n"
-                )
-            )
-            return 1
-        if not _start_daemon_pane(
-            layout=layout,
-            pane=pane,
-            core=core,
-            warn_percent=args.warn_percent,
-            daemon_executable=daemon_executable,
-        ):
-            return 1
-
-    # 1b. Normalize the stack (self-heals an uneven split — e.g. after a stray third
-    # pane was opened and closed, redistributing rows), THEN give the daemon its share.
-    # The daemon pane is the one that must be readable: it carries the live table AND
-    # the `NEEDS YOU` block, which is where the operator learns what wants them. The
-    # bottom pane is a command prompt and needs far less room. Resolve the daemon pane
-    # BY TITLE rather than reusing `new_pane`, so the idempotent re-run path (where the
-    # pane already existed and we never held its id) resizes it too.
-    _ = layout.select_layout_even(pane=pane)
-    daemon_pane = layout.pane_by_title(pane=pane, title=_DAEMON_PANE_TITLE)
-    if daemon_pane is not None and _daemon_pane_is_top_of_two(layout=layout, pane=daemon_pane):
-        _ = layout.set_pane_height_percent(pane=daemon_pane, percent=_DAEMON_PANE_HEIGHT_PERCENT)
-
-    # 2. Adopt existing worker sessions that match active plan topics.
-    build = build_supervisor if build_supervisor is not None else supervisor.build_supervisor
-    adopted = build().adopt_sessions()
-    for track in adopted:
-        streams.write_stderr(
-            text=f"overseer-start: adopted {track.tmux} → {track.repo}::{track.topic}\n"
-        )
-    streams.write_stderr(text=f"overseer-start: adopted {len(adopted)} existing session(s).\n")
-    return 0
+    ensure_runtime = (
+        ensure_daemon_runtime
+        if ensure_daemon_runtime is not None
+        else runtime_prefix.ensure_current_runtime
+    )
+    return legacy_start.run_legacy_start(
+        pane=pane,
+        warn_percent=args.warn_percent,
+        layout=io,
+        build_supervisor=build_supervisor,
+        core=core_root if core_root is not None else _default_core_root(),
+        ensure_daemon_runtime=ensure_runtime,
+    )
 
 
 if __name__ == "__main__":
