@@ -140,8 +140,8 @@ def foreground_daemon_process(
     root_before = _process_status(raw=stat_of(pid=root_pid))
     if root_before is None or root_before.foreground_group <= 0:
         return None
-    pending = list(children_of(pid=root_pid))
-    seen = {root_pid}
+    pending = [root_pid]
+    seen: set[int] = set()
     while pending and len(seen) < max_processes:
         pid = pending.pop()
         if pid in seen:

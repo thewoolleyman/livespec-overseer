@@ -23,16 +23,18 @@ relative to the claimed pane's own row, and an instance that cannot report that
 row cannot have "above" established on it. It is a read, it runs before the split,
 and it names what failed.
 
-**Liveness is fresh pane/process evidence, never its title.** The legacy bootstrap
-resolved its daemon pane by the `overseer-daemon` pane title; the title is still
-SET, because the operator reads it and the legacy layout carries it, but it is not
-what is believed. A title is presentation and drifts — live Claude panes drift
-theirs to task summaries. `#{pane_current_command}` is the first process reading;
-when tmux reports the retained shell, a bounded `/proc` walk must freshly find an
-`overseerd` descendant under that exact pane root.  The shell's own command line
-does not count because `bash -c '<overseerd command>'` can keep naming a daemon
-that has already died.  A pane above the invoking one holding only its login shell
-is therefore UNRESOLVED: "the pane is still there" says nothing about the daemon.
+**Liveness is fresh pane/process evidence, never its title or reported command.**
+The legacy bootstrap resolved its daemon pane by the `overseer-daemon` pane title;
+the title is still SET, because the operator reads it and the legacy layout carries
+it, but it is not what is believed. A title is presentation and drifts — live
+Claude panes drift theirs to task summaries. `#{pane_current_command}` is useful
+only for a specific refusal diagnostic. Authorization requires a bounded `/proc`
+walk from the exact pane root to a stable PID/start/runtime/argv identity that owns
+that pane's terminal foreground group. The shell's own command line does not count
+because `bash -c '<overseerd command>'` can keep naming a daemon that has already
+died, and a genuine background daemon does not count because it no longer owns the
+terminal. A pane above the invoking one holding only its login shell is therefore
+UNRESOLVED: "the pane is still there" says nothing about the daemon.
 
 **A failed split is a KNOWN failure, not an uncertain one.** `tmuxio` reports a
 failed `split-window` as `None` after a bounded, non-zero-exit subprocess call, so
@@ -196,16 +198,16 @@ class TmuxBootstrap:
                     "foreground command"
                 ),
             )
+        pane_pid_reader = getattr(driver, "pane_pid", None)
+        pane_pid = pane_pid_reader(session=candidate) if pane_pid_reader is not None else None
+        daemon_process = (
+            tmux_daemon_liveness.foreground_daemon_process(root_pid=pane_pid)
+            if pane_pid is not None
+            else None
+        )
+        if daemon_process is not None:
+            return bootstrap.DaemonHostReading(pane_id=candidate, unresolved="", error="")
         if daemon_liveness.is_retained_shell(name=command):
-            pane_pid_reader = getattr(driver, "pane_pid", None)
-            pane_pid = pane_pid_reader(session=candidate) if pane_pid_reader is not None else None
-            daemon_process = (
-                tmux_daemon_liveness.foreground_daemon_process(root_pid=pane_pid)
-                if pane_pid is not None
-                else None
-            )
-            if daemon_process is not None:
-                return bootstrap.DaemonHostReading(pane_id=candidate, unresolved="", error="")
             return bootstrap.DaemonHostReading(
                 pane_id="",
                 unresolved=(
@@ -216,14 +218,12 @@ class TmuxBootstrap:
                 ),
                 error="",
             )
-        if not daemon_liveness.is_daemon_command(text=command):
-            return bootstrap.DaemonHostReading(
-                pane_id="",
-                unresolved=(
-                    f"pane {candidate!r} above {claim.pane_id!r} runs {command!r}, not the "
-                    "overseer daemon; further action needs fresh exact-instance, pane and "
-                    "process evidence"
-                ),
-                error="",
-            )
-        return bootstrap.DaemonHostReading(pane_id=candidate, unresolved="", error="")
+        return bootstrap.DaemonHostReading(
+            pane_id="",
+            unresolved=(
+                f"pane {candidate!r} above {claim.pane_id!r} runs {command!r}, not the "
+                "overseer daemon with a verified exact foreground identity; further "
+                "action needs fresh exact-instance, pane and process evidence"
+            ),
+            error="",
+        )
