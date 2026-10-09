@@ -120,7 +120,7 @@ import shutil
 import signal
 import subprocess
 import time
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -134,6 +134,7 @@ import pytest
 from herdr_listener_readiness import (
     ListenerPoll,
     ListenerProbe,
+    ListenerReadiness,
     await_owned_listener,
     owned_listener_peer_pid,
 )
@@ -209,6 +210,7 @@ class LiveServer:
     root: str
     reported_name: str
     kernel_executable: str
+    listener_readiness: ListenerReadiness
 
 
 def _socket_for(*, session: str) -> Path:
@@ -474,7 +476,7 @@ def _start_server(
     )
     address = _socket_for(session=session)
     try:
-        _ = await_owned_listener(
+        listener_readiness = await_owned_listener(
             socket_path=address,
             session=session,
             child=child,
@@ -515,6 +517,7 @@ def _start_server(
         root=root,
         reported_name=identity.reported,
         kernel_executable=identity.executable,
+        listener_readiness=listener_readiness,
     )
 
 
@@ -737,6 +740,78 @@ def test_listener_setup_failure_is_bounded_and_cleans_only_its_owned_session(
         receipt.target_removed
     ), f"the refused setup left its owned session {receipt.target_session!r} registered"
     assert receipt.peer_usable, "cleanup crossed into the unrelated owned Herdr session"
+
+
+RawRequest = Callable[..., dict[str, Any]]
+
+
+@dataclass(kw_only=True)
+class _DelayedListenerSetup:
+    """One disclosed pre-listen refusal plus every setup effect transmission."""
+
+    actual_request: RawRequest
+    probe_calls: int = 0
+    setup_methods: list[str] = field(default_factory=list)
+
+    def listener_probe(self, *, socket_path: str, expected_pid: int) -> int:
+        self.probe_calls += 1
+        assert Path(socket_path).exists(), "the controlled refusal follows pathname publication"
+        if self.probe_calls == 1:
+            raise ConnectionRefusedError("controlled native path-before-listen refusal")
+        return owned_listener_peer_pid(socket_path=socket_path, expected_pid=expected_pid)
+
+    def request(
+        self, *, socket_path: str, method: str, params: dict[str, object]
+    ) -> dict[str, Any]:
+        if method == "workspace.create":
+            self.setup_methods.append(method)
+        return self.actual_request(socket_path=socket_path, method=method, params=params)
+
+
+@pytest.mark.parametrize(
+    ("shell_path", "identity_kind"), [(None, "registered alias"), ("/bin/bash", "exact name")]
+)
+def test_listener_recovery_preserves_one_workspace_and_native_shell_guards(
+    *,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    shell_path: str | None,
+    identity_kind: str,
+) -> None:
+    """Recovered listener setup retains both native shell authorization paths."""
+    setup = _DelayedListenerSetup(actual_request=raw_request)
+    monkeypatch.setattr(f"{__name__}.raw_request", setup.request)
+    served = _serve(
+        scratch=tmp_path,
+        label=f"listener-native-{identity_kind.replace(' ', '-')}",
+        shell_path=shell_path,
+        listener_probe=setup.listener_probe,
+    )
+    try:
+        server = next(served)
+        listener = getattr(server, "listener_readiness", None)
+        assert isinstance(
+            listener, ListenerReadiness
+        ), "successful setup must retain its owned-listener observation for native proof"
+        assert listener.attempts == 2 and listener.peer_pid == server.server_pid, listener
+        assert setup.setup_methods == ["workspace.create"], setup.setup_methods
+        readiness = _readiness_for(server=server, scratch=tmp_path)
+        outcome, coherence = _graded_launch(server=server, readiness=readiness)
+        assert outcome.ok is True, outcome.error
+        if shell_path is None:
+            mediating = _assert_alias_context(server=server)
+            assert coherence.mediated_by == mediating.declared, coherence
+        else:
+            assert server.reported_name == Path(server.kernel_executable).name, server
+            assert coherence.mediated_by == "", coherence
+        _ = _observe_launched_child(
+            socket_path=server.socket_path,
+            pane_id=outcome.pane_id,
+            shell_pid=coherence.shell_pid,
+        )
+        assert readiness.writer_deliveries() == [(outcome.pane_id, LAUNCH_COMMAND, ("Enter",))]
+    finally:
+        served.close()
 
 
 def _readiness_for(*, server: LiveServer, scratch: Path, **overrides: Any) -> _Readiness:
