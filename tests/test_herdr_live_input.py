@@ -15,6 +15,12 @@ of what it sent. A raw-mode reader with bracketed paste enabled (DECSET 2004)
 runs in the pane and appends every byte it reads to a file, so the assertions
 below are evidence about the terminal, not about this repository's code.
 
+Recorder startup and input readiness are separate native premises. Setup first
+waits under its own bound for the actual reader to create `received.bin`; only
+then does a fresh bound grade the pane marker emitted after raw mode and DECSET
+2004. File existence is therefore evidence only that the recorder started, and
+never evidence that it is ready to receive bracketed paste.
+
 The measurements this file is built from, taken on this host against herdr 0.9.3
 / protocol 22:
 
@@ -59,6 +65,7 @@ WRITER_PATH = PACKAGE_DIR / "herdr_write.py"
 
 HERDR_BINARY = "herdr"
 SERVER_READY_TIMEOUT = 30.0
+READER_START_TIMEOUT = 20.0
 CHILD_READY_TIMEOUT = 20.0
 DELIVERY_TIMEOUT = 10.0
 PANE_CWD = "/tmp"
@@ -67,6 +74,7 @@ PASTE_TEXT = "ONE\nTWO"
 PASTE_BYTES = b"\x1b[200~ONE\nTWO\x1b[201~"
 ENTER_BYTES = b"\r"
 DELAYED_MODE_SECONDS = 1.0
+DELAYED_START_SECONDS = 1.0
 
 # A raw-mode child that ENABLES bracketed paste and records every byte it reads.
 # Without DECSET 2004 the terminal would strip the brackets before the child saw
@@ -162,6 +170,33 @@ def _await_bytes(*, path: Path, at_least: int, timeout: float) -> bytes:
     return path.read_bytes() if path.exists() else b""
 
 
+def _await_reader_started(*, socket_path: str, pane_id: str, received: Path) -> None:
+    """Observe the recorder's own output creation before grading raw readiness."""
+    deadline = time.monotonic() + READER_START_TIMEOUT
+    last_text = ""
+    last_reply: dict[str, Any] = {}
+    while time.monotonic() < deadline:
+        if received.exists():
+            return
+        last_reply = _raw_request(
+            socket_path=socket_path,
+            method="pane.read",
+            params={
+                "pane_id": pane_id,
+                "source": "visible",
+                "format": "text",
+                "strip_ansi": True,
+            },
+        )
+        last_text = str(last_reply.get("result", {}).get("read", {}).get("text", ""))
+        time.sleep(0.05)
+    pytest.fail(
+        f"native input recorder in pane {pane_id!r} did not create received.bin within "
+        f"{READER_START_TIMEOUT}s; raw-mode readiness was not graded; "
+        f"last pane text={last_text[-300:]!r}; last reply={last_reply!r}"
+    )
+
+
 def _await_reader_ready(*, socket_path: str, pane_id: str, marker: str, received: Path) -> None:
     """Observe a post-raw, post-DECSET marker from the exact recorder pane."""
     deadline = time.monotonic() + CHILD_READY_TIMEOUT
@@ -249,6 +284,11 @@ def _start_live_input_pane(*, session: str, scratch: Path) -> LiveInputPane:
                 "keys": ["Enter"],
             },
         )
+        _await_reader_started(
+            socket_path=str(address),
+            pane_id=pane_id,
+            received=received,
+        )
         _await_reader_ready(
             socket_path=str(address),
             pane_id=pane_id,
@@ -307,6 +347,39 @@ def _live_session_names() -> set[str]:
     return {str(row["name"]) for row in json.loads(listed.stdout)["sessions"]}
 
 
+def _reader_with_delayed_start_and_withheld_raw_mode(*, delay_seconds: float) -> str:
+    """The real recorder with two disclosed, independently ordered controls."""
+    source = (
+        READER_SOURCE.replace(
+            "import sys, termios, tty, os",
+            "import sys, termios, tty, os, time",
+        )
+        .replace(
+            'out = open(sys.argv[1], "wb", buffering=0)',
+            f"time.sleep({delay_seconds!r})\n" 'out = open(sys.argv[1], "wb", buffering=0)',
+        )
+        .replace(
+            "fd = sys.stdin.fileno()",
+            "while True:\n    time.sleep(1.0)\nfd = sys.stdin.fileno()",
+        )
+    )
+    assert source != READER_SOURCE, "the control must change the delivered real recorder"
+    return source
+
+
+def _assert_only_peer_remains_usable(
+    *, peer: LiveInputPane, peer_session: str, removed_session: str
+) -> None:
+    """The owned failed session is absent while the unrelated peer still answers."""
+    session_names = _live_session_names()
+    assert removed_session not in session_names, "the failed setup left its session behind"
+    assert peer_session in session_names, "cleanup crossed into the unrelated live session"
+    panes = _raw_request(socket_path=peer.socket_path, method="pane.list", params={})
+    assert any(
+        str(row["pane_id"]) == peer.pane_id for row in panes["result"]["panes"]
+    ), "the unrelated live session no longer answers for its own pane"
+
+
 def test_setup_waits_for_the_exact_native_reader_to_enter_input_mode(
     *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -353,7 +426,7 @@ def test_setup_waits_for_the_exact_native_reader_to_enter_input_mode(
 def test_never_ready_setup_cleans_only_its_owned_session(
     *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Bounded readiness failure removes its server while a live peer remains usable."""
+    """Delayed real startup precedes the bounded raw refusal and exact cleanup."""
     if shutil.which(HERDR_BINARY) is None:
         pytest.skip("herdr is not installed on this host")
     peer_session = f"overseer-test-{os.getpid()}-input-ready-peer"
@@ -363,18 +436,12 @@ def test_never_ready_setup_cleans_only_its_owned_session(
     peer_scratch.mkdir()
     target_scratch.mkdir()
     peer = _start_live_input_pane(session=peer_session, scratch=peer_scratch)
-    never_ready_source = READER_SOURCE.replace(
-        "import sys, termios, tty, os",
-        "import sys, termios, tty, os, time",
-    ).replace(
-        "fd = sys.stdin.fileno()",
-        "while True:\n    time.sleep(1.0)\nfd = sys.stdin.fileno()",
+    never_ready_source = _reader_with_delayed_start_and_withheld_raw_mode(
+        delay_seconds=DELAYED_START_SECONDS
     )
-    assert (
-        never_ready_source != READER_SOURCE
-    ), "the control must stop the real reader before its native mode transition"
     monkeypatch.setattr(f"{__name__}.READER_SOURCE", never_ready_source)
     monkeypatch.setattr(f"{__name__}.CHILD_READY_TIMEOUT", 5.0)
+    started_at = time.time_ns()
 
     try:
         with pytest.raises(pytest.fail.Exception) as failure:
@@ -383,23 +450,58 @@ def test_never_ready_setup_cleans_only_its_owned_session(
         message = str(failure.value)
         assert "did not enter raw mode and enable bracketed paste within 5.0s" in message
         assert "received.bin exists=True" in message
+        received = target_scratch / "received.bin"
+        assert received.stat().st_mtime_ns - started_at >= 500_000_000, (
+            "the controlled reader did not exhibit its delayed native startup before "
+            "the separate raw-mode timeout"
+        )
         assert not _socket_for(
             session=target_session
         ).exists(), "the never-ready setup left its exact owned server reachable"
-        session_names = _live_session_names()
-        assert target_session not in session_names, "the never-ready setup left its session behind"
-        assert peer_session in session_names, "cleanup crossed into the unrelated live session"
-        panes = _raw_request(
-            socket_path=peer.socket_path,
-            method="pane.list",
-            params={},
+        _assert_only_peer_remains_usable(
+            peer=peer,
+            peer_session=peer_session,
+            removed_session=target_session,
         )
-        assert any(
-            str(row["pane_id"]) == peer.pane_id for row in panes["result"]["panes"]
-        ), "the unrelated live session no longer answers for its own pane"
     finally:
         _stop_live_herdr(session=target_session)
         _stop_live_herdr(session=peer_session)
+
+
+def test_missing_reader_start_is_bounded_and_cleans_its_exact_session(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A recorder that never opens its output fails before raw readiness is graded."""
+    if shutil.which(HERDR_BINARY) is None:
+        pytest.skip("herdr is not installed on this host")
+    session = f"overseer-test-{os.getpid()}-input-never-started"
+    source = READER_SOURCE.replace(
+        "import sys, termios, tty, os",
+        "import sys, termios, tty, os, time",
+    ).replace(
+        'out = open(sys.argv[1], "wb", buffering=0)',
+        'while True:\n    time.sleep(1.0)\nout = open(sys.argv[1], "wb", buffering=0)',
+    )
+    assert source != READER_SOURCE, "the control must withhold actual recorder startup"
+    monkeypatch.setattr(f"{__name__}.READER_SOURCE", source)
+    monkeypatch.setattr(f"{__name__}.READER_START_TIMEOUT", 0.2)
+
+    try:
+        with pytest.raises(pytest.fail.Exception) as failure:
+            _start_live_input_pane(session=session, scratch=tmp_path)
+
+        message = str(failure.value)
+        assert "did not create received.bin within 0.2s" in message, message
+        assert "raw-mode readiness was not graded" in message, message
+        assert not (tmp_path / "received.bin").exists()
+        assert not _socket_for(
+            session=session
+        ).exists(), "the missing-start fixture left its exact owned server reachable"
+        assert (
+            session not in _live_session_names()
+        ), "the missing-start fixture left its exact owned session registered"
+    finally:
+        _stop_live_herdr(session=session)
 
 
 def test_multiline_text_reaches_the_live_pane_as_one_bracketed_paste(*, live: LiveInputPane):

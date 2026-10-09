@@ -30,12 +30,21 @@ evidence about what the process IS. Both are driven here.
 **The fault injection, stated plainly.** The writer talks to a forwarding
 AF_UNIX proxy owned by this test process with a real
 `herdr --session <unique> server` behind it; every request and reply is relayed
-byte-for-byte and nothing is rewritten. The single injected effect is a REAL
-`exec sleep 300` run in the created pane over the real socket, at a point chosen
-per test, and the proxy then polls the REAL `pane.process_info` until the server
-itself reports the pane's root is `sleep` at the UNCHANGED pid. The test asserts
-that unchanged pid, so "same-PID replacement" is a measurement rather than an
-assumption about what `exec` does.
+byte-for-byte and nothing is rewritten. Before the split reply is exposed to the
+writer, one disclosed SETUP effect runs: the shared bounded readiness instrument
+stages a real self-terminating child, observes it under the created pane's shell,
+observes its exit, and establishes that same coherent shell idle again. The
+one-shot setup traffic uses its own real-socket connections and is absent from
+the writer request stream.
+
+Only after that premise is established does the intended fault run: a REAL
+`exec sleep 300` in the created pane over the real socket, at a point chosen per
+test. The proxy then polls the REAL `pane.process_info` until the server itself
+reports the pane's root is `sleep` at the UNCHANGED pid. The test asserts that
+unchanged pid, so "same-PID replacement" is a measurement rather than an
+assumption about what `exec` does. If initial readiness expires, the split reply
+is withheld and no replacement or writer observation is allowed to stand in for
+the missing premise.
 
 The replaced pane's own capture is deliberately NOT used as evidence that
 nothing was written: `sleep` does not echo its stdin, so that capture cannot
@@ -55,18 +64,25 @@ import socket
 import subprocess
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import pytest
+from test_herdr_live_observations import (
+    PaneReadiness,
+    parent_pid_of,
+    registered_login_shells,
+    startup_transient,
+)
 
 __all__: list[str] = []
 
 HERDR_BINARY = "herdr"
 SERVER_READY_TIMEOUT = 30.0
 REPLACE_TIMEOUT = 20.0
+INITIAL_READY_TIMEOUT = 20.0
 PANE_CWD = "/tmp"
 TOP_RATIO = 0.25
 
@@ -91,6 +107,7 @@ class ProxyState:
     """What the proxy relayed, and the real replacement it injected."""
 
     inject_at: str
+    readiness: PaneReadiness
     created: str = ""
     shell_pid_before: int = 0
     shell_pid_after: int = 0
@@ -112,6 +129,7 @@ class ProxyState:
 class LiveProxiedTab:
     """A real herdr tab plus the proxy the writer is pointed at."""
 
+    session: str
     real_socket: str
     proxy_socket: str
     original: str
@@ -173,6 +191,13 @@ def _capture(*, socket_path: str, pane_id: str) -> str:
     return str(reply["result"]["read"]["text"])
 
 
+def _live_session_names() -> set[str]:
+    """Names Herdr currently reports, through its real CLI."""
+    listed = _cli(args=["session", "list", "--json"])
+    assert listed.returncode == 0, listed.stderr
+    return {str(row["name"]) for row in json.loads(listed.stdout)["sessions"]}
+
+
 def _geometry(*, socket_path: str, pane_id: str) -> dict[str, int]:
     reply = _raw_request(socket_path=socket_path, method="pane.layout", params={"pane_id": pane_id})
     return {
@@ -215,7 +240,7 @@ def _forward(*, socket_path: str, raw: bytes) -> bytes:
 
 
 def _serve_proxy(*, listener: socket.socket, real_socket: str, state: ProxyState) -> None:
-    """Relay verbatim, injecting one real root-shell replacement at the chosen point."""
+    """Establish once, relay verbatim, then replace at the chosen point."""
     listener.settimeout(5.0)
     while True:
         try:
@@ -235,6 +260,9 @@ def _serve_proxy(*, listener: socket.socket, real_socket: str, state: ProxyState
             if method == "pane.split" and answered:
                 reply = json.loads(answered.split(b"\n")[0])
                 state.created = str(reply["result"]["pane"]["pane_id"])
+                state.readiness.establish(pane_id=state.created)
+                if state.readiness.refusal():
+                    continue
                 if state.inject_at == BEFORE_ANY_OBSERVATION:
                     _replace_root_shell(socket_path=real_socket, state=state)
             with contextlib.suppress(OSError):
@@ -263,7 +291,15 @@ def _start_server(*, session: str, scratch: Path) -> str:
     return str(address)
 
 
-def _build(*, session: str, scratch: Path, proxy_dir: Path, inject_at: str) -> LiveProxiedTab:
+def _build(
+    *,
+    session: str,
+    scratch: Path,
+    proxy_dir: Path,
+    inject_at: str,
+    readiness_read: Callable[[], Mapping[str, Any]] | None = None,
+    coherence_seconds: float = INITIAL_READY_TIMEOUT,
+) -> LiveProxiedTab:
     real_socket = _start_server(session=session, scratch=scratch)
     created = _raw_request(
         socket_path=real_socket,
@@ -271,7 +307,17 @@ def _build(*, session: str, scratch: Path, proxy_dir: Path, inject_at: str) -> L
         params={"cwd": PANE_CWD, "label": session, "focus": False},
     )
     assert "result" in created, f"workspace.create failed: {created}"
-    state = ProxyState(inject_at=inject_at)
+    state = ProxyState(
+        inject_at=inject_at,
+        readiness=PaneReadiness(
+            socket_path=real_socket,
+            transient=startup_transient(scratch=scratch),
+            registered=registered_login_shells(),
+            seconds=INITIAL_READY_TIMEOUT,
+            coherence_seconds=coherence_seconds,
+            read=readiness_read,
+        ),
+    )
     listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     proxy_socket = proxy_dir / f"{inject_at.replace('.', '-')}.sock"
     listener.bind(str(proxy_socket))
@@ -282,6 +328,7 @@ def _build(*, session: str, scratch: Path, proxy_dir: Path, inject_at: str) -> L
         daemon=True,
     ).start()
     return LiveProxiedTab(
+        session=session,
         real_socket=real_socket,
         proxy_socket=str(proxy_socket),
         original=str(created["result"]["root_pane"]["pane_id"]),
@@ -298,10 +345,22 @@ def _proxied(*, tmp_path: Path) -> Iterator[Any]:
     proxy_dir.mkdir(parents=True, exist_ok=True)
     sessions: list[str] = []
 
-    def build(*, inject_at: str) -> LiveProxiedTab:
+    def build(
+        *,
+        inject_at: str,
+        readiness_read: Callable[[], Mapping[str, Any]] | None = None,
+        coherence_seconds: float = INITIAL_READY_TIMEOUT,
+    ) -> LiveProxiedTab:
         session = f"overseer-test-{os.getpid()}-{inject_at.replace('.', '-')}"
         sessions.append(session)
-        return _build(session=session, scratch=tmp_path, proxy_dir=proxy_dir, inject_at=inject_at)
+        return _build(
+            session=session,
+            scratch=tmp_path,
+            proxy_dir=proxy_dir,
+            inject_at=inject_at,
+            readiness_read=readiness_read,
+            coherence_seconds=coherence_seconds,
+        )
 
     try:
         yield build
@@ -353,6 +412,38 @@ def _assert_same_pid_replacement_happened(*, live: LiveProxiedTab) -> None:
     )
 
 
+def _assert_initial_shell_ready(*, live: LiveProxiedTab) -> None:
+    """Grade the one-shot native premise before grading the writer's refusal."""
+    readiness = live.state.readiness
+    assert readiness.panes == [live.state.created], (
+        "initial readiness must run exactly once for the created pane; "
+        f"created={live.state.created!r}, established={readiness.panes}"
+    )
+    assert readiness.refusal() == "", readiness.refusal()
+    gate = readiness.gate
+    assert gate is not None, "a refusal-free readiness must retain its native observations"
+    staged = gate.transient
+    assert staged is not None and staged.pid is not None, staged
+    retained = gate.retained
+    assert retained is not None, "the created pane's retained shell identity was not pinned"
+    assert parent_pid_of(pid=staged.pid) in (
+        None,
+        retained.pid,
+    ), f"the controlled initial child {staged.pid} was not under shell {retained.pid}"
+    assert gate.departed == "", gate.departed
+    assert gate.established is not None and gate.established.recovered is True, gate.established
+    identity = readiness.identity
+    assert identity is not None and identity.coherent is True, readiness.refusal()
+    assert (
+        identity.shell_pid == retained.pid
+    ), f"coherent shell {identity.shell_pid} differs from pinned shell {retained.pid}"
+    assert live.state.shell_pid_before == identity.shell_pid, (
+        "the replacement must start from the exact shell identity established before "
+        f"the writer's first observation: {identity.shell_pid} != "
+        f"{live.state.shell_pid_before}"
+    )
+
+
 def _assert_nothing_launched(*, live: LiveProxiedTab, outcome: Any) -> None:
     assert outcome.ok is False, "a pane whose root is not the created shell is not launchable"
     assert outcome.pane_id == live.state.created, "the created pane must still be named"
@@ -378,6 +469,7 @@ def test_a_root_replaced_before_any_observation_gets_no_input(*, proxied: Any):
 
     outcome = _split_top(live=live)
 
+    _assert_initial_shell_ready(live=live)
     _assert_same_pid_replacement_happened(live=live)
     _assert_nothing_launched(live=live, outcome=outcome)
     tops = _geometry(socket_path=live.real_socket, pane_id=live.original)
@@ -395,8 +487,46 @@ def test_a_root_replaced_between_the_two_observations_gets_no_input(*, proxied: 
 
     outcome = _split_top(live=live)
 
+    _assert_initial_shell_ready(live=live)
     _assert_same_pid_replacement_happened(live=live)
     _assert_nothing_launched(live=live, outcome=outcome)
     assert live.state.methods().count("pane.swap") == 1, live.state.methods()
     info = _process_info(socket_path=live.real_socket, pane_id=live.state.created)
     assert REPLACED_NAME in _leader_names(info=info), "the occupant must not be terminated"
+
+
+def test_an_expired_initial_shell_premise_is_diagnostic_and_never_injects(*, proxied: Any):
+    """Unavailable native identity expires before the split is exposed to the writer.
+
+    The available-shell half still stages and clears its real controlled child.
+    Only the independent coherence observation is withheld, through the fixture's
+    disclosed read seam. The proxy must therefore close the split round trip with
+    a bounded fixture refusal: no first writer observation, swap, replacement, or
+    input is allowed to masquerade as evidence about the shipped guard.
+    """
+    live = proxied(
+        inject_at=BETWEEN_OBSERVATIONS,
+        readiness_read=lambda: {"result": {}},
+        coherence_seconds=0.1,
+    )
+
+    outcome = _split_top(live=live)
+
+    refusal = live.state.readiness.refusal()
+    assert live.state.readiness.panes == [live.state.created]
+    assert live.state.created, "the exact created pane must be named in the fixture refusal"
+    assert "never reported a coherent shell identity within 0.1s" in refusal, refusal
+    assert "no usable shell/foreground fields" in refusal, refusal
+    assert outcome.ok is False, "the withheld split reply cannot produce a successful launch"
+    assert live.state.methods() == ["pane.list", "pane.split"], live.state.methods()
+    assert live.state.replaced is False, "replacement ran without its initial native premise"
+    assert live.state.writes() == [], "the writer sent input after fixture readiness expired"
+
+    _ = _cli(args=["--session", live.session, "server", "stop"])
+    _ = _cli(args=["session", "delete", live.session])
+    assert not _socket_for(
+        session=live.session
+    ).exists(), "the expired fixture premise left its exact owned server reachable"
+    assert (
+        live.session not in _live_session_names()
+    ), "the expired fixture premise left its exact owned session registered"
