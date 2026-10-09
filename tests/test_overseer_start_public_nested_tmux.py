@@ -240,9 +240,19 @@ class CandidateProcess:
     starttime: str
     executable: Path
     command: bytes
+    process_group: int
+
+
+def _process_groups(*, pid: int) -> tuple[int, int]:
+    tail = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8").rpartition(") ")[2].split()
+    return int(tail[2]), int(tail[5])
 
 
 def _descendant_daemon(*, root_pid: int, candidate: Candidate) -> CandidateProcess | None:
+    try:
+        _root_group, root_foreground_group = _process_groups(pid=root_pid)
+    except (OSError, IndexError, ValueError):
+        return None
     descendants = {root_pid}
     changed = True
     while changed:
@@ -262,19 +272,22 @@ def _descendant_daemon(*, root_pid: int, candidate: Candidate) -> CandidateProce
         try:
             command = Path(f"/proc/{pid}/cmdline").read_bytes()
             executable = Path(f"/proc/{pid}/exe").readlink().resolve()
-        except OSError:
+            process_group, _foreground_group = _process_groups(pid=pid)
+        except (OSError, IndexError, ValueError):
             continue
         starttime = claude_sessions.proc_starttime(pid=pid)
         if (
             starttime is not None
             and executable == candidate.python.resolve()
             and str(candidate.daemon).encode() in command.split(b"\0")
+            and process_group == root_foreground_group
         ):
             return CandidateProcess(
                 pid=pid,
                 starttime=starttime,
                 executable=executable,
                 command=command,
+                process_group=process_group,
             )
     return None
 
@@ -338,6 +351,7 @@ def test_public_start_selects_named_tmux_nested_in_herdr_and_reuses_it(
         ),
         description="the installed candidate daemon",
     )
+    assert daemon_identity.process_group == _process_groups(pid=int(daemon_row["pane_pid"]))[1]
     assert native_case.candidate.version
     assert native_case.candidate.module_dir.is_relative_to(native_case.candidate.prefix)
 

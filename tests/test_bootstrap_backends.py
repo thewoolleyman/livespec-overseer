@@ -526,7 +526,7 @@ def test_a_tmux_pane_above_running_something_else_is_unresolved() -> None:
     assert "not the overseer daemon" in reading.unresolved
 
 
-def test_a_live_daemon_above_the_tmux_pane_is_the_verified_host() -> None:
+def test_a_daemon_name_without_exact_tmux_process_identity_is_unresolved() -> None:
     backend, _ = _tmux(
         driver=FakeTmuxDriver(
             geometries=(
@@ -539,7 +539,8 @@ def test_a_live_daemon_above_the_tmux_pane_is_the_verified_host() -> None:
 
     reading = backend.daemon_host(claim=_tmux_claim())
 
-    assert (reading.pane_id, reading.unresolved, reading.error) == ("%88", "", "")
+    assert reading.pane_id == ""
+    assert "fresh exact-instance, pane and process evidence" in reading.unresolved
 
 
 def test_a_tmux_placement_titles_normalizes_and_resizes_the_new_top_pane() -> None:
