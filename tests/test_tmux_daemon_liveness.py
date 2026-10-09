@@ -11,7 +11,6 @@ from __future__ import annotations
 import shlex
 import shutil
 import subprocess
-import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -103,9 +102,30 @@ def _must_native_tmux(*, socket_path: str, tmux_binary: str, args: list[str]) ->
     return completed.stdout.strip()
 
 
-def test_native_tmux_background_marker_child_cannot_authorize_daemon_reuse(
-    *, tmp_path: Path
+def _start_background_daemon(
+    *, socket_path: str, tmux_binary: str, pane: str, tmp_path: Path
 ) -> None:
+    candidate_home = tmp_path / "candidate-home"
+    candidate_home.mkdir()
+    daemon_executable = Path(__file__).resolve().parent.parent / ".venv/bin/overseerd"
+    command = (
+        f"HOME={shlex.quote(str(candidate_home))} "
+        f"{shlex.quote(str(daemon_executable))} --idle-nudge off "
+        f">/dev/null 2>{shlex.quote(str(tmp_path / 'background-daemon.log'))} &"
+    )
+    _ = _must_native_tmux(
+        socket_path=socket_path,
+        tmux_binary=tmux_binary,
+        args=["send-keys", "-t", pane, "-l", command],
+    )
+    _ = _must_native_tmux(
+        socket_path=socket_path,
+        tmux_binary=tmux_binary,
+        args=["send-keys", "-t", pane, "Enter"],
+    )
+
+
+def test_native_tmux_background_daemon_cannot_authorize_reuse(*, tmp_path: Path) -> None:
     tmux_binary = shutil.which("tmux")
     if tmux_binary is None:
         pytest.skip("tmux is unavailable")
@@ -144,19 +164,11 @@ def test_native_tmux_background_marker_child_cannot_authorize_daemon_reuse(
                 str(tmp_path),
             ],
         )
-        marker_command = (
-            f"{shlex.quote(sys.executable)} -c "
-            f"{shlex.quote('import time; time.sleep(120)')} /tmp/overseerd.log &"
-        )
-        _ = _must_native_tmux(
+        _start_background_daemon(
             socket_path=socket_path,
             tmux_binary=tmux_binary,
-            args=["send-keys", "-t", candidate, "-l", marker_command],
-        )
-        _ = _must_native_tmux(
-            socket_path=socket_path,
-            tmux_binary=tmux_binary,
-            args=["send-keys", "-t", candidate, "Enter"],
+            pane=candidate,
+            tmp_path=tmp_path,
         )
         pane_pid = int(
             _must_native_tmux(
@@ -167,11 +179,12 @@ def test_native_tmux_background_marker_child_cannot_authorize_daemon_reuse(
         )
         deadline = time.monotonic() + 30.0
         while time.monotonic() < deadline:
-            if tmux_daemon_liveness.daemon_descendant_command(root_pid=pane_pid) is not None:
+            command = tmux_daemon_liveness.daemon_descendant_command(root_pid=pane_pid)
+            if command is not None and tmux_daemon_liveness.is_daemon_argv(command=command):
                 break
             time.sleep(0.05)
         else:
-            pytest.fail("the native background marker process did not start")
+            pytest.fail("the genuine background daemon process did not start")
         server_pid = int(
             _must_native_tmux(
                 socket_path=socket_path,
@@ -254,6 +267,16 @@ def test_tmux_host_reuses_shell_pane_only_with_fresh_daemon_descendant(
     *, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     driver = _RetainedShellDriver(pane_pid_value=10)
+
+    def daemon_process(*, root_pid: int) -> object | None:
+        return object() if root_pid == 10 else None
+
+    monkeypatch.setattr(
+        tmux_bootstrap.tmux_daemon_liveness,
+        "foreground_daemon_process",
+        daemon_process,
+        raising=False,
+    )
 
     def daemon_command(*, root_pid: int) -> str | None:
         return "/candidate/bin/overseerd" if root_pid == 10 else None

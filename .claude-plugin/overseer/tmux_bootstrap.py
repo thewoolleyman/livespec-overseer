@@ -199,14 +199,12 @@ class TmuxBootstrap:
         if daemon_liveness.is_retained_shell(name=command):
             pane_pid_reader = getattr(driver, "pane_pid", None)
             pane_pid = pane_pid_reader(session=candidate) if pane_pid_reader is not None else None
-            daemon_command = (
-                tmux_daemon_liveness.daemon_descendant_command(root_pid=pane_pid)
+            daemon_process = (
+                tmux_daemon_liveness.foreground_daemon_process(root_pid=pane_pid)
                 if pane_pid is not None
                 else None
             )
-            if daemon_command is not None and tmux_daemon_liveness.is_daemon_argv(
-                command=daemon_command
-            ):
+            if daemon_process is not None:
                 return bootstrap.DaemonHostReading(pane_id=candidate, unresolved="", error="")
             return bootstrap.DaemonHostReading(
                 pane_id="",
