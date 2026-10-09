@@ -117,7 +117,9 @@ from __future__ import annotations
 
 import os
 import shutil
+import signal
 import subprocess
+import time
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -479,8 +481,17 @@ def _start_server(
             poll=listener_poll or ListenerPoll(seconds=SERVER_READY_TIMEOUT),
             probe=listener_probe,
         )
+    except AssertionError as failed:
+        listener_failure: AssertionError | None = failed
+    else:
+        listener_failure = None
     finally:
         log.close()
+    if listener_failure is not None:
+        raise AssertionError(
+            f"{listener_failure}; server log: "
+            f"{(scratch / log_name).read_text(errors='replace')[:500]}"
+        ) from listener_failure
     created = raw_request(
         socket_path=str(address),
         method="workspace.create",
@@ -579,6 +590,9 @@ def test_listener_wait_consumes_path_before_listen_refusal_before_workspace_crea
         if not events:
             events.append("listener-refused")
             raise ConnectionRefusedError("controlled path-before-listen refusal")
+        if len(events) == 1:
+            events.append("listener-unowned")
+            return child.pid + 1
         events.append("listener-owned")
         return child.pid
 
@@ -591,9 +605,138 @@ def test_listener_wait_consumes_path_before_listen_refusal_before_workspace_crea
     )
     events.append("workspace.create")
 
-    assert events == ["listener-refused", "listener-owned", "workspace.create"], events
-    assert observed.attempts == 2
+    assert events == [
+        "listener-refused",
+        "listener-unowned",
+        "listener-owned",
+        "workspace.create",
+    ], events
+    assert observed.attempts == 3
     assert observed.peer_pid == child.pid
+
+
+@pytest.mark.parametrize(
+    ("phase", "ticks"),
+    [("during listener polling", [0.0, 0.0]), ("at the listener deadline", [0.0, 1.0])],
+)
+def test_owned_server_exit_during_listener_readiness_is_not_reported_as_a_timeout(
+    *, tmp_path: Path, phase: str, ticks: list[float]
+) -> None:
+    """Each child observation boundary wins over a generic timeout diagnostic."""
+    address = tmp_path / "deadline.sock"
+    child = _ControlledServerChild(pid=5219, status=23)
+    clock = iter(ticks)
+
+    with pytest.raises(AssertionError) as refused:
+        _ = await_owned_listener(
+            socket_path=address,
+            session=f"controlled exit {phase}",
+            child=child,
+            poll=ListenerPoll(
+                seconds=1.0,
+                monotonic=lambda: next(clock, 1e9),
+                sleep=lambda _seconds: None,
+            ),
+            probe=owned_listener_peer_pid,
+        )
+
+    message = str(refused.value)
+    assert "owned server process 5219 exited with status 23" in message
+
+
+@dataclass(frozen=True, kw_only=True)
+class _ListenerFailureReceipt:
+    """The diagnostic and ownership observations from one refused setup."""
+
+    message: str
+    attempts: int
+    target_session: str
+    target_removed: bool
+    peer_usable: bool
+
+
+def _exercise_listener_failure(*, tmp_path: Path, failure: str) -> _ListenerFailureReceipt:
+    """Drive one controlled listener failure against an unrelated live peer."""
+    peer_scratch = tmp_path / "peer"
+    target_scratch = tmp_path / "target"
+    peer_scratch.mkdir()
+    target_scratch.mkdir()
+    peer = _serve(scratch=peer_scratch, label=f"listener-peer-{failure}", shell_path="/bin/bash")
+    peer_server = next(peer)
+    target_label = f"listener-{failure}"
+    target_session = f"overseer-test-{os.getpid()}-alias-{target_label}"
+    target_address = _socket_for(session=target_session)
+    accepting_ticks = iter([0.0, 1.0, 3.0])
+    attempts = [0]
+
+    def controlled_clock() -> float:
+        return next(accepting_ticks, 1e9) if target_address.exists() else 0.0
+
+    def controlled_refusal(*, socket_path: str, expected_pid: int) -> int:
+        attempts[0] += 1
+        assert Path(socket_path).exists(), "the refusal is after pathname publication"
+        if failure == "exited" and attempts[0] == 1:
+            os.kill(expected_pid, signal.SIGTERM)
+            time.sleep(0.05)
+        raise ConnectionRefusedError(f"controlled {failure} listener refusal")
+
+    target = _serve(
+        scratch=target_scratch,
+        label=target_label,
+        shell_path=None,
+        listener_poll=ListenerPoll(
+            seconds=2.0,
+            monotonic=controlled_clock,
+            sleep=lambda _seconds: time.sleep(0.01),
+        ),
+        listener_probe=controlled_refusal,
+    )
+    try:
+        with pytest.raises(AssertionError) as refused:
+            _ = next(target)
+        return _ListenerFailureReceipt(
+            message=str(refused.value),
+            attempts=attempts[0],
+            target_session=target_session,
+            target_removed=not target_address.parent.exists(),
+            peer_usable=peer_server.root in _pane_ids(socket_path=peer_server.socket_path),
+        )
+    finally:
+        target.close()
+        peer.close()
+
+
+@pytest.mark.parametrize("failure", ["exited", "never-accepting"])
+def test_listener_setup_failure_is_bounded_and_cleans_only_its_owned_session(
+    *, tmp_path: Path, failure: str
+) -> None:
+    """Exit and non-acceptance are named; cleanup cannot cross session ownership.
+
+    Both faults are controlled fixture validation, not claims about the reported
+    host race. The exit leg terminates the exact spawned child during its first
+    connect probe. The never-accepting leg keeps the real server live but makes
+    this fixture's injected transport probe report refusal through the complete
+    deterministic startup bound.
+    """
+    receipt = _exercise_listener_failure(tmp_path=tmp_path, failure=failure)
+
+    assert f"herdr session {receipt.target_session!r}" in receipt.message, receipt.message
+    assert "server log:" in receipt.message, receipt.message
+    if failure == "exited":
+        assert "owned server process" in receipt.message, receipt.message
+        assert "exited with status -15" in receipt.message, receipt.message
+        assert receipt.attempts == 1, "exit detection must stop further connect probes"
+    else:
+        assert "did not expose a connectable owned listener" in receipt.message, receipt.message
+        assert "within 2.0s" in receipt.message, receipt.message
+        assert (
+            "ConnectionRefusedError: controlled never-accepting listener refusal" in receipt.message
+        )
+        assert receipt.attempts == 2, "the deterministic bound permits exactly two probes"
+    assert (
+        receipt.target_removed
+    ), f"the refused setup left its owned session {receipt.target_session!r} registered"
+    assert receipt.peer_usable, "cleanup crossed into the unrelated owned Herdr session"
 
 
 def _readiness_for(*, server: LiveServer, scratch: Path, **overrides: Any) -> _Readiness:
