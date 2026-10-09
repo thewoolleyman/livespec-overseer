@@ -190,6 +190,28 @@ def _await_reader_ready(*, socket_path: str, pane_id: str, marker: str, received
     )
 
 
+def _await_workspace(*, address: Path, session: str, scratch: Path) -> dict[str, Any]:
+    """Create the workspace only once the exact server accepts socket requests."""
+    deadline = time.monotonic() + SERVER_READY_TIMEOUT
+    last_reason = f"socket path {address} does not exist"
+    while time.monotonic() < deadline:
+        if address.exists():
+            try:
+                return _raw_request(
+                    socket_path=str(address),
+                    method="workspace.create",
+                    params={"cwd": PANE_CWD, "label": session, "focus": False},
+                )
+            except (ConnectionRefusedError, FileNotFoundError) as error:
+                last_reason = f"{type(error).__name__}: {error}"
+        time.sleep(0.1)
+    pytest.fail(
+        f"herdr session {session!r} did not accept a workspace request within "
+        f"{SERVER_READY_TIMEOUT}s ({last_reason}); "
+        f"server log: {(scratch / 'server.log').read_text(errors='replace')[:500]}"
+    )
+
+
 def _start_live_input_pane(*, session: str, scratch: Path) -> LiveInputPane:
     """Spawn a detached herdr server, create one pane, and run the recorder in it."""
     log = (scratch / "server.log").open("wb")
@@ -201,44 +223,32 @@ def _start_live_input_pane(*, session: str, scratch: Path) -> LiveInputPane:
         start_new_session=True,
         cwd=str(scratch),
     )
-    address = _socket_for(session=session)
-    deadline = time.monotonic() + SERVER_READY_TIMEOUT
-    while time.monotonic() < deadline and not address.exists():
-        time.sleep(0.1)
-    log.close()
-    assert address.exists(), (
-        f"herdr session {session!r} never created {address}; "
-        f"server log: {(scratch / 'server.log').read_text(errors='replace')[:500]}"
-    )
-    created = _raw_request(
-        socket_path=str(address),
-        method="workspace.create",
-        params={"cwd": PANE_CWD, "label": session, "focus": False},
-    )
-    assert "result" in created, f"workspace.create failed: {created}"
-    pane_id = str(created["result"]["root_pane"]["pane_id"])
-
-    reader = scratch / "reader.py"
-    reader.write_text(READER_SOURCE, encoding="utf-8")
-    received = scratch / "received.bin"
-    ready_token = scratch / "ready-token.txt"
-    ready_marker = f"OVERSEER_INPUT_READY_{child.pid}_{time.monotonic_ns()}"
-    ready_token.write_text(ready_marker, encoding="utf-8")
-    # Launching the recorder is FIXTURE SETUP, so it uses the atomic text+Enter
-    # form deliberately — the separation of paste from Enter is what the tests
-    # below assert about the adapter, and asserting it here too would prove
-    # nothing about the shipped surface.
-    _ = _raw_request(
-        socket_path=str(address),
-        method="pane.send_input",
-        params={
-            "pane_id": pane_id,
-            "text": f"python3 {reader} {received} {ready_token}",
-            "keys": ["Enter"],
-        },
-    )
     setup_ready = False
     try:
+        address = _socket_for(session=session)
+        created = _await_workspace(address=address, session=session, scratch=scratch)
+        assert "result" in created, f"workspace.create failed: {created}"
+        pane_id = str(created["result"]["root_pane"]["pane_id"])
+
+        reader = scratch / "reader.py"
+        reader.write_text(READER_SOURCE, encoding="utf-8")
+        received = scratch / "received.bin"
+        ready_token = scratch / "ready-token.txt"
+        ready_marker = f"OVERSEER_INPUT_READY_{child.pid}_{time.monotonic_ns()}"
+        ready_token.write_text(ready_marker, encoding="utf-8")
+        # Launching the recorder is FIXTURE SETUP, so it uses the atomic text+Enter
+        # form deliberately — the separation of paste from Enter is what the tests
+        # below assert about the adapter, and asserting it here too would prove
+        # nothing about the shipped surface.
+        _ = _raw_request(
+            socket_path=str(address),
+            method="pane.send_input",
+            params={
+                "pane_id": pane_id,
+                "text": f"python3 {reader} {received} {ready_token}",
+                "keys": ["Enter"],
+            },
+        )
         _await_reader_ready(
             socket_path=str(address),
             pane_id=pane_id,
@@ -247,15 +257,16 @@ def _start_live_input_pane(*, session: str, scratch: Path) -> LiveInputPane:
         )
         assert received.exists(), "the ready raw-mode recorder did not create its output file"
         setup_ready = True
+        return LiveInputPane(
+            socket_path=str(address),
+            server_pid=child.pid,
+            pane_id=pane_id,
+            received=received,
+        )
     finally:
+        log.close()
         if not setup_ready:
             _stop_live_herdr(session=session)
-    return LiveInputPane(
-        socket_path=str(address),
-        server_pid=child.pid,
-        pane_id=pane_id,
-        received=received,
-    )
 
 
 def _stop_live_herdr(*, session: str) -> None:
@@ -363,14 +374,14 @@ def test_never_ready_setup_cleans_only_its_owned_session(
         never_ready_source != READER_SOURCE
     ), "the control must stop the real reader before its native mode transition"
     monkeypatch.setattr(f"{__name__}.READER_SOURCE", never_ready_source)
-    monkeypatch.setattr(f"{__name__}.CHILD_READY_TIMEOUT", 0.25)
+    monkeypatch.setattr(f"{__name__}.CHILD_READY_TIMEOUT", 5.0)
 
     try:
         with pytest.raises(pytest.fail.Exception) as failure:
             _start_live_input_pane(session=target_session, scratch=target_scratch)
 
         message = str(failure.value)
-        assert "did not enter raw mode and enable bracketed paste within 0.25s" in message
+        assert "did not enter raw mode and enable bracketed paste within 5.0s" in message
         assert "received.bin exists=True" in message
         assert not _socket_for(
             session=target_session
