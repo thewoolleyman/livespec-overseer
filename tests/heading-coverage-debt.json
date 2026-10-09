@@ -2,6 +2,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
+    "heading": "## Independent recovery of authorized session obligations",
+    "work_item": "overseer-okf6bu",
+    "first_seen": "2026-10-08"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "contracts.md",
     "heading": "## The LLM credential-provider operation",
     "work_item": "overseer-5tpc72",
     "first_seen": "2026-09-12"
@@ -264,6 +271,13 @@
     "heading": "## Scenario: A provisioning request drives suspect and dead credential recovery",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A real Codex coordinator in Herdr resumes authorized recovery after FINAL",
+    "work_item": "overseer-okf6bu",
+    "first_seen": "2026-10-08"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -751,6 +765,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: Consumer telemetry failure cannot suppress local recovery",
+    "work_item": "overseer-okf6bu",
+    "first_seen": "2026-10-08"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: Corrected target input proceeds after validation refusal",
     "work_item": "overseer-dykjx4",
     "first_seen": "2026-09-12"
@@ -803,6 +824,13 @@
     "heading": "## Scenario: Duplicate JSON member names are never silently collapsed",
     "work_item": "overseer-5tpc72",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Duplicate recovery reconciles an ambiguous command effect",
+    "work_item": "overseer-okf6bu",
+    "first_seen": "2026-10-08"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -999,6 +1027,13 @@
     "heading": "## Scenario: Lease-record transaction contention retries selection without blocking",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Legitimate safety barriers defer recovery without killing a coordinator",
+    "work_item": "overseer-okf6bu",
+    "first_seen": "2026-10-08"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -1216,6 +1251,20 @@
     "heading": "## Scenario: Recovery cleans a worker record left after lifecycle completion",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Recovery receipt and target fulfillment remain separate",
+    "work_item": "overseer-okf6bu",
+    "first_seen": "2026-10-08"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Recovery survives waiter notification and consumer loss",
+    "work_item": "overseer-okf6bu",
+    "first_seen": "2026-10-08"
   },
   {
     "spec_root": "SPECIFICATION",
