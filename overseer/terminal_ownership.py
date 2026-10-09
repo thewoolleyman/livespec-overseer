@@ -45,9 +45,11 @@ tmux-inside-herdr selects tmux with no rule naming either.
 
 **A tie is a refusal, not a tiebreak.** Two distinct verified owners at the same
 distance mean the evidence contradicts itself, and the constraint forbids a guess.
-Identical claims reached through two endpoints are deduplicated first, because the
-same instance named twice is one owner — the claim is frozen and compared by
-value, so that collapse needs no special case.
+Claims for the same backend, live server generation and pane are deduplicated
+first, because an ambient client route and an explicit socket can reach the same
+owner.  The explicit socket wins only as the retained coordinate for later calls;
+it is not additional ownership evidence.  A different generation or pane remains
+a distinct owner and therefore still refuses on an equal-distance tie.
 
 **A probe failure NEVER becomes a selection.** Its diagnostic rides along on
 `probe_errors` whether or not another instance verified, so an unreachable backend
@@ -263,8 +265,14 @@ def _gathered(
     probes: Sequence[TerminalProbe],
     index_of: Mapping[int, int],
 ) -> tuple[list[OwnershipClaim], list[str]]:
-    """Every verified claim across every probed endpoint, plus each read failure."""
-    claims: list[OwnershipClaim] = []
+    """Every distinct verified owner across all endpoints, plus each read failure.
+
+    Socket spelling is a route to an owner rather than part of its identity.  When
+    both the ambient tmux route and its explicit named socket prove the same live
+    generation and pane, retain the explicit coordinate so dependent actions stay
+    bound even after they leave the probing call.
+    """
+    claims: dict[tuple[str, int, str, str], OwnershipClaim] = {}
     errors: list[str] = []
     for probe in probes:
         for endpoint in probe.endpoints(environ=environ):
@@ -275,8 +283,16 @@ def _gathered(
             for pane in reading.panes:
                 claim = _claim_for(pane=pane, index_of=index_of)
                 if claim is not None:
-                    claims.append(claim)
-    return claims, errors
+                    identity = (
+                        claim.backend,
+                        claim.server_pid,
+                        claim.server_starttime,
+                        claim.pane_id,
+                    )
+                    retained = claims.get(identity)
+                    if retained is None or (not retained.socket_path and claim.socket_path):
+                        claims[identity] = claim
+    return list(claims.values()), errors
 
 
 def _ambiguity(*, contenders: set[OwnershipClaim]) -> str:
