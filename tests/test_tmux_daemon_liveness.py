@@ -8,11 +8,23 @@ postimplementation companion coverage, not a reconstructed Red receipt.
 
 from __future__ import annotations
 
+import shlex
+import shutil
+import subprocess
+import sys
+import time
 from dataclasses import dataclass
+from pathlib import Path
 
 import pytest
 
-from overseer import terminal_ownership, tmux_bootstrap, tmux_daemon_liveness
+from overseer import (
+    claude_sessions,
+    terminal_ownership,
+    terminal_probes,
+    tmux_bootstrap,
+    tmux_daemon_liveness,
+)
 
 __all__: list[str] = []
 
@@ -70,6 +82,133 @@ def test_descendant_walk_refuses_unreadable_non_daemon_and_cyclic_evidence() -> 
         )
         is None
     )
+
+
+def _native_tmux(
+    *, socket_path: str, tmux_binary: str, args: list[str]
+) -> subprocess.CompletedProcess[str]:
+    run = terminal_probes.SocketScopedRun(socket_path=socket_path)
+    return run(
+        [tmux_binary, *args],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30.0,
+    )
+
+
+def _must_native_tmux(*, socket_path: str, tmux_binary: str, args: list[str]) -> str:
+    completed = _native_tmux(socket_path=socket_path, tmux_binary=tmux_binary, args=args)
+    assert completed.returncode == 0, completed.stderr
+    return completed.stdout.strip()
+
+
+def test_native_tmux_background_marker_child_cannot_authorize_daemon_reuse(
+    *, tmp_path: Path
+) -> None:
+    tmux_binary = shutil.which("tmux")
+    if tmux_binary is None:
+        pytest.skip("tmux is unavailable")
+    socket_path = str(tmp_path / "owned-tmux.sock")
+
+    try:
+        caller = _must_native_tmux(
+            socket_path=socket_path,
+            tmux_binary=tmux_binary,
+            args=[
+                "new-session",
+                "-d",
+                "-P",
+                "-F",
+                "#{pane_id}",
+                "-s",
+                "owned",
+                "-c",
+                str(tmp_path),
+            ],
+        )
+        candidate = _must_native_tmux(
+            socket_path=socket_path,
+            tmux_binary=tmux_binary,
+            args=[
+                "split-window",
+                "-v",
+                "-b",
+                "-d",
+                "-P",
+                "-F",
+                "#{pane_id}",
+                "-t",
+                caller,
+                "-c",
+                str(tmp_path),
+            ],
+        )
+        marker_command = (
+            f"{shlex.quote(sys.executable)} -c "
+            f"{shlex.quote('import time; time.sleep(120)')} /tmp/overseerd.log &"
+        )
+        _ = _must_native_tmux(
+            socket_path=socket_path,
+            tmux_binary=tmux_binary,
+            args=["send-keys", "-t", candidate, "-l", marker_command],
+        )
+        _ = _must_native_tmux(
+            socket_path=socket_path,
+            tmux_binary=tmux_binary,
+            args=["send-keys", "-t", candidate, "Enter"],
+        )
+        pane_pid = int(
+            _must_native_tmux(
+                socket_path=socket_path,
+                tmux_binary=tmux_binary,
+                args=["display-message", "-p", "-t", candidate, "#{pane_pid}"],
+            )
+        )
+        deadline = time.monotonic() + 30.0
+        while time.monotonic() < deadline:
+            if tmux_daemon_liveness.daemon_descendant_command(root_pid=pane_pid) is not None:
+                break
+            time.sleep(0.05)
+        else:
+            pytest.fail("the native background marker process did not start")
+        server_pid = int(
+            _must_native_tmux(
+                socket_path=socket_path,
+                tmux_binary=tmux_binary,
+                args=["display-message", "-p", "-t", caller, "#{pid}"],
+            )
+        )
+        server_starttime = claude_sessions.proc_starttime(pid=server_pid)
+        assert server_starttime is not None
+        caller_pid = int(
+            _must_native_tmux(
+                socket_path=socket_path,
+                tmux_binary=tmux_binary,
+                args=["display-message", "-p", "-t", caller, "#{pane_pid}"],
+            )
+        )
+        claim = terminal_ownership.OwnershipClaim(
+            backend="tmux",
+            socket_path=socket_path,
+            server_pid=server_pid,
+            server_starttime=server_starttime,
+            pane_id=caller,
+            pane_process_pid=caller_pid,
+            distance=1,
+        )
+
+        reading = tmux_bootstrap.TmuxBootstrap().daemon_host(claim=claim)
+
+        assert reading.pane_id == ""
+        assert "rather than a live daemon" in reading.unresolved
+    finally:
+        if Path(socket_path).exists():
+            _ = _native_tmux(
+                socket_path=socket_path,
+                tmux_binary=tmux_binary,
+                args=["kill-server"],
+            )
 
 
 @dataclass(frozen=True, kw_only=True)
