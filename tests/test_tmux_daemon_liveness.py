@@ -8,6 +8,7 @@ postimplementation companion coverage, not a reconstructed Red receipt.
 
 from __future__ import annotations
 
+import os
 import shlex
 import shutil
 import subprocess
@@ -102,17 +103,24 @@ def _must_native_tmux(*, socket_path: str, tmux_binary: str, args: list[str]) ->
     return completed.stdout.strip()
 
 
-def _start_background_daemon(
-    *, socket_path: str, tmux_binary: str, pane: str, tmp_path: Path
+def _start_candidate_process(
+    *, socket_path: str, tmux_binary: str, pane: str, tmp_path: Path, case: str
 ) -> None:
-    candidate_home = tmp_path / "candidate-home"
-    candidate_home.mkdir()
-    daemon_executable = Path(__file__).resolve().parent.parent / ".venv/bin/overseerd"
-    command = (
-        f"HOME={shlex.quote(str(candidate_home))} "
-        f"{shlex.quote(str(daemon_executable))} --idle-nudge off "
-        f">/dev/null 2>{shlex.quote(str(tmp_path / 'background-daemon.log'))} &"
-    )
+    if case == "background-daemon":
+        candidate_home = tmp_path / "candidate-home"
+        candidate_home.mkdir()
+        daemon_executable = Path(__file__).resolve().parent.parent / ".venv/bin/overseerd"
+        command = (
+            f"HOME={shlex.quote(str(candidate_home))} "
+            f"{shlex.quote(str(daemon_executable))} --idle-nudge off "
+            f">/dev/null 2>{shlex.quote(str(tmp_path / 'background-daemon.log'))} &"
+        )
+    else:
+        marker_fifo = tmp_path / "overseerd"
+        os.mkfifo(marker_fifo)
+        cat_binary = shutil.which("cat")
+        assert cat_binary is not None
+        command = f"{shlex.quote(cat_binary)} {shlex.quote(str(marker_fifo))}"
     _ = _must_native_tmux(
         socket_path=socket_path,
         tmux_binary=tmux_binary,
@@ -125,7 +133,8 @@ def _start_background_daemon(
     )
 
 
-def test_native_tmux_background_daemon_cannot_authorize_reuse(*, tmp_path: Path) -> None:
+@pytest.mark.parametrize("case", ["background-daemon", "foreground-cat"])
+def test_native_tmux_unowned_process_cannot_authorize_reuse(*, tmp_path: Path, case: str) -> None:
     tmux_binary = shutil.which("tmux")
     if tmux_binary is None:
         pytest.skip("tmux is unavailable")
@@ -164,11 +173,12 @@ def test_native_tmux_background_daemon_cannot_authorize_reuse(*, tmp_path: Path)
                 str(tmp_path),
             ],
         )
-        _start_background_daemon(
+        _start_candidate_process(
             socket_path=socket_path,
             tmux_binary=tmux_binary,
             pane=candidate,
             tmp_path=tmp_path,
+            case=case,
         )
         pane_pid = int(
             _must_native_tmux(
@@ -184,7 +194,7 @@ def test_native_tmux_background_daemon_cannot_authorize_reuse(*, tmp_path: Path)
                 break
             time.sleep(0.05)
         else:
-            pytest.fail("the genuine background daemon process did not start")
+            pytest.fail(f"the native {case} process did not start")
         server_pid = int(
             _must_native_tmux(
                 socket_path=socket_path,
@@ -214,7 +224,7 @@ def test_native_tmux_background_daemon_cannot_authorize_reuse(*, tmp_path: Path)
         reading = tmux_bootstrap.TmuxBootstrap().daemon_host(claim=claim)
 
         assert reading.pane_id == ""
-        assert "rather than a live daemon" in reading.unresolved
+        assert "fresh exact-instance, pane and process evidence" in reading.unresolved
     finally:
         if Path(socket_path).exists():
             _ = _native_tmux(
