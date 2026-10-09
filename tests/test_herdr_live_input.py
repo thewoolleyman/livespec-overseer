@@ -66,6 +66,7 @@ PANE_CWD = "/tmp"
 PASTE_TEXT = "ONE\nTWO"
 PASTE_BYTES = b"\x1b[200~ONE\nTWO\x1b[201~"
 ENTER_BYTES = b"\r"
+DELAYED_MODE_SECONDS = 1.0
 
 # A raw-mode child that ENABLES bracketed paste and records every byte it reads.
 # Without DECSET 2004 the terminal would strip the brackets before the child saw
@@ -73,11 +74,15 @@ ENTER_BYTES = b"\r"
 READER_SOURCE = """
 import sys, termios, tty, os
 
+ready = open(sys.argv[2], encoding="utf-8").read()
 out = open(sys.argv[1], "wb", buffering=0)
 fd = sys.stdin.fileno()
 old = termios.tcgetattr(fd)
 tty.setraw(fd)
-sys.stdout.write("\\x1b[?2004h")
+raw = termios.tcgetattr(fd)
+if raw[3] & (termios.ICANON | termios.ECHO | termios.ISIG):
+    raise RuntimeError("stdin did not enter raw mode")
+sys.stdout.write("\\x1b[?2004h" + ready + "\\r\\n")
 sys.stdout.flush()
 out.write(b"")
 try:
@@ -157,6 +162,34 @@ def _await_bytes(*, path: Path, at_least: int, timeout: float) -> bytes:
     return path.read_bytes() if path.exists() else b""
 
 
+def _await_reader_ready(*, socket_path: str, pane_id: str, marker: str, received: Path) -> None:
+    """Observe a post-raw, post-DECSET marker from the exact recorder pane."""
+    deadline = time.monotonic() + CHILD_READY_TIMEOUT
+    last_text = ""
+    last_reply: dict[str, Any] = {}
+    while time.monotonic() < deadline:
+        last_reply = _raw_request(
+            socket_path=socket_path,
+            method="pane.read",
+            params={
+                "pane_id": pane_id,
+                "source": "visible",
+                "format": "text",
+                "strip_ansi": True,
+            },
+        )
+        last_text = str(last_reply.get("result", {}).get("read", {}).get("text", ""))
+        if marker in last_text:
+            return
+        time.sleep(0.05)
+    pytest.fail(
+        f"native input recorder in pane {pane_id!r} did not enter raw mode and "
+        f"enable bracketed paste within {CHILD_READY_TIMEOUT}s; "
+        f"received.bin exists={received.exists()}; last pane text={last_text[-300:]!r}; "
+        f"last reply={last_reply!r}"
+    )
+
+
 def _start_live_input_pane(*, session: str, scratch: Path) -> LiveInputPane:
     """Spawn a detached herdr server, create one pane, and run the recorder in it."""
     log = (scratch / "server.log").open("wb")
@@ -188,6 +221,9 @@ def _start_live_input_pane(*, session: str, scratch: Path) -> LiveInputPane:
     reader = scratch / "reader.py"
     reader.write_text(READER_SOURCE, encoding="utf-8")
     received = scratch / "received.bin"
+    ready_token = scratch / "ready-token.txt"
+    ready_marker = f"OVERSEER_INPUT_READY_{child.pid}_{time.monotonic_ns()}"
+    ready_token.write_text(ready_marker, encoding="utf-8")
     # Launching the recorder is FIXTURE SETUP, so it uses the atomic text+Enter
     # form deliberately — the separation of paste from Enter is what the tests
     # below assert about the adapter, and asserting it here too would prove
@@ -195,12 +231,19 @@ def _start_live_input_pane(*, session: str, scratch: Path) -> LiveInputPane:
     _ = _raw_request(
         socket_path=str(address),
         method="pane.send_input",
-        params={"pane_id": pane_id, "text": f"python3 {reader} {received}", "keys": ["Enter"]},
+        params={
+            "pane_id": pane_id,
+            "text": f"python3 {reader} {received} {ready_token}",
+            "keys": ["Enter"],
+        },
     )
-    ready = time.monotonic() + CHILD_READY_TIMEOUT
-    while time.monotonic() < ready and not received.exists():
-        time.sleep(0.05)
-    assert received.exists(), "the raw-mode recorder never started in the pane"
+    _await_reader_ready(
+        socket_path=str(address),
+        pane_id=pane_id,
+        marker=ready_marker,
+        received=received,
+    )
+    assert received.exists(), "the ready raw-mode recorder did not create its output file"
     return LiveInputPane(
         socket_path=str(address),
         server_pid=child.pid,
@@ -238,6 +281,49 @@ def _target(*, identity: Any, live: LiveInputPane) -> Any:
         server_starttime=starttime,
         pane_id=live.pane_id,
     )
+
+
+def test_setup_waits_for_the_exact_native_reader_to_enter_input_mode(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An output file is not proof that its native reader can receive a paste.
+
+    The controlled reader is the delivered real reader with one deliberate delay
+    inserted AFTER it opens `received.bin` and BEFORE it changes the PTY to raw
+    mode or enables bracketed paste. The unchanged writer then sends the paste and
+    the separate Enter through the real server. Setup may return only after that
+    exact reader and pane are genuinely ready; otherwise the terminal strips the
+    bracket delimiters and the bytes below expose the premature yield.
+    """
+    if shutil.which(HERDR_BINARY) is None:
+        pytest.skip("herdr is not installed on this host")
+    delayed_source = READER_SOURCE.replace(
+        "import sys, termios, tty, os",
+        "import sys, termios, tty, os, time",
+    ).replace(
+        "fd = sys.stdin.fileno()",
+        f"time.sleep({DELAYED_MODE_SECONDS!r})\nfd = sys.stdin.fileno()",
+    )
+    assert delayed_source != READER_SOURCE, "the control must delay the real mode transition"
+    monkeypatch.setattr(f"{__name__}.READER_SOURCE", delayed_source)
+    session = f"overseer-test-{os.getpid()}-input-delayed"
+
+    try:
+        live = _start_live_input_pane(session=session, scratch=tmp_path)
+        identity = importlib.import_module("herdr_identity")
+        target = _target(identity=identity, live=live)
+        writer = _modules()[1].HerdrWriter()
+        before = len(live.received.read_bytes())
+
+        paste = writer.bracketed_paste(target=target, text=PASTE_TEXT)
+        pasted = _await_bytes(path=live.received, at_least=before, timeout=DELIVERY_TIMEOUT)
+        submit = writer.send_enter(target=target)
+
+        assert paste.ok is True and submit.ok is True, f"{paste.error} / {submit.error}"
+        delivered = _await_bytes(path=live.received, at_least=len(pasted), timeout=DELIVERY_TIMEOUT)
+        assert delivered[before:] == PASTE_BYTES + ENTER_BYTES, repr(delivered[before:])
+    finally:
+        _stop_live_herdr(session=session)
 
 
 def test_multiline_text_reaches_the_live_pane_as_one_bracketed_paste(*, live: LiveInputPane):
