@@ -1,5 +1,15 @@
 # Changelog
 
+## [5.16.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.15.1...v5.16.0) (2026-10-09)
+
+
+### Features
+
+* **lpm:** continue recovery past a record its own fence quarantines ([366be3c](https://github.com/thewoolleyman/livespec-overseer/commit/366be3c089a9f3d2741eff9cdfb90315d3844ff8))
+* **lpm:** refuse a command whose record identity recovery quarantined ([0925f54](https://github.com/thewoolleyman/livespec-overseer/commit/0925f54250b622e425aeba1410e88547b105c7a1))
+* **lpm:** retry a pending fence only under the role its operation implies ([f139191](https://github.com/thewoolleyman/livespec-overseer/commit/f139191ccd33acea28fb1896387f7d2f8f1af419))
+* **lpm:** visit every pending metadata fence in lexical record order ([92e6bd9](https://github.com/thewoolleyman/livespec-overseer/commit/92e6bd9d8c1e8d3709894dc10590e55b79c64f93))
+
 ## [5.15.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.15.0...v5.15.1) (2026-10-08)
 
 
