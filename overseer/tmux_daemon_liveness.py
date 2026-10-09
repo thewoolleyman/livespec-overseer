@@ -2,16 +2,35 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import claude_sessions
 import daemon_liveness
 from _seams import PidToIntList, PidToOptionalBytes
 
-__all__: list[str] = ["MAX_DESCENDANT_PROCESSES", "daemon_descendant_command"]
+__all__: list[str] = [
+    "MAX_DESCENDANT_PROCESSES",
+    "daemon_descendant_command",
+    "is_daemon_argv",
+]
 
 # A real daemon is one direct child today.  The wider bound permits ordinary
 # launcher wrappers without letting corrupt or cyclic process evidence hold the
 # public bootstrap indefinitely.
 MAX_DESCENDANT_PROCESSES = 64
+_MODULE_ARG_COUNT = 3
+
+
+def is_daemon_argv(*, command: str) -> bool:
+    """Whether ``command`` places a daemon marker in its executable argument role."""
+    argv = [*command.split(), "", ""]
+    return any(
+        (
+            Path(argv[0]).name == "overseerd",
+            argv[1:_MODULE_ARG_COUNT] == ["-m", "overseer.daemon"],
+            Path(argv[1]).name == "overseerd",
+        )
+    )
 
 
 def daemon_descendant_command(
