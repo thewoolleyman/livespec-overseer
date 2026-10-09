@@ -56,7 +56,6 @@ import os
 import shutil
 import socket
 import subprocess
-import sys
 import threading
 import time
 from collections.abc import Iterator
@@ -111,8 +110,9 @@ _DRIVER_SOURCE = """
 import json
 import os
 import sys
+from pathlib import Path
 
-repo, out_path, command, socket_override = sys.argv[1:5]
+repo, out_path, command, socket_override, daemon_executable = sys.argv[1:6]
 sys.path.insert(0, os.path.join(repo, "overseer"))
 
 import bootstrap
@@ -131,7 +131,11 @@ outcome = bootstrap.bootstrap_two_pane(
         probes=(terminal_probes.HerdrOwnershipProbe(),),
         ppid_of=claude_sessions.proc_ppid,
     ),
-    backends={"herdr": herdr_bootstrap.HerdrBootstrap()},
+    backends={
+        "herdr": herdr_bootstrap.HerdrBootstrap(
+            daemon_executable=Path(daemon_executable)
+        )
+    },
     cwd="/tmp",
     command=command,
 )
@@ -208,7 +212,7 @@ def _candidate_runtime(*, prefix: Path) -> Path:
     return executable
 
 
-def _daemon_command(*, prefix: Path, home: Path) -> str:
+def _daemon_command(*, daemon_executable: Path, home: Path) -> str:
     """The launch the bootstrap carries into the new pane.
 
     `HOME` is redirected so the daemon's own operator-home stores and its
@@ -216,7 +220,7 @@ def _daemon_command(*, prefix: Path, home: Path) -> str:
     host state.
     """
     home.mkdir(parents=True, exist_ok=True)
-    return f"HOME={home} {_candidate_runtime(prefix=prefix)}"
+    return f"HOME={home} {daemon_executable}"
 
 
 def _geometry(*, socket_path: str, pane_id: str) -> tuple[dict[str, int], str]:
@@ -263,8 +267,22 @@ def _await_outcome(*, path: Path) -> dict[str, Any]:
     pytest.fail(f"the in-pane bootstrap never recorded an outcome at {path} ")
 
 
+def _different_caller(*, daemon_executable: Path) -> Path:
+    """The supported system Python kept deliberately distinct from uv's daemon Python."""
+    caller = Path("/usr/bin/python3.12").resolve(strict=True)
+    daemon_runtime = (daemon_executable.parent / "python").resolve(strict=True)
+    assert caller != daemon_runtime
+    return caller
+
+
 def _invoke(
-    *, live: LiveTab, out_name: str, command: str, socket_override: str = ""
+    *,
+    live: LiveTab,
+    out_name: str,
+    command: str,
+    caller_executable: Path,
+    daemon_executable: Path,
+    socket_override: str = "",
 ) -> dict[str, Any]:
     """Run the public bootstrap FROM the invoking pane and read back its outcome."""
     out = live.scratch / out_name
@@ -272,7 +290,8 @@ def _invoke(
         socket_path=live.socket_path,
         pane_id=live.invoking,
         command=(
-            f"{sys.executable} {live.driver} {REPO_ROOT} {out} " f"'{command}' '{socket_override}'"
+            f"{caller_executable} {live.driver} {REPO_ROOT} {out} "
+            f"'{command}' '{socket_override}' {daemon_executable}"
         ),
     )
     return _await_outcome(path=out)
@@ -351,11 +370,22 @@ def test_the_bootstrap_places_a_live_daemon_above_its_own_pane_and_then_reuses_i
 ) -> None:
     """A1 and A2 natively: one daemon pane above, identity and focus kept, repeat reuses."""
     prefix = live_tab.scratch / "candidate-one"
-    command = _daemon_command(prefix=prefix, home=live_tab.scratch / "daemon-home-one")
+    daemon_executable = _candidate_runtime(prefix=prefix)
+    caller_executable = _different_caller(daemon_executable=daemon_executable)
+    command = _daemon_command(
+        daemon_executable=daemon_executable,
+        home=live_tab.scratch / "daemon-home-one",
+    )
     before_invoking = _foreground(socket_path=live_tab.socket_path, pane_id=live_tab.invoking)
     before_panes = set(pane_ids(socket_path=live_tab.socket_path))
 
-    outcome = _invoke(live=live_tab, out_name="first.json", command=command)
+    outcome = _invoke(
+        live=live_tab,
+        out_name="first.json",
+        command=command,
+        caller_executable=caller_executable,
+        daemon_executable=daemon_executable,
+    )
 
     assert outcome["ok"], outcome
     assert outcome["backend"] == "herdr"
@@ -368,7 +398,13 @@ def test_the_bootstrap_places_a_live_daemon_above_its_own_pane_and_then_reuses_i
     daemon_pid = _assert_candidate_daemon(live=live_tab, daemon_pane=daemon_pane, prefix=prefix)
     _assert_sibling_untouched(live=live_tab)
 
-    repeat = _invoke(live=live_tab, out_name="second.json", command=command)
+    repeat = _invoke(
+        live=live_tab,
+        out_name="second.json",
+        command=command,
+        caller_executable=caller_executable,
+        daemon_executable=daemon_executable,
+    )
 
     assert repeat["ok"], repeat
     assert repeat["reused"] is True
@@ -489,13 +525,20 @@ def test_a_withheld_launch_answer_stays_unresolved_and_is_never_repeated_or_clea
 ) -> None:
     """A6 natively: the split really landed, its launch answer did not, nothing is redone."""
     prefix = live_tab.scratch / "candidate-two"
-    command = _daemon_command(prefix=prefix, home=live_tab.scratch / "daemon-home-two")
+    daemon_executable = _candidate_runtime(prefix=prefix)
+    caller_executable = _different_caller(daemon_executable=daemon_executable)
+    command = _daemon_command(
+        daemon_executable=daemon_executable,
+        home=live_tab.scratch / "daemon-home-two",
+    )
     before_panes = set(pane_ids(socket_path=live_tab.socket_path))
 
     outcome = _invoke(
         live=live_tab,
         out_name="withheld.json",
         command=command,
+        caller_executable=caller_executable,
+        daemon_executable=daemon_executable,
         socket_override=withholding_proxy.path,
     )
 
@@ -517,7 +560,13 @@ def test_a_withheld_launch_answer_stays_unresolved_and_is_never_repeated_or_clea
     stranded = _foreground(socket_path=live_tab.socket_path, pane_id=created)
     assert stranded.group_id == stranded.shell_pid
 
-    repeat = _invoke(live=live_tab, out_name="withheld-repeat.json", command=command)
+    repeat = _invoke(
+        live=live_tab,
+        out_name="withheld-repeat.json",
+        command=command,
+        caller_executable=caller_executable,
+        daemon_executable=daemon_executable,
+    )
 
     # The repeat refuses on fresh evidence, splits nothing, and kills nothing.
     assert not repeat["ok"]

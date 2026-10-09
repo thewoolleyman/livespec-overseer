@@ -57,6 +57,7 @@ def run_verified_bootstrap(
     *,
     core: Path,
     command: str,
+    daemon_executable: Path,
     build_supervisor: Callable[[], supervisor.Supervisor] | None = None,
     journal: bootstrap_journal.MutationJournal | None = None,
 ) -> int:
@@ -80,8 +81,12 @@ def run_verified_bootstrap(
         backends=cast(
             dict[str, bootstrap.BootstrapBackend],
             {
-                herdr_identity.TMUX_BACKEND: tmux_bootstrap.TmuxBootstrap(),
-                herdr_identity.HERDR_BACKEND: herdr_bootstrap.HerdrBootstrap(),
+                herdr_identity.TMUX_BACKEND: tmux_bootstrap.TmuxBootstrap(
+                    daemon_executable=daemon_executable
+                ),
+                herdr_identity.HERDR_BACKEND: herdr_bootstrap.HerdrBootstrap(
+                    daemon_executable=daemon_executable
+                ),
             },
         ),
         cwd=str(core),
