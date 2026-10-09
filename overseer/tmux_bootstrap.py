@@ -23,16 +23,16 @@ relative to the claimed pane's own row, and an instance that cannot report that
 row cannot have "above" established on it. It is a read, it runs before the split,
 and it names what failed.
 
-**Liveness is the pane's FOREGROUND COMMAND, never its title.** The legacy
-bootstrap resolved its daemon pane by the `overseer-daemon` pane title; the title
-is still SET, because the operator reads it and the legacy layout carries it, but
-it is not what is believed. A title is presentation and drifts — live Claude panes
-drift theirs to task summaries — whereas `#{pane_current_command}` is the kernel's
-answer about the process, which is the same class of evidence `signals.pane_is_claude`
-already relies on. A pane above the invoking one holding its login shell is
-therefore UNRESOLVED, not a daemon: a tmux pane survives its command exiting only
-when a shell is what remains, so "the pane is still there" says nothing about the
-daemon.
+**Liveness is fresh pane/process evidence, never its title.** The legacy bootstrap
+resolved its daemon pane by the `overseer-daemon` pane title; the title is still
+SET, because the operator reads it and the legacy layout carries it, but it is not
+what is believed. A title is presentation and drifts — live Claude panes drift
+theirs to task summaries. `#{pane_current_command}` is the first process reading;
+when tmux reports the retained shell, a bounded `/proc` walk must freshly find an
+`overseerd` descendant under that exact pane root.  The shell's own command line
+does not count because `bash -c '<overseerd command>'` can keep naming a daemon
+that has already died.  A pane above the invoking one holding only its login shell
+is therefore UNRESOLVED: "the pane is still there" says nothing about the daemon.
 
 **A failed split is a KNOWN failure, not an uncertain one.** `tmuxio` reports a
 failed `split-window` as `None` after a bounded, non-zero-exit subprocess call, so
@@ -54,6 +54,7 @@ import daemon_liveness
 import herdr_identity
 import terminal_ownership
 import terminal_probes
+import tmux_daemon_liveness
 import tmuxio
 
 __all__: list[str] = [
@@ -184,9 +185,8 @@ class TmuxBootstrap:
         self, *, claim: terminal_ownership.OwnershipClaim, candidate: str
     ) -> bootstrap.DaemonHostReading:
         """What is running in the single pane above the claim, judged fail-closed."""
-        command = self.driver_for(socket_path=claim.socket_path).pane_current_command(
-            session=candidate
-        )
+        driver = self.driver_for(socket_path=claim.socket_path)
+        command = driver.pane_current_command(session=candidate)
         if command is None:
             return bootstrap.DaemonHostReading(
                 pane_id="",
@@ -197,6 +197,12 @@ class TmuxBootstrap:
                 ),
             )
         if daemon_liveness.is_retained_shell(name=command):
+            pane_pid_reader = getattr(driver, "pane_pid", None)
+            pane_pid = pane_pid_reader(session=candidate) if pane_pid_reader is not None else None
+            if pane_pid is not None and tmux_daemon_liveness.daemon_descendant_command(
+                root_pid=pane_pid
+            ):
+                return bootstrap.DaemonHostReading(pane_id=candidate, unresolved="", error="")
             return bootstrap.DaemonHostReading(
                 pane_id="",
                 unresolved=(
