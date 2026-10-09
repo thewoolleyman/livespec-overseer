@@ -7,6 +7,7 @@ gradeable on hosts where the relevant ``/proc`` races cannot be staged reliably.
 
 from __future__ import annotations
 
+import shutil
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -72,19 +73,16 @@ def _find(
     )
 
 
-def test_exact_foreground_identity_accepts_every_shipped_daemon_argument_role(
+def test_exact_foreground_identity_accepts_both_shipped_daemon_argument_roles(
     *, tmp_path: Path
 ) -> None:
     runtime = str(Path(sys.executable).resolve())
-    direct_daemon = tmp_path / "overseerd"
-    direct_daemon.symlink_to(runtime)
     foreground = _stat(
         process_group=FOREGROUND_GROUP,
         foreground_group=FOREGROUND_GROUP,
         starttime="child-start",
     )
     commands = (
-        f"{direct_daemon}\0".encode(),
         f"{runtime}\0-m\0overseer.daemon\0".encode(),
         f"{runtime}\0{tmp_path / 'overseerd'}\0".encode(),
     )
@@ -94,7 +92,7 @@ def test_exact_foreground_identity_accepts_every_shipped_daemon_argument_role(
     ]
 
     assert all(identity is not None for identity in identities)
-    assert identities[1] == tmux_daemon_liveness.DaemonProcessIdentity(
+    assert identities[0] == tmux_daemon_liveness.DaemonProcessIdentity(
         pid=CHILD,
         starttime="child-start",
         executable=runtime,
@@ -134,6 +132,9 @@ def test_foreground_identity_skips_cycles_and_background_daemons() -> None:
 
 def test_incomplete_or_contradictory_process_evidence_fails_closed(*, tmp_path: Path) -> None:
     runtime = str(Path(sys.executable).resolve())
+    cat_command = shutil.which("cat")
+    assert cat_command is not None
+    cat_runtime = str(Path(cat_command).resolve())
     foreground = _stat(
         process_group=FOREGROUND_GROUP,
         foreground_group=FOREGROUND_GROUP,
@@ -159,6 +160,16 @@ def test_incomplete_or_contradictory_process_evidence_fails_closed(*, tmp_path: 
         _find(command=exact, child_stat=foreground, executable=None),
         _find(command=b"sh\0-c\0echo overseerd\0", child_stat=foreground, executable=runtime),
         _find(command=b"/missing/runtime\0overseerd\0", child_stat=foreground, executable=runtime),
+        _find(
+            command=f"{cat_runtime}\0{tmp_path / 'overseerd'}\0".encode(),
+            child_stat=foreground,
+            executable=cat_runtime,
+        ),
+        _find(
+            command=f"{cat_runtime}\0-m\0overseer.daemon\0".encode(),
+            child_stat=foreground,
+            executable=cat_runtime,
+        ),
         _find(command=exact, child_stat=foreground, executable=str(tmp_path)),
         _find(
             command=exact,
