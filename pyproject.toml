@@ -432,6 +432,7 @@ omit = [
     # entrypoints. Host-installed tooling they shell out to can inherit that
     # setting too; it is not this repo's code and must not be measured.
     "/usr/local/*",
+    "*/.livespec-gh-refresh/*",
     # Harness PLUGIN CACHES are the same class as the tooling above and were
     # missing from this list rather than deliberately included. Under xdist the
     # workers' subprocesses inherit COVERAGE_PROCESS_START, so hooks the harness
