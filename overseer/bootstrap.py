@@ -44,12 +44,17 @@ action to rest on fresh evidence instead, so the refusal says so.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
-from typing import Protocol
+from collections.abc import Mapping
 
+import bootstrap_journal
 import terminal_ownership
-from _seams import PidToOptionalInt
+from bootstrap_models import (
+    BootstrapBackend,
+    BootstrapOutcome,
+    CallerEvidence,
+    DaemonHostReading,
+    PlacementOutcome,
+)
 
 __all__: list[str] = [
     "BootstrapBackend",
@@ -59,97 +64,6 @@ __all__: list[str] = [
     "PlacementOutcome",
     "bootstrap_two_pane",
 ]
-
-
-@dataclass(frozen=True, kw_only=True)
-class CallerEvidence:
-    """Everything needed to prove WHERE the invoking process lives.
-
-    Bundled because the four are never useful apart — a pid with no parent reader
-    cannot be placed, and probes with no pid have nothing to be measured against —
-    and because the bundle is what makes the public entry point one question rather
-    than seven parameters.
-    """
-
-    pid: int
-    environ: Mapping[str, str]
-    probes: Sequence[terminal_ownership.TerminalProbe]
-    ppid_of: PidToOptionalInt
-
-
-@dataclass(frozen=True, kw_only=True)
-class DaemonHostReading:
-    """Whether a verified live daemon already hosts the top pane.
-
-    Exactly one of three shapes, and the three-way split is the point:
-
-      - `pane_id` set — a LIVE daemon process was proven in a pane above the
-        invoking one. A retained shell that outlived its daemon is NOT this case;
-        a pane still existing is not a process still running.
-      - `unresolved` set — something is up there that can be neither accepted as
-        the daemon nor treated as absent. Refuse and name it.
-      - `error` set — the reading itself could not be taken, so nothing about the
-        layout is known.
-    """
-
-    pane_id: str
-    unresolved: str
-    error: str
-
-
-@dataclass(frozen=True, kw_only=True)
-class PlacementOutcome:
-    """One layout mutation's result, naming the pane it created when it got that far.
-
-    `pane_id` is reported even on a FAILED outcome whenever a trustworthy new pane
-    was identified, because a partially-applied layout is exactly the state a
-    caller has to re-observe. `effect_unknown` separates a mutation refused before
-    the write boundary — safe to reconsider — from one whose request was sent and
-    went unanswered, which must not be submitted again.
-    """
-
-    ok: bool
-    pane_id: str
-    error: str
-    effect_unknown: bool
-
-
-class BootstrapBackend(Protocol):
-    """One backend's whole bootstrap vocabulary over a terminal.
-
-    Three verbs, none destructive. See the module docstring for why the absence of
-    a fourth is a guarantee rather than an omission.
-    """
-
-    backend: str
-
-    def capability_error(self, *, claim: terminal_ownership.OwnershipClaim) -> str: ...
-
-    def daemon_host(self, *, claim: terminal_ownership.OwnershipClaim) -> DaemonHostReading: ...
-
-    def place_daemon_above(
-        self, *, claim: terminal_ownership.OwnershipClaim, cwd: str, command: str
-    ) -> PlacementOutcome: ...
-
-
-@dataclass(frozen=True, kw_only=True)
-class BootstrapOutcome:
-    """What the bootstrap did, or the precondition it refused on.
-
-    `created` and `reused` are both False on every refusal AND on an uncertain
-    placement: a pane whose creation was acknowledged but whose acknowledgement was
-    lost has not been established as the daemon's host, and reporting it as created
-    would be the claim this whole module exists to avoid making.
-    """
-
-    ok: bool
-    backend: str
-    pane_id: str
-    created: bool
-    reused: bool
-    error: str
-    effect_unknown: bool
-    probe_errors: tuple[str, ...]
 
 
 def _refusal(
@@ -211,12 +125,14 @@ def _placed(
     cwd: str,
     command: str,
     probe_errors: tuple[str, ...],
+    journal: bootstrap_journal.MutationJournal,
 ) -> BootstrapOutcome:
     """Steps 3 and 4: read the invoking layout, and split it at most once."""
     host = backend.daemon_host(claim=claim)
     if host.error:
         return _refusal(backend=claim.backend, error=host.error, probe_errors=probe_errors)
     if host.pane_id:
+        journal.resolve(claim=claim)
         return BootstrapOutcome(
             ok=True,
             backend=claim.backend,
@@ -229,7 +145,57 @@ def _placed(
         )
     if host.unresolved:
         return _refusal(backend=claim.backend, error=host.unresolved, probe_errors=probe_errors)
+    return _mutated(
+        backend=backend,
+        claim=claim,
+        cwd=cwd,
+        command=command,
+        probe_errors=probe_errors,
+        journal=journal,
+    )
+
+
+def _mutated(
+    *,
+    backend: BootstrapBackend,
+    claim: terminal_ownership.OwnershipClaim,
+    cwd: str,
+    command: str,
+    probe_errors: tuple[str, ...],
+    journal: bootstrap_journal.MutationJournal,
+) -> BootstrapOutcome:
+    """Journal and attempt the one permitted placement mutation."""
+    pending = journal.pending_error(claim=claim)
+    if pending:
+        return _refusal(backend=claim.backend, error=pending, probe_errors=probe_errors)
+    journal.prepare(claim=claim)
     placement = backend.place_daemon_above(claim=claim, cwd=cwd, command=command)
+    return _placement_outcome(
+        claim=claim,
+        placement=placement,
+        probe_errors=probe_errors,
+        journal=journal,
+    )
+
+
+def _placement_outcome(
+    *,
+    claim: terminal_ownership.OwnershipClaim,
+    placement: PlacementOutcome,
+    probe_errors: tuple[str, ...],
+    journal: bootstrap_journal.MutationJournal,
+) -> BootstrapOutcome:
+    """Settle a known placement or retain an unanswered one without replay."""
+    if placement.effect_unknown:
+        journal.retain(claim=claim, pane_id=placement.pane_id)
+        return _refusal(
+            backend=claim.backend,
+            error=placement.error,
+            probe_errors=probe_errors,
+            pane_id=placement.pane_id,
+            effect_unknown=True,
+        )
+    journal.resolve(claim=claim)
     if not placement.ok:
         return _refusal(
             backend=claim.backend,
@@ -256,6 +222,7 @@ def bootstrap_two_pane(
     backends: Mapping[str, BootstrapBackend],
     cwd: str,
     command: str,
+    journal: bootstrap_journal.MutationJournal | None = None,
 ) -> BootstrapOutcome:
     """Place `command` in a daemon pane ABOVE the verified invoking pane, once.
 
@@ -281,4 +248,5 @@ def bootstrap_two_pane(
         cwd=cwd,
         command=command,
         probe_errors=selection.probe_errors,
+        journal=journal if journal is not None else bootstrap_journal.NoMutationJournal(),
     )

@@ -27,6 +27,7 @@ Path discovery is self-contained so it "just works" from any working directory:
 from __future__ import annotations
 
 import argparse
+import ctypes
 import sys
 from pathlib import Path
 
@@ -44,6 +45,20 @@ __all__: list[str] = ["default_daemon_log_path", "main"]
 # so the range is open at both ends rather than clamped.
 _MIN_WARN_PERCENT = 1
 _MAX_WARN_PERCENT = 99
+_PR_SET_NAME = 15
+_DAEMON_PROCESS_NAME = b"overseerd"
+
+
+def _name_daemon_process() -> None:
+    """Give native pane observations a stable daemon process name.
+
+    Console scripts exec their interpreter, so Linux otherwise reports a generic
+    ``python`` foreground process even though the immutable command line names the
+    installed ``overseerd`` artifact.  The name is diagnostic only: exact pane and
+    server ownership plus the full command line remain the bootstrap authority.
+    """
+    libc = ctypes.CDLL(None, use_errno=True)
+    _ = libc.prctl(_PR_SET_NAME, _DAEMON_PROCESS_NAME, 0, 0, 0)
 
 
 def _default_daemon_log_path() -> Path:
@@ -142,6 +157,7 @@ def main(*, argv: list[str] | None = None) -> int:
         ),
     )
     args = parser.parse_args(argv)
+    _name_daemon_process()
     # The daemon OWNS its event history for the life of the process: this takes
     # `sys.stderr` and the stderr DESCRIPTOR, so every later write — a subprocess's
     # stderr and the interpreter's own crash traceback included — stays inside the
