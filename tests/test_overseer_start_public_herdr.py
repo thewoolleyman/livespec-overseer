@@ -222,11 +222,10 @@ def _await_candidate_daemon(*, case: LiveCase, pane: str, candidate: Candidate) 
     last: object = None
     while time.monotonic() < deadline:
         reading = _foreground(case=case, pane=pane)
-        pane_pids = {pid for pid, _name in reading.processes}
         candidates = [
             identity
             for pid, identity in _candidate_daemon_pids(candidate=candidate).items()
-            if pid in pane_pids
+            if pid == reading.group_id
         ]
         last = (reading, candidates)
         if len(candidates) == 1 and reading.group_id != reading.shell_pid:
@@ -350,6 +349,10 @@ def test_public_start_creates_and_reuses_one_verified_daemon(*, live_case: LiveC
     daemon_identity = _await_candidate_daemon(case=live_case, pane=daemon, candidate=candidate)
     assert candidate.version
     assert candidate.module_dir.is_relative_to(candidate.prefix)
+    assert daemon_identity.pid == _foreground(case=live_case, pane=daemon).group_id
+    assert daemon_identity.starttime == claude_sessions.proc_starttime(pid=daemon_identity.pid)
+    assert daemon_identity.executable == candidate.python.resolve()
+    assert str(candidate.daemon).encode() in daemon_identity.command.split(b"\0")
     assert _candidate_daemon_pids(candidate=candidate) == {daemon_identity.pid: daemon_identity}
     _assert_unchanged(case=live_case)
 
@@ -361,6 +364,57 @@ def test_public_start_creates_and_reuses_one_verified_daemon(*, live_case: LiveC
     assert (
         _await_candidate_daemon(case=live_case, pane=daemon, candidate=candidate) == daemon_identity
     )
+
+
+def test_public_start_refuses_a_real_foreground_tail_with_a_daemon_marker(
+    *, live_case: LiveCase
+) -> None:
+    candidate = _candidate(home=live_case.scratch / "home-tail-lookalike")
+    lookalike = split_pane(
+        socket_path=live_case.socket_path,
+        pane_id=live_case.invoking,
+        direction="down",
+        ratio=0.5,
+    )
+    swapped = raw_request(
+        socket_path=live_case.socket_path,
+        method="pane.swap",
+        params={
+            "source_pane_id": live_case.invoking,
+            "target_pane_id": lookalike,
+        },
+    )
+    assert swapped["result"]["swap"]["changed"] is True
+    log_path = live_case.scratch / "overseerd.log"
+    log_path.touch()
+    tail = shutil.which("tail")
+    assert tail is not None
+    run_in_pane(
+        socket_path=live_case.socket_path,
+        pane_id=lookalike,
+        command=f"{shlex.quote(tail)} -f {shlex.quote(str(log_path))}",
+    )
+    tail_pid = _await_named(case=live_case, pane=lookalike, name="tail")
+    tail_start = claude_sessions.proc_starttime(pid=tail_pid)
+    tail_executable = Path(f"/proc/{tail_pid}/exe").readlink().resolve()
+    before_panes = set(pane_ids(socket_path=live_case.socket_path))
+
+    rc, stderr = _run_public(
+        case=live_case,
+        candidate=candidate,
+        socket_path=live_case.socket_path,
+        stem="tail-lookalike",
+    )
+
+    assert rc == 1, stderr
+    assert "not the overseer daemon" in stderr
+    assert set(pane_ids(socket_path=live_case.socket_path)) == before_panes
+    after = _foreground(case=live_case, pane=lookalike)
+    assert after.group_id == tail_pid
+    assert claude_sessions.proc_starttime(pid=tail_pid) == tail_start
+    assert Path(f"/proc/{tail_pid}/exe").readlink().resolve() == tail_executable
+    assert tail_executable == Path(tail).resolve()
+    _assert_unchanged(case=live_case)
 
 
 def test_public_repeat_never_replays_a_real_split_whose_reply_was_lost(
