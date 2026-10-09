@@ -237,13 +237,19 @@ def _start_live_input_pane(*, session: str, scratch: Path) -> LiveInputPane:
             "keys": ["Enter"],
         },
     )
-    _await_reader_ready(
-        socket_path=str(address),
-        pane_id=pane_id,
-        marker=ready_marker,
-        received=received,
-    )
-    assert received.exists(), "the ready raw-mode recorder did not create its output file"
+    setup_ready = False
+    try:
+        _await_reader_ready(
+            socket_path=str(address),
+            pane_id=pane_id,
+            marker=ready_marker,
+            received=received,
+        )
+        assert received.exists(), "the ready raw-mode recorder did not create its output file"
+        setup_ready = True
+    finally:
+        if not setup_ready:
+            _stop_live_herdr(session=session)
     return LiveInputPane(
         socket_path=str(address),
         server_pid=child.pid,
@@ -281,6 +287,13 @@ def _target(*, identity: Any, live: LiveInputPane) -> Any:
         server_starttime=starttime,
         pane_id=live.pane_id,
     )
+
+
+def _live_session_names() -> set[str]:
+    """Names Herdr currently reports, through its real CLI."""
+    listed = _cli(args=["session", "list", "--json"])
+    assert listed.returncode == 0, listed.stderr
+    return {str(row["name"]) for row in json.loads(listed.stdout)["sessions"]}
 
 
 def test_setup_waits_for_the_exact_native_reader_to_enter_input_mode(
@@ -324,6 +337,58 @@ def test_setup_waits_for_the_exact_native_reader_to_enter_input_mode(
         assert delivered[before:] == PASTE_BYTES + ENTER_BYTES, repr(delivered[before:])
     finally:
         _stop_live_herdr(session=session)
+
+
+def test_never_ready_setup_cleans_only_its_owned_session(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Bounded readiness failure removes its server while a live peer remains usable."""
+    if shutil.which(HERDR_BINARY) is None:
+        pytest.skip("herdr is not installed on this host")
+    peer_session = f"overseer-test-{os.getpid()}-input-ready-peer"
+    target_session = f"overseer-test-{os.getpid()}-input-never-ready"
+    peer_scratch = tmp_path / "peer"
+    target_scratch = tmp_path / "target"
+    peer_scratch.mkdir()
+    target_scratch.mkdir()
+    peer = _start_live_input_pane(session=peer_session, scratch=peer_scratch)
+    never_ready_source = READER_SOURCE.replace(
+        "import sys, termios, tty, os",
+        "import sys, termios, tty, os, time",
+    ).replace(
+        "fd = sys.stdin.fileno()",
+        "while True:\n    time.sleep(1.0)\nfd = sys.stdin.fileno()",
+    )
+    assert (
+        never_ready_source != READER_SOURCE
+    ), "the control must stop the real reader before its native mode transition"
+    monkeypatch.setattr(f"{__name__}.READER_SOURCE", never_ready_source)
+    monkeypatch.setattr(f"{__name__}.CHILD_READY_TIMEOUT", 0.25)
+
+    try:
+        with pytest.raises(pytest.fail.Exception) as failure:
+            _start_live_input_pane(session=target_session, scratch=target_scratch)
+
+        message = str(failure.value)
+        assert "did not enter raw mode and enable bracketed paste within 0.25s" in message
+        assert "received.bin exists=True" in message
+        assert not _socket_for(
+            session=target_session
+        ).exists(), "the never-ready setup left its exact owned server reachable"
+        session_names = _live_session_names()
+        assert target_session not in session_names, "the never-ready setup left its session behind"
+        assert peer_session in session_names, "cleanup crossed into the unrelated live session"
+        panes = _raw_request(
+            socket_path=peer.socket_path,
+            method="pane.list",
+            params={},
+        )
+        assert any(
+            str(row["pane_id"]) == peer.pane_id for row in panes["result"]["panes"]
+        ), "the unrelated live session no longer answers for its own pane"
+    finally:
+        _stop_live_herdr(session=target_session)
+        _stop_live_herdr(session=peer_session)
 
 
 def test_multiline_text_reaches_the_live_pane_as_one_bracketed_paste(*, live: LiveInputPane):
