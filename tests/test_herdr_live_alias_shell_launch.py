@@ -118,6 +118,7 @@ from __future__ import annotations
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import time
 from collections.abc import Callable, Iterator, Mapping
@@ -569,6 +570,54 @@ class _ControlledServerChild:
 
     def poll(self) -> int | None:
         return self.status
+
+
+def test_owned_listener_probe_connects_without_transmitting(*, tmp_path: Path) -> None:
+    """The real readiness probe observes this process and sends no request bytes."""
+    address = tmp_path / "accepting.sock"
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
+        listener.bind(str(address))
+        listener.listen()
+
+        peer_pid = owned_listener_peer_pid(socket_path=str(address), expected_pid=os.getpid())
+        connection, _peer_address = listener.accept()
+        with connection:
+            connection.settimeout(0.1)
+            transmitted = connection.recv(1)
+
+    assert peer_pid == os.getpid()
+    assert transmitted == b"", "the readiness probe must close without transmitting a request"
+
+
+def test_listener_wait_bounds_a_live_child_that_never_publishes_a_socket(*, tmp_path: Path) -> None:
+    """A missing pathname consumes the same deadline without attempting a request."""
+    address = tmp_path / "never-published.sock"
+    child = _ControlledServerChild(pid=6891)
+    clock = iter([0.0, 0.0, 1.0])
+    events: list[str] = []
+
+    def unexpected_probe(*, socket_path: str, expected_pid: int) -> int:
+        events.append(f"probe:{socket_path}:{expected_pid}")
+        return child.pid
+
+    with pytest.raises(AssertionError) as refused:
+        _ = await_owned_listener(
+            socket_path=address,
+            session="controlled missing pathname",
+            child=child,
+            poll=ListenerPoll(
+                seconds=1.0,
+                monotonic=lambda: next(clock, 1e9),
+                sleep=lambda _seconds: events.append("sleep"),
+            ),
+            probe=unexpected_probe,
+        )
+
+    message = str(refused.value)
+    assert "did not expose a connectable owned listener" in message
+    assert f"socket path {address} does not exist" in message
+    assert "within 1.0s after 0 connect attempts" in message
+    assert events == ["sleep"], "a missing pathname must not reach the transport probe"
 
 
 def test_listener_wait_consumes_path_before_listen_refusal_before_workspace_creation(
