@@ -75,6 +75,13 @@ def await_owned_listener(
     attempts = 0
     last_reason = f"socket path {socket_path} does not exist"
     while poll.monotonic() < deadline:
+        status = child.poll()
+        if status is not None:
+            raise AssertionError(
+                f"herdr session {session!r} owned server process {child.pid} exited "
+                f"with status {status} before listener readiness after {attempts} "
+                f"connect attempts ({last_reason})"
+            )
         if socket_path.exists():
             attempts += 1
             try:
@@ -86,6 +93,13 @@ def await_owned_listener(
                     return ListenerReadiness(attempts=attempts, peer_pid=peer_pid)
                 last_reason = f"listener peer pid {peer_pid} is not owned child pid {child.pid}"
         poll.sleep(0.1)
+    status = child.poll()
+    if status is not None:
+        raise AssertionError(
+            f"herdr session {session!r} owned server process {child.pid} exited "
+            f"with status {status} before listener readiness after {attempts} "
+            f"connect attempts ({last_reason})"
+        )
     raise AssertionError(
         f"herdr session {session!r} did not expose a connectable owned listener "
         f"at {socket_path} within {poll.seconds}s after {attempts} connect attempts "
