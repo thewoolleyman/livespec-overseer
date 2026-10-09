@@ -91,6 +91,23 @@ writer with its PUBLIC `request` seam interposed, inheriting `split_window_top`,
 `herdr_layout.place_above`, the real socket, the per-request deadline, the peer
 revalidation and the host shell register unchanged.
 
+**THE WORKSPACE ROOT NOW HAS THE SAME BOUNDED IDENTITY PREMISE (work-item
+`overseer-2qjuho`).** The repair above deliberately covered the pane the writer
+creates, but `_start_server` still returned the workspace root's FIRST process
+reading immediately after `workspace.create`. Three later full-suite receipts
+showed that first reading reporting `'herdr'` while the kernel already reported
+`/usr/bin/bash` or `/usr/bin/dash`; `_assert_alias_context` then accused the host
+premise before the public writer ran. The root is now returned only after the
+shared exact-pane wait observes an available, coherent server/kernel identity
+within the existing readiness bound. Its last observation is named on expiry.
+
+The controls disclose their fault injection rather than relabelling it as a
+historical reproduction: one initial unusable or deliberately contradictory
+reply is followed by real native readings from the owned server, while a
+persistently unusable reply drives a deterministic bounded refusal. The latter
+also proves that setup failure removes exactly its own Herdr server and session
+while an unrelated owned session remains reachable.
+
 Session isolation is herdr's own `--session` mechanism: every session name
 carries this test process's pid, and teardown stops and deletes BY THAT EXACT
 NAME, so no other session — including the operator's `default` — is touched.
@@ -103,7 +120,7 @@ import shutil
 import subprocess
 import time
 from collections.abc import Iterator, Mapping
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -118,13 +135,19 @@ from test_herdr_live_observations import (
     TRANSIENT_SECONDS,
     BoundedPoll,
     ForegroundReading,
+    PaneIdentity,
     ReadyShellGate,
+    RegisteredShell,
     ShellRecovery,
+    await_coherent_identity,
     await_occupying_child,
+    kernel_executable_of,
+    leader_name,
     parent_pid_of,
     process_info_reply,
     raw_request,
     read_foreground,
+    registered_login_shells,
     startup_transient,
 )
 
@@ -181,20 +204,6 @@ class LiveServer:
     kernel_executable: str
 
 
-@dataclass(frozen=True, kw_only=True)
-class _RegisteredShell:
-    """One `/etc/shells` entry, as the host DECLARES it beside what it resolves to.
-
-    The declared form is kept because the NAME is the load-bearing half: an alias
-    is a name this host registers a login shell under, and that name is
-    unanswerable once the declared path has been resolved away.
-    """
-
-    declared: str
-    name: str
-    resolved: str
-
-
 def _socket_for(*, session: str) -> Path:
     return Path.home() / ".config" / "herdr" / "sessions" / session / "herdr.sock"
 
@@ -216,198 +225,6 @@ def _reading(*, socket_path: str, pane_id: str) -> ForegroundReading:
     reading = read_foreground(reply=process_info_reply(socket_path=socket_path, pane_id=pane_id))
     assert reading is not None, f"herdr returned no usable process reading for {pane_id!r}"
     return reading
-
-
-def _leader_name(*, reading: ForegroundReading) -> str:
-    """The name the server gives the entry that OWNS the foreground group, or ``""``.
-
-    Empty when the reply names no single leader, which is an unusable reading
-    rather than an approximation — the same discrimination the adapter's own
-    reader makes.
-    """
-    named = [name for pid, name in reading.processes if pid == reading.group_id]
-    return named[0] if len(named) == 1 else ""
-
-
-def _kernel_executable(*, pid: int) -> str | None:
-    """`pid`'s resolved `/proc/<pid>/exe`, or None when the KERNEL half is unavailable.
-
-    `readlink` rather than a realpath of the magic link: resolving the path of a
-    process that is GONE answers `/proc/<pid>/exe` unchanged, which would
-    manufacture an executable for a dead pid. The target is then resolved so a
-    host where `/bin/bash` symlinks to `/usr/bin/bash` compares equal either way.
-
-    This is the FIXTURE's own instrument, deliberately not the adapter's reader:
-    an exercise that took its premise from the surface under test would only
-    prove that surface self-consistent.
-    """
-    try:
-        target = Path(f"/proc/{pid}/exe").readlink()
-    except OSError:
-        return None
-    return str(target.resolve())
-
-
-def _registered_shells() -> tuple[_RegisteredShell, ...]:
-    """Every login shell `/etc/shells` declares, with the name it declares it under.
-
-    The host's own register, read here rather than enumerated: `("sh",
-    "/usr/bin/dash")` on a Debian-family host comes from the declared `/bin/sh`.
-    An empty result is possible and is not special-cased — it means this host
-    mediates nothing, which makes every alias premise below refuse.
-    """
-    try:
-        raw = Path(LOGIN_SHELL_REGISTRY).read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return ()
-    return tuple(
-        _RegisteredShell(declared=entry, name=Path(entry).name, resolved=os.path.realpath(entry))
-        for entry in (line.strip() for line in raw.splitlines())
-        if entry and not entry.startswith("#")
-    )
-
-
-@dataclass(frozen=True, kw_only=True)
-class _ShellCoherence:
-    """ONE pane's server-reported shell name against the KERNEL's executable for it.
-
-    The facts are carried even on a refusal, because they are what a fixture
-    failure has to NAME: which pane, which shell pid, what the server called it,
-    and what the kernel runs. `mediated_by` is the `/etc/shells` entry that
-    reconciled the two, and is empty when the basenames already agreed.
-    """
-
-    pane_id: str
-    shell_pid: int
-    reported: str
-    executable: str
-    mediated_by: str
-    coherent: bool
-    reason: str
-
-
-def _no_coherence(*, pane_id: str, reason: str) -> _ShellCoherence:
-    """An observation that established nothing, carrying only why."""
-    return _ShellCoherence(
-        pane_id=pane_id,
-        shell_pid=0,
-        reported="",
-        executable="",
-        mediated_by="",
-        coherent=False,
-        reason=reason,
-    )
-
-
-def _coherence_of(
-    *, reading: ForegroundReading, pane_id: str, registered: tuple[_RegisteredShell, ...]
-) -> _ShellCoherence:
-    """Whether `reading` shows ONE program answering to two truthful descriptions.
-
-    Four conditions, all required, because the question is only meaningful about
-    an idle shell this pane actually owns:
-
-      1. the reading is about `pane_id` and not about some other pane;
-      2. the pane's own retained shell owns its foreground group, so the leader
-         the server names IS that shell rather than a child of it;
-      3. the kernel answers for that pid at all — an unreadable `/proc/<pid>/exe`
-         is UNAVAILABLE evidence, never agreement;
-      4. the two descriptions agree: equal basenames, or a name this host
-         registers for EXACTLY the executable the kernel reports. Matching the
-         name alone would reinstate the single-source trust the agreement rule
-         exists to prevent.
-    """
-    if reading.pane_id != pane_id:
-        return _no_coherence(
-            pane_id=pane_id,
-            reason=f"the reading describes pane {reading.pane_id!r}, not {pane_id!r}",
-        )
-    if not reading.is_idle():
-        return _no_coherence(
-            pane_id=pane_id,
-            reason=(
-                f"{pane_id!r} is OCCUPIED: foreground group {reading.group_id} is not its "
-                f"retained shell {reading.shell_pid}, so its leader is not the shell"
-            ),
-        )
-    reported = _leader_name(reading=reading)
-    if not reported:
-        return _no_coherence(
-            pane_id=pane_id,
-            reason=f"the reply names no single foreground group leader: {list(reading.processes)}",
-        )
-    executable = _kernel_executable(pid=reading.shell_pid)
-    if executable is None:
-        return _no_coherence(
-            pane_id=pane_id,
-            reason=(
-                f"/proc/{reading.shell_pid}/exe could not be read, so the KERNEL half of "
-                f"{pane_id!r}'s shell identity is unavailable"
-            ),
-        )
-    mediating = [
-        entry.declared
-        for entry in registered
-        if entry.name == reported and entry.resolved == executable
-    ]
-    agreed = Path(executable).name == reported
-    return _ShellCoherence(
-        pane_id=pane_id,
-        shell_pid=reading.shell_pid,
-        reported=reported,
-        executable=executable,
-        mediated_by="" if agreed or not mediating else mediating[0],
-        coherent=agreed or bool(mediating),
-        reason=(
-            ""
-            if agreed or mediating
-            else (
-                f"herdr calls {pane_id!r}'s shell {reading.shell_pid} {reported!r} while the "
-                f"kernel runs {executable!r}, and no registered login shell mediates them"
-            )
-        ),
-    )
-
-
-def _await_coherent_shell(
-    *,
-    socket_path: str,
-    pane_id: str,
-    poll: BoundedPoll,
-    registered: tuple[_RegisteredShell, ...],
-) -> _ShellCoherence:
-    """Poll real readings until `pane_id`'s two shell descriptions agree, or say why not.
-
-    The expiry is REPORTED, carrying the last thing seen. A wait that fell out of
-    its bound silently is exactly how a fixture comes to grade the adapter on a
-    premise it never established — see this module's docstring for the measured
-    host receipt that premise was missing for.
-    """
-    deadline = poll.monotonic() + poll.seconds
-    verdict = _no_coherence(
-        pane_id=pane_id, reason="no process reading was taken before the deadline"
-    )
-    while poll.monotonic() < deadline:
-        reading = read_foreground(
-            reply=process_info_reply(socket_path=socket_path, pane_id=pane_id)
-        )
-        if reading is None:
-            verdict = _no_coherence(
-                pane_id=pane_id,
-                reason="the herdr process reading carried no usable shell/foreground fields",
-            )
-        else:
-            verdict = _coherence_of(reading=reading, pane_id=pane_id, registered=registered)
-            if verdict.coherent:
-                return verdict
-        poll.sleep(READY_POLL)
-    return replace(
-        verdict,
-        reason=(
-            f"{pane_id!r} never reported a coherent shell identity within {poll.seconds}s: "
-            f"{verdict.reason}"
-        ),
-    )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -463,7 +280,7 @@ class _Readiness:
 
     socket_path: str
     transient: str
-    registered: tuple[_RegisteredShell, ...]
+    registered: tuple[RegisteredShell, ...]
     seconds: float = READY_SECONDS
     coherence_seconds: float = READY_SECONDS
     # Real, OWNED unavailability, for the control below: the fixture closes the
@@ -472,7 +289,7 @@ class _Readiness:
     close_before_establishing: bool = False
     panes: list[str] = field(default_factory=list)
     gate: ReadyShellGate | None = None
-    coherence: _ShellCoherence | None = None
+    coherence: PaneIdentity | None = None
     writer_requests: list[dict[str, Any]] = field(default_factory=list)
 
     def writer_methods(self) -> list[str]:
@@ -524,8 +341,8 @@ class _Readiness:
                 params={"pane_id": pane_id},
                 expect=None,
             )
-            self.coherence = _await_coherent_shell(
-                socket_path=self.socket_path,
+            self.coherence = await_coherent_identity(
+                read=lambda: process_info_reply(socket_path=self.socket_path, pane_id=pane_id),
                 pane_id=pane_id,
                 poll=BoundedPoll(seconds=self.coherence_seconds),
                 registered=self.registered,
@@ -609,7 +426,13 @@ def _pane_ids(*, socket_path: str) -> list[str]:
     return [str(pane["pane_id"]) for pane in reply["result"]["panes"]]
 
 
-def _start_server(*, session: str, scratch: Path, shell_path: str | None) -> LiveServer:
+def _start_server(
+    *,
+    session: str,
+    scratch: Path,
+    shell_path: str | None,
+    root_poll: BoundedPoll | None = None,
+) -> LiveServer:
     """A server whose panes are rooted at `shell_path`, or at herdr's own fallback.
 
     The environment is built EXPLICITLY — `$SHELL` removed rather than merely
@@ -617,9 +440,12 @@ def _start_server(*, session: str, scratch: Path, shell_path: str | None) -> Liv
     comes up as, and inheriting the ambient value would make that the operator's
     choice rather than the test's.
 
-    The identity read here is the ROOT pane's, which is what the host's alias
-    premise is asserted against. It says nothing about the pane an exercise
-    writes into; that one is established by :class:`_Readiness`.
+    The identity established here is the ROOT pane's, which is what the host's
+    alias premise is asserted against. An unusable, occupied or contradictory
+    first reading is consumed within the same bounded exact-pane wait used for
+    created panes; only a coherent server/kernel identity is returned. This says
+    nothing about the pane an exercise writes into: that one is established by
+    :class:`_Readiness`.
     """
     environment = dict(os.environ)
     if shell_path is None:
@@ -653,25 +479,42 @@ def _start_server(*, session: str, scratch: Path, shell_path: str | None) -> Liv
     )
     assert "result" in created, f"workspace.create failed: {created}"
     root = str(created["result"]["root_pane"]["pane_id"])
-    reading = _reading(socket_path=str(address), pane_id=root)
-    executable = _kernel_executable(pid=reading.shell_pid)
-    assert executable is not None, f"the root pane's shell {reading.shell_pid} must be readable"
+    identity = await_coherent_identity(
+        read=lambda: process_info_reply(socket_path=str(address), pane_id=root),
+        pane_id=root,
+        poll=root_poll or BoundedPoll(seconds=READY_SECONDS),
+        registered=registered_login_shells(),
+    )
+    assert (
+        identity.coherent is True
+    ), f"workspace root {root!r} readiness was not established: {identity.reason}"
     return LiveServer(
         session=session,
         socket_path=str(address),
         server_pid=child.pid,
         root=root,
-        reported_name=_leader_name(reading=reading),
-        kernel_executable=executable,
+        reported_name=identity.reported,
+        kernel_executable=identity.executable,
     )
 
 
-def _serve(*, scratch: Path, label: str, shell_path: str | None) -> Iterator[LiveServer]:
+def _serve(
+    *,
+    scratch: Path,
+    label: str,
+    shell_path: str | None,
+    root_poll: BoundedPoll | None = None,
+) -> Iterator[LiveServer]:
     if shutil.which(HERDR_BINARY) is None:
         pytest.skip("herdr is not installed on this host")
     session = f"overseer-test-{os.getpid()}-alias-{label}"
-    server = _start_server(session=session, scratch=scratch, shell_path=shell_path)
     try:
+        server = _start_server(
+            session=session,
+            scratch=scratch,
+            shell_path=shell_path,
+            root_poll=root_poll,
+        )
         yield server
     finally:
         _ = _cli(args=["--session", session, "server", "stop"])
@@ -695,7 +538,7 @@ def _readiness_for(*, server: LiveServer, scratch: Path, **overrides: Any) -> _R
     return _Readiness(
         socket_path=server.socket_path,
         transient=startup_transient(scratch=scratch),
-        registered=_registered_shells(),
+        registered=registered_login_shells(),
         **overrides,
     )
 
@@ -728,7 +571,7 @@ def _split_top(*, server: LiveServer, readiness: _Readiness, command: str, **ove
     )
 
 
-def _assert_established(*, readiness: _Readiness, pane_id: str) -> _ShellCoherence:
+def _assert_established(*, readiness: _Readiness, pane_id: str) -> PaneIdentity:
     """Grade the created pane's readiness premise, naming whichever part was missing.
 
     Every fact is asserted separately so a failure says which one: the step RAN
@@ -772,7 +615,7 @@ def _assert_established(*, readiness: _Readiness, pane_id: str) -> _ShellCoheren
 
 def _graded_launch(
     *, server: LiveServer, readiness: _Readiness, command: str = LAUNCH_COMMAND, **overrides: Any
-) -> tuple[Any, _ShellCoherence]:
+) -> tuple[Any, PaneIdentity]:
     """Run the public facade, then GRADE the fixture premise before returning an outcome.
 
     The ORDER is what
@@ -785,7 +628,7 @@ def _graded_launch(
     return outcome, _assert_established(readiness=readiness, pane_id=outcome.pane_id)
 
 
-def _assert_alias_context(*, server: LiveServer) -> _RegisteredShell:
+def _assert_alias_context(*, server: LiveServer) -> RegisteredShell:
     """The precondition is ASSERTED, never assumed: name and executable differ.
 
     If this host's `/bin/sh` were itself bash, the names would agree and the
@@ -806,7 +649,7 @@ def _assert_alias_context(*, server: LiveServer) -> _RegisteredShell:
     assert Path(
         LOGIN_SHELL_REGISTRY
     ).is_file(), "fixture precondition: this host registers login shells"
-    registered = _registered_shells()
+    registered = registered_login_shells()
     mediating = [
         entry
         for entry in registered
@@ -932,9 +775,7 @@ def test_a_pane_whose_reported_name_needs_no_alias_still_receives_the_launch(
     assert MARKER in _capture(socket_path=exact_server.socket_path, pane_id=outcome.pane_id)
 
 
-def _assert_alias_denial(
-    *, outcome: Any, coherence: _ShellCoherence, readiness: _Readiness
-) -> None:
+def _assert_alias_denial(*, outcome: Any, coherence: PaneIdentity, readiness: _Readiness) -> None:
     """The refusal is the ALIAS-AUTHORIZATION one, about the pane just established.
 
     Asserted by its own terms rather than by `ok is False`, which any earlier
@@ -955,6 +796,140 @@ def _assert_alias_denial(
     assert (
         readiness.writer_deliveries() == []
     ), f"a refused launch delivers no command or Enter bytes: {readiness.writer_deliveries()}"
+
+
+def _frozen_poll(*, seconds: float, ticks: list[float]) -> BoundedPoll:
+    """A deterministic bound whose clock advances only through `ticks`."""
+    remaining = list(ticks)
+
+    def monotonic() -> float:
+        return remaining.pop(0) if remaining else 1e9
+
+    return BoundedPoll(seconds=seconds, monotonic=monotonic, sleep=lambda _seconds: None)
+
+
+@pytest.mark.parametrize(
+    ("fault", "shell_path"),
+    [("unavailable", None), ("incoherent", "/bin/bash")],
+)
+def test_workspace_root_setup_consumes_one_controlled_fault_before_native_coherence(
+    *,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    fault: str,
+    shell_path: str | None,
+) -> None:
+    """One disclosed bad sample is consumed before the real root identity is returned.
+
+    This is controlled fixture validation, not a reproduction of the host race.
+    The first reply is either deliberately unusable or made contradictory by
+    renaming its real foreground leader; every later reply comes unchanged from
+    the owned native server.
+    """
+    actual_process_info = process_info_reply
+    reads = 0
+
+    def one_fault_then_native(*, socket_path: str, pane_id: str) -> dict[str, Any]:
+        nonlocal reads
+        reads += 1
+        reply = actual_process_info(socket_path=socket_path, pane_id=pane_id)
+        if reads != 1:
+            return reply
+        reading = read_foreground(reply=reply)
+        assert reading is not None, "the controlled fault needs one real native reading to alter"
+        if fault == "unavailable":
+            return {
+                "result": {
+                    "process_info": {
+                        "pane_id": pane_id,
+                        "shell_pid": reading.shell_pid,
+                    }
+                }
+            }
+        assert fault == "incoherent", fault
+        return {
+            "result": {
+                "process_info": {
+                    "pane_id": pane_id,
+                    "shell_pid": reading.shell_pid,
+                    "foreground_process_group_id": reading.group_id,
+                    "foreground_processes": [
+                        {
+                            "pid": pid,
+                            "name": "herdr" if pid == reading.group_id else name,
+                            "cmdline": name,
+                            "cwd": PANE_CWD,
+                        }
+                        for pid, name in reading.processes
+                    ],
+                }
+            }
+        }
+
+    monkeypatch.setattr(f"{__name__}.process_info_reply", one_fault_then_native)
+    scratch = tmp_path / fault
+    scratch.mkdir()
+    served = _serve(
+        scratch=scratch,
+        label=f"root-{fault}",
+        shell_path=shell_path,
+    )
+    try:
+        server = next(served)
+        native = _reading(socket_path=server.socket_path, pane_id=server.root)
+        executable = kernel_executable_of(pid=native.shell_pid)
+
+        assert reads >= 2, "the controlled first fault must be consumed before setup returns"
+        assert server.reported_name == leader_name(reading=native)
+        assert executable is not None and server.kernel_executable == executable
+        if shell_path is None:
+            _ = _assert_alias_context(server=server)
+        else:
+            assert server.reported_name == Path(server.kernel_executable).name
+    finally:
+        served.close()
+
+
+def test_persistently_unavailable_root_setup_is_bounded_and_cleans_only_its_session(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A named root refusal removes its session while an owned peer remains live."""
+    peer_scratch = tmp_path / "peer"
+    target_scratch = tmp_path / "target"
+    peer_scratch.mkdir()
+    target_scratch.mkdir()
+    peer = _serve(scratch=peer_scratch, label="root-peer", shell_path="/bin/bash")
+    peer_server = next(peer)
+
+    def unavailable(*, socket_path: str, pane_id: str) -> dict[str, Any]:
+        del socket_path
+        return {"result": {"process_info": {"pane_id": pane_id}}}
+
+    monkeypatch.setattr(f"{__name__}.process_info_reply", unavailable)
+    target_label = "root-refusal"
+    target_session = f"overseer-test-{os.getpid()}-alias-{target_label}"
+    target = _serve(
+        scratch=target_scratch,
+        label=target_label,
+        shell_path=None,
+        root_poll=_frozen_poll(seconds=2.0, ticks=[0.0, 1.0, 3.0]),
+    )
+    try:
+        with pytest.raises(AssertionError) as refused:
+            _ = next(target)
+
+        message = str(refused.value)
+        assert "never reported a coherent shell identity within 2.0s" in message, message
+        assert "no usable shell/foreground fields" in message, message
+        assert not _socket_for(
+            session=target_session
+        ).parent.exists(), f"the refused setup left its owned session {target_session!r} registered"
+        assert peer_server.root in _pane_ids(
+            socket_path=peer_server.socket_path
+        ), "setup cleanup crossed into the unrelated owned Herdr session"
+    finally:
+        target.close()
+        peer.close()
 
 
 def test_the_host_registry_is_what_authorizes_an_alias_and_nothing_else(
