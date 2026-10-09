@@ -10,6 +10,7 @@ selected instance on every later call.
 
 from __future__ import annotations
 
+import json
 import os
 import shlex
 import shutil
@@ -18,6 +19,7 @@ import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 import pytest
 from test_herdr_live_observations import (
@@ -27,7 +29,7 @@ from test_herdr_live_observations import (
     stop_owned_server,
 )
 
-from overseer import runtime_prefix, terminal_ownership
+from overseer import claude_sessions, runtime_prefix, terminal_ownership
 
 __all__: list[str] = []
 
@@ -150,6 +152,10 @@ class Candidate:
     prefix: Path
     start: Path
     codex: Path
+    daemon: Path
+    python: Path
+    module_dir: Path
+    version: str
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -167,14 +173,48 @@ def _candidate(*, scratch: Path) -> Candidate:
     home = scratch / "candidate-home"
     prefix = runtime_prefix.runtime_prefix(home=home)
     daemon = runtime_prefix.ensure_runtime(prefix=prefix, install_source=str(REPO_ROOT))
+    assert daemon is not None
     assert daemon == prefix / "venv" / "bin" / "overseerd"
+    python = prefix / "venv" / "bin" / "python"
     codex = prefix / "venv" / "bin" / "codex"
-    codex.symlink_to((prefix / "venv" / "bin" / "python").resolve())
+    codex.symlink_to(python.resolve())
+    completed = subprocess.run(  # noqa: S603
+        [
+            str(python),
+            "-I",
+            "-c",
+            (
+                "import importlib.metadata as m,json,overseer;"
+                "d=m.distribution('livespec-overseer');"
+                "u=next(p for p in d.files or () if p.name=='direct_url.json');"
+                "print(json.dumps({'version':d.version,'module':overseer.__file__,"
+                "'direct':json.loads(d.locate_file(u).read_text())}))"
+            ),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
+    raw_metadata: object = json.loads(completed.stdout)
+    assert isinstance(raw_metadata, dict)
+    metadata = cast(dict[str, object], raw_metadata)
+    module_file = Path(str(metadata["module"])).resolve()
+    assert module_file.is_relative_to((prefix / "venv").resolve())
+    direct = metadata["direct"]
+    assert isinstance(direct, dict)
+    raw_dir_info = cast(dict[str, object], direct).get("dir_info")
+    assert isinstance(raw_dir_info, dict)
+    assert cast(dict[str, object], raw_dir_info).get("editable") is not True
     return Candidate(
         home=home,
         prefix=prefix,
         start=prefix / "venv" / "bin" / "overseer-start",
         codex=codex,
+        daemon=daemon,
+        python=python,
+        module_dir=module_file.parent,
+        version=str(metadata["version"]),
     )
 
 
@@ -194,7 +234,15 @@ def _run_public(*, case: NativeCase, stem: str) -> tuple[int, str]:
     return int(rc.read_text(encoding="utf-8")), stderr.read_text(encoding="utf-8")
 
 
-def _descendant_daemon(*, root_pid: int, prefix: Path) -> int | None:
+@dataclass(frozen=True, kw_only=True)
+class CandidateProcess:
+    pid: int
+    starttime: str
+    executable: Path
+    command: bytes
+
+
+def _descendant_daemon(*, root_pid: int, candidate: Candidate) -> CandidateProcess | None:
     descendants = {root_pid}
     changed = True
     while changed:
@@ -212,11 +260,22 @@ def _descendant_daemon(*, root_pid: int, prefix: Path) -> int | None:
                 changed = True
     for pid in descendants - {root_pid}:
         try:
-            cmdline = Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ").decode()
+            command = Path(f"/proc/{pid}/cmdline").read_bytes()
+            executable = Path(f"/proc/{pid}/exe").readlink().resolve()
         except OSError:
             continue
-        if str(prefix) in cmdline and "overseerd" in cmdline:
-            return pid
+        starttime = claude_sessions.proc_starttime(pid=pid)
+        if (
+            starttime is not None
+            and executable == candidate.python.resolve()
+            and str(candidate.daemon).encode() in command.split(b"\0")
+        ):
+            return CandidateProcess(
+                pid=pid,
+                starttime=starttime,
+                executable=executable,
+                command=command,
+            )
     return None
 
 
@@ -264,25 +323,31 @@ def test_public_start_selects_named_tmux_nested_in_herdr_and_reuses_it(
     assert first_rc == 0, first_stderr
     after = _rows(socket_path=native_case.tmux_socket)
     assert len(after) == 2
+    original_server_pid = int(native_case.original["server_pid"])
+    original_server_starttime = claude_sessions.proc_starttime(pid=original_server_pid)
+    assert original_server_starttime is not None
+    assert {int(row["server_pid"]) for row in after} == {original_server_pid}
+    assert claude_sessions.proc_starttime(pid=original_server_pid) == original_server_starttime
     original_after = next(row for row in after if row["pane"] == native_case.original["pane"])
     daemon_row = next(row for row in after if row["pane"] != native_case.original["pane"])
     assert int(daemon_row["top"]) < int(original_after["top"])
     assert original_after["active"]
-    daemon_pid = _wait_for(
+    daemon_identity = _wait_for(
         lambda: _descendant_daemon(
-            root_pid=int(daemon_row["pane_pid"]), prefix=native_case.candidate.prefix
+            root_pid=int(daemon_row["pane_pid"]), candidate=native_case.candidate
         ),
         description="the installed candidate daemon",
     )
+    assert native_case.candidate.version
+    assert native_case.candidate.module_dir.is_relative_to(native_case.candidate.prefix)
 
     repeat_rc, repeat_stderr = _run_public(case=native_case, stem="repeat")
 
     assert repeat_rc == 0, repeat_stderr
     assert _rows(socket_path=native_case.tmux_socket) == after
+    assert claude_sessions.proc_starttime(pid=original_server_pid) == original_server_starttime
     assert (
-        _descendant_daemon(
-            root_pid=int(daemon_row["pane_pid"]), prefix=native_case.candidate.prefix
-        )
-        == daemon_pid
+        _descendant_daemon(root_pid=int(daemon_row["pane_pid"]), candidate=native_case.candidate)
+        == daemon_identity
     )
     assert pane_ids(socket_path=native_case.herdr_socket) == native_case.outer_panes

@@ -21,12 +21,13 @@ import os
 import shlex
 import shutil
 import socket
+import subprocess
 import threading
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from test_herdr_live_observations import (
@@ -41,7 +42,7 @@ from test_herdr_live_observations import (
     stop_owned_server,
 )
 
-from overseer import runtime_prefix
+from overseer import claude_sessions, runtime_prefix
 
 __all__: list[str] = []
 
@@ -119,7 +120,11 @@ class Candidate:
     home: Path
     prefix: Path
     start: Path
+    daemon: Path
+    python: Path
     codex_python: Path
+    module_dir: Path
+    version: str
 
 
 def _candidate(*, home: Path) -> Candidate:
@@ -131,15 +136,103 @@ def _candidate(*, home: Path) -> Candidate:
         prefix=prefix,
         install_source=str(REPO_ROOT),
     )
+    assert installed_daemon is not None
     assert installed_daemon == venv / "bin/overseerd"
+    python = venv / "bin/python"
     codex_python = venv / "bin/codex"
-    codex_python.symlink_to((venv / "bin/python").resolve())
+    codex_python.symlink_to(python.resolve())
+    completed = subprocess.run(  # noqa: S603
+        [
+            str(python),
+            "-I",
+            "-c",
+            (
+                "import importlib.metadata as m,json,overseer;"
+                "d=m.distribution('livespec-overseer');"
+                "u=next(p for p in d.files or () if p.name=='direct_url.json');"
+                "print(json.dumps({'version':d.version,'module':overseer.__file__,"
+                "'direct':json.loads(d.locate_file(u).read_text())}))"
+            ),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr
+    raw_metadata: object = json.loads(completed.stdout)
+    assert isinstance(raw_metadata, dict)
+    metadata = cast(dict[str, object], raw_metadata)
+    module_file = Path(str(metadata["module"])).resolve()
+    assert module_file.is_relative_to(venv.resolve())
+    direct = metadata["direct"]
+    assert isinstance(direct, dict)
+    raw_dir_info = cast(dict[str, object], direct).get("dir_info")
+    assert isinstance(raw_dir_info, dict)
+    assert cast(dict[str, object], raw_dir_info).get("editable") is not True
     return Candidate(
         home=home,
         prefix=prefix,
         start=venv / "bin/overseer-start",
+        daemon=installed_daemon,
+        python=python,
         codex_python=codex_python,
+        module_dir=module_file.parent,
+        version=str(metadata["version"]),
     )
+
+
+@dataclass(frozen=True, kw_only=True)
+class CandidateProcess:
+    pid: int
+    starttime: str
+    executable: Path
+    command: bytes
+
+
+def _candidate_daemon_pids(*, candidate: Candidate) -> dict[int, CandidateProcess]:
+    found: dict[int, CandidateProcess] = {}
+    command_needle = str(candidate.daemon).encode()
+    expected_executable = candidate.python.resolve()
+    for proc in Path("/proc").iterdir():
+        if not proc.name.isdigit():
+            continue
+        pid = int(proc.name)
+        try:
+            command = (proc / "cmdline").read_bytes()
+            executable = (proc / "exe").readlink().resolve()
+        except OSError:
+            continue
+        starttime = claude_sessions.proc_starttime(pid=pid)
+        if (
+            starttime is not None
+            and executable == expected_executable
+            and command_needle in command.split(b"\0")
+        ):
+            found[pid] = CandidateProcess(
+                pid=pid,
+                starttime=starttime,
+                executable=executable,
+                command=command,
+            )
+    return found
+
+
+def _await_candidate_daemon(*, case: LiveCase, pane: str, candidate: Candidate) -> CandidateProcess:
+    deadline = time.monotonic() + WAIT_SECONDS
+    last: object = None
+    while time.monotonic() < deadline:
+        reading = _foreground(case=case, pane=pane)
+        pane_pids = {pid for pid, _name in reading.processes}
+        candidates = [
+            identity
+            for pid, identity in _candidate_daemon_pids(candidate=candidate).items()
+            if pid in pane_pids
+        ]
+        last = (reading, candidates)
+        if len(candidates) == 1 and reading.group_id != reading.shell_pid:
+            return candidates[0]
+        time.sleep(POLL_SECONDS)
+    pytest.fail(f"installed candidate daemon never occupied {pane!r}; last={last!r}")
 
 
 def _run_public(
@@ -254,8 +347,10 @@ def test_public_start_creates_and_reuses_one_verified_daemon(*, live_case: LiveC
 
     assert first_rc == 0, first_err
     daemon = _daemon_pane(case=live_case, original=original)
-    daemon_pid = _await_named(case=live_case, pane=daemon, name="overseerd")
-    assert str(candidate.prefix) in Path(f"/proc/{daemon_pid}/cmdline").read_bytes().decode()
+    daemon_identity = _await_candidate_daemon(case=live_case, pane=daemon, candidate=candidate)
+    assert candidate.version
+    assert candidate.module_dir.is_relative_to(candidate.prefix)
+    assert _candidate_daemon_pids(candidate=candidate) == {daemon_identity.pid: daemon_identity}
     _assert_unchanged(case=live_case)
 
     repeat_rc, repeat_err = _run_public(
@@ -263,7 +358,9 @@ def test_public_start_creates_and_reuses_one_verified_daemon(*, live_case: LiveC
     )
     assert repeat_rc == 0, repeat_err
     assert set(pane_ids(socket_path=live_case.socket_path)) == original | {daemon}
-    assert _await_named(case=live_case, pane=daemon, name="overseerd") == daemon_pid
+    assert (
+        _await_candidate_daemon(case=live_case, pane=daemon, candidate=candidate) == daemon_identity
+    )
 
 
 def test_public_repeat_never_replays_a_real_split_whose_reply_was_lost(
@@ -306,7 +403,7 @@ def test_public_repeat_reuses_a_real_daemon_when_its_launch_reply_was_lost(
         assert "unknown" in first_err.lower()
         assert state.dropped == 1
         daemon = state.created
-        daemon_pid = _await_named(case=live_case, pane=daemon, name="overseerd")
+        daemon_identity = _await_candidate_daemon(case=live_case, pane=daemon, candidate=candidate)
 
         repeat_rc, repeat_err = _run_public(
             case=live_case, candidate=candidate, socket_path=proxy, stem="launch-repeat"
@@ -315,6 +412,9 @@ def test_public_repeat_reuses_a_real_daemon_when_its_launch_reply_was_lost(
         assert state.methods.count("pane.split") == 1
         assert state.methods.count("pane.send_input") == 1
         assert set(pane_ids(socket_path=live_case.socket_path)) == original | {daemon}
-        assert _await_named(case=live_case, pane=daemon, name="overseerd") == daemon_pid
-        assert Path(f"/proc/{daemon_pid}").exists()
+        assert (
+            _await_candidate_daemon(case=live_case, pane=daemon, candidate=candidate)
+            == daemon_identity
+        )
+        assert Path(f"/proc/{daemon_identity.pid}").exists()
         _assert_unchanged(case=live_case)
