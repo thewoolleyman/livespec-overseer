@@ -337,9 +337,15 @@ if Path(sys.argv[0]).name == "overseer-start" and os.environ.get("OVERSEER_FAULT
             record = _record_split(request, mutation_reply)
         else:
             record = _record_daemon(request)
+        ack_shape = os.environ["OVERSEER_FAULT_ACK_SHAPE"]
         record["observation_completed_before_reply_loss"] = True
+        record["ack_shape"] = ack_shape
         output.write_text(json.dumps(record, sort_keys=True), encoding="utf-8")
-        return b"", "controlled reply loss after real-peer effect observation", False
+        if ack_shape == "lost":
+            return b"", "controlled reply loss after real-peer effect observation", False
+        if ack_shape == "malformed":
+            return b'{"controlled":', "", False
+        raise RuntimeError(f"unknown acknowledgement shape: {ack_shape!r}")
 
     herdr_transport.HerdrTransport._send_and_read = _withhold_after_observation
 """
@@ -350,9 +356,10 @@ class Fault:
     directory: Path
     method: str
     observation: Path
+    ack_shape: str
 
 
-def _fault(*, case: LiveCase, stem: str, method: str) -> Fault:
+def _fault(*, case: LiveCase, stem: str, method: str, ack_shape: str) -> Fault:
     directory = case.scratch / f"fault-{stem}"
     directory.mkdir()
     _ = (directory / "sitecustomize.py").write_text(_FAULT_SOURCE, encoding="utf-8")
@@ -360,6 +367,7 @@ def _fault(*, case: LiveCase, stem: str, method: str) -> Fault:
         directory=directory,
         method=method,
         observation=case.scratch / f"{stem}-observation.json",
+        ack_shape=ack_shape,
     )
 
 
@@ -377,6 +385,7 @@ def _run_public(
             (
                 f"PYTHONPATH={shlex.quote(f'{fault.directory}:{candidate.module_dir}')}",
                 f"OVERSEER_FAULT_METHOD={shlex.quote(fault.method)}",
+                f"OVERSEER_FAULT_ACK_SHAPE={shlex.quote(fault.ack_shape)}",
                 f"OVERSEER_FAULT_OBSERVATION={shlex.quote(str(fault.observation))}",
                 f"OVERSEER_FAULT_SERVER_PID={case.server_pid}",
                 f"OVERSEER_FAULT_SERVER_STARTTIME={case.server_starttime}",
@@ -432,19 +441,58 @@ def _assert_unrelated_unchanged(*, case: LiveCase) -> None:
     assert Path(f"/proc/{case.sentinel_pid}").exists()
 
 
-def _candidate_daemon_pids(*, candidate: Candidate) -> set[int]:
-    found: set[int] = set()
-    needle = str(candidate.daemon).encode()
+@dataclass(frozen=True, kw_only=True)
+class CandidateProcess:
+    pid: int
+    starttime: str
+    executable: Path
+    command: bytes
+
+
+def _candidate_daemon_pids(*, candidate: Candidate) -> dict[int, CandidateProcess]:
+    found: dict[int, CandidateProcess] = {}
+    command_needle = str(candidate.daemon).encode()
+    expected_executable = candidate.python.resolve()
     for proc in Path("/proc").iterdir():
         if not proc.name.isdigit():
             continue
+        pid = int(proc.name)
         try:
             command = (proc / "cmdline").read_bytes()
+            executable = (proc / "exe").readlink().resolve()
         except OSError:
             continue
-        if needle in command:
-            found.add(int(proc.name))
+        starttime = claude_sessions.proc_starttime(pid=pid)
+        if (
+            starttime is not None
+            and executable == expected_executable
+            and command_needle in command.split(b"\0")
+        ):
+            found[pid] = CandidateProcess(
+                pid=pid,
+                starttime=starttime,
+                executable=executable,
+                command=command,
+            )
     return found
+
+
+def _await_candidate_daemon(*, case: LiveCase, pane: str, candidate: Candidate) -> CandidateProcess:
+    deadline = time.monotonic() + WAIT_SECONDS
+    last: object = None
+    while time.monotonic() < deadline:
+        reading = _foreground(case=case, pane=pane)
+        pane_pids = {pid for pid, _name in reading.processes}
+        candidates = [
+            identity
+            for pid, identity in _candidate_daemon_pids(candidate=candidate).items()
+            if pid in pane_pids
+        ]
+        last = (reading, candidates)
+        if len(candidates) == 1 and reading.group_id != reading.shell_pid:
+            return candidates[0]
+        time.sleep(POLL_SECONDS)
+    pytest.fail(f"installed candidate daemon never occupied {pane!r}; last={last!r}")
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -464,6 +512,7 @@ def _verified_daemon_effect(
 ) -> ObservedDaemon:
     observed = _observation(fault=fault)
     assert observed["observation_completed_before_reply_loss"] is True
+    assert observed["ack_shape"] == fault.ack_shape
     assert (observed["server_pid"], observed["server_starttime"]) == (
         case.server_pid,
         case.server_starttime,
@@ -475,8 +524,14 @@ def _verified_daemon_effect(
     assert Path(str(observed["daemon_executable"])) == candidate.python.resolve()
     assert str(candidate.daemon) in str(observed["daemon_cmdline"])
     assert str(candidate.daemon) in str(observed["installed_command"])
-    assert _await_named(case=case, pane=pane, name="overseerd") == pid
-    assert _candidate_daemon_pids(candidate=candidate) == {pid}
+    identity = _await_candidate_daemon(case=case, pane=pane, candidate=candidate)
+    assert identity == CandidateProcess(
+        pid=pid,
+        starttime=starttime,
+        executable=candidate.python.resolve(),
+        command=Path(f"/proc/{pid}/cmdline").read_bytes(),
+    )
+    assert _candidate_daemon_pids(candidate=candidate) == {pid: identity}
     tops, focused = _geometry(case=case)
     assert tops[pane] < tops[case.invoking]
     assert focused == case.invoking
@@ -487,15 +542,25 @@ def _verified_daemon_effect(
     return ObservedDaemon(pane=pane, pid=pid, starttime=starttime, panes=panes)
 
 
-def test_split_reply_loss_preserves_the_real_peer_and_never_replays(*, live_case: LiveCase) -> None:
-    candidate = _candidate(home=live_case.scratch / "home-split")
+@pytest.mark.parametrize("ack_shape", ["lost", "malformed"])
+def test_split_reply_loss_preserves_the_real_peer_and_never_replays(
+    *, live_case: LiveCase, ack_shape: str
+) -> None:
+    candidate = _candidate(home=live_case.scratch / f"home-split-{ack_shape}")
     original = set(pane_ids(socket_path=live_case.socket_path))
-    loss = _fault(case=live_case, stem="split", method="pane.split")
+    before_daemons = _candidate_daemon_pids(candidate=candidate)
+    assert before_daemons == {}
+    loss = _fault(
+        case=live_case,
+        stem=f"split-{ack_shape}",
+        method="pane.split",
+        ack_shape=ack_shape,
+    )
 
     first_rc, first_err = _run_public(
         case=live_case,
         candidate=candidate,
-        stem="split-lost",
+        stem=f"split-{ack_shape}",
         fault=loss,
     )
 
@@ -516,7 +581,7 @@ def test_split_reply_loss_preserves_the_real_peer_and_never_replays(*, live_case
     repeat_rc, repeat_err = _run_public(
         case=live_case,
         candidate=candidate,
-        stem="split-repeat",
+        stem=f"split-{ack_shape}-repeat",
     )
 
     assert repeat_rc == 1
@@ -524,22 +589,30 @@ def test_split_reply_loss_preserves_the_real_peer_and_never_replays(*, live_case
     assert set(pane_ids(socket_path=live_case.socket_path)) == after_first
     assert _foreground(case=live_case, pane=created).shell_pid == created_shell
     assert Path(f"/proc/{created_shell}").exists()
-    assert _candidate_daemon_pids(candidate=candidate) == set()
+    assert _candidate_daemon_pids(candidate=candidate) == before_daemons
     _assert_unrelated_unchanged(case=live_case)
 
 
+@pytest.mark.parametrize("ack_shape", ["lost", "malformed"])
 def test_daemon_launch_reply_loss_observes_exact_candidate_before_reuse(
-    *, live_case: LiveCase
+    *, live_case: LiveCase, ack_shape: str
 ) -> None:
-    candidate = _candidate(home=live_case.scratch / "home-launch")
+    candidate = _candidate(home=live_case.scratch / f"home-launch-{ack_shape}")
     assert candidate.version
     original = set(pane_ids(socket_path=live_case.socket_path))
-    loss = _fault(case=live_case, stem="launch", method="pane.send_input")
+    before_daemons = _candidate_daemon_pids(candidate=candidate)
+    assert before_daemons == {}
+    loss = _fault(
+        case=live_case,
+        stem=f"launch-{ack_shape}",
+        method="pane.send_input",
+        ack_shape=ack_shape,
+    )
 
     first_rc, first_err = _run_public(
         case=live_case,
         candidate=candidate,
-        stem="launch-lost",
+        stem=f"launch-{ack_shape}",
         fault=loss,
     )
 
@@ -555,13 +628,17 @@ def test_daemon_launch_reply_loss_observes_exact_candidate_before_reuse(
     repeat_rc, repeat_err = _run_public(
         case=live_case,
         candidate=candidate,
-        stem="launch-repeat",
+        stem=f"launch-{ack_shape}-repeat",
     )
 
     assert repeat_rc == 0, repeat_err
     assert frozenset(pane_ids(socket_path=live_case.socket_path)) == observed.panes
-    assert _await_named(case=live_case, pane=observed.pane, name="overseerd") == observed.pid
+    repeat_identity = _await_candidate_daemon(
+        case=live_case, pane=observed.pane, candidate=candidate
+    )
+    assert repeat_identity.pid == observed.pid
+    assert repeat_identity.starttime == observed.starttime
     assert claude_sessions.proc_starttime(pid=observed.pid) == observed.starttime
-    assert _candidate_daemon_pids(candidate=candidate) == {observed.pid}
+    assert _candidate_daemon_pids(candidate=candidate) == {observed.pid: repeat_identity}
     assert Path(f"/proc/{observed.pid}").exists()
     _assert_unrelated_unchanged(case=live_case)
