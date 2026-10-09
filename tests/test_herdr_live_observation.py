@@ -31,6 +31,21 @@ file is built from, taken on this host against herdr 0.9.3 / protocol 22:
   - A pane id absent from that server answers with an `error` envelope
     (`pane_not_found`), never an empty success.
 
+**THE FOREGROUND WAIT MUST CONSUME TRANSIENT UNAVAILABILITY (work-item
+`overseer-2qjuho`).** The captured full-suite failure reached the sentinel
+exercise's final assertion with `herdr process info reply carried an unreadable
+payload`. Its poll condition included `reading.ok`, so the first unavailable
+sample ended a nominal twenty-second wait immediately. The wait now retains the
+same bound, consumes unavailable and wrong-process observations until the actual
+requested sentinel is seen, and reports the last observation if the bound
+expires.
+
+The one-shot unreadable control below is disclosed fault injection at the
+fixture's observation seam, followed by the real native sentinel; it is not a
+claim that the historical timing was reproduced. Deterministic persistent
+unavailable and wrong-process controls prove both expiry directions without
+sleeping away their bounds.
+
 **Session isolation is herdr's own `--session` mechanism**, which is what herdr
 documents: each named session owns its directory and socket under the normal
 config root. No `HOME`, `XDG_*` or `*_HOME` variable is repurposed — herdr 0.9.3
@@ -51,12 +66,13 @@ import socket
 import struct
 import subprocess
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import pytest
+from test_herdr_live_observations import BoundedPoll
 
 __all__: list[str] = []
 
@@ -73,6 +89,8 @@ PANE_CWD = "/tmp"
 SENTINEL_CWD = "/usr"
 SENTINEL_COMMAND = f"cd {SENTINEL_CWD} && sleep 120"
 SENTINEL_NAME = "sleep"
+FOREGROUND_TIMEOUT = 20.0
+FOREGROUND_POLL_SECONDS = 0.25
 DIM_MARKER = "OVDIM"
 DIM_BYTES = f"\x1b[2m{DIM_MARKER}\x1b[0m"
 DIM_COMMAND = r"printf '\033[2m" + DIM_MARKER + r"\033[0m\n'"
@@ -209,6 +227,44 @@ def _run_in_pane(*, live: LiveHerdr, command: str) -> None:
     assert "result" in reply, f"fixture command {command!r} was refused: {reply}"
 
 
+def _await_requested_foreground(
+    *, read: Callable[[], Any], requested_name: str, poll: BoundedPoll
+) -> Any:
+    """Return the requested process within `poll`, or fail with the last observation.
+
+    An unavailable sample establishes nothing and a different live process is not
+    the requested sentinel. Both remain observations to consume until the bound,
+    rather than conditions that silently shorten it.
+    """
+    deadline = poll.monotonic() + poll.seconds
+    last: Any | None = None
+    while poll.monotonic() < deadline:
+        last = read()
+        if last.ok is True and last.process is not None and last.process.name == requested_name:
+            return last
+        poll.sleep(FOREGROUND_POLL_SECONDS)
+    if last is None:
+        pytest.fail(
+            f"no foreground observation was taken before the {poll.seconds}s deadline "
+            f"for {requested_name!r}"
+        )
+    detail = f"unavailable: {last.error}" if last.ok is False else f"process: {last.process!r}"
+    pytest.fail(
+        f"foreground {requested_name!r} was not observed within {poll.seconds}s; "
+        f"last observation was {detail}"
+    )
+
+
+def _frozen_poll(*, seconds: float, ticks: list[float]) -> BoundedPoll:
+    """A deterministic bound whose clock advances only through `ticks`."""
+    remaining = list(ticks)
+
+    def monotonic() -> float:
+        return remaining.pop(0) if remaining else 1e9
+
+    return BoundedPoll(seconds=seconds, monotonic=monotonic, sleep=lambda _seconds: None)
+
+
 def test_the_adapter_identifies_the_live_server_generation_it_is_speaking_to(*, live: LiveHerdr):
     """Identification must yield the real server process, not the socket path alone.
 
@@ -322,11 +378,11 @@ def test_the_adapter_reports_the_actual_foreground_process_not_the_pane_shell(*,
     assert shell_pid > 0
 
     _run_in_pane(live=live, command=SENTINEL_COMMAND)
-    deadline = time.monotonic() + 20.0
-    reading = adapter.foreground(target=target)
-    while time.monotonic() < deadline and reading.ok and reading.process.name != SENTINEL_NAME:
-        time.sleep(0.25)
-        reading = adapter.foreground(target=target)
+    reading = _await_requested_foreground(
+        read=lambda: adapter.foreground(target=target),
+        requested_name=SENTINEL_NAME,
+        poll=BoundedPoll(seconds=FOREGROUND_TIMEOUT),
+    )
 
     assert reading.ok is True, reading.error
     assert (
@@ -340,6 +396,95 @@ def test_the_adapter_reports_the_actual_foreground_process_not_the_pane_shell(*,
     assert reading.process.cwd == SENTINEL_CWD, (
         f"the FOREGROUND cwd is wanted, not the shell's {PANE_CWD!r}: " f"{reading.process.cwd!r}"
     )
+
+
+def test_the_foreground_wait_consumes_one_controlled_unreadable_before_the_native_sentinel(
+    *, live: LiveHerdr
+) -> None:
+    """Disclosed one-shot fault injection is followed by the real requested process."""
+    _calls, adapter_module = _modules()
+    identity = importlib.import_module("herdr_identity")
+    adapter = adapter_module.HerdrAdapter()
+    identified = adapter.identify(socket_path=live.socket_path)
+    assert identified.ok is True, identified.error
+    target = identity.HerdrPaneTarget(
+        socket_path=live.socket_path,
+        server_pid=identified.peer.pid,
+        server_starttime=identified.peer.starttime,
+        pane_id=live.pane_id,
+    )
+    _run_in_pane(live=live, command=SENTINEL_COMMAND)
+    reads = 0
+
+    def one_unreadable_then_native() -> Any:
+        nonlocal reads
+        reads += 1
+        if reads == 1:
+            return adapter_module.ForegroundReading(
+                ok=False,
+                process=None,
+                error="controlled one-shot unreadable process-info reply",
+            )
+        return adapter.foreground(target=target)
+
+    reading = _await_requested_foreground(
+        read=one_unreadable_then_native,
+        requested_name=SENTINEL_NAME,
+        poll=BoundedPoll(seconds=FOREGROUND_TIMEOUT),
+    )
+
+    assert reads >= 2, "the controlled unreadable observation must be consumed"
+    assert reading.ok is True, reading.error
+    assert reading.process is not None and reading.process.name == SENTINEL_NAME
+    assert reading.process.cwd == SENTINEL_CWD
+
+
+@pytest.mark.parametrize("persistent", ["unavailable", "wrong-process"])
+def test_persistent_foreground_observations_fail_at_the_bound_with_the_last_reading(
+    *, persistent: str
+) -> None:
+    """Neither persistent refusal nor a different process can satisfy the wait."""
+    calls_module, adapter_module = _modules()
+    if persistent == "unavailable":
+        last = adapter_module.ForegroundReading(
+            ok=False,
+            process=None,
+            error="controlled persistent unreadable process-info reply",
+        )
+        expected = "controlled persistent unreadable process-info reply"
+    else:
+        assert persistent == "wrong-process", persistent
+        last = adapter_module.ForegroundReading(
+            ok=True,
+            process=calls_module.ForegroundProcess(
+                pane_id="w1:p1",
+                shell_pid=101,
+                process_group_id=101,
+                name="bash",
+                cmdline="bash",
+                cwd=PANE_CWD,
+            ),
+            error="",
+        )
+        expected = "name='bash'"
+    reads = 0
+
+    def persistent_reading() -> Any:
+        nonlocal reads
+        reads += 1
+        return last
+
+    with pytest.raises(pytest.fail.Exception) as failed:
+        _ = _await_requested_foreground(
+            read=persistent_reading,
+            requested_name=SENTINEL_NAME,
+            poll=_frozen_poll(seconds=2.0, ticks=[0.0, 1.0, 3.0]),
+        )
+
+    message = str(failed.value)
+    assert "not observed within 2.0s" in message, message
+    assert expected in message, message
+    assert reads == 1, "the reported state must be the last reading taken before expiry"
 
 
 def test_a_pane_absent_from_the_addressed_server_fails_closed(*, live: LiveHerdr):
