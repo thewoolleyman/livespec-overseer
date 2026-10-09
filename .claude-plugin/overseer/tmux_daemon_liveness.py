@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -23,6 +24,7 @@ __all__: list[str] = [
 MAX_DESCENDANT_PROCESSES = 64
 _MODULE_ARG_COUNT = 3
 _PROCESS_STAT_FIELDS = 20
+_RUNTIME_EXECUTABLE = str(Path(sys.executable).resolve())
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -44,7 +46,11 @@ class _ProcessStatus:
 
 
 def is_daemon_argv(*, command: str) -> bool:
-    """Whether ``command`` places a daemon marker in its executable argument role."""
+    """Whether ``command`` syntactically places a daemon marker in an argument role.
+
+    This legacy string predicate is not authorization. Exact reuse additionally
+    binds the process executable to this installed command's interpreter.
+    """
     argv = [*command.split(), "", ""]
     return any(
         (
@@ -87,7 +93,6 @@ def _daemon_role(*, argv: tuple[str, ...]) -> bool:
     padded = (*argv, "", "")
     return any(
         (
-            Path(padded[0]).name == "overseerd",
             padded[1:_MODULE_ARG_COUNT] == ("-m", "overseer.daemon"),
             Path(padded[1]).name == "overseerd",
         )
@@ -109,14 +114,18 @@ def _daemon_identity(
         if raw_command is not None
         else ()
     )
-    if status is None or executable is None or not argv or not _daemon_role(argv=argv):
+    if status is None or executable is None or not argv:
         return None
     try:
         runtime = str(Path(argv[0]).resolve(strict=True))
         resolved_executable = str(Path(executable).resolve(strict=True))
     except OSError:
         return None
-    if runtime != resolved_executable:
+    if (
+        runtime != resolved_executable
+        or runtime != _RUNTIME_EXECUTABLE
+        or not _daemon_role(argv=argv)
+    ):
         return None
     return DaemonProcessIdentity(
         pid=pid,
