@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 
+import herdr_identity
 from _registry_core import (
     Track,
     file_lock,
@@ -82,6 +83,7 @@ def upsert_mapping(
     store_path: str | os.PathLike[str] | None = None,
     added_at: str | None = None,
     update_fields: frozenset[str] = _DEFAULT_UPSERT_UPDATE_FIELDS,
+    allow_retarget: bool = True,
 ) -> bool:
     """Ensure one ``(repo, topic)`` row exists while preserving durable row fields."""
     path = resolve_store(store_path=store_path)
@@ -105,9 +107,18 @@ def upsert_mapping(
             return write_upsert_rows(rows=rows, store_path=store_path, path=path)
         changed = len(matching_indexes) > 1
         row = rows[matching_indexes[0]]
+        current_target = row.get("tmux")
+        effective_fields = update_fields
+        if not allow_retarget and isinstance(current_target, str):
+            decoded = herdr_identity.decode_target(value=current_target)
+            if decoded.herdr is not None or decoded.tmux is not None:
+                effective_fields = update_fields - {"tmux"}
         changed = (
             apply_upsert_update_fields(
-                row=row, new_row=new_row, track=track, update_fields=update_fields
+                row=row,
+                new_row=new_row,
+                track=track,
+                update_fields=effective_fields,
             )
             or changed
         )

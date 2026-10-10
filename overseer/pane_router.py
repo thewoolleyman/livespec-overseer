@@ -4,18 +4,21 @@ from __future__ import annotations
 
 import os
 import sys
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Protocol, cast
+from typing import cast
 
 import claude_sessions
 import herdr_adapter
 import herdr_identity
 import herdr_write
-import pane_discovery
+import pane_router_coordinates
+import pane_router_reads
+import pane_router_writes
 import terminal_ownership
 import terminal_probes
+import tmux_process
 import tmuxio
 from tmuxio_protocols import PaneDriver
 
@@ -44,112 +47,96 @@ sys.modules["pane_router"] = _THIS_MODULE
 sys.modules["overseer.pane_router"] = _THIS_MODULE
 
 
-class HerdrObserver(Protocol):
-    def identify(self, *, socket_path: str) -> herdr_adapter.InstanceIdentification: ...
-
-    def list_panes(
-        self, *, target: herdr_identity.HerdrPaneTarget
-    ) -> herdr_adapter.PaneListing: ...
-
-    def capture_pane(
-        self, *, target: herdr_identity.HerdrPaneTarget, retain_ansi: bool = True
-    ) -> herdr_adapter.PaneCapture: ...
-
-    def foreground(
-        self, *, target: herdr_identity.HerdrPaneTarget
-    ) -> herdr_adapter.ForegroundReading: ...
-
-
-class HerdrInput(Protocol):
-    def bracketed_paste(
-        self, *, target: herdr_identity.HerdrPaneTarget, text: str
-    ) -> herdr_write.WriteOutcome: ...
-
-    def send_enter(self, *, target: herdr_identity.HerdrPaneTarget) -> herdr_write.WriteOutcome: ...
-
-
 @dataclass(kw_only=True)
 class MixedPaneDriver:
-    """A pane driver that resolves each qualified Herdr coordinate independently."""
+    """Resolve every qualified pane on its recorded backend and generation."""
 
     tmux: PaneDriver = field(default_factory=tmuxio.TmuxIO)
-    herdr: HerdrObserver = field(default_factory=herdr_adapter.HerdrAdapter)
-    herdr_writer: HerdrInput = field(default_factory=herdr_write.HerdrWriter)
+    herdr: pane_router_reads.HerdrObserver = field(default_factory=herdr_adapter.HerdrAdapter)
+    herdr_writer: pane_router_writes.HerdrInput = field(default_factory=herdr_write.HerdrWriter)
     herdr_endpoints: Callable[[], Iterable[str]] = field(
         default_factory=lambda: partial(tuple, _DEFAULT_HERDR_ENDPOINTS)
     )
+    tmux_run: tmux_process.TextProcessRun = tmux_process.TEXT_PROCESS_RUN
     coordinates: set[str] = field(default_factory=set)
+
+    def _reads(self) -> pane_router_reads.PaneRoutingReads:
+        return pane_router_reads.PaneRoutingReads(
+            tmux=self.tmux,
+            herdr=self.herdr,
+            herdr_endpoints=self.herdr_endpoints,
+            tmux_run=self.tmux_run,
+            coordinates=self.coordinates,
+        )
 
     def register_coordinates(self, *, coordinates: Iterable[str]) -> None:
         self.coordinates.update(coordinates)
 
-    def _herdr_target(self, *, value: str) -> herdr_identity.HerdrPaneTarget | None:
-        target = herdr_identity.decode_target(value=value).herdr
-        if target is not None:
-            self.coordinates.add(value)
-        return target
+    def _writes(self) -> pane_router_writes.PaneRoutingWrites:
+        return pane_router_writes.PaneRoutingWrites(
+            reads=self._reads(),
+            herdr_writer=self.herdr_writer,
+        )
 
     def capture_pane(self, *, session: str) -> str:
-        target = self._herdr_target(value=session)
-        if target is None:
-            return self.tmux.capture_pane(session=session)
-        return self.herdr.capture_pane(target=target, retain_ansi=True).text
+        return self._reads().capture_pane(session=session)
 
     def pane_id(self, *, session: str) -> str | None:
-        target = self._herdr_target(value=session)
-        if target is None:
-            return self.tmux.pane_id(session=session)
-        return session
-
-    def _foreground(self, *, session: str) -> herdr_adapter.ForegroundReading | None:
-        target = self._herdr_target(value=session)
-        return None if target is None else self.herdr.foreground(target=target)
+        return self._reads().pane_id(session=session)
 
     def pane_pid(self, *, session: str) -> int | None:
-        reading = self._foreground(session=session)
-        if reading is None:
-            return self.tmux.pane_pid(session=session)
-        return cast(int | None, getattr(reading.process, "shell_pid", None))
+        return self._reads().pane_pid(session=session)
 
     def pane_current_command(self, *, session: str) -> str | None:
-        reading = self._foreground(session=session)
-        if reading is None:
-            return self.tmux.pane_current_command(session=session)
-        return cast(str | None, getattr(reading.process, "name", None))
+        return self._reads().pane_current_command(session=session)
 
     def pane_current_path(self, *, session: str) -> str | None:
-        reading = self._foreground(session=session)
-        if reading is None:
-            return self.tmux.pane_current_path(session=session)
-        return cast(str | None, getattr(reading.process, "cwd", None))
+        return self._reads().pane_current_path(session=session)
 
     def session_exists(self, *, session: str) -> bool:
-        target = self._herdr_target(value=session)
-        if target is None:
-            return self.tmux.session_exists(session=session)
-        listing = self.herdr.list_panes(target=target)
-        return listing.ok and any(pane.pane_id == target.pane_id for pane in listing.panes)
+        return self._reads().session_exists(session=session)
 
     def pane_pid_sessions(self) -> dict[int, str]:
-        out = self.tmux.pane_pid_sessions()
-        recorded = (
-            herdr_identity.decode_target(value=coordinate).herdr for coordinate in self.coordinates
+        return self._reads().pane_pid_sessions()
+
+    def pane_by_title(self, *, pane: str, title: str) -> str | None:
+        decoded = self._reads().decode(value=pane)
+        if decoded.herdr is not None or decoded.tmux is not None or decoded.error:
+            return None
+        return self.tmux.pane_by_title(pane=pane, title=title)
+
+    def send_keys(self, *, session: str, keys: str) -> bool:
+        return self._writes().send_keys(session=session, keys=keys)
+
+    def bracketed_paste(self, *, session: str, text: str) -> bool:
+        return self._writes().bracketed_paste(session=session, text=text)
+
+    def respawn_pane(
+        self,
+        *,
+        session: str,
+        cwd: str,
+        command: str,
+        env: Mapping[str, str | None] | None = None,
+    ) -> bool:
+        return self._writes().respawn_pane(
+            session=session,
+            cwd=cwd,
+            command=command,
+            env=env,
         )
-        targets = set(filter(None, recorded))
-        observer = cast(pane_discovery.DiscoveryObserver, self.herdr)
-        endpoints = (
-            self.herdr_endpoints() if callable(getattr(self.herdr, "identify", None)) else ()
-        )
-        targets.update(pane_discovery.discovered_targets(observer=observer, endpoints=endpoints))
-        out.update(pane_discovery.pid_coordinates(observer=observer, targets=targets))
-        return out
+
+    def new_session(self, *, name: str, cwd: str) -> bool:
+        return self._writes().new_session(name=name, cwd=cwd)
+
+    def kill_session(self, *, session: str) -> bool:
+        return self._writes().kill_session(session=session)
+
+    def rename_window(self, *, pane: str, name: str) -> bool:
+        return self._writes().rename_window(pane=pane, name=name)
 
     def submit_prompt_once(self, *, session: str, text: str) -> tuple[bool, bool]:
-        """Use Herdr's retained-shell-checked writes once, without uncertain replay."""
-        target = cast(herdr_identity.HerdrPaneTarget, self._herdr_target(value=session))
-        pasted = self.herdr_writer.bracketed_paste(target=target, text=text)
-        submitted = self.herdr_writer.send_enter(target=target)
-        return all((pasted.ok, submitted.ok)), not pasted.ok
+        return self._writes().submit_prompt_once(session=session, text=text)
 
 
 def default_pane_driver() -> PaneDriver:
@@ -161,19 +148,8 @@ def register_coordinates(*, driver: PaneDriver, coordinates: Iterable[str]) -> N
         driver.register_coordinates(coordinates=coordinates)
 
 
-def _herdr_coordinate(*, claim: terminal_ownership.OwnershipClaim) -> str:
-    return herdr_identity.encode_herdr_target(
-        target=herdr_identity.HerdrPaneTarget(
-            socket_path=claim.socket_path,
-            server_pid=claim.server_pid,
-            server_starttime=claim.server_starttime,
-            pane_id=claim.pane_id,
-        )
-    )
-
-
 def current_process_coordinate() -> str | None:
-    """Exact qualified Herdr owner of this process, proven by live ancestry."""
+    """Exact qualified owner of this process, proven by live ancestry."""
     selected = terminal_ownership.select_owner(
         pid=PROCESS_PID(),
         environ=dict(os.environ),
@@ -182,8 +158,11 @@ def current_process_coordinate() -> str | None:
     )
     claim = selected.claim
     renderers: dict[str, Callable[[], str | None]] = {
-        herdr_identity.HERDR_BACKEND: lambda: _herdr_coordinate(
+        herdr_identity.HERDR_BACKEND: lambda: pane_router_coordinates.qualified_coordinate(
             claim=cast(terminal_ownership.OwnershipClaim, claim)
-        )
+        ),
+        herdr_identity.TMUX_BACKEND: lambda: pane_router_coordinates.qualified_coordinate(
+            claim=cast(terminal_ownership.OwnershipClaim, claim)
+        ),
     }
     return renderers.get(getattr(claim, "backend", ""), lambda: None)()

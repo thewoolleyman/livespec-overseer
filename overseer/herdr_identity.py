@@ -33,9 +33,9 @@ no exception. Hex also makes the encoding TOTAL over arbitrary bytes and leaves
 no escape-sequence ambiguity to get wrong. The server pid stays decimal because
 it is the one field an operator reads directly against `ps`.
 
-**The `herdr:` prefix is a RESERVED scheme, not a guess about content.** A value
-that starts with it is read as a qualified herdr coordinate or REFUSED; it is
-never re-read as a tmux session name of that spelling.
+**The `herdr:` and `tmux:` prefixes are RESERVED schemes, not guesses about
+content.** A value that starts with either is read as that backend's qualified
+coordinate or REFUSED; it is never re-read as a legacy tmux session name.
 
 **Decoding is FAIL-CLOSED and says why in the value.** A malformed qualified
 target resolves to NO backend (`backend == ""`), carries no herdr target and no
@@ -55,16 +55,20 @@ __all__: list[str] = [
     "HERDR_BACKEND",
     "HERDR_SCHEME",
     "TMUX_BACKEND",
+    "TMUX_SCHEME",
     "HerdrPaneTarget",
     "TargetDecoding",
+    "TmuxPaneTarget",
     "decode_target",
     "encode_herdr_target",
+    "encode_tmux_target",
     "herdr_instance_key",
 ]
 
 HERDR_BACKEND = "herdr"
 TMUX_BACKEND = "tmux"
 HERDR_SCHEME = "herdr:"
+TMUX_SCHEME = "tmux:"
 FIELD_SEPARATOR = ":"
 
 _FIELD_COUNT = 4
@@ -96,18 +100,27 @@ class HerdrPaneTarget:
 
 
 @dataclass(frozen=True, kw_only=True)
+class TmuxPaneTarget:
+    """One exact pane on one exact live tmux server generation."""
+
+    socket_path: str
+    server_pid: int
+    server_starttime: str
+    pane_id: str
+
+
+@dataclass(frozen=True, kw_only=True)
 class TargetDecoding:
     """A fail-closed reading of one durable terminal coordinate.
 
-    Exactly one of three shapes: a herdr target (`backend == HERDR_BACKEND`, with
-    `herdr` set), a legacy tmux session (`backend == TMUX_BACKEND`, with
-    `tmux_session` set), or a refusal (`backend == ""`, with `error` set and
-    nothing else populated).
+    Exactly one backend target, one legacy tmux session, or a refusal. Qualified
+    targets set `herdr` or `tmux`; an unqualified tmux value sets `tmux_session`.
     """
 
     backend: str
     tmux_session: str
     herdr: HerdrPaneTarget | None
+    tmux: TmuxPaneTarget | None
     error: str
 
 
@@ -167,15 +180,27 @@ def encode_herdr_target(*, target: HerdrPaneTarget) -> str:
     )
 
 
+def encode_tmux_target(*, target: TmuxPaneTarget) -> str:
+    """Render one exact tmux server generation and pane as a durable coordinate."""
+    return TMUX_SCHEME + FIELD_SEPARATOR.join(
+        (
+            _encode_field(value=target.socket_path),
+            str(target.server_pid),
+            _encode_field(value=target.server_starttime),
+            _encode_field(value=target.pane_id),
+        )
+    )
+
+
 def _refusal(*, error: str) -> TargetDecoding:
-    return TargetDecoding(backend="", tmux_session="", herdr=None, error=error)
+    return TargetDecoding(backend="", tmux_session="", herdr=None, tmux=None, error=error)
 
 
-def _decode_qualified(*, body: str) -> TargetDecoding:
+def _decode_qualified(*, body: str, backend: str) -> TargetDecoding:
     fields = body.split(FIELD_SEPARATOR)
     if len(fields) != _FIELD_COUNT:
         return _refusal(
-            error=f"qualified herdr target needs {_FIELD_COUNT} fields, found {len(fields)}"
+            error=f"qualified {backend} target needs {_FIELD_COUNT} fields, found {len(fields)}"
         )
     socket_field, pid_field, starttime_field, pane_field = fields
     if not _is_plain_pid_field(value=pid_field):
@@ -188,20 +213,34 @@ def _decode_qualified(*, body: str) -> TargetDecoding:
     ):
         text = _decode_field(value=raw)
         if text is None:
-            return _refusal(error=f"qualified herdr target has an unreadable {name}: {raw!r}")
+            return _refusal(error=f"qualified {backend} target has an unreadable {name}: {raw!r}")
         if not text:
-            return _refusal(error=f"qualified herdr target has an empty {name}")
+            return _refusal(error=f"qualified {backend} target has an empty {name}")
         texts.append(text)
     socket_path, starttime, pane_id = texts
-    return TargetDecoding(
-        backend=HERDR_BACKEND,
-        tmux_session="",
-        herdr=HerdrPaneTarget(
+    herdr_targets = {
+        HERDR_BACKEND: HerdrPaneTarget(
             socket_path=socket_path,
             server_pid=int(pid_field),
             server_starttime=starttime,
             pane_id=pane_id,
         ),
+        TMUX_BACKEND: None,
+    }
+    tmux_targets = {
+        HERDR_BACKEND: None,
+        TMUX_BACKEND: TmuxPaneTarget(
+            socket_path=socket_path,
+            server_pid=int(pid_field),
+            server_starttime=starttime,
+            pane_id=pane_id,
+        ),
+    }
+    return TargetDecoding(
+        backend=backend,
+        tmux_session="",
+        herdr=herdr_targets[backend],
+        tmux=tmux_targets[backend],
         error="",
     )
 
@@ -214,7 +253,15 @@ def decode_target(*, value: str) -> TargetDecoding:
     REFUSED — never downgraded to a tmux reading.
     """
     if value.startswith(HERDR_SCHEME):
-        return _decode_qualified(body=value[len(HERDR_SCHEME) :])
+        return _decode_qualified(body=value[len(HERDR_SCHEME) :], backend=HERDR_BACKEND)
+    if value.startswith(TMUX_SCHEME):
+        return _decode_qualified(body=value[len(TMUX_SCHEME) :], backend=TMUX_BACKEND)
     if not value:
         return _refusal(error="terminal coordinate is empty")
-    return TargetDecoding(backend=TMUX_BACKEND, tmux_session=value, herdr=None, error="")
+    return TargetDecoding(
+        backend=TMUX_BACKEND,
+        tmux_session=value,
+        herdr=None,
+        tmux=None,
+        error="",
+    )
