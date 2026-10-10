@@ -22,11 +22,12 @@ than absent. The distinction is load-bearing in the direction that costs a
 mutation: calling an unaccountable pane "absent" would split again, which is
 exactly what must not happen after a lost acknowledgement.
 
-**More than one pane above is unresolved too.** The bootstrap owns a two-pane
-layout; a tab carrying several panes above the invoking one is a shape this
-bootstrap did not create and cannot reason about, and guessing which of them was
-meant to be the daemon is the kind of inference the ownership rules exist to
-forbid.
+**More than one pane above the invoking pane's horizontal allocation is
+unresolved too.** A side-by-side pane may start at a smaller row without being
+above the caller at all, so complete rectangles — not vertical offsets alone —
+bound this decision. Within that allocation the bootstrap owns a two-pane layout;
+guessing among several candidates is the kind of inference the ownership rules
+exist to forbid.
 
 **The placement is :func:`herdr_write.HerdrWriter.split_window_top` unchanged.**
 Every proof the sequence needs — that the created pane is new, is in the target's
@@ -58,6 +59,16 @@ DAEMON_READY_TIMEOUT_SECONDS = 10.0
 DAEMON_READY_POLL_SECONDS = 0.05
 
 
+def _horizontally_overlaps(
+    *, candidate: herdr_write_calls.PaneRectangle, invoking: herdr_write_calls.PaneRectangle
+) -> bool:
+    """Whether two positive-width pane allocations share at least one column."""
+    return (
+        candidate.left < invoking.left + invoking.width
+        and invoking.left < candidate.left + candidate.width
+    )
+
+
 @dataclass(frozen=True, kw_only=True)
 class HerdrBootstrap:
     """Place and verify the daemon pane on ONE exact herdr instance generation.
@@ -80,7 +91,7 @@ class HerdrBootstrap:
 
     def capability_error(self, *, claim: terminal_ownership.OwnershipClaim) -> str:
         """Why this instance cannot have a pane placed above the claim, or `""`."""
-        _tops, error = self._tops(claim=claim)
+        _rectangles, error = self._rectangles(claim=claim)
         if error:
             return (
                 f"herdr {herdr_write_calls.LAYOUT_METHOD} is unavailable on the selected "
@@ -93,11 +104,16 @@ class HerdrBootstrap:
         self, *, claim: terminal_ownership.OwnershipClaim
     ) -> bootstrap.DaemonHostReading:
         """Whether a verified live daemon already sits above the claimed pane."""
-        tops, error = self._tops(claim=claim)
-        if tops is None:
+        rectangles, error = self._rectangles(claim=claim)
+        if rectangles is None:
             return bootstrap.DaemonHostReading(pane_id="", unresolved="", error=error)
-        own_top = tops[claim.pane_id]
-        above = sorted(pane for pane, top in tops.items() if top < own_top)
+        invoking = rectangles[claim.pane_id]
+        above = sorted(
+            pane
+            for pane, rectangle in rectangles.items()
+            if rectangle.top < invoking.top
+            and _horizontally_overlaps(candidate=rectangle, invoking=invoking)
+        )
         if not above:
             return bootstrap.DaemonHostReading(pane_id="", unresolved="", error="")
         if len(above) != 1:
@@ -162,15 +178,15 @@ class HerdrBootstrap:
             pane_id=pane_id,
         )
 
-    def _tops(
+    def _rectangles(
         self, *, claim: terminal_ownership.OwnershipClaim
-    ) -> tuple[dict[str, int] | None, str]:
-        """Each pane's top row on the claim's tab, or why the geometry is unusable.
+    ) -> tuple[dict[str, herdr_write_calls.PaneRectangle] | None, str]:
+        """Each pane's rectangle on the claim's tab, or why it is unusable.
 
         A layout that does not place the claimed pane itself is refused rather
         than read around: every comparison below is relative to that pane's own
-        row, so an answer missing it cannot establish anything about what is above
-        it.
+        allocation, so an answer missing it cannot establish anything about what
+        is above it.
         """
         outcome = self.writer.request(
             target=self._target(claim=claim, pane_id=claim.pane_id),
@@ -183,9 +199,12 @@ class HerdrBootstrap:
         tops = herdr_write_calls.pane_tops(result=outcome.result)
         if tops is None:
             return None, "herdr tab layout is unreadable"
-        if claim.pane_id not in tops:
+        rectangles = herdr_write_calls.pane_rectangles(result=outcome.result, tops=tops)
+        if rectangles is None:
+            return None, "herdr tab layout does not carry complete pane rectangles"
+        if claim.pane_id not in rectangles:
             return None, f"herdr tab layout does not place pane {claim.pane_id!r}"
-        return tops, ""
+        return rectangles, ""
 
     def _occupant(
         self, *, claim: terminal_ownership.OwnershipClaim, candidate: str

@@ -418,6 +418,15 @@ class TmuxIO:
         """
         return self._layout.window_pane_geometries(pane=pane)
 
+    def window_pane_rectangles(self, *, pane: str) -> list[PaneGeometry]:
+        """Every complete pane rectangle in PANE's window.
+
+        Unlike the legacy vertical geometry read, this includes horizontal
+        allocation and is therefore the read public bootstrap uses to distinguish
+        a true pane above the caller from an unrelated side-by-side pane.
+        """
+        return self._layout.window_pane_rectangles(pane=pane)
+
     def set_pane_height_percent(self, *, pane: str, percent: int) -> bool:
         """``tmux resize-pane -t <pane> -y <percent>%`` — size PANE to a share of its window.
 

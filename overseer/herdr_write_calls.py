@@ -35,6 +35,7 @@ statement that no key accompanies this text.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 
 import herdr_protocol
 import jsonio
@@ -54,12 +55,14 @@ __all__: list[str] = [
     "SPLIT_DIRECTION_DOWN",
     "SPLIT_METHOD",
     "SWAP_METHOD",
+    "PaneRectangle",
     "SwapVerdict",
     "created_pane_refusal",
     "enter_params",
     "launch_params",
     "layout_params",
     "new_pane_id",
+    "pane_rectangles",
     "pane_tops",
     "paste_params",
     "split_down_params",
@@ -97,6 +100,17 @@ EXPECT_PANE_SWAP = herdr_protocol.ReplyExpectation(
 EXPECT_LAYOUT = herdr_protocol.ReplyExpectation(
     result_type=RESULT_TYPE_PANE_LAYOUT, required_fields=("layout",)
 )
+
+
+@dataclass(frozen=True, kw_only=True)
+class PaneRectangle:
+    """One Herdr pane's complete allocation within its tab."""
+
+    pane: str
+    left: int
+    top: int
+    width: int
+    height: int
 
 
 def layout_params(*, pane_id: str) -> dict[str, object]:
@@ -168,6 +182,52 @@ def pane_tops(*, result: dict[str, object]) -> dict[str, int] | None:
             return None
         tops[identifier] = top
     return tops
+
+
+def pane_rectangles(
+    *, result: dict[str, object], tops: dict[str, int]
+) -> dict[str, PaneRectangle] | None:
+    """Each pane's complete rectangle, or ``None`` for incomplete geometry.
+
+    ``tops`` is the result of :func:`pane_tops`, which performs the structural,
+    id and duplicate validation first. Bootstrap reuse additionally needs
+    horizontal allocation: a pane can have a smaller ``y`` while sitting wholly
+    beside the invoking pane, so ``x`` and ``width`` are authority-bearing inputs
+    rather than optional decoration.
+    """
+    # `pane_tops` has already established these container and row shapes.
+    layout = cast(dict[str, object], result["layout"])
+    rows = cast(list[object], layout["panes"])
+    rectangles: dict[str, PaneRectangle] = {}
+    for row in rows:
+        pane = cast(dict[str, object], row)
+        identifier = cast(str, pane["pane_id"])
+        rect = cast(dict[str, object], pane["rect"])
+        left = rect.get("x")
+        width = rect.get("width")
+        height = rect.get("height")
+        top = tops[identifier]
+        if (
+            not isinstance(left, int)
+            or isinstance(left, bool)
+            or not isinstance(width, int)
+            or isinstance(width, bool)
+            or not isinstance(height, int)
+            or isinstance(height, bool)
+            or left < 0
+            or top < 0
+            or width < 1
+            or height < 1
+        ):
+            return None
+        rectangles[identifier] = PaneRectangle(
+            pane=identifier,
+            left=left,
+            top=top,
+            width=width,
+            height=height,
+        )
+    return rectangles
 
 
 def created_pane_refusal(*, created: str, original: str, known: frozenset[str]) -> str:
