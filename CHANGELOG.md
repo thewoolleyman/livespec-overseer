@@ -1,5 +1,22 @@
 # Changelog
 
+## [5.18.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.17.0...v5.18.0) (2026-10-10)
+
+
+### Features
+
+* **lpm:** apply shared coexistence proof effects ([693f9c8](https://github.com/thewoolleyman/livespec-overseer/commit/693f9c889c89d386cc80f629c1725e6f4762bc59))
+* **lpm:** fail closed on unsafe proof state ([20422c6](https://github.com/thewoolleyman/livespec-overseer/commit/20422c6543de1d1502efb1772387f3126e2a9d2f))
+* **lpm:** preserve proof across completion replay ([89e676b](https://github.com/thewoolleyman/livespec-overseer/commit/89e676be7db966960790b29123ccbb7aa5206e23))
+* **lpm:** preserve soak across late events ([784f437](https://github.com/thewoolleyman/livespec-overseer/commit/784f4379ec5db1e585f32730a595a75add202b90))
+* **lpm:** progress proof soak across restarts ([2492417](https://github.com/thewoolleyman/livespec-overseer/commit/24924172014a60141fcbe729d9c51cc639acecc6))
+
+
+### Bug Fixes
+
+* **lpm:** reject noncanonical proof dates ([fc20fc0](https://github.com/thewoolleyman/livespec-overseer/commit/fc20fc08316c1d2932ea215e04aab635ec384092))
+* **lpm:** retain peers across tombstone migration ([cfe32a0](https://github.com/thewoolleyman/livespec-overseer/commit/cfe32a0ac50d0b0c99a89f20eda9d11ab8639579))
+
 ## [5.17.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.16.0...v5.17.0) (2026-10-10)
 
 
