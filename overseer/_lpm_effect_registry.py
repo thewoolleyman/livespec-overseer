@@ -39,7 +39,6 @@ from _lpm_effects_close import (
     completion_update,
     report_marker_update,
 )
-from _lpm_effects_commit import assignment_commit, target_write
 from _lpm_effects_lease import lease_release
 from _lpm_effects_metadata import credential_conditional_set
 from _lpm_effects_provision import (
@@ -53,6 +52,7 @@ from _lpm_effects_tombstone import assignment_close, tombstone_create
 from _lpm_engine_context import EffectContext
 from _lpm_results import ManagerError, internal_bug
 
+from overseer._lpm_effects_commit import assignment_commit, target_write
 from overseer._vendor.returns.result import Failure, Result
 
 _ = VENDOR_PATHS_INSTALLED
