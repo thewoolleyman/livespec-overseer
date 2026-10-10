@@ -53,7 +53,7 @@ def scrub_credential_overrides(*, environ: MutableMapping[str, str]) -> tuple[st
 
 def companion_path() -> Path:
     """The absolute isolated companion path shipped beside this bootstrap."""
-    return Path(__file__).resolve().parent / "_lpm_commands.py"
+    return Path(__file__).resolve().parent / "_lpm_companion.py"
 
 
 def main() -> int:
