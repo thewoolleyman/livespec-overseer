@@ -17,20 +17,43 @@ from _lpm_operation_identity import idempotency_key_for
 from _lpm_operation_plan import PlanContext, ordered_effects_for
 from _lpm_operation_store import operation_path, write_operation
 from _lpm_results import ManagerError
+from _lpm_runtime_roles import FinalProvisioningRequest, TargetStatusRequest
 from _lpm_store import SecretStore
+from _lpm_target import CommitOutcome, TargetLock
 
 from overseer._vendor.returns.result import Failure, Result, Success
 
 _ = VENDOR_PATHS_INSTALLED
 
 __all__: list[str] = [
+    "FinalProvisioningPort",
+    "ProvisionRuntimeHost",
     "RuntimeHost",
+    "TargetStatusPort",
     "engine_for",
     "new_operation",
     "run_lock",
     "target_destination",
+    "target_lock",
+    "target_lock_path",
     "write_new_operation",
 ]
+
+
+class FinalProvisioningPort(Protocol):
+    """The parent-visible, secret-free final provisioning role boundary."""
+
+    def __call__(
+        self, *, request: FinalProvisioningRequest, destination: str, lock: TargetLock
+    ) -> Result[CommitOutcome, ManagerError]: ...
+
+
+class TargetStatusPort(Protocol):
+    """The tokenless authoritative query for one interrupted target write."""
+
+    def __call__(
+        self, *, request: TargetStatusRequest, destination: str, lock: TargetLock
+    ) -> Result[CommitOutcome, ManagerError]: ...
 
 
 class RuntimeHost(Protocol):
@@ -47,6 +70,43 @@ class RuntimeHost(Protocol):
 
     @property
     def store(self) -> SecretStore: ...
+
+    @property
+    def op_executable(self) -> str: ...
+
+    @property
+    def capture_time(self) -> Callable[[], str]: ...
+
+    @property
+    def new_operation_id(self) -> Callable[[], str]: ...
+
+    @property
+    def monotonic(self) -> Callable[[], float]: ...
+
+    @property
+    def sleep(self) -> Callable[[float], None]: ...
+
+
+class ProvisionRuntimeHost(Protocol):
+    """Runtime facts used only by the provision command."""
+
+    @property
+    def state_dir(self) -> Path: ...
+
+    @property
+    def owner_uid(self) -> int: ...
+
+    @property
+    def config(self) -> ManagerConfig: ...
+
+    @property
+    def store(self) -> SecretStore: ...
+
+    @property
+    def provision_target(self) -> FinalProvisioningPort: ...
+
+    @property
+    def target_status(self) -> TargetStatusPort | None: ...
 
     @property
     def op_executable(self) -> str: ...
@@ -127,9 +187,8 @@ def run_lock(*, host: RuntimeHost, consumer_run_id: str) -> Result[HeldLock, Man
         ensured = ensure_state_directory(path=path, owner_uid=host.owner_uid)
         if isinstance(ensured, Failure):
             return Failure(ensured.failure())
-    digest = length_prefixed_digest(values=(consumer_run_id,))
     return take_lock(
-        path=host.state_dir / "locks" / "run" / f"{digest}.lock",
+        path=_lock_path(state_dir=host.state_dir, family="run", identity=(consumer_run_id,)),
         owner_uid=host.owner_uid,
         timeout_seconds=float(host.config.external_call_timeout_seconds),
         monotonic=host.monotonic,
@@ -137,7 +196,27 @@ def run_lock(*, host: RuntimeHost, consumer_run_id: str) -> Result[HeldLock, Man
     )
 
 
+def target_lock(*, host: RuntimeHost, target_ref: str) -> TargetLock:
+    """Return the target-reference lock configuration inherited by final provisioning."""
+    return TargetLock(
+        path=target_lock_path(state_dir=host.state_dir, target_ref=target_ref),
+        timeout_seconds=float(host.config.external_call_timeout_seconds),
+        monotonic=host.monotonic,
+        sleep=host.sleep,
+    )
+
+
+def target_lock_path(*, state_dir: Path, target_ref: str) -> Path:
+    """Return the canonical target-reference lock path."""
+    return _lock_path(state_dir=state_dir, family="target", identity=(target_ref,))
+
+
 def target_destination(*, state_dir: Path, reference: str) -> Path:
     """Derive this runtime's isolated destination from its opaque reference."""
     digest = length_prefixed_digest(values=(reference,))
     return state_dir / "targets" / digest / "credential"
+
+
+def _lock_path(*, state_dir: Path, family: str, identity: tuple[str, ...]) -> Path:
+    digest = length_prefixed_digest(values=identity)
+    return state_dir / "locks" / family / f"{digest}.lock"
