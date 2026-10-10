@@ -96,8 +96,8 @@ import _supervisor_state
 import _supervisor_tick
 import claude_sessions
 import codex_sessions
+import pane_router
 import registry
-import tmuxio
 from _supervisor_config import (
     LOOP_INTERVAL_SECONDS,
     default_gitignore_check,
@@ -132,7 +132,7 @@ class Supervisor:
     (daemon CLI).
     """
 
-    tmux: tmuxio.PaneDriver = field(default_factory=tmuxio.TmuxIO)
+    tmux: pane_router.PaneDriver = field(default_factory=pane_router.default_pane_driver)
     store_path: str | os.PathLike[str] | None = None
     stamp_path: str | os.PathLike[str] | None = None
     watch_repos: list[str] | None = None

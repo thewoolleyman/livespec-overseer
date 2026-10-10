@@ -9,6 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import pane_router
 import registry
 import signals
 import streams
@@ -42,6 +43,10 @@ def _resolve_topic(
     env_topic = os.environ.get("OVERSEER_TOPIC")
     if env_topic:
         return env_topic
+    if tmux is None:
+        coordinate = pane_router.current_process_coordinate()
+        if coordinate is not None:
+            return _topic_from_mapping(repo=repo, session=coordinate)
     pane = os.environ.get("TMUX_PANE")
     if not pane:
         return None
