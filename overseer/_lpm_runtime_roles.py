@@ -32,7 +32,7 @@ class FinalProvisioningRequest:
     value_ref: str
     lease_expires_at: str
     external_call_timeout_seconds: int
-    op_executable: str
+    op_executable: str | None
 
 
 @dataclass(frozen=True, kw_only=True)
