@@ -151,10 +151,6 @@ def _committed_write(
         return Failure(committed.failure())
     outcome: CommitOutcome = committed.unwrap()
     if outcome.status == IN_PROGRESS:
-        if inputs.provision_target is None:
-            return Failure(
-                store_unavailable(message="another writer still owns this target reference")
-            )
         return Failure(
             retryable_exhaustion(message="the target write outcome is still in progress")
         )
