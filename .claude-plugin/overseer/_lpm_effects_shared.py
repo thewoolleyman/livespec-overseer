@@ -33,17 +33,16 @@ shared record forever and each rewrite would race the peers it was supposed to p
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Final
 
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 from _lpm_assignment import COMMITTED_STATUS, Assignment, assignment_from_object
 from _lpm_engine_context import EffectContext, input_text
 from _lpm_engine_records import stored_record
 from _lpm_localstate import write_local_record
-from _lpm_merge_effects import last_assignment_update, qualifies_for_rollout, rollout_update
+from _lpm_merge_effects import last_assignment_update
 from _lpm_operation_replay import PERFORMED, SATISFIED
-from _lpm_paths import PROOF_RECORD_NAME, SELECTION_STATE_NAME
-from _lpm_proof import proof_object, read_proof_record
+from _lpm_paths import SELECTION_STATE_NAME
+from _lpm_proof_effect import proof_update
 from _lpm_results import ManagerError, store_unavailable
 from _lpm_selection_state import (
     Incumbent,
@@ -62,10 +61,6 @@ __all__: list[str] = [
     "proof_update",
     "selection_update",
 ]
-
-# The two commands whose `proof-update` position is ORDERED but whose shared-record
-# contribution belongs to the later proof child. Release and expire carry no such position.
-_DEFERRED_PROOF_COMMANDS: Final = ("report", "complete")
 
 
 def committed_assignment(*, context: EffectContext) -> Result[Assignment, ManagerError]:
@@ -121,61 +116,6 @@ def selection_update(*, context: EffectContext) -> Result[str, ManagerError]:
         path=path,
         before=selection_state_object(state=current),
         after=selection_state_object(state=merged),
-    )
-
-
-def proof_update(*, context: EffectContext) -> Result[str, ManagerError]:
-    """Set or retain the coexistence rollout start for a qualifying committed assignment.
-
-    The contract scopes a post-commit proof update narrowly: it "MUST set or retain
-    `rollout_started_at` for every committed `anthropic` assignment whose purpose is
-    `factory`... after that start update it MUST otherwise be a completed no-op". So a
-    non-qualifying provider or purpose contributes nothing at all and settles, which is a
-    completed no-op rather than a refusal — and `rollout_update` only ever moves the field
-    EARLIER, so the record converges on the earliest committed rollout whatever order
-    concurrent contributions arrive in.
-
-    A REPORT'S OR COMPLETION'S CONTRIBUTION IS NOT IMPLEMENTED YET, AND IT SETTLES RATHER
-    THAN PRETENDING OTHERWISE. The contract gives those two their own rules — report's
-    "completed no-op except for an authentication report qualifying under the coexistence-proof
-    rule", and a completion's qualifying marker with the dated-soak and seven-day progression
-    behind it — and those shared-record algorithms are a LATER plan child, named in
-    `_lpm_proof`'s own docstring as the work that writes those fields. The POSITION is real and
-    ordered here so report and complete already run their arrays in contract order; what it
-    contributes is deliberately nothing, so no caller may read a settled position as evidence
-    that a proof contribution was computed.
-    """
-    if context.operation.command in _DEFERRED_PROOF_COMMANDS:
-        return Success(SATISFIED)
-    assignment = committed_assignment(context=context)
-    if isinstance(assignment, Failure):
-        return assignment
-    bound = assignment.unwrap()
-    path = context.engine.state_dir / PROOF_RECORD_NAME
-    stored = read_proof_record(path=path, owner_uid=context.engine.owner_uid)
-    if isinstance(stored, Failure):
-        return Failure(stored.failure())
-    current = stored.unwrap()
-    committed_at = str(bound.target_committed_at)
-    merged = (
-        rollout_update(proof=current, target_committed_at=committed_at)
-        if _qualifies(assignment=bound)
-        else current
-    )
-    return _persisted(
-        context=context,
-        path=path,
-        before=proof_object(proof=current),
-        after=proof_object(proof=merged),
-    )
-
-
-def _qualifies(*, assignment: Assignment) -> bool:
-    # A stored assignment's `request` left `assignment_from_object` validated as a complete
-    # `provision` normalized input, so `provider` and `purpose` are present non-empty strings
-    # by construction; narrowing guards here would be unreachable rather than safe.
-    return qualifies_for_rollout(
-        provider=str(assignment.request["provider"]), purpose=str(assignment.request["purpose"])
     )
 
 
