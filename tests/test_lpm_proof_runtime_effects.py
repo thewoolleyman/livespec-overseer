@@ -6,6 +6,7 @@ completions.  They do not represent production observation or deprecation-readin
 
 from __future__ import annotations
 
+import copy
 import fcntl
 import importlib
 import os
@@ -912,3 +913,212 @@ def test_restarted_processes_preserve_first_writers_and_consecutive_date_progres
         "consumer_run_id": "run-legacy-first",
         "completed_at": "2026-10-07T23:40:00Z",
     }
+
+
+def _valid_relational_proof() -> dict[str, object]:
+    return {
+        "version": 1,
+        "rollout_started_at": "2026-10-01T10:00:00Z",
+        "successful_consumer_dates": ["2026-10-02", "2026-10-03"],
+        "completion_markers": [
+            {
+                "consumer_run_id": "run-a",
+                "record_id": _RECORD_A,
+                "completed_at": "2026-10-02T12:00:00Z",
+            },
+            {
+                "consumer_run_id": "run-b",
+                "record_id": _RECORD_B,
+                "completed_at": "2026-10-03T12:00:00Z",
+            },
+        ],
+        "soak_started_at": "2026-10-02T11:00:00Z",
+        "simultaneous_spread": {
+            "first_consumer_run_id": "run-a",
+            "first_account_id": "account-a",
+            "second_consumer_run_id": "run-b",
+            "second_account_id": "account-b",
+            "overlap_started_at": "2026-10-01T09:00:00Z",
+            "overlap_ended_at": "2026-10-01T10:02:00Z",
+        },
+        "production_success": {
+            "consumer_run_id": "run-a",
+            "completed_at": "2026-10-02T12:00:00Z",
+        },
+        "legacy_pool_absence_success": {
+            "consumer_run_id": "run-b",
+            "completed_at": "2026-10-03T12:00:00Z",
+        },
+        "last_auth_failure_at": "2026-10-01T11:00:00Z",
+    }
+
+
+def _proof_variant(*, changes: dict[str, object]) -> dict[str, object]:
+    variant = copy.deepcopy(_valid_relational_proof())
+    variant.update(changes)
+    return variant
+
+
+def _invalid_relational_proofs() -> tuple[dict[str, object], ...]:
+    spread = copy.deepcopy(_valid_relational_proof()["simultaneous_spread"])
+    assert isinstance(spread, dict)
+    evidence = {"consumer_run_id": "", "completed_at": "2026-10-02T12:00:00Z"}
+    reversed_markers = list(reversed(_valid_relational_proof()["completion_markers"]))
+    return (
+        _proof_variant(changes={"successful_consumer_dates": ["2026-13-40"]}),
+        _proof_variant(changes={"successful_consumer_dates": ["2026-10-02", "2026-10-02"]}),
+        _proof_variant(changes={"successful_consumer_dates": ["2026-10-02", "2026-10-04"]}),
+        _proof_variant(
+            changes={
+                "successful_consumer_dates": ["2026-09-30"],
+                "soak_started_at": "2026-09-30T11:00:00Z",
+            }
+        ),
+        _proof_variant(changes={"successful_consumer_dates": []}),
+        _proof_variant(changes={"soak_started_at": None}),
+        _proof_variant(changes={"soak_started_at": "2026-10-03T11:00:00Z"}),
+        _proof_variant(changes={"soak_started_at": "2026-09-30T11:00:00Z"}),
+        _proof_variant(changes={"last_auth_failure_at": "2026-09-30T11:00:00Z"}),
+        _proof_variant(changes={"completion_markers": reversed_markers}),
+        _proof_variant(
+            changes={
+                "completion_markers": [
+                    {
+                        "consumer_run_id": "run-a",
+                        "record_id": _RECORD_A,
+                        "completed_at": "2026-09-30T12:00:00Z",
+                    }
+                ]
+            }
+        ),
+        _proof_variant(changes={"simultaneous_spread": {**spread, "extra": "unsafe"}}),
+        _proof_variant(changes={"simultaneous_spread": {**spread, "first_account_id": ""}}),
+        _proof_variant(
+            changes={"simultaneous_spread": {**spread, "second_consumer_run_id": "run-a"}}
+        ),
+        _proof_variant(
+            changes={"simultaneous_spread": {**spread, "second_account_id": "account-a"}}
+        ),
+        _proof_variant(
+            changes={"simultaneous_spread": {**spread, "overlap_started_at": "not-a-time"}}
+        ),
+        _proof_variant(
+            changes={
+                "simultaneous_spread": {
+                    **spread,
+                    "overlap_started_at": "2026-10-01T10:03:00Z",
+                }
+            }
+        ),
+        _proof_variant(
+            changes={
+                "simultaneous_spread": {
+                    **spread,
+                    "overlap_started_at": "2026-09-29T10:02:00Z",
+                    "overlap_ended_at": "2026-09-30T10:02:00Z",
+                }
+            }
+        ),
+        _proof_variant(changes={"production_success": {**evidence, "extra": "unsafe"}}),
+        _proof_variant(changes={"production_success": evidence}),
+        _proof_variant(
+            changes={
+                "production_success": {
+                    "consumer_run_id": "run-a",
+                    "completed_at": "not-a-time",
+                }
+            }
+        ),
+        _proof_variant(
+            changes={
+                "legacy_pool_absence_success": {
+                    "consumer_run_id": "run-a",
+                    "completed_at": "2026-09-30T12:00:00Z",
+                }
+            }
+        ),
+    )
+
+
+def _proof_and_lease_bytes(*, state_dir: pathlib.Path, binding: _Binding) -> tuple[bytes, bytes]:
+    return (
+        (state_dir / "coexistence-proof.json").read_bytes(),
+        _path(
+            state_dir=state_dir,
+            family="lease",
+            identity=("anthropic", binding.account_id),
+        ).read_bytes(),
+    )
+
+
+def test_conflicting_completion_or_unsafe_proof_fails_closed_without_mutation(
+    tmp_path: pathlib.Path,
+) -> None:
+    module_path = pathlib.Path(__file__).parents[1] / "overseer" / "_lpm_proof_relations.py"
+    assert module_path.is_file(), "overseer/_lpm_proof_relations.py must exist"
+    proof_module = _module(name="_lpm_proof")
+    assert isinstance(proof_module.proof_from_object(parsed=_valid_relational_proof()), Success)
+    for unsafe in _invalid_relational_proofs():
+        assert isinstance(proof_module.proof_from_object(parsed=unsafe), Failure), unsafe
+
+    conflict_state = _state(tmp_path=tmp_path / "conflict")
+    _establish_rollout_and_pair(state_dir=conflict_state)
+    binding = _BINDINGS[0]
+    existing = _completion(
+        run_id=binding.run_id,
+        record_id=binding.record_id,
+        completed_at="2026-10-03T12:00:00Z",
+    )
+    _seed(
+        path=_path(
+            state_dir=conflict_state,
+            family="assignment",
+            identity=(binding.run_id,),
+        ),
+        value=_assignment(binding=binding, completion=existing),
+    )
+    before_conflict = _proof_and_lease_bytes(state_dir=conflict_state, binding=binding)
+    conflict = _operation(
+        ordinal=32,
+        command="complete",
+        normalized_input=_completion(
+            run_id=binding.run_id,
+            record_id=binding.record_id,
+            completed_at="2026-10-04T12:00:00Z",
+        ),
+        effects=_COMPLETE_EFFECTS,
+        completed_step=-1,
+    )
+    _persist_operation(state_dir=conflict_state, operation=conflict)
+
+    conflict_outcome = _drive(state_dir=conflict_state, operation=conflict)
+
+    assert isinstance(conflict_outcome, Failure), conflict_outcome
+    assert _proof_and_lease_bytes(state_dir=conflict_state, binding=binding) == before_conflict
+
+    unsafe_state = _state(tmp_path=tmp_path / "unsafe")
+    _establish_rollout_and_pair(state_dir=unsafe_state)
+    unsafe_proof = _module(name="_lpm_proof").proof_object(proof=_proof(state_dir=unsafe_state))
+    unsafe_proof["production_success"] = {
+        "consumer_run_id": "",
+        "completed_at": "2026-10-03T12:00:00Z",
+    }
+    _seed(path=unsafe_state / "coexistence-proof.json", value=unsafe_proof)
+    before_unsafe = _proof_and_lease_bytes(state_dir=unsafe_state, binding=binding)
+    completion = _operation(
+        ordinal=33,
+        command="complete",
+        normalized_input=_completion(
+            run_id=binding.run_id,
+            record_id=binding.record_id,
+            completed_at="2026-10-03T12:00:00Z",
+        ),
+        effects=_COMPLETE_EFFECTS,
+        completed_step=-1,
+    )
+    _persist_operation(state_dir=unsafe_state, operation=completion)
+
+    unsafe_outcome = _drive(state_dir=unsafe_state, operation=completion)
+
+    assert isinstance(unsafe_outcome, Failure), unsafe_outcome
+    assert _proof_and_lease_bytes(state_dir=unsafe_state, binding=binding) == before_unsafe

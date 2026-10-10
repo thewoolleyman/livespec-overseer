@@ -19,12 +19,10 @@ a later BACKWARD wall-clock step must not make previously accepted evidence malf
 in this module compares a stored instant against `now`, and the relations it does enforce are
 internal — between stored fields only.
 
-WHAT THIS MODULE DELIBERATELY DOES NOT DERIVE. The dated-soak progression, `simultaneous_spread`
-eligibility and the seven-day completion rule are the SEPARATE plan child this work item names
-("browser acquisition and seven-day proof remain separate plan children"). Their fields are
-validated STRUCTURALLY here so a record carrying them round-trips and so the run-scoped effects can
-merge beside them without destroying them — but the rules that WRITE them are not implemented, and
-no caller should read this module as asserting they are.
+Completion-marker parsing lives in `_lpm_proof_markers`, while nested evidence shapes and
+cross-field ordering rules live in `_lpm_proof_relations`. Keeping those concerns separate lets
+this module remain the record codec while every read still validates the whole standalone
+contract before returning authoritative proof.
 """
 
 from __future__ import annotations
@@ -35,7 +33,12 @@ from typing import Final, cast
 
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 from _lpm_localstate import read_local_record
-from _lpm_record import is_uuid4
+from _lpm_proof_markers import (
+    COMPLETION_MARKER_MEMBERS,
+    CompletionMarker,
+    parse_completion_markers,
+)
+from _lpm_proof_relations import proof_relation_defect
 from _lpm_results import ManagerError, store_unavailable
 from _lpm_time import is_canonical_timestamp
 
@@ -68,8 +71,6 @@ PROOF_MEMBERS: Final = (
     "legacy_pool_absence_success",
     "last_auth_failure_at",
 )
-COMPLETION_MARKER_MEMBERS: Final = ("consumer_run_id", "record_id", "completed_at")
-
 _NULLABLE_TIMES: Final = ("rollout_started_at", "soak_started_at", "last_auth_failure_at")
 _NULLABLE_OBJECTS: Final = (
     "simultaneous_spread",
@@ -77,15 +78,6 @@ _NULLABLE_OBJECTS: Final = (
     "legacy_pool_absence_success",
 )
 _DATE_LENGTH: Final = 10
-
-
-@dataclass(frozen=True, kw_only=True)
-class CompletionMarker:
-    """One qualifying completion's contribution identity and the instant it completed."""
-
-    consumer_run_id: str
-    record_id: str
-    completed_at: str
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -149,9 +141,12 @@ def proof_from_object(*, parsed: object) -> Result[ProofRecord, ManagerError]:
         reason = inspect(source=source)
         if reason is not None:
             return Failure(store_unavailable(message=reason))
-    markers = _markers(source=source)
+    markers = parse_completion_markers(entries=cast("list[object]", source["completion_markers"]))
     if isinstance(markers, Failure):
         return markers
+    relation_defect = proof_relation_defect(source=source)
+    if relation_defect is not None:
+        return Failure(store_unavailable(message=relation_defect))
     return Success(
         ProofRecord(
             rollout_started_at=_optional_text(value=source["rollout_started_at"]),
@@ -216,54 +211,6 @@ def _rollout_defect(*, source: dict[str, object]) -> str | None:
     if cast("list[object]", source["completion_markers"]) != []:
         return "a proof record with no rollout must have empty completion_markers"
     return None
-
-
-def _markers(*, source: dict[str, object]) -> Result[tuple[CompletionMarker, ...], ManagerError]:
-    collected: list[CompletionMarker] = []
-    for entry in cast("list[object]", source["completion_markers"]):
-        marker = _marker_from_object(parsed=entry)
-        if isinstance(marker, Failure):
-            return marker
-        identity = (marker.unwrap().consumer_run_id, marker.unwrap().record_id)
-        if identity in [(held.consumer_run_id, held.record_id) for held in collected]:
-            return Failure(
-                store_unavailable(message="proof completion_markers must be unique by identity")
-            )
-        collected.append(marker.unwrap())
-    return Success(tuple(collected))
-
-
-def _marker_from_object(*, parsed: object) -> Result[CompletionMarker, ManagerError]:
-    if not isinstance(parsed, dict):
-        return Failure(store_unavailable(message="a completion marker must be a JSON object"))
-    source = cast("dict[str, object]", parsed)
-    if sorted(source) != sorted(COMPLETION_MARKER_MEMBERS):
-        return Failure(
-            store_unavailable(
-                message=(
-                    "a completion marker must contain exactly "
-                    f"{', '.join(COMPLETION_MARKER_MEMBERS)}"
-                )
-            )
-        )
-    run_id = source["consumer_run_id"]
-    if not isinstance(run_id, str) or run_id == "":
-        return Failure(
-            store_unavailable(message="a completion marker consumer_run_id must be non-empty")
-        )
-    record_id = source["record_id"]
-    if not isinstance(record_id, str) or not is_uuid4(value=record_id):
-        return Failure(
-            store_unavailable(message="a completion marker record_id must be a lowercase UUIDv4")
-        )
-    completed_at = source["completed_at"]
-    if not isinstance(completed_at, str) or not is_canonical_timestamp(text=completed_at):
-        return Failure(
-            store_unavailable(message="a completion marker completed_at must be canonical")
-        )
-    return Success(
-        CompletionMarker(consumer_run_id=run_id, record_id=record_id, completed_at=completed_at)
-    )
 
 
 def _optional_text(*, value: object) -> str | None:
