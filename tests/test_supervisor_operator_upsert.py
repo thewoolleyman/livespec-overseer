@@ -45,7 +45,7 @@ def test_cli_add_epic_preserves_unsupplied_durable_fields(*, tmp_path, monkeypat
     rows = _rows(store=store)
     assert len(rows) == 1
     assert rows[0]["epic"] == "overseer-new"
-    assert rows[0]["tmux"] == "alpha"
+    assert rows[0]["tmux"] == "old-session"
     assert rows[0]["ctx_threshold"] == 45
     assert rows[0]["resume"] == "custom restart prompt"
     assert rows[0]["pinned_session_id"] == "pinned-session"
