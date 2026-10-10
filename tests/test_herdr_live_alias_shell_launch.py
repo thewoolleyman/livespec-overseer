@@ -132,6 +132,12 @@ import herdr_protocol
 import herdr_transport
 import herdr_write
 import pytest
+from herdr_alias_fixture_identity import (
+    alias_session_name,
+    herdr_api_socket_path,
+    herdr_client_socket_path,
+    unix_socket_path_capacity,
+)
 from herdr_listener_readiness import (
     ListenerPoll,
     ListenerProbe,
@@ -168,6 +174,7 @@ LAUNCH_TIMEOUT = 20.0
 PANE_CWD = "/tmp"
 TOP_RATIO = 0.25
 LOGIN_SHELL_REGISTRY = "/etc/shells"
+HERDR_SESSION_NAME_BYTES = 64
 
 MARKER = "OVALIAS1"
 LAUNCH_COMMAND = f"sleep 120 #{MARKER}"
@@ -215,7 +222,7 @@ class LiveServer:
 
 
 def _socket_for(*, session: str) -> Path:
-    return Path.home() / ".config" / "herdr" / "sessions" / session / "herdr.sock"
+    return herdr_api_socket_path(session=session)
 
 
 def _cli(*, args: list[str]) -> subprocess.CompletedProcess[str]:
@@ -525,7 +532,7 @@ def _start_server(
 def _serve(
     *,
     scratch: Path,
-    label: str,
+    session: str,
     shell_path: str | None,
     root_poll: BoundedPoll | None = None,
     listener_poll: ListenerPoll | None = None,
@@ -533,7 +540,6 @@ def _serve(
 ) -> Iterator[LiveServer]:
     if shutil.which(HERDR_BINARY) is None:
         pytest.skip("herdr is not installed on this host")
-    session = f"overseer-test-{os.getpid()}-alias-{label}"
     try:
         server = _start_server(
             session=session,
@@ -552,13 +558,15 @@ def _serve(
 @pytest.fixture(name="alias_server")
 def _alias_server(*, tmp_path: Path) -> Iterator[LiveServer]:
     """A server with NO `$SHELL`, so herdr roots its panes at `/bin/sh`."""
-    yield from _serve(scratch=tmp_path, label="sh", shell_path=None)
+    yield from _serve(scratch=tmp_path, session=alias_session_name(label="sh"), shell_path=None)
 
 
 @pytest.fixture(name="exact_server")
 def _exact_server(*, tmp_path: Path) -> Iterator[LiveServer]:
     """A server with `SHELL=/bin/bash`, whose reported name needs no alias."""
-    yield from _serve(scratch=tmp_path, label="bash", shell_path="/bin/bash")
+    yield from _serve(
+        scratch=tmp_path, session=alias_session_name(label="bash"), shell_path="/bin/bash"
+    )
 
 
 @dataclass(kw_only=True)
@@ -728,10 +736,14 @@ def _exercise_listener_failure(*, tmp_path: Path, failure: str) -> _ListenerFail
     target_scratch = tmp_path / "target"
     peer_scratch.mkdir()
     target_scratch.mkdir()
-    peer = _serve(scratch=peer_scratch, label=f"listener-peer-{failure}", shell_path="/bin/bash")
+    peer = _serve(
+        scratch=peer_scratch,
+        session=alias_session_name(label=f"listener-peer-{failure}"),
+        shell_path="/bin/bash",
+    )
     peer_server = next(peer)
     target_label = f"listener-{failure}"
-    target_session = f"overseer-test-{os.getpid()}-alias-{target_label}"
+    target_session = alias_session_name(label=target_label)
     target_address = _socket_for(session=target_session)
     controlled_clock = _ListenerFailureClock(address=target_address)
     attempts = [0]
@@ -746,7 +758,7 @@ def _exercise_listener_failure(*, tmp_path: Path, failure: str) -> _ListenerFail
 
     target = _serve(
         scratch=target_scratch,
-        label=target_label,
+        session=target_session,
         shell_path=None,
         listener_poll=ListenerPoll(
             seconds=2.0,
@@ -836,6 +848,33 @@ class _DelayedListenerSetup:
         return self.actual_request(socket_path=socket_path, method=method, params=params)
 
 
+def _legacy_socket_boundary(*, description: str) -> tuple[str, str]:
+    """A descriptive label whose former pid-prefixed identity filled Herdr's limit."""
+    legacy_prefix = f"overseer-test-{os.getpid()}-alias-"
+    padding = HERDR_SESSION_NAME_BYTES - len(os.fsencode(legacy_prefix + description))
+    assert padding > 0, "the disclosed description must fit Herdr's session-name boundary"
+    label = f"{description}{'x' * padding}"
+    session = f"{legacy_prefix}{label}"
+    assert len(os.fsencode(session)) == HERDR_SESSION_NAME_BYTES
+    return label, session
+
+
+def _assert_session_path_is_bounded(*, session: str, legacy_session: str) -> None:
+    """The owned identity fits the actual native budget that the legacy path exceeds."""
+    socket_capacity = unix_socket_path_capacity()
+    legacy_client_socket = herdr_client_socket_path(session=legacy_session)
+    bounded_client_socket = herdr_client_socket_path(session=session)
+    assert len(os.fsencode(legacy_client_socket)) >= socket_capacity, (
+        legacy_client_socket,
+        socket_capacity,
+    )
+    assert len(os.fsencode(bounded_client_socket)) < socket_capacity, (
+        bounded_client_socket,
+        socket_capacity,
+    )
+    assert session != legacy_session
+
+
 @pytest.mark.parametrize(
     ("shell_path", "identity_kind"), [(None, "registered alias"), ("/bin/bash", "exact name")]
 )
@@ -847,11 +886,13 @@ def test_listener_recovery_preserves_one_workspace_and_native_shell_guards(
     identity_kind: str,
 ) -> None:
     """Recovered listener setup retains both native shell authorization paths."""
+    description = f"listener-native-{identity_kind.replace(' ', '-')}"
+    label, legacy_session = _legacy_socket_boundary(description=description)
     setup = _DelayedListenerSetup(actual_request=raw_request)
     monkeypatch.setattr(f"{__name__}.raw_request", setup.request)
     served = _serve(
         scratch=tmp_path,
-        label=f"listener-native-{identity_kind.replace(' ', '-')}",
+        session=alias_session_name(label=label),
         shell_path=shell_path,
         listener_probe=setup.listener_probe,
     )
@@ -867,6 +908,7 @@ def test_listener_recovery_preserves_one_workspace_and_native_shell_guards(
             "listener-owned",
             "workspace.create",
         ], setup.events
+        _assert_session_path_is_bounded(session=server.session, legacy_session=legacy_session)
         readiness = _readiness_for(server=server, scratch=tmp_path)
         outcome, coherence = _graded_launch(server=server, readiness=readiness)
         assert outcome.ok is True, outcome.error
@@ -884,6 +926,52 @@ def test_listener_recovery_preserves_one_workspace_and_native_shell_guards(
         assert readiness.writer_deliveries() == [(outcome.pane_id, LAUNCH_COMMAND, ("Enter",))]
     finally:
         served.close()
+
+
+def _scratch_pair(*, root: Path) -> tuple[Path, Path]:
+    """Two directories for live servers that must coexist."""
+    peer = root / "peer"
+    target = root / "target"
+    peer.mkdir()
+    target.mkdir()
+    return peer, target
+
+
+def test_concurrent_alias_fixtures_have_distinct_sessions_and_exact_cleanup(
+    *, tmp_path: Path
+) -> None:
+    """Closing one same-label fixture leaves its peer identity answering requests."""
+    peer_scratch, target_scratch = _scratch_pair(root=tmp_path)
+    label, _legacy_session = _legacy_socket_boundary(description="concurrent-native-peer")
+    peer_session = alias_session_name(label=label)
+    target_session = alias_session_name(label=label)
+    assert peer_session != target_session, "concurrent fixture instances need distinct ownership"
+    peer = _serve(scratch=peer_scratch, session=peer_session, shell_path="/bin/bash")
+    target = _serve(scratch=target_scratch, session=target_session, shell_path="/bin/bash")
+    try:
+        peer_server = next(peer)
+        try:
+            target_server = next(target)
+            assert target_server.session == target_session
+            assert target_server.root in _pane_ids(socket_path=target_server.socket_path)
+            target_address = _socket_for(session=target_session)
+            assert target_address.is_socket()
+        finally:
+            target.close()
+
+        peer_pid_before = owned_listener_peer_pid(
+            socket_path=peer_server.socket_path, expected_pid=peer_server.server_pid
+        )
+        fresh_panes = _pane_ids(socket_path=peer_server.socket_path)
+        peer_pid_after = owned_listener_peer_pid(
+            socket_path=peer_server.socket_path, expected_pid=peer_server.server_pid
+        )
+        assert not target_address.parent.exists(), target_address
+        assert peer_server.session == peer_session
+        assert peer_server.root in fresh_panes
+        assert peer_pid_before == peer_pid_after == peer_server.server_pid
+    finally:
+        peer.close()
 
 
 def _readiness_for(*, server: LiveServer, scratch: Path, **overrides: Any) -> _Readiness:
@@ -1224,7 +1312,7 @@ def test_workspace_root_setup_consumes_one_controlled_fault_before_native_cohere
     scratch.mkdir()
     served = _serve(
         scratch=scratch,
-        label=f"root-{fault}",
+        session=alias_session_name(label=f"root-{fault}"),
         shell_path=shell_path,
     )
     try:
@@ -1251,7 +1339,11 @@ def test_persistently_unavailable_root_setup_is_bounded_and_cleans_only_its_sess
     target_scratch = tmp_path / "target"
     peer_scratch.mkdir()
     target_scratch.mkdir()
-    peer = _serve(scratch=peer_scratch, label="root-peer", shell_path="/bin/bash")
+    peer = _serve(
+        scratch=peer_scratch,
+        session=alias_session_name(label="root-peer"),
+        shell_path="/bin/bash",
+    )
     peer_server = next(peer)
 
     def unavailable(*, socket_path: str, pane_id: str) -> dict[str, Any]:
@@ -1260,10 +1352,10 @@ def test_persistently_unavailable_root_setup_is_bounded_and_cleans_only_its_sess
 
     monkeypatch.setattr(f"{__name__}.process_info_reply", unavailable)
     target_label = "root-refusal"
-    target_session = f"overseer-test-{os.getpid()}-alias-{target_label}"
+    target_session = alias_session_name(label=target_label)
     target = _serve(
         scratch=target_scratch,
-        label=target_label,
+        session=target_session,
         shell_path=None,
         root_poll=_frozen_poll(seconds=2.0, ticks=[0.0, 1.0, 3.0]),
     )
