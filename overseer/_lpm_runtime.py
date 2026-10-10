@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import datetime
 import os
 import sys
+import time
+import uuid
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import cast
 
@@ -24,10 +27,18 @@ from _lpm_results import (
     invalid_request,
     store_unavailable,
 )
-from _lpm_runtime_base import ProvisionRuntimeHost, RuntimeHost
+from _lpm_runtime_backend import RolePorts
+from _lpm_runtime_base import (
+    FinalProvisioningPort,
+    ProvisionRuntimeHost,
+    RuntimeHost,
+    TargetStatusPort,
+)
 from _lpm_runtime_provision import run_provision
 from _lpm_runtime_report import run_report
 from _lpm_runtime_target import run_target
+from _lpm_store import InMemorySecretStore, SecretStore
+from _lpm_time import capture_manager_time
 from _lpm_wire import CommandOutcome, error_outcome, read_command_object, success_outcome
 
 from overseer._vendor.returns.result import Failure, Result, Success
@@ -48,6 +59,16 @@ class ConcreteManagerRuntime:
     owner_uid: int
     config: ManagerConfig
     read_input: Callable[[], str]
+    store: SecretStore = field(default_factory=InMemorySecretStore)
+    provision_target: FinalProvisioningPort | None = None
+    op_executable: str = ""
+    capture_time: Callable[[], str] = lambda: capture_manager_time(
+        now=datetime.datetime.now(tz=datetime.timezone.utc)
+    )
+    new_operation_id: Callable[[], str] = lambda: str(uuid.uuid4())
+    monotonic: Callable[[], float] = time.monotonic
+    sleep: Callable[[float], None] = time.sleep
+    target_status: TargetStatusPort | None = None
 
     def run(self, *, invocation: ManagerInvocation) -> CommandOutcome:
         """Validate one invocation, then drive its concrete operation or attention query."""
@@ -122,11 +143,18 @@ def runtime_for_host() -> Result[ConcreteManagerRuntime, ManagerError]:
     configured = load_manager_config(path=config_file(home=home))
     if isinstance(configured, Failure):
         return Failure(configured.failure())
+    state_dir = manager_state_dir(home=home)
+    ports = RolePorts(
+        config=configured.unwrap(), owner_uid=uid, state_dir=state_dir, environ=os.environ
+    )
     return Success(
         ConcreteManagerRuntime(
-            state_dir=manager_state_dir(home=home),
+            state_dir=state_dir,
             owner_uid=uid,
             config=configured.unwrap(),
             read_input=sys.stdin.read,
+            store=cast("SecretStore", ports),
+            provision_target=cast("FinalProvisioningPort", ports),
+            target_status=cast("TargetStatusPort", ports),
         )
     )
