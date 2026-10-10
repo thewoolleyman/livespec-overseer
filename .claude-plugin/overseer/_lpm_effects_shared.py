@@ -39,6 +39,7 @@ from _lpm_assignment import COMMITTED_STATUS, Assignment, assignment_from_object
 from _lpm_engine_context import EffectContext, input_text
 from _lpm_engine_records import stored_record
 from _lpm_localstate import write_local_record
+from _lpm_locks import release_lock, take_lock
 from _lpm_merge_effects import last_assignment_update
 from _lpm_operation_replay import PERFORMED, SATISFIED
 from _lpm_paths import SELECTION_STATE_NAME
@@ -61,6 +62,8 @@ __all__: list[str] = [
     "proof_update",
     "selection_update",
 ]
+
+_SELECTION_LOCK = "selection-state.lock"
 
 
 def committed_assignment(*, context: EffectContext) -> Result[Assignment, ManagerError]:
@@ -105,12 +108,28 @@ def selection_update(*, context: EffectContext) -> Result[str, ManagerError]:
     if isinstance(assignment, Failure):
         return assignment
     bound = assignment.unwrap()
+    held = take_lock(
+        path=context.engine.state_dir / "locks" / _SELECTION_LOCK,
+        owner_uid=context.engine.owner_uid,
+        timeout_seconds=context.engine.lock_timeout_seconds,
+        monotonic=context.engine.lock_monotonic,
+        sleep=context.engine.lock_sleep,
+    ).unwrap()
+    try:
+        return _locked_selection_update(context=context, assignment=bound)
+    finally:
+        release_lock(held=held)
+
+
+def _locked_selection_update(
+    *, context: EffectContext, assignment: Assignment
+) -> Result[str, ManagerError]:
     path = context.engine.state_dir / SELECTION_STATE_NAME
     stored = read_selection_state(path=path, owner_uid=context.engine.owner_uid)
     if isinstance(stored, Failure):
         return Failure(stored.failure())
     current = stored.unwrap()
-    merged = _merged_selection(state=current, assignment=bound)
+    merged = _merged_selection(state=current, assignment=assignment)
     return _persisted(
         context=context,
         path=path,
