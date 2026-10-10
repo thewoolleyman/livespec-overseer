@@ -43,6 +43,7 @@ stored there.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -183,6 +184,9 @@ class OperationEngine:
     state_dir: Path
     owner_uid: int
     store: SecretStore
+    lock_timeout_seconds: float = 30.0
+    lock_monotonic: Callable[[], float] = time.monotonic
+    lock_sleep: Callable[[float], None] = time.sleep
 
 
 @dataclass(frozen=True, kw_only=True)
