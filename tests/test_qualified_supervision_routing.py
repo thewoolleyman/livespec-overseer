@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import _supervisor_discovery_adoption
 import herdr_adapter
 import herdr_calls
 import herdr_identity
@@ -21,6 +22,12 @@ __all__: list[str] = []
 
 PACKAGE = Path(__file__).resolve().parent.parent / "overseer"
 ROUTER_PATH = PACKAGE / "pane_router.py"
+
+
+def _claude_composer(*, text: str) -> str:
+    rule = "─" * 40
+    first_line = next(line for line in text.splitlines() if line.strip())
+    return f"{rule}\n❯ {first_line}\n{rule}\n"
 
 
 @dataclass(kw_only=True)
@@ -80,17 +87,34 @@ class RecordedHerdr:
 
 @dataclass(kw_only=True)
 class RecordedWrites:
+    native: RecordedHerdr
     calls: list[tuple[str, herdr_identity.HerdrPaneTarget, str]] = field(default_factory=list)
+    paste_outcome: herdr_write.WriteOutcome = field(
+        default_factory=lambda: herdr_write.WriteOutcome(ok=True, error="", effect_unknown=False)
+    )
+    enter_outcome: herdr_write.WriteOutcome = field(
+        default_factory=lambda: herdr_write.WriteOutcome(ok=True, error="", effect_unknown=False)
+    )
+    render_after_paste: bool = True
+    render_after_enter: bool = True
 
     def bracketed_paste(
         self, *, target: herdr_identity.HerdrPaneTarget, text: str
     ) -> herdr_write.WriteOutcome:
         self.calls.append(("paste", target, text))
-        return herdr_write.WriteOutcome(ok=True, error="", effect_unknown=False)
+        self.native.calls.append(("paste", target))
+        if self.paste_outcome.ok and self.render_after_paste:
+            self.native.captures[target.socket_path] = _claude_composer(text=text)
+        return self.paste_outcome
 
     def send_enter(self, *, target: herdr_identity.HerdrPaneTarget) -> herdr_write.WriteOutcome:
         self.calls.append(("enter", target, ""))
-        return herdr_write.WriteOutcome(ok=True, error="", effect_unknown=False)
+        self.native.calls.append(("enter", target))
+        if self.enter_outcome.ok and self.render_after_enter:
+            self.native.captures[target.socket_path] = (
+                "✻ Working… (running stop hooks… 1/3 · 1s · ↓ 1 tokens)\n"
+            )
+        return self.enter_outcome
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -149,7 +173,7 @@ def _scenario(*, tmp_path: Path, pane_router: Any) -> Scenario:
         repositories={target_a.socket_path: str(repo_a), target_b.socket_path: str(repo_b)},
         unavailable={stale.socket_path},
     )
-    writes, legacy = RecordedWrites(), FakeTmux()
+    writes, legacy = RecordedWrites(native=native), FakeTmux()
     legacy.serve(session="legacy-topic", repo=repo_legacy, capture=idle_capture(ctx=65))
     driver = pane_router.MixedPaneDriver(tmux=legacy, herdr=native, herdr_writer=writes)
     sup = _supervisor(tmp_path=tmp_path, driver=driver)
@@ -196,14 +220,10 @@ def test_mixed_daemon_routes_equal_pane_ids_to_their_recorded_generations(
     legacy_row = scenario.sup.evaluate(track=legacy_track, act=False)
 
     assert (alpha_row.ctx, beta_row.ctx, legacy_row.ctx) == (40, 70, 65)
-    assert [call[1] for call in scenario.native.calls if call[0] == "capture"] == [
-        scenario.target_a,
-        scenario.target_a,
-        scenario.target_a,
-        scenario.target_a,
-        scenario.target_a,
-        herdr_identity.decode_target(value=scenario.coordinate_b).herdr,
+    alpha_operations = [
+        operation for operation, target in scenario.native.calls if target == scenario.target_a
     ]
+    assert alpha_operations[-4:] == ["paste", "capture", "enter", "capture"]
     assert scenario.writes.calls[0][:2] == ("paste", scenario.target_a)
     assert scenario.writes.calls[1][:2] == ("enter", scenario.target_a)
     assert any(call == ("capture", "legacy-topic") for call in scenario.legacy.calls)
@@ -213,3 +233,120 @@ def test_mixed_daemon_routes_equal_pane_ids_to_their_recorded_generations(
     assert (
         scenario.legacy.calls == before
     ), "an unavailable Herdr generation must not fall back to tmux"
+
+
+def test_qualified_adoption_never_repoints_an_exact_target_to_a_namesake(
+    *, tmp_path: Path, monkeypatch: Any
+) -> None:
+    repo = tmp_path / "repo"
+    for topic in ("qualified", "legacy"):
+        (repo / "plan" / topic).mkdir(parents=True)
+    recorded = herdr_identity.encode_herdr_target(
+        target=_target(socket_path="/run/herdr-recorded.sock", pid=401)
+    )
+    namesake = herdr_identity.encode_herdr_target(
+        target=_target(socket_path="/run/herdr-namesake.sock", pid=402)
+    )
+    sup = _supervisor(tmp_path=tmp_path, driver=FakeTmux())
+    registry.append_mapping(
+        track=registry.PlanTrack(
+            topic="qualified", repo=str(repo), tmux=recorded, epic="qualified"
+        ),
+        store_path=sup.store_path,
+    )
+    registry.append_mapping(
+        track=registry.PlanTrack(topic="legacy", repo=str(repo), tmux="legacy-old", epic="legacy"),
+        store_path=sup.store_path,
+    )
+    monkeypatch.setattr(
+        _supervisor_discovery_adoption,
+        "_adoptable_live_sessions",
+        lambda *, sup, pane_pids: [
+            (namesake, "qualified", str(repo)),
+            ("legacy-new", "legacy", str(repo)),
+        ],
+    )
+    monkeypatch.setattr(
+        _supervisor_discovery_adoption,
+        "_live_profile_sources",
+        lambda *, sup, pane_pids: {},
+    )
+
+    assert _supervisor_discovery_adoption.adopt_sessions(sup=sup, watch=[str(repo)]) == []
+
+    targets = {
+        track.topic: track.tmux for track in registry.read_valid_mapping(store_path=sup.store_path)
+    }
+    assert targets == {"qualified": recorded, "legacy": "legacy-new"}
+
+
+def test_policy_only_upsert_preserves_an_unqualified_legacy_target(*, tmp_path: Path) -> None:
+    store = tmp_path / "mapping.jsonl"
+    registry.append_mapping(
+        track=registry.PlanTrack(
+            topic="alpha",
+            repo=str(tmp_path),
+            tmux="operator-window",
+            epic="alpha",
+            ctx_threshold=45,
+        ),
+        store_path=store,
+    )
+
+    assert registry.upsert_mapping(
+        track=registry.PlanTrack(
+            topic="alpha",
+            repo=str(tmp_path),
+            tmux="derived-topic-name",
+            epic="alpha",
+            ctx_threshold=60,
+        ),
+        store_path=store,
+        update_fields=frozenset({"tmux", "ctx_threshold"}),
+        allow_retarget=False,
+    )
+
+    updated = registry.read_valid_mapping(store_path=store)[0]
+    assert (updated.tmux, updated.ctx_threshold) == ("operator-window", 60)
+
+
+def test_native_submit_refuses_to_replay_an_uncertain_paste(*, tmp_path: Path) -> None:
+    module = importlib.import_module("pane_router")
+    scenario = _scenario(tmp_path=tmp_path, pane_router=module)
+    scenario.writes.paste_outcome = herdr_write.WriteOutcome(
+        ok=False,
+        error="reply lost after write",
+        effect_unknown=True,
+    )
+    scenario.writes.render_after_paste = False
+
+    assert scenario.sup._submit_prompt(target=scenario.coordinate_a, text="one prompt") is False
+    assert scenario.sup._submit_prompt(target=scenario.coordinate_a, text="one prompt") is False
+
+    assert [call[0] for call in scenario.writes.calls] == ["paste"]
+
+
+def test_native_submit_does_not_submit_or_repaste_an_unobserved_composer(*, tmp_path: Path) -> None:
+    module = importlib.import_module("pane_router")
+    scenario = _scenario(tmp_path=tmp_path, pane_router=module)
+    scenario.writes.render_after_paste = False
+
+    assert scenario.sup._submit_prompt(target=scenario.coordinate_a, text="one prompt") is False
+    assert scenario.sup._submit_prompt(target=scenario.coordinate_a, text="one prompt") is False
+
+    assert [call[0] for call in scenario.writes.calls] == ["paste"]
+
+
+def test_native_submit_never_calls_an_acknowledged_but_visible_prompt_delivered(
+    *, tmp_path: Path
+) -> None:
+    module = importlib.import_module("pane_router")
+    scenario = _scenario(tmp_path=tmp_path, pane_router=module)
+    scenario.writes.render_after_enter = False
+
+    assert scenario.sup._submit_prompt(target=scenario.coordinate_a, text="one prompt") is False
+    assert scenario.sup._submit_prompt(target=scenario.coordinate_a, text="one prompt") is False
+
+    operations = [call[0] for call in scenario.writes.calls]
+    assert operations.count("paste") == 1
+    assert operations.count("enter") >= 2

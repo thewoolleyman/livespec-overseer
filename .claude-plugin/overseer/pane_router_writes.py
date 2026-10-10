@@ -5,21 +5,15 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import partial
-from typing import Protocol, cast
 
 import herdr_identity
-import herdr_write
 import pane_router_reads
+import pane_router_submit
+import pane_router_submit_signals
 
 __all__: list[str] = ["HerdrInput", "PaneRoutingWrites"]
 
-
-class HerdrInput(Protocol):
-    def bracketed_paste(
-        self, *, target: herdr_identity.HerdrPaneTarget, text: str
-    ) -> herdr_write.WriteOutcome: ...
-
-    def send_enter(self, *, target: herdr_identity.HerdrPaneTarget) -> herdr_write.WriteOutcome: ...
+HerdrInput = pane_router_submit_signals.HerdrInput
 
 
 @dataclass(kw_only=True)
@@ -28,6 +22,7 @@ class PaneRoutingWrites:
 
     reads: pane_router_reads.PaneRoutingReads
     herdr_writer: HerdrInput
+    prompt_states: dict[str, pane_router_submit_signals.PromptState]
 
     def send_keys(self, *, session: str, keys: str) -> bool:
         decoded = self.reads.decode(value=session)
@@ -120,21 +115,22 @@ class PaneRoutingWrites:
         }
         return routes[decoded.backend]()
 
-    def submit_prompt_once(self, *, session: str, text: str) -> tuple[bool, bool]:
-        """Use Herdr's retained-shell-checked writes once, without uncertain replay."""
-        target = cast(
-            herdr_identity.HerdrPaneTarget,
-            self.reads.decode(value=session).herdr,
+    def submit_prompt_once(
+        self,
+        *,
+        session: str,
+        text: str,
+        expect_codex: bool,
+        sleep: Callable[[float], None],
+    ) -> tuple[bool, bool]:
+        """Observe Herdr paste and submit effects without replaying uncertainty."""
+        return pane_router_submit.PromptSubmitter(
+            reads=self.reads,
+            writer=self.herdr_writer,
+            states=self.prompt_states,
+        ).submit_prompt_once(
+            session=session,
+            text=text,
+            expect_codex=expect_codex,
+            sleep=sleep,
         )
-        pasted = self.herdr_writer.bracketed_paste(target=target, text=text)
-        submissions: dict[bool, Callable[[], herdr_write.WriteOutcome]] = {
-            False: partial(
-                herdr_write.WriteOutcome,
-                ok=False,
-                error=pasted.error,
-                effect_unknown=pasted.effect_unknown,
-            ),
-            True: partial(self.herdr_writer.send_enter, target=target),
-        }
-        submitted = submissions[pasted.ok]()
-        return submitted.ok, submitted.effect_unknown
