@@ -44,7 +44,7 @@ def herdr_api_socket_path(*, session: str) -> Path:
 
 def herdr_client_socket_path(*, session: str) -> Path:
     """The longer native-client socket Herdr also derives for ``session``."""
-    return Path.home() / ".config" / "herdr" / "sessions" / session / "herdr-client.sock"
+    return herdr_api_socket_path(session=session).with_name("herdr-client.sock")
 
 
 @cache
