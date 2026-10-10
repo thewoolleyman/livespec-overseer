@@ -17,6 +17,7 @@ __all__: list[str] = [
     "FinalProvisioningRequest",
     "TargetStatusRequest",
     "run_final_provisioning",
+    "run_target_status",
 ]
 
 
@@ -64,6 +65,37 @@ def run_final_provisioning(
         role_request=_request_object(request=request),
         environ=environ,
         timeout_seconds=float(request.external_call_timeout_seconds),
+        launch=launch,
+    )
+
+
+def run_target_status(
+    *,
+    request: TargetStatusRequest,
+    companion: PackagedCompanion,
+    target_lock_descriptor: int,
+    environ: Mapping[str, str],
+    timeout_seconds: float,
+    launch: RoleLaunch,
+) -> RoleOutcome:
+    """Launch the tokenless status role under the inherited reference lock."""
+    role = cast("CredentialRole", credential_role(name="target-status"))
+    return run_credential_role(
+        role_input=ClosedRoleInput(
+            role_name=role.name,
+            key_description=role.key_description,
+            descriptors=role.descriptors,
+            descriptor_fds={"target-reference-lock": target_lock_descriptor},
+        ),
+        companion=companion,
+        role_request={
+            "version": 1,
+            "target_ref": request.target_ref,
+            "consumer_run_id": request.consumer_run_id,
+            "value_generation": request.value_generation,
+        },
+        environ=environ,
+        timeout_seconds=timeout_seconds,
         launch=launch,
     )
 
