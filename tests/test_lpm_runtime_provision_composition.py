@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import os
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
@@ -21,6 +22,11 @@ from overseer._lpm_results import ManagerError, internal_bug, store_unavailable
 from overseer._lpm_runtime_roles import FinalProvisioningRequest
 from overseer._lpm_store import ConditionalSet, InMemorySecretStore, SecretStore
 from overseer._lpm_target import COMMITTED, IN_PROGRESS, UNCOMMITTED, CommitOutcome, TargetLock
+from overseer._lpm_target_evidence import (
+    TargetEvidenceBinding,
+    commit_with_evidence,
+    target_status_with_evidence,
+)
 from overseer._vendor.returns.result import Failure, Result, Success
 
 __all__: list[str] = []
@@ -40,6 +46,12 @@ _OPERATION_IDS = (
 class _StatusRequest(Protocol):
     @property
     def target_ref(self) -> str: ...
+
+    @property
+    def consumer_run_id(self) -> str: ...
+
+    @property
+    def value_generation(self) -> str: ...
 
 
 @dataclass(kw_only=True)
@@ -93,6 +105,64 @@ class _TargetStatus:
                 status=status,
                 committed_at=_NOW if status == COMMITTED else None,
             )
+        )
+
+
+@dataclass(kw_only=True)
+class _EvidenceTarget:
+    state_dir: Path
+    owner_uid: int
+    writes: int = 0
+    status_calls: int = 0
+
+    def __call__(
+        self,
+        *,
+        request: FinalProvisioningRequest,
+        destination: str,
+        lock: TargetLock,
+    ) -> Result[CommitOutcome, ManagerError]:
+        _ = lock
+        self.writes += 1
+        return Success(
+            commit_with_evidence(
+                binding=self._binding(request=request, destination=destination),
+                value=_SECRET,
+                lease_expires_at=request.lease_expires_at,
+                sample_time=lambda: _NOW,
+            )
+        )
+
+    def status(
+        self,
+        *,
+        request: _StatusRequest,
+        destination: str,
+        lock: TargetLock,
+    ) -> Result[CommitOutcome, ManagerError]:
+        _ = lock
+        self.status_calls += 1
+        return target_status_with_evidence(
+            binding=TargetEvidenceBinding(
+                state_dir=self.state_dir,
+                destination=destination,
+                owner_uid=self.owner_uid,
+                target_ref=request.target_ref,
+                consumer_run_id=request.consumer_run_id,
+                value_generation=request.value_generation,
+            )
+        )
+
+    def _binding(
+        self, *, request: FinalProvisioningRequest, destination: str
+    ) -> TargetEvidenceBinding:
+        return TargetEvidenceBinding(
+            state_dir=self.state_dir,
+            destination=destination,
+            owner_uid=self.owner_uid,
+            target_ref=request.target_ref,
+            consumer_run_id=request.consumer_run_id,
+            value_generation=request.value_generation,
         )
 
 
@@ -559,6 +629,75 @@ def test_committed_target_effect_recovers_without_duplicate_write(
     assert isinstance(provision_runtime.run_provision(host=host, request=request), Success)
     assert target.calls == [request.target_ref]
     assert status.calls == [request.target_ref]
+
+
+def test_exact_target_evidence_survives_checkpoint_failure_without_duplicate_write(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import overseer._lpm_runtime_provision as provision_runtime
+    from overseer._lpm_localstate import read_local_record
+    from overseer._lpm_operation_store import checkpoint_step
+    from overseer._lpm_paths import local_record_path
+    from overseer._lpm_runtime_bindings import read_runtime_assignment
+
+    engine = importlib.import_module("_lpm_engine")
+    state_dir = tmp_path / "exact-evidence"
+    target = _EvidenceTarget(state_dir=state_dir, owner_uid=os.getuid())
+    host = _host(
+        state_dir=state_dir,
+        target=cast("_ProvisionTarget", target),
+        target_status=cast("_TargetStatus", target.status),
+    )
+    request = _request(
+        run_id="run-exact-evidence",
+        target_ref=_issue(host=host, run_id="run-exact-evidence"),
+    )
+
+    def fail_target_checkpoint(
+        *, path: Path, operation: OperationRecord, step: int, owner_uid: int
+    ) -> Result[OperationRecord, ManagerError]:
+        if step == 2:
+            return Failure(store_unavailable(message="target checkpoint interrupted"))
+        return checkpoint_step(
+            path=path,
+            operation=operation,
+            step=step,
+            owner_uid=owner_uid,
+        )
+
+    with monkeypatch.context() as context:
+        context.setattr(engine, "checkpoint_step", fail_target_checkpoint)
+        interrupted = provision_runtime.run_provision(host=host, request=request)
+    assert isinstance(interrupted, Failure)
+    assert interrupted.failure().error_type == "store-unavailable"
+    _assert_prepared_state(host=host, request=request)
+
+    recovered = provision_runtime.run_provision(host=host, request=request)
+    assignment = read_runtime_assignment(
+        host=host, consumer_run_id=request.consumer_run_id
+    ).unwrap()
+    evidence_path = local_record_path(
+        state_dir=state_dir,
+        family="target-commit",
+        identity=(request.target_ref,),
+    ).unwrap()
+    evidence = read_local_record(path=evidence_path, owner_uid=host.owner_uid).unwrap()
+
+    assert isinstance(recovered, Success)
+    assert assignment is not None and assignment.status == COMMITTED
+    assert target.writes == 1
+    assert target.status_calls == 1
+    assert isinstance(evidence, dict)
+    assert set(cast("dict[str, object]", evidence)) == {
+        "version",
+        "status",
+        "target_ref",
+        "consumer_run_id",
+        "value_generation",
+        "target_sha256",
+        "prepared_at",
+        "committed_at",
+    }
 
 
 def test_ambiguous_target_effect_retains_state_until_status_is_definitive(
