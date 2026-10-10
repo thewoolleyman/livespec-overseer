@@ -415,8 +415,8 @@ def test_an_unacquirable_reference_lock_is_in_progress_not_uncommitted(
     )
 
     assert isinstance(refused, Failure)
-    assert refused.failure().error_type == "store-unavailable"
-    assert "still owns this target reference" in refused.failure().message
+    assert refused.failure().error_type == "retryable-exhaustion"
+    assert "target write outcome is still in progress" in refused.failure().message
 
 
 def test_a_lease_this_run_already_holds_settles_without_rewriting_it(
