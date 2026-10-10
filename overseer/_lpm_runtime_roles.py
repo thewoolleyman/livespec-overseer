@@ -15,6 +15,7 @@ _ = VENDOR_PATHS_INSTALLED
 
 __all__: list[str] = [
     "FinalProvisioningRequest",
+    "TargetStatusRequest",
     "run_final_provisioning",
 ]
 
@@ -31,6 +32,15 @@ class FinalProvisioningRequest:
     lease_expires_at: str
     external_call_timeout_seconds: int
     op_executable: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class TargetStatusRequest:
+    """The exact secret-free identity an interrupted write reconciliation receives."""
+
+    target_ref: str
+    consumer_run_id: str
+    value_generation: str
 
 
 def run_final_provisioning(

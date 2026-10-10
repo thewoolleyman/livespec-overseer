@@ -47,7 +47,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypeVar
+from typing import Protocol, TypeVar
 
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 from _lpm_operation import OperationRecord
@@ -55,7 +55,7 @@ from _lpm_operation_identity import EffectPosition
 from _lpm_operation_replay import PERFORMED, SATISFIED
 from _lpm_results import ManagerError, internal_bug
 from _lpm_store import SecretStore
-from _lpm_target import TargetLock
+from _lpm_target import CommitOutcome, TargetLock
 
 from overseer._vendor.returns.result import Failure, Result, Success
 
@@ -68,6 +68,7 @@ __all__: list[str] = [
     "EffectInputs",
     "OperationEngine",
     "ProvisionInputs",
+    "ProvisionTarget",
     "SelectedCredential",
     "TargetInputs",
     "input_integer",
@@ -107,6 +108,12 @@ class TargetInputs:
     destination: str
 
 
+class ProvisionTarget(Protocol):
+    """The isolated final-provisioning port that alone may resolve credential bytes."""
+
+    def __call__(self, *, lease_expires_at: str) -> Result[CommitOutcome, ManagerError]: ...
+
+
 @dataclass(frozen=True, kw_only=True)
 class ProvisionInputs:
     """What a `provision` phase needs beyond its validated request.
@@ -123,10 +130,11 @@ class ProvisionInputs:
     """
 
     selected: SelectedCredential
-    credential_value: bytes
+    credential_value: bytes | None
     destination: str
     lock: TargetLock
     fence_now: str
+    provision_target: ProvisionTarget | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
