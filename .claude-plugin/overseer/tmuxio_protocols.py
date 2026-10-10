@@ -18,11 +18,19 @@ __all__: list[str] = [
 
 @dataclass(frozen=True, kw_only=True)
 class PaneGeometry:
-    """A tmux pane's id and vertical geometry inside its window."""
+    """A tmux pane's allocation inside its window.
+
+    ``left`` and ``width`` retain safe legacy defaults for older injected
+    vertical-only layout readers. The real public bootstrap uses tmux's complete
+    rectangle read; the defaults only keep narrower non-I/O protocol substitutes
+    source-compatible.
+    """
 
     pane: str
     top: int
     height: int
+    left: int = 0
+    width: int = 1
 
 
 class SessionNameDriver(Protocol):

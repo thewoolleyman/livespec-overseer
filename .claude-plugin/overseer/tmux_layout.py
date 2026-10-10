@@ -92,6 +92,39 @@ class TmuxLayout:
                 return pane_id.strip() or None
         return None
 
+    def _window_pane_geometries(self, *, pane: str, complete: bool) -> list[PaneGeometry]:
+        """Read either legacy vertical geometry or complete pane rectangles."""
+        fields = (
+            "#{pane_id}\t#{pane_left}\t#{pane_top}\t#{pane_width}\t#{pane_height}"
+            if complete
+            else "#{pane_id}\t#{pane_top}\t#{pane_height}"
+        )
+        completed = self.call(args=["list-panes", "-t", pane, "-F", fields])
+        if not _ok(completed=completed):
+            return []
+        geometries: list[PaneGeometry] = []
+        for line in (completed.stdout or "").splitlines():
+            pane_id, *raw_coordinates = line.split("\t")
+            try:
+                coordinates = [int(value.strip()) for value in raw_coordinates]
+                if complete:
+                    left, top, width, height = coordinates
+                else:
+                    top, height = coordinates
+                    left, width = 0, 1
+                geometries.append(
+                    PaneGeometry(
+                        pane=pane_id.strip(),
+                        left=left,
+                        top=top,
+                        width=width,
+                        height=height,
+                    )
+                )
+            except ValueError:
+                return []
+        return geometries
+
     def window_pane_geometries(self, *, pane: str) -> list[PaneGeometry]:
         """Every pane id, top row, and height in PANE's window.
 
@@ -99,26 +132,16 @@ class TmuxLayout:
         TOP pane. Pane indexes are intentionally not used because tmux renumbers
         panes after a collapse, silently retargeting index-based commands.
         """
-        completed = self.call(
-            args=["list-panes", "-t", pane, "-F", "#{pane_id}\t#{pane_top}\t#{pane_height}"]
-        )
-        if not _ok(completed=completed):
-            return []
-        geometries: list[PaneGeometry] = []
-        for line in (completed.stdout or "").splitlines():
-            pane_id, _, rest = line.partition("\t")
-            top, _, height = rest.partition("\t")
-            try:
-                geometries.append(
-                    PaneGeometry(
-                        pane=pane_id.strip(),
-                        top=int(top.strip()),
-                        height=int(height.strip()),
-                    )
-                )
-            except ValueError:
-                return []
-        return geometries
+        return self._window_pane_geometries(pane=pane, complete=False)
+
+    def window_pane_rectangles(self, *, pane: str) -> list[PaneGeometry]:
+        """Every complete pane rectangle in PANE's window.
+
+        Public bootstrap uses this generation-bound read so a full-height pane
+        beside the caller cannot be mistaken for another daemon candidate above
+        it. The legacy vertical reader remains unchanged for its older callers.
+        """
+        return self._window_pane_geometries(pane=pane, complete=True)
 
     def set_pane_height_percent(self, *, pane: str, percent: int) -> bool:
         """``tmux resize-pane -t <pane> -y <percent>%`` — size PANE within its window.

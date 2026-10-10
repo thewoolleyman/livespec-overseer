@@ -7,7 +7,7 @@ import tmux_process
 import tmuxio
 import tmuxio_protocols
 
-__all__: list[str] = ["bind_server_generation", "socket_scoped_driver"]
+__all__: list[str] = ["bind_server_generation", "socket_scoped_driver", "window_pane_rectangles"]
 
 
 def bind_server_generation(
@@ -38,3 +38,24 @@ def socket_scoped_driver(
     if socket_path == terminal_probes.DEFAULT_TMUX_ENDPOINT:
         return tmuxio.TmuxIO(run=run)
     return tmuxio.TmuxIO(run=tmux_process.SocketScopedRun(socket_path=socket_path, run=run))
+
+
+def window_pane_rectangles(
+    *, driver: tmuxio_protocols.BootstrapDriver, pane: str
+) -> list[tmuxio_protocols.PaneGeometry]:
+    """Read full native rectangles while retaining older injected driver seams."""
+    geometries = (
+        driver.window_pane_rectangles(pane=pane)
+        if isinstance(driver, tmuxio.TmuxIO)
+        else driver.window_pane_geometries(pane=pane)
+    )
+    return [
+        tmuxio_protocols.PaneGeometry(
+            pane=geometry.pane,
+            left=getattr(geometry, "left", 0),
+            top=geometry.top,
+            width=getattr(geometry, "width", 1),
+            height=geometry.height,
+        )
+        for geometry in geometries
+    ]

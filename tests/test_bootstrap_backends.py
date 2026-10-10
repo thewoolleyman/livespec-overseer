@@ -69,7 +69,29 @@ def _tmux_claim(*, socket_path: str = "") -> terminal_ownership.OwnershipClaim:
 
 def _layout(*, tops: dict[str, int]) -> dict[str, object]:
     return {
-        "layout": {"panes": [{"pane_id": pane, "rect": {"y": top}} for pane, top in tops.items()]}
+        "layout": {
+            "panes": [
+                {
+                    "pane_id": pane,
+                    "rect": {"x": 0, "y": top, "width": 120, "height": 10},
+                }
+                for pane, top in tops.items()
+            ]
+        }
+    }
+
+
+def _rect_layout(*, rects: dict[str, tuple[int, int, int, int]]) -> dict[str, object]:
+    return {
+        "layout": {
+            "panes": [
+                {
+                    "pane_id": pane,
+                    "rect": {"x": left, "y": top, "width": width, "height": height},
+                }
+                for pane, (left, top, width, height) in rects.items()
+            ]
+        }
     }
 
 
@@ -233,6 +255,27 @@ def test_an_unreadable_herdr_layout_payload_is_an_error_rather_than_an_empty_tab
     assert "unreadable" in reading.error
 
 
+def test_herdr_reuse_requires_complete_horizontal_geometry() -> None:
+    backend = _herdr(
+        writer=FakeWriter(
+            layout_result={
+                "layout": {
+                    "panes": [
+                        {"pane_id": "w1:p2", "rect": {"y": 0}},
+                        {"pane_id": "w1:p5", "rect": {"y": 20}},
+                    ]
+                }
+            }
+        )
+    )
+
+    reading = backend.daemon_host(claim=_herdr_claim())
+
+    assert reading.pane_id == ""
+    assert reading.unresolved == ""
+    assert "complete pane rectangles" in reading.error
+
+
 def test_a_herdr_layout_that_omits_the_claimed_pane_is_refused() -> None:
     backend = _herdr(writer=FakeWriter(layout_result=_layout(tops={"w1:p9": 0})))
 
@@ -346,6 +389,40 @@ def test_a_live_daemon_above_the_herdr_pane_is_the_verified_host() -> None:
     assert daemon_processes.executables == [PREPARED_DAEMON]
 
 
+def test_herdr_reuses_only_the_daemon_above_the_invoking_horizontal_allocation() -> None:
+    """A full-height side sibling is not a second pane above the invoking pane."""
+    daemon_processes = FakeDaemonProcesses(identities={811: _daemon_identity(pid=822)})
+    adapter = FakeAdapter(
+        processes={
+            "w1:p2": FakeProcess(
+                pane_id="w1:p2",
+                shell_pid=811,
+                process_group_id=822,
+                name="python",
+                cmdline="/tmp/candidate/venv/bin/overseerd",
+            )
+        }
+    )
+    backend = _herdr(
+        writer=FakeWriter(
+            layout_result=_rect_layout(
+                rects={
+                    "w1:p2": (0, 0, 60, 20),
+                    "w1:p5": (0, 20, 60, 20),
+                    "w1:p9": (60, 0, 60, 40),
+                }
+            )
+        ),
+        adapter=adapter,
+        daemon_processes=daemon_processes,
+    )
+
+    reading = backend.daemon_host(claim=_herdr_claim())
+
+    assert (reading.pane_id, reading.unresolved, reading.error) == ("w1:p2", "", "")
+    assert [target.pane_id for target in adapter.targets] == ["w1:p2"]
+
+
 def test_a_herdr_foreground_group_that_differs_from_the_exact_daemon_pid_is_unresolved() -> None:
     backend = _herdr(
         writer=FakeWriter(layout_result=_layout(tops={"w1:p2": 0, "w1:p5": 10})),
@@ -456,6 +533,8 @@ class Geometry:
     pane: str
     top: int
     height: int
+    left: int = 0
+    width: int = 120
 
 
 @dataclass(kw_only=True)
@@ -710,6 +789,36 @@ def test_a_tmux_live_daemon_is_bound_to_the_prepared_executable(
     assert observed == [(811, PREPARED_DAEMON)]
 
 
+def test_tmux_reuses_only_the_daemon_above_the_invoking_horizontal_allocation(
+    *, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A full-height side sibling is not a second pane above the invoking pane."""
+    monkeypatch.setattr(
+        tmux_bootstrap.tmux_daemon_liveness,
+        "foreground_daemon_process",
+        lambda *, root_pid, daemon_executable: (
+            _daemon_identity(pid=822)
+            if (root_pid, daemon_executable) == (811, PREPARED_DAEMON)
+            else None
+        ),
+    )
+    driver = FakeTmuxDriver(
+        geometries=(
+            Geometry(pane="%88", left=0, top=0, width=60, height=20),
+            Geometry(pane="%7", left=0, top=20, width=60, height=20),
+            Geometry(pane="%9", left=60, top=0, width=60, height=40),
+        ),
+        commands={"%88": "python"},
+        pane_pids={"%88": 811},
+    )
+    backend, _ = _tmux(driver=driver)
+
+    reading = backend.daemon_host(claim=_tmux_claim())
+
+    assert (reading.pane_id, reading.unresolved, reading.error) == ("%88", "", "")
+    assert ("pane_current_command", "%9") not in driver.calls
+
+
 def test_a_tmux_placement_waits_for_the_daemon_without_normalizing_sibling_geometry(
     *, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -781,6 +890,42 @@ def test_tmux_bootstrap_binds_each_call_to_the_selected_generation_connection() 
     assert "list-panes" in calls[0][5]
 
 
+def _native_geometries(*, native: Any, invoking: str) -> dict[str, Geometry]:
+    rows = native(
+        "list-panes",
+        "-t",
+        invoking,
+        "-F",
+        "#{pane_id}\t#{pane_left}\t#{pane_top}\t#{pane_width}\t#{pane_height}",
+    )
+    return {
+        pane: Geometry(
+            pane=pane,
+            left=int(left),
+            top=int(top),
+            width=int(width),
+            height=int(height),
+        )
+        for pane, left, top, width, height in (line.split("\t") for line in rows.splitlines())
+    }
+
+
+def _native_tmux_claim(*, socket_path: str, invoking: str) -> terminal_ownership.OwnershipClaim:
+    listing = terminal_probes.TmuxOwnershipProbe().instance_listing(endpoint=socket_path)
+    assert listing.generation is not None
+    pane_row = next(row for row in listing.rows if row[0] == invoking)
+    server_pid, server_starttime = listing.generation
+    return terminal_ownership.OwnershipClaim(
+        backend="tmux",
+        socket_path=socket_path,
+        server_pid=server_pid,
+        server_starttime=server_starttime,
+        pane_id=invoking,
+        pane_process_pid=pane_row[1],
+        distance=1,
+    )
+
+
 @pytest.mark.skipif(shutil.which("tmux") is None, reason="native tmux is unavailable")
 def test_native_tmux_split_preserves_the_unrelated_sibling_allocation(
     *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -802,36 +947,22 @@ def test_native_tmux_split_preserves_the_unrelated_sibling_allocation(
     native("new-session", "-d", "-x", "120", "-y", "60", "-s", "probe", "sleep 30")
     try:
         invoking = native("list-panes", "-t", "probe", "-F", "#{pane_id}").strip()
-        native("split-window", "-v", "-d", "-l", "60%", "-t", invoking, "sleep 30")
+        sibling = native(
+            "split-window",
+            "-h",
+            "-d",
+            "-P",
+            "-F",
+            "#{pane_id}",
+            "-l",
+            "50%",
+            "-t",
+            invoking,
+            "sleep 30",
+        ).strip()
 
-        def geometries() -> dict[str, Geometry]:
-            rows = native(
-                "list-panes",
-                "-t",
-                invoking,
-                "-F",
-                "#{pane_id}\t#{pane_top}\t#{pane_height}",
-            )
-            return {
-                pane: Geometry(pane=pane, top=int(top), height=int(height))
-                for pane, top, height in (line.split("\t") for line in rows.splitlines())
-            }
-
-        before = geometries()
-        sibling = next(pane for pane in before if pane != invoking)
-        listing = terminal_probes.TmuxOwnershipProbe().instance_listing(endpoint=socket_path)
-        assert listing.generation is not None
-        pane_row = next(row for row in listing.rows if row[0] == invoking)
-        server_pid, server_starttime = listing.generation
-        claim = terminal_ownership.OwnershipClaim(
-            backend="tmux",
-            socket_path=socket_path,
-            server_pid=server_pid,
-            server_starttime=server_starttime,
-            pane_id=invoking,
-            pane_process_pid=pane_row[1],
-            distance=1,
-        )
+        before = _native_geometries(native=native, invoking=invoking)
+        claim = _native_tmux_claim(socket_path=socket_path, invoking=invoking)
         monkeypatch.setattr(
             tmux_bootstrap.tmux_daemon_liveness,
             "foreground_daemon_process",
@@ -846,7 +977,7 @@ def test_native_tmux_split_preserves_the_unrelated_sibling_allocation(
         )
 
         assert placement.ok
-        after = geometries()
+        after = _native_geometries(native=native, invoking=invoking)
         assert after[sibling] == before[sibling]
         assert after[placement.pane_id].top == before[invoking].top
         assert after[invoking].top + after[invoking].height == (
@@ -855,6 +986,13 @@ def test_native_tmux_split_preserves_the_unrelated_sibling_allocation(
         assert after[placement.pane_id].height + after[invoking].height + 1 == (
             before[invoking].height
         )
+        reading = backend.daemon_host(claim=claim)
+        assert (reading.pane_id, reading.unresolved, reading.error) == (
+            placement.pane_id,
+            "",
+            "",
+        )
+        assert _native_geometries(native=native, invoking=invoking) == after
     finally:
         native("kill-server", check=False)
 

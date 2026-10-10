@@ -21,7 +21,8 @@ rebinds the socket cannot receive the action.
 arm probes `pane.layout`: "above" is the requirement, every judgement below is
 relative to the claimed pane's own row, and an instance that cannot report that
 row cannot have "above" established on it. It is a read, it runs before the split,
-and it names what failed.
+and it names what failed. Complete rectangles matter: a side-by-side pane can have
+a smaller top row without occupying any part of the caller's horizontal allocation.
 
 **Liveness is fresh pane/process evidence, never its title or reported command.**
 The legacy bootstrap resolved its daemon pane by the `overseer-daemon` pane title;
@@ -78,6 +79,16 @@ DAEMON_PANE_HEIGHT_PERCENT = 66
 DAEMON_READY_TIMEOUT_SECONDS, DAEMON_READY_POLL_SECONDS = 10.0, 0.05
 
 
+def _horizontally_overlaps(
+    *, candidate: tmuxio_protocols.PaneGeometry, invoking: tmuxio_protocols.PaneGeometry
+) -> bool:
+    """Whether two positive-width pane allocations share at least one column."""
+    return (
+        candidate.left < invoking.left + invoking.width
+        and invoking.left < candidate.left + candidate.width
+    )
+
+
 @dataclass(frozen=True, kw_only=True)
 class TmuxBootstrap:
     """Place and verify the daemon pane on ONE positively selected tmux instance.
@@ -96,7 +107,7 @@ class TmuxBootstrap:
 
     def capability_error(self, *, claim: terminal_ownership.OwnershipClaim) -> str:
         """Why this instance cannot have a pane placed above the claim, or `""`."""
-        _tops, error = self._tops(claim=claim)
+        _rectangles, error = self._rectangles(claim=claim)
         if error:
             return (
                 f"tmux pane geometry is unavailable on the selected instance "
@@ -109,11 +120,16 @@ class TmuxBootstrap:
         self, *, claim: terminal_ownership.OwnershipClaim
     ) -> bootstrap.DaemonHostReading:
         """Whether a verified live daemon already sits above the claimed pane."""
-        tops, error = self._tops(claim=claim)
-        if tops is None:
+        rectangles, error = self._rectangles(claim=claim)
+        if rectangles is None:
             return bootstrap.DaemonHostReading(pane_id="", unresolved="", error=error)
-        own_top = tops[claim.pane_id]
-        above = sorted(pane for pane, top in tops.items() if top < own_top)
+        invoking = rectangles[claim.pane_id]
+        above = sorted(
+            pane
+            for pane, rectangle in rectangles.items()
+            if rectangle.top < invoking.top
+            and _horizontally_overlaps(candidate=rectangle, invoking=invoking)
+        )
         if not above:
             return bootstrap.DaemonHostReading(pane_id="", unresolved="", error="")
         if len(above) != 1:
@@ -205,18 +221,18 @@ class TmuxBootstrap:
             split_height_percent=self.height_percent,
         )
 
-    def _tops(
+    def _rectangles(
         self, *, claim: terminal_ownership.OwnershipClaim
-    ) -> tuple[dict[str, int] | None, str]:
-        """Each pane's top row in the claim's window, or why the geometry is unusable."""
+    ) -> tuple[dict[str, tmuxio_protocols.PaneGeometry] | None, str]:
+        """Each pane rectangle in the claim's window, or why it is unusable."""
         driver = self._driver(claim=claim)
-        geometries = driver.window_pane_geometries(pane=claim.pane_id)
-        tops = {geometry.pane: geometry.top for geometry in geometries}
-        if not tops:
+        geometries = tmux_bootstrap_driver.window_pane_rectangles(driver=driver, pane=claim.pane_id)
+        rectangles = {geometry.pane: geometry for geometry in geometries}
+        if not rectangles:
             return None, "tmux reported no panes for this window"
-        if claim.pane_id not in tops:
+        if claim.pane_id not in rectangles:
             return None, f"tmux window geometry does not place pane {claim.pane_id!r}"
-        return tops, ""
+        return rectangles, ""
 
     def _occupant(
         self, *, claim: terminal_ownership.OwnershipClaim, candidate: str
