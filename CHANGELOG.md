@@ -1,5 +1,19 @@
 # Changelog
 
+## [5.19.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.18.0...v5.19.0) (2026-10-10)
+
+
+### Features
+
+* **overseer:** adopt qualified live sessions ([fdde6f6](https://github.com/thewoolleyman/livespec-overseer/commit/fdde6f63e9d7ad7dc7243c26d4c72b22e23442d3))
+* **overseer:** route qualified supervision targets ([4bcb9bc](https://github.com/thewoolleyman/livespec-overseer/commit/4bcb9bcc17ae5866183c68e38cc578a379a1d77b))
+
+
+### Bug Fixes
+
+* **overseer:** complete qualified native routing ([3ed1ac1](https://github.com/thewoolleyman/livespec-overseer/commit/3ed1ac1683d412137a8ff6faa58c015ec195e79d))
+* **overseer:** preserve qualified policy targets ([02c5ca1](https://github.com/thewoolleyman/livespec-overseer/commit/02c5ca14761436c139e42c8f7be9146df344295b))
+
 ## [5.18.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.17.0...v5.18.0) (2026-10-10)
 
 
