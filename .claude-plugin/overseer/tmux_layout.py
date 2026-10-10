@@ -112,6 +112,8 @@ class TmuxLayout:
                 else:
                     top, height = coordinates
                     left, width = 0, 1
+                if complete and (left < 0 or top < 0 or width < 1 or height < 1):
+                    return []
                 geometries.append(
                     PaneGeometry(
                         pane=pane_id.strip(),
