@@ -966,6 +966,12 @@ def _invalid_relational_proofs() -> tuple[dict[str, object], ...]:
     reversed_markers = list(reversed(_valid_relational_proof()["completion_markers"]))
     return (
         _proof_variant(changes={"successful_consumer_dates": ["2026-13-40"]}),
+        _proof_variant(
+            changes={
+                "successful_consumer_dates": ["2026-10-01", "2026-W40-5"],
+                "soak_started_at": "2026-10-01T11:00:00Z",
+            }
+        ),
         _proof_variant(changes={"successful_consumer_dates": ["2026-10-02", "2026-10-02"]}),
         _proof_variant(changes={"successful_consumer_dates": ["2026-10-02", "2026-10-04"]}),
         _proof_variant(
@@ -1040,6 +1046,20 @@ def _invalid_relational_proofs() -> tuple[dict[str, object], ...]:
     )
 
 
+def _install_week_date_accepting_parser(*, monkeypatch) -> None:
+    relations_module = _module(name="_lpm_proof_relations")
+    stdlib_date = relations_module.date
+
+    class WeekDateAcceptingParser:
+        @staticmethod
+        def fromisoformat(value: str):
+            if value == "2026-W40-5":
+                return stdlib_date(2026, 10, 2)
+            return stdlib_date.fromisoformat(value)
+
+    monkeypatch.setattr(relations_module, "date", WeekDateAcceptingParser)
+
+
 def _proof_and_lease_bytes(*, state_dir: pathlib.Path, binding: _Binding) -> tuple[bytes, bytes]:
     return (
         (state_dir / "coexistence-proof.json").read_bytes(),
@@ -1052,10 +1072,11 @@ def _proof_and_lease_bytes(*, state_dir: pathlib.Path, binding: _Binding) -> tup
 
 
 def test_conflicting_completion_or_unsafe_proof_fails_closed_without_mutation(
-    tmp_path: pathlib.Path,
+    tmp_path: pathlib.Path, monkeypatch
 ) -> None:
     module_path = pathlib.Path(__file__).parents[1] / "overseer" / "_lpm_proof_relations.py"
     assert module_path.is_file(), "overseer/_lpm_proof_relations.py must exist"
+    _install_week_date_accepting_parser(monkeypatch=monkeypatch)
     proof_module = _module(name="_lpm_proof")
     assert isinstance(proof_module.proof_from_object(parsed=_valid_relational_proof()), Success)
     for unsafe in _invalid_relational_proofs():
