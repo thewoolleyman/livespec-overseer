@@ -72,6 +72,9 @@ from typing import Any
 import pytest
 from test_herdr_live_observations import (
     PaneReadiness,
+    minimal_registered_shell,
+    owned_config,
+    owned_environment,
     parent_pid_of,
     registered_login_shells,
     startup_transient,
@@ -270,6 +273,10 @@ def _serve_proxy(*, listener: socket.socket, real_socket: str, state: ProxyState
 
 
 def _start_server(*, session: str, scratch: Path) -> str:
+    """Own shell startup so only the disclosed transient precedes replacement."""
+    shell = minimal_registered_shell()
+    assert shell is not None, "the replacement exercise needs a registered minimal shell"
+    config = owned_config(scratch=scratch, default_shell=shell.declared)
     log = (scratch / f"{session}.log").open("wb")
     _ = subprocess.Popen(  # noqa: S603 — the herdr CLI, not a Python child
         [HERDR_BINARY, "--session", session, "server"],
@@ -278,6 +285,7 @@ def _start_server(*, session: str, scratch: Path) -> str:
         stdin=subprocess.DEVNULL,
         start_new_session=True,
         cwd=str(scratch),
+        env=owned_environment(config_path=config),
     )
     address = _socket_for(session=session)
     deadline = time.monotonic() + SERVER_READY_TIMEOUT
@@ -487,6 +495,7 @@ def test_a_root_replaced_between_the_two_observations_gets_no_input(*, proxied: 
 
     outcome = _split_top(live=live)
 
+    assert live.state.replaced, (outcome, live.state.methods())
     _assert_initial_shell_ready(live=live)
     _assert_same_pid_replacement_happened(live=live)
     _assert_nothing_launched(live=live, outcome=outcome)
