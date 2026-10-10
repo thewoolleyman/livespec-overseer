@@ -78,6 +78,7 @@ class LaunchResult:
 
     stdout: str
     exit_status: int
+    stderr: str = ""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -123,11 +124,12 @@ def subprocess_launch(
     completed = subprocess.run(  # noqa: S603 - absolute, prevalidated path; never PATH
         [str(executable), *argv],
         input=stdin_bytes,
-        stdout=subprocess.PIPE,
+        capture_output=True,
         check=False,
     )
     return LaunchResult(
         stdout=completed.stdout.decode("utf-8", errors="replace"),
+        stderr=completed.stderr.decode("utf-8", errors="replace"),
         exit_status=completed.returncode,
     )
 
