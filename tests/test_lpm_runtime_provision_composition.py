@@ -16,6 +16,7 @@ from overseer._lpm_engine_context import EffectInputs
 from overseer._lpm_onepassword import value_ref
 from overseer._lpm_operation import OperationRecord
 from overseer._lpm_provision_request import ProvisionRequest
+from overseer._lpm_reports import FailureReport
 from overseer._lpm_results import ManagerError, internal_bug, store_unavailable
 from overseer._lpm_runtime_roles import FinalProvisioningRequest
 from overseer._lpm_store import ConditionalSet, InMemorySecretStore, SecretStore
@@ -264,6 +265,254 @@ def _assert_prepared_state(*, host: _Host, request: ProvisionRequest) -> None:
     lease = read_lease(path=lease_path, owner_uid=host.owner_uid).unwrap()
     assert lease is not None
     assert lease.consumer_run_id == request.consumer_run_id
+
+
+def _assert_runtime_dispatch(*, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import overseer._lpm_runtime as runtime_module
+    from overseer._lpm_commands import ManagerInvocation
+    from overseer._lpm_runtime import ConcreteManagerRuntime
+
+    target = _ProvisionTarget(owner_uid=os.getuid())
+    host = _host(state_dir=tmp_path / "concrete-runtime", target=target)
+    run_id = "run-concrete-runtime"
+    target_ref = _OPERATION_IDS[0]
+    report_object = {
+        "version": 1,
+        "consumer_run_id": run_id,
+        "record_id": _RECORD,
+        "occurred_at": _NOW,
+        "classification": "unknown",
+    }
+    report_text = canonical_json_text(value=report_object).unwrap()
+    inputs = iter(
+        (
+            canonical_json_text(
+                value={
+                    "version": 1,
+                    "consumer_run_id": run_id,
+                    "adapter": "isolated-run",
+                }
+            ).unwrap(),
+            canonical_json_text(
+                value=_normalized(request=_request(run_id=run_id, target_ref=target_ref))
+            ).unwrap(),
+            report_text,
+            report_text,
+        )
+    )
+    runtime = ConcreteManagerRuntime(
+        state_dir=host.state_dir,
+        owner_uid=host.owner_uid,
+        config=host.config,
+        read_input=lambda: next(inputs),
+    )
+    for name in (
+        "store",
+        "provision_target",
+        "target_status",
+        "op_executable",
+        "capture_time",
+        "new_operation_id",
+        "monotonic",
+        "sleep",
+    ):
+        object.__setattr__(runtime, name, getattr(host, name))
+
+    target_result = runtime.run(invocation=ManagerInvocation(command="target", source="-"))
+    provision_result = runtime.run(invocation=ManagerInvocation(command="provision", source="-"))
+    report_result = runtime.run(invocation=ManagerInvocation(command="report", source="-"))
+    duplicate_result = runtime.run(invocation=ManagerInvocation(command="report", source="-"))
+
+    assert target_result.body == {
+        "version": 1,
+        "status": "ok",
+        "operation": "target",
+        "target_ref": target_ref,
+        "expires_at": "2026-10-11T12:00:00Z",
+    }
+    assert provision_result.exit_status == 0
+    assert provision_result.body["operation"] == "provision"
+    assert _SECRET.decode() not in str(provision_result.body)
+    assert report_result.body == {
+        "version": 1,
+        "status": "ok",
+        "operation": "report",
+        "duplicate": False,
+    }
+    assert duplicate_result.body == {
+        "version": 1,
+        "status": "ok",
+        "operation": "report",
+        "duplicate": True,
+    }
+    assert target.calls == [target_ref]
+    target_text = canonical_json_text(
+        value={"version": 1, "consumer_run_id": "another-run", "adapter": "isolated-run"}
+    ).unwrap()
+    disabled = replace(
+        runtime,
+        config=replace(runtime.config, enabled_target_adapters=()),
+        read_input=lambda: target_text,
+    )
+    assert (
+        disabled.run(invocation=ManagerInvocation(command="target", source="-")).body["error_type"]
+        == "invalid-request"
+    )
+    with monkeypatch.context() as context:
+        context.setattr(runtime_module, "run_target", _store_failure)
+        object.__setattr__(runtime, "read_input", lambda: target_text)
+        assert (
+            runtime.run(invocation=ManagerInvocation(command="target", source="-")).body[
+                "error_type"
+            ]
+            == "store-unavailable"
+        )
+
+
+def _report_fixture(*, tmp_path: Path) -> tuple[_Host, FailureReport, str]:
+    from overseer._lpm_runtime_provision import run_provision
+
+    target = _ProvisionTarget(owner_uid=os.getuid())
+    host = _host(state_dir=tmp_path / "report-failures", target=target)
+    run_id = "run-report-failures"
+    reference = _issue(host=host, run_id=run_id)
+    assert isinstance(
+        run_provision(host=host, request=_request(run_id=run_id, target_ref=reference)),
+        Success,
+    )
+    return (
+        host,
+        FailureReport(
+            consumer_run_id=run_id,
+            record_id=_RECORD,
+            occurred_at=_NOW,
+            classification="authentication",
+        ),
+        reference,
+    )
+
+
+def _assert_report_dependency_failures(
+    *, host: _Host, report: FailureReport, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from overseer import _lpm_runtime_report as report_runtime
+
+    for name in (
+        "run_lock",
+        "idempotency_key_for",
+        "pending_operation",
+        "report_binding",
+        "new_operation",
+        "write_new_operation",
+    ):
+        with monkeypatch.context() as context:
+            context.setattr(report_runtime, name, _store_failure)
+            assert isinstance(report_runtime.run_report(host=host, report=report), Failure)
+
+
+def _assert_report_refusals_and_recovery(
+    *,
+    host: _Host,
+    report: FailureReport,
+    target_ref: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from overseer import _lpm_runtime_report as report_runtime
+
+    mismatch = _operation(request=_request(run_id=report.consumer_run_id, target_ref=target_ref))
+    with monkeypatch.context() as context:
+        context.setattr(report_runtime, "pending_operation", lambda **_kwargs: Success(mismatch))
+        refused = report_runtime.run_report(host=host, report=report)
+        assert isinstance(refused, Failure)
+        assert refused.failure().error_type == "invalid-report"
+    assert isinstance(
+        report_runtime.run_report(
+            host=host,
+            report=FailureReport(
+                consumer_run_id=report.consumer_run_id,
+                record_id="another-record",
+                occurred_at=_NOW,
+                classification="authentication",
+            ),
+        ),
+        Failure,
+    )
+    assert isinstance(
+        report_runtime.run_report(
+            host=host,
+            report=FailureReport(
+                consumer_run_id=report.consumer_run_id,
+                record_id=_RECORD,
+                occurred_at="2026-10-11T12:00:01Z",
+                classification="authentication",
+            ),
+        ),
+        Failure,
+    )
+    with monkeypatch.context() as context:
+        context.setattr(report_runtime, "drive_operation", _store_failure)
+        assert isinstance(report_runtime.run_report(host=host, report=report), Failure)
+        assert isinstance(report_runtime.run_report(host=host, report=report), Failure)
+    recovered = report_runtime.run_report(host=host, report=report)
+    assert recovered.unwrap() == {"operation": "report", "duplicate": False}
+    assert report_runtime.run_report(host=host, report=report).unwrap() == {
+        "operation": "report",
+        "duplicate": True,
+    }
+
+
+def _assert_report_binding_refusals(*, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from overseer import _lpm_runtime_bindings as bindings
+    from overseer._lpm_localstate import write_local_record
+    from overseer._lpm_paths import local_record_path
+    from overseer._lpm_runtime_provision import run_provision
+
+    empty = _host(
+        state_dir=tmp_path / "empty-report-binding",
+        target=_ProvisionTarget(owner_uid=os.getuid()),
+    )
+    assert isinstance(bindings.report_binding(host=empty, consumer_run_id="absent"), Failure)
+    for name in ("local_record_path", "read_runtime_assignment"):
+        with monkeypatch.context() as context:
+            context.setattr(bindings, name, _store_failure)
+            assert isinstance(
+                bindings.report_binding(host=empty, consumer_run_id="absent"), Failure
+            )
+    prepared_target = _ProvisionTarget(owner_uid=os.getuid(), statuses=[IN_PROGRESS])
+    prepared = _host(state_dir=tmp_path / "prepared-report-binding", target=prepared_target)
+    run_id = "run-prepared-report-binding"
+    reference = _issue(host=prepared, run_id=run_id)
+    assert isinstance(
+        run_provision(host=prepared, request=_request(run_id=run_id, target_ref=reference)),
+        Failure,
+    )
+    assert isinstance(bindings.report_binding(host=prepared, consumer_run_id=run_id), Failure)
+    malformed_path = local_record_path(
+        state_dir=empty.state_dir,
+        family="tombstone",
+        identity=("malformed-tombstone",),
+    ).unwrap()
+    assert isinstance(
+        write_local_record(path=malformed_path, value={}, owner_uid=empty.owner_uid), Success
+    )
+    assert isinstance(
+        bindings.report_binding(host=empty, consumer_run_id="malformed-tombstone"), Failure
+    )
+
+
+def test_concrete_runtime_drives_target_provision_and_report(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _assert_runtime_dispatch(tmp_path=tmp_path, monkeypatch=monkeypatch)
+    host, report, target_ref = _report_fixture(tmp_path=tmp_path)
+    _assert_report_dependency_failures(host=host, report=report, monkeypatch=monkeypatch)
+    _assert_report_refusals_and_recovery(
+        host=host,
+        report=report,
+        target_ref=target_ref,
+        monkeypatch=monkeypatch,
+    )
+    _assert_report_binding_refusals(tmp_path=tmp_path, monkeypatch=monkeypatch)
 
 
 def test_provision_is_idempotent_and_selection_never_reads_a_raw_value(
