@@ -272,7 +272,7 @@ def _seed_binding(*, state_dir: pathlib.Path, binding: _Binding) -> None:
     )
 
 
-def _establish_rollout_and_pair(*, state_dir: pathlib.Path) -> None:
+def _provision_operations(*, state_dir: pathlib.Path) -> tuple[object, object]:
     for binding in _BINDINGS:
         _seed_binding(state_dir=state_dir, binding=binding)
     peer = _BINDINGS[1]
@@ -290,7 +290,7 @@ def _establish_rollout_and_pair(*, state_dir: pathlib.Path) -> None:
         run_id="run-old",
         record_id=_RECORD_OLD,
         account_id="account-old",
-        committed_at="2026-10-01T10:00:00Z",
+        committed_at="2026-10-01T09:58:00Z",
     )
     _seed(
         path=_path(state_dir=state_dir, family="assignment", identity=(prepared.run_id,)),
@@ -315,6 +315,11 @@ def _establish_rollout_and_pair(*, state_dir: pathlib.Path) -> None:
     )
     for operation in operations:
         _persist_operation(state_dir=state_dir, operation=operation)
+    return operations
+
+
+def _establish_rollout_and_pair(*, state_dir: pathlib.Path) -> None:
+    for operation in _provision_operations(state_dir=state_dir):
         assert isinstance(_drive(state_dir=state_dir, operation=operation), Success)
 
 
@@ -368,6 +373,20 @@ def _synchronized_reader(*, proof_effect: object, state_dir: pathlib.Path):
         return original_read(path=path, owner_uid=owner_uid)
 
     return synchronized_read
+
+
+def _drive_concurrently(
+    *, state_dir: pathlib.Path, operations: tuple[object, object]
+) -> tuple[object, object]:
+    start_barrier = threading.Barrier(len(operations))
+
+    def synchronized_drive(operation: object) -> object:
+        start_barrier.wait(timeout=2)
+        return _drive(state_dir=state_dir, operation=operation)
+
+    with ThreadPoolExecutor(max_workers=len(operations)) as executor:
+        first, second = executor.map(synchronized_drive, operations)
+    return first, second
 
 
 def _assert_shared_proof(*, state_dir: pathlib.Path) -> None:
@@ -637,22 +656,20 @@ def test_concurrent_public_engine_contributions_retain_the_complete_shared_proof
     assert module_path.is_file(), "overseer/_lpm_proof_effect.py must exist"
     proof_effect = importlib.import_module("_lpm_proof_effect")
     state_dir = _state(tmp_path=tmp_path)
-    _establish_rollout_and_pair(state_dir=state_dir)
-    complete_a, complete_c = _completion_operations(state_dir=state_dir)
+    provision_operations = _provision_operations(state_dir=state_dir)
     monkeypatch.setattr(
         proof_effect,
         "read_proof_record",
         _synchronized_reader(proof_effect=proof_effect, state_dir=state_dir),
     )
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        outcomes = tuple(
-            executor.map(
-                lambda operation: _drive(state_dir=state_dir, operation=operation),
-                (complete_a, complete_c),
-            )
-        )
+    provision_outcomes = _drive_concurrently(state_dir=state_dir, operations=provision_operations)
+    complete_a, complete_c = _completion_operations(state_dir=state_dir)
+    completion_outcomes = _drive_concurrently(
+        state_dir=state_dir, operations=(complete_a, complete_c)
+    )
 
-    assert all(isinstance(outcome, Success) for outcome in outcomes), outcomes
+    assert all(isinstance(outcome, Success) for outcome in provision_outcomes), provision_outcomes
+    assert all(isinstance(outcome, Success) for outcome in completion_outcomes), completion_outcomes
     _assert_shared_proof(state_dir=state_dir)
     _assert_single_spread_has_no_pair(tmp_path=tmp_path)
     _assert_unsafe_peers_refuse(tmp_path=tmp_path)
