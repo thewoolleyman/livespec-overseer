@@ -8,7 +8,7 @@ import sys
 import time
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
@@ -38,7 +38,7 @@ from _lpm_runtime_base import (
 from _lpm_runtime_provision import run_provision
 from _lpm_runtime_report import run_report
 from _lpm_runtime_target import run_target
-from _lpm_store import InMemorySecretStore, SecretStore
+from _lpm_store import SecretStore
 from _lpm_time import capture_manager_time
 from _lpm_wire import CommandOutcome, error_outcome, read_command_object, success_outcome
 
@@ -60,9 +60,9 @@ class ConcreteManagerRuntime:
     owner_uid: int
     config: ManagerConfig
     read_input: Callable[[], str]
-    store: SecretStore = field(default_factory=InMemorySecretStore)
+    store: SecretStore | None = None
     provision_target: FinalProvisioningPort | None = None
-    op_executable: str = ""
+    op_executable: str | None = None
     capture_time: Callable[[], str] = lambda: capture_manager_time(
         now=datetime.datetime.now(tz=datetime.timezone.utc)
     )
@@ -116,6 +116,13 @@ class ConcreteManagerRuntime:
         return accepted_report.failure() if isinstance(accepted_report, Failure) else None
 
     def _run_object(self, *, command: str, parsed: object) -> CommandOutcome:
+        bound = self.store is not None and (
+            command != "provision" or self.provision_target is not None
+        )
+        if not bound:
+            return error_outcome(
+                error=internal_bug(message="object command runtime ports are not bound")
+            )
         if command == "target":
             result = run_target(
                 host=cast("RuntimeHost", self),
@@ -160,8 +167,8 @@ def runtime_for_host() -> Result[ConcreteManagerRuntime, ManagerError]:
             owner_uid=uid,
             config=configured.unwrap(),
             read_input=sys.stdin.read,
-            store=cast("SecretStore", ports),
-            provision_target=cast("FinalProvisioningPort", ports),
-            target_status=cast("TargetStatusPort", ports),
+            store=ports,
+            provision_target=ports,
+            target_status=ports.target_status,
         )
     )

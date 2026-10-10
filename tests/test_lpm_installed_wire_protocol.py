@@ -265,6 +265,31 @@ def test_runtime_types_every_pre_operation_refusal(
     ]
 
 
+def test_valid_object_commands_cannot_fall_back_to_the_hermetic_runtime_backend(
+    *, tmp_path: Path
+) -> None:
+    import _lpm_runtime
+    from _lpm_commands import ManagerInvocation
+    from _lpm_config import default_config
+
+    runtime = _lpm_runtime.ConcreteManagerRuntime(
+        state_dir=tmp_path,
+        owner_uid=os.getuid(),
+        config=default_config(),
+        read_input=lambda: json.dumps(
+            {
+                "version": 1,
+                "consumer_run_id": "installed-valid-command",
+                "adapter": "isolated-run",
+            }
+        ),
+    )
+
+    outcome = runtime.run(invocation=ManagerInvocation(command="target", source="-"))
+
+    assert outcome.body.get("error_type") == "internal-bug"
+
+
 def test_host_runtime_resolution_is_typed(
     *, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
