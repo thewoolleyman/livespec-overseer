@@ -1,4 +1,11 @@
-"""Deterministic simultaneous-spread peer discovery from retained bindings."""
+"""Deterministic simultaneous-spread peer discovery from retained bindings.
+
+Assignments are scanned before tombstones because a close publishes its tombstone before it
+removes the assignment.  That opposing order guarantees a scan overlapping the migration sees
+at least one copy: either the assignment before removal or the tombstone after publication.
+When both survive, the later tombstone pass replaces the assignment view because the tombstone
+is authoritative during that crash window.
+"""
 
 from __future__ import annotations
 
@@ -69,11 +76,10 @@ def simultaneous_spread_contribution(
 def _retained_bindings(
     *, state_dir: Path, owner_uid: int
 ) -> Result[tuple[_SpreadBinding, ...], ManagerError]:
-    retained: list[_SpreadBinding] = []
-    tombstone_runs: set[str] = set()
+    retained: dict[str, _SpreadBinding] = {}
     for family, parser in (
-        ("tombstones", tombstone_from_object),
         ("assignments", assignment_from_object),
+        ("tombstones", tombstone_from_object),
     ):
         directory = state_dir / family
         if not directory.exists():
@@ -91,12 +97,8 @@ def _retained_bindings(
             binding = _from_record(record=parsed.unwrap())
             if binding is None:
                 continue
-            if family == "tombstones":
-                tombstone_runs.add(binding.consumer_run_id)
-            elif binding.consumer_run_id in tombstone_runs:
-                continue
-            retained.append(binding)
-    return Success(tuple(retained))
+            retained[binding.consumer_run_id] = binding
+    return Success(tuple(retained.values()))
 
 
 def _from_record(*, record: Assignment | Tombstone) -> _SpreadBinding | None:
