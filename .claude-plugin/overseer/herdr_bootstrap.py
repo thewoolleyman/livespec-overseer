@@ -33,19 +33,18 @@ Every proof the sequence needs — that the created pane is new, is in the targe
 tab, really ended up above, and is still an idle retained shell at the instant of
 the write — already lives in :mod:`herdr_layout`, as does the `effect_unknown`
 accounting for a mutation whose answer was lost. This module adapts that outcome
-to :class:`bootstrap.PlacementOutcome` and adds nothing: in particular it does not
-retry, and it has no way to undo, so a pane created past an unanswered request is
-carried out by name for re-observation rather than cleaned up.
+and then makes bounded fresh observations until the exact daemon process is ready.
+It never retries a mutation and has no way to undo, so a pane created past an
+unanswered request is carried out by name for re-observation rather than cleaned up.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 import bootstrap
+import bootstrap_readiness
 import herdr_adapter
 import herdr_identity
 import herdr_write
@@ -54,6 +53,9 @@ import terminal_ownership
 import tmux_daemon_liveness
 
 __all__: list[str] = ["HerdrBootstrap"]
+
+DAEMON_READY_TIMEOUT_SECONDS = 10.0
+DAEMON_READY_POLL_SECONDS = 0.05
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -69,9 +71,9 @@ class HerdrBootstrap:
 
     daemon_executable: Path
     backend: str = herdr_identity.HERDR_BACKEND
-    adapter: Any = field(default_factory=herdr_adapter.HerdrAdapter)
-    writer: Any = field(default_factory=herdr_write.HerdrWriter)
-    daemon_process_of: Callable[..., tmux_daemon_liveness.DaemonProcessIdentity | None] = field(
+    adapter: herdr_adapter.ForegroundObserver = field(default_factory=herdr_adapter.HerdrAdapter)
+    writer: herdr_write.BootstrapWriter = field(default_factory=herdr_write.HerdrWriter)
+    daemon_process_of: tmux_daemon_liveness.DaemonProcessReader = field(
         default_factory=lambda: tmux_daemon_liveness.foreground_daemon_process
     )
     ratio: float = herdr_write.DEFAULT_TOP_RATIO
@@ -119,11 +121,34 @@ class HerdrBootstrap:
             command=command,
             ratio=self.ratio,
         )
+        if not outcome.ok:
+            return bootstrap.PlacementOutcome(
+                ok=False,
+                pane_id=outcome.pane_id,
+                error=outcome.error,
+                effect_unknown=outcome.effect_unknown,
+            )
+        reading = bootstrap_readiness.await_exact_daemon(
+            observe=lambda: self._occupant(claim=claim, candidate=outcome.pane_id),
+            timeout_seconds=DAEMON_READY_TIMEOUT_SECONDS,
+            poll_seconds=DAEMON_READY_POLL_SECONDS,
+        )
+        if not reading.pane_id:
+            detail = reading.error or reading.unresolved or "the daemon process was unreadable"
+            return bootstrap.PlacementOutcome(
+                ok=False,
+                pane_id=outcome.pane_id,
+                error=(
+                    f"Herdr pane {outcome.pane_id!r} never established exact daemon "
+                    f"process readiness: {detail}"
+                ),
+                effect_unknown=True,
+            )
         return bootstrap.PlacementOutcome(
-            ok=outcome.ok,
+            ok=True,
             pane_id=outcome.pane_id,
-            error=outcome.error,
-            effect_unknown=outcome.effect_unknown,
+            error="",
+            effect_unknown=False,
         )
 
     def _target(

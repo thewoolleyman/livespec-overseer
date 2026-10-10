@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol
 
 import claude_sessions
 import daemon_liveness
@@ -12,6 +13,7 @@ from _seams import PidToIntList, PidToOptionalBytes, PidToOptionalStr
 __all__: list[str] = [
     "MAX_DESCENDANT_PROCESSES",
     "DaemonProcessIdentity",
+    "DaemonProcessReader",
     "daemon_descendant_command",
     "foreground_daemon_process",
     "is_daemon_argv",
@@ -34,6 +36,14 @@ class DaemonProcessIdentity:
     executable: str
     argv: tuple[str, ...]
     process_group: int
+
+
+class DaemonProcessReader(Protocol):
+    """Read the exact prepared daemon below one retained pane process."""
+
+    def __call__(
+        self, *, root_pid: int, daemon_executable: Path
+    ) -> DaemonProcessIdentity | None: ...
 
 
 @dataclass(frozen=True, kw_only=True)

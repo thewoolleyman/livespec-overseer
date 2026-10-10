@@ -42,25 +42,29 @@ verified.
 from __future__ import annotations
 
 import subprocess
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any
 
 import claude_sessions
 import herdr_adapter
 import herdr_identity
 import terminal_ownership
 from _seams import PidToOptionalStr
+from tmux_process import TEXT_PROCESS_RUN, SocketScopedRun, TextProcess, TextProcessRun
 
 __all__: list[str] = [
     "DEFAULT_TMUX_ENDPOINT",
     "HERDR_SOCKET_ENV",
     "PANE_ROW_FORMAT",
+    "TEXT_PROCESS_RUN",
     "TMUX_ENV",
     "TMUX_TIMEOUT_SECONDS",
     "HerdrOwnershipProbe",
     "SocketScopedRun",
+    "TextProcess",
+    "TextProcessRun",
+    "TmuxInstanceListing",
     "TmuxOwnershipProbe",
     "default_herdr_socket",
 ]
@@ -106,48 +110,7 @@ def default_herdr_socket(*, home: Path | None = None) -> str:
 
 def _with_declared(*, default: str, declared: str) -> tuple[str, ...]:
     """The default endpoint, plus the environment's if it names a different one."""
-    if declared and declared != default:
-        return (default, declared)
-    return (default,)
-
-
-@dataclass(frozen=True, kw_only=True)
-class SocketScopedRun:
-    """Bind every tmux call made through it to ONE named server socket.
-
-    The retention mechanism for a positively selected named tmux instance: pass
-    this as :class:`tmuxio.TmuxIO`'s `run` and every subcommand that object issues
-    gains `-S <socket>` immediately after the binary, so a later call cannot drift
-    onto whichever server the ambient environment would have reached. The DEFAULT
-    instance needs no wrapper at all, which is how legacy behaviour is preserved by
-    construction rather than by a flag.
-
-    `__call__` is positional in its first parameter because `subprocess.run`'s
-    calling convention is not ours to reshape — this object is a substitute for it.
-    """
-
-    socket_path: str
-    run: Callable[..., Any] = subprocess.run
-
-    def __call__(
-        self,
-        argv: Sequence[str],
-        *,
-        input: str | None = None,
-        capture_output: bool | None = None,
-        text: bool | None = None,
-        check: bool | None = None,
-        timeout: float | None = None,
-    ) -> Any:
-        binary, *rest = argv
-        return self.run(
-            [binary, "-S", self.socket_path, *rest],
-            input=input,
-            capture_output=capture_output,
-            text=text,
-            check=check,
-            timeout=timeout,
-        )
+    return (default, declared) if declared and declared != default else (default,)
 
 
 def _parsed_rows(*, stdout: str) -> tuple[tuple[str, int, int], ...] | None:
@@ -172,6 +135,15 @@ def _parsed_rows(*, stdout: str) -> tuple[tuple[str, int, int], ...] | None:
 
 
 @dataclass(frozen=True, kw_only=True)
+class TmuxInstanceListing:
+    """One complete pane listing bound to the server generation that answered."""
+
+    rows: tuple[tuple[str, int, int], ...]
+    generation: tuple[int, str] | None
+    error: str
+
+
+@dataclass(frozen=True, kw_only=True)
 class TmuxOwnershipProbe:
     """What one tmux instance holds, addressed by its socket and proven generation.
 
@@ -183,7 +155,7 @@ class TmuxOwnershipProbe:
 
     backend: str = herdr_identity.TMUX_BACKEND
     tmux_binary: str = "tmux"
-    run: Callable[..., Any] = subprocess.run
+    run: TextProcessRun = TEXT_PROCESS_RUN
     starttime_of: PidToOptionalStr = claude_sessions.proc_starttime
     timeout_seconds: float = TMUX_TIMEOUT_SECONDS
 
@@ -196,36 +168,13 @@ class TmuxOwnershipProbe:
 
     def owned_panes(self, *, endpoint: str) -> terminal_ownership.ClaimReading:
         """Every pane this instance holds, with its root process and generation."""
-        stdout, error = self._listing(endpoint=endpoint)
-        if error:
-            return terminal_ownership.ClaimReading(panes=(), error=error)
-        rows = _parsed_rows(stdout=stdout)
-        if rows is None:
-            return terminal_ownership.ClaimReading(
-                panes=(),
-                error=f"tmux pane listing on {endpoint or 'the default socket'} " "is unreadable",
-            )
-        if not rows:
+        listing = self.instance_listing(endpoint=endpoint)
+        generation = listing.generation or (0, "")
+        if listing.error:
+            return terminal_ownership.ClaimReading(panes=(), error=listing.error)
+        if not listing.rows:
             return terminal_ownership.ClaimReading(panes=(), error="")
-        servers = {server_pid for _, _, server_pid in rows}
-        if len(servers) != 1:
-            return terminal_ownership.ClaimReading(
-                panes=(),
-                error=(
-                    f"tmux pane listing names {len(servers)} distinct server pids "
-                    f"{sorted(servers)}; one socket is one server"
-                ),
-            )
-        server_pid = next(iter(servers))
-        starttime = self.starttime_of(pid=server_pid)
-        if starttime is None:
-            return terminal_ownership.ClaimReading(
-                panes=(),
-                error=(
-                    f"tmux server generation is unreadable: no /proc start time for "
-                    f"server pid {server_pid}"
-                ),
-            )
+        server_pid, starttime = generation
         return terminal_ownership.ClaimReading(
             panes=tuple(
                 terminal_ownership.OwnedPane(
@@ -236,8 +185,49 @@ class TmuxOwnershipProbe:
                     pane_id=pane_id,
                     pane_process_pids=(pane_pid,),
                 )
-                for pane_id, pane_pid, _ in rows
+                for pane_id, pane_pid, _ in listing.rows
             ),
+            error="",
+        )
+
+    def instance_listing(self, *, endpoint: str) -> TmuxInstanceListing:
+        """All panes and the exact live generation from one server answer."""
+        stdout, error = self._listing(endpoint=endpoint)
+        if error:
+            return TmuxInstanceListing(rows=(), generation=None, error=error)
+        rows = _parsed_rows(stdout=stdout)
+        if rows is None:
+            return TmuxInstanceListing(
+                rows=(),
+                generation=None,
+                error=f"tmux pane listing on {endpoint or 'the default socket'} " "is unreadable",
+            )
+        if not rows:
+            return TmuxInstanceListing(rows=(), generation=None, error="")
+        servers = {server_pid for _, _, server_pid in rows}
+        if len(servers) != 1:
+            return TmuxInstanceListing(
+                rows=(),
+                generation=None,
+                error=(
+                    f"tmux pane listing names {len(servers)} distinct server pids "
+                    f"{sorted(servers)}; one socket is one server"
+                ),
+            )
+        server_pid = next(iter(servers))
+        starttime = self.starttime_of(pid=server_pid)
+        if starttime is None:
+            return TmuxInstanceListing(
+                rows=(),
+                generation=None,
+                error=(
+                    f"tmux server generation is unreadable: no /proc start time for "
+                    f"server pid {server_pid}"
+                ),
+            )
+        return TmuxInstanceListing(
+            rows=rows,
+            generation=(server_pid, starttime),
             error="",
         )
 
@@ -281,7 +271,7 @@ class HerdrOwnershipProbe:
     """
 
     backend: str = herdr_identity.HERDR_BACKEND
-    adapter: Any = field(default_factory=herdr_adapter.HerdrAdapter)
+    adapter: herdr_adapter.OwnershipObserver = field(default_factory=herdr_adapter.HerdrAdapter)
     home: Path | None = None
 
     def endpoints(self, *, environ: Mapping[str, str]) -> tuple[str, ...]:

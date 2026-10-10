@@ -36,29 +36,30 @@ died, and a genuine background daemon does not count because it no longer owns t
 terminal. A pane above the invoking one holding only its login shell is therefore
 UNRESOLVED: "the pane is still there" says nothing about the daemon.
 
-**A failed split is a KNOWN failure, not an uncertain one.** `tmuxio` reports a
-failed `split-window` as `None` after a bounded, non-zero-exit subprocess call, so
-nothing was committed and left unanswered — unlike the herdr socket, there is no
-write boundary to be on the far side of. `effect_unknown` is therefore always
-False on this arm, and that is a property of the transport rather than an
-assumption about tmux.
+**A failed split is a KNOWN failure, but a post-split proof failure preserves the
+known-created pane as unresolved.** `tmuxio` reports a failed `split-window` as
+`None` after a bounded, non-zero-exit subprocess call, so nothing was committed
+and left unanswered. Once a pane was returned, however, missing server-generation
+or exact-process evidence is not permission to repeat or clean up that mutation;
+the outcome carries its pane identity with `effect_unknown=True` for fresh
+re-observation.
 """
 
 from __future__ import annotations
 
-import subprocess
-from collections.abc import Callable
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
-from typing import Any
 
 import bootstrap
 import daemon_liveness
 import herdr_identity
 import terminal_ownership
-import terminal_probes
+import tmux_bootstrap_launch
 import tmux_daemon_liveness
-import tmuxio
+import tmux_generation
+import tmuxio_protocols
+from tmux_bootstrap_driver import socket_scoped_driver
 
 __all__: list[str] = [
     "DAEMON_PANE_HEIGHT_PERCENT",
@@ -73,21 +74,7 @@ __all__: list[str] = [
 # block while the bottom pane is a prompt.
 DAEMON_PANE_TITLE = "overseer-daemon"
 DAEMON_PANE_HEIGHT_PERCENT = 66
-
-
-def socket_scoped_driver(
-    *, socket_path: str, run: Callable[..., Any] = subprocess.run
-) -> tmuxio.TmuxIO:
-    """A tmux driver bound to ONE instance; the default socket needs no wrapper.
-
-    `run` is injected for the same reason `tmuxio`'s own is — so a test can assert
-    the argv this produces without a live server — and because that argv is the
-    whole claim: the default endpoint must yield the legacy form with no `-S`, and
-    a named one must carry `-S <socket>` on every subcommand.
-    """
-    if socket_path == terminal_probes.DEFAULT_TMUX_ENDPOINT:
-        return tmuxio.TmuxIO(run=run)
-    return tmuxio.TmuxIO(run=terminal_probes.SocketScopedRun(socket_path=socket_path, run=run))
+DAEMON_READY_TIMEOUT_SECONDS, DAEMON_READY_POLL_SECONDS = 10.0, 0.05
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -102,7 +89,7 @@ class TmuxBootstrap:
 
     daemon_executable: Path | None = None
     backend: str = herdr_identity.TMUX_BACKEND
-    driver_for: Callable[..., Any] = socket_scoped_driver
+    driver_for: tmuxio_protocols.BootstrapDriverFactory = socket_scoped_driver
     daemon_pane_title: str = DAEMON_PANE_TITLE
     height_percent: int = DAEMON_PANE_HEIGHT_PERCENT
 
@@ -145,6 +132,27 @@ class TmuxBootstrap:
     ) -> bootstrap.PlacementOutcome:
         """Run `command` in a new TOP pane of the claimed pane's own window."""
         driver = self.driver_for(socket_path=claim.socket_path)
+        return tmux_generation.guard(
+            driver=driver,
+            claim=claim,
+            daemon_executable=self.daemon_executable,
+            valid=partial(self._split, driver=driver, claim=claim, cwd=cwd, command=command),
+            invalid=partial(
+                bootstrap.PlacementOutcome,
+                ok=False,
+                pane_id="",
+                effect_unknown=False,
+            ),
+        )
+
+    def _split(
+        self,
+        *,
+        driver: tmuxio_protocols.BootstrapDriver,
+        claim: terminal_ownership.OwnershipClaim,
+        cwd: str,
+        command: str,
+    ) -> bootstrap.PlacementOutcome:
         created = driver.split_window_top(pane=claim.pane_id, cwd=cwd, command=command)
         if created is None:
             return bootstrap.PlacementOutcome(
@@ -153,31 +161,45 @@ class TmuxBootstrap:
                 error=f"tmux refused to split the window holding {claim.pane_id!r}",
                 effect_unknown=False,
             )
-        _ = driver.set_pane_title(pane=created, title=self.daemon_pane_title)
-        if not driver.pane_exists(pane=created):
-            return bootstrap.PlacementOutcome(
+        return tmux_generation.guard(
+            driver=driver,
+            claim=claim,
+            daemon_executable=self.daemon_executable,
+            valid=partial(self._finish_created_pane, driver=driver, claim=claim, created=created),
+            invalid=partial(
+                bootstrap.PlacementOutcome,
                 ok=False,
                 pane_id=created,
-                error=(
-                    f"the daemon did not stay alive in tmux pane {created!r}; the pane's "
-                    "command exited, which closes the pane"
-                ),
-                effect_unknown=False,
-            )
-        # Normalize the stack before resizing, exactly as the legacy bootstrap
-        # does: an uneven split left behind by a stray third pane would otherwise
-        # make the percentage apply to the wrong baseline.
-        _ = driver.select_layout_even(pane=claim.pane_id)
-        _ = driver.set_pane_height_percent(pane=created, percent=self.height_percent)
-        return bootstrap.PlacementOutcome(ok=True, pane_id=created, error="", effect_unknown=False)
+                effect_unknown=True,
+            ),
+        )
+
+    def _finish_created_pane(
+        self,
+        *,
+        driver: tmuxio_protocols.BootstrapDriver,
+        claim: terminal_ownership.OwnershipClaim,
+        created: str,
+    ) -> bootstrap.PlacementOutcome:
+        """Prove one known-created pane's daemon before its pane-only resize."""
+        return tmux_bootstrap_launch.finish_created_pane(
+            driver=driver,
+            created=created,
+            observe=partial(self._observed_occupant, driver=driver, claim=claim, candidate=created),
+            policy=tmux_bootstrap_launch.LaunchPolicy(
+                title=self.daemon_pane_title,
+                height_percent=self.height_percent,
+                timeout_seconds=DAEMON_READY_TIMEOUT_SECONDS,
+                poll_seconds=DAEMON_READY_POLL_SECONDS,
+            ),
+        )
 
     def _tops(
         self, *, claim: terminal_ownership.OwnershipClaim
     ) -> tuple[dict[str, int] | None, str]:
         """Each pane's top row in the claim's window, or why the geometry is unusable."""
-        geometries = self.driver_for(socket_path=claim.socket_path).window_pane_geometries(
-            pane=claim.pane_id
-        )
+        driver = self.driver_for(socket_path=claim.socket_path)
+        geometries = driver.window_pane_geometries(pane=claim.pane_id)
         tops = {geometry.pane: geometry.top for geometry in geometries}
         if not tops:
             return None, "tmux reported no panes for this window"
@@ -190,6 +212,31 @@ class TmuxBootstrap:
     ) -> bootstrap.DaemonHostReading:
         """What is running in the single pane above the claim, judged fail-closed."""
         driver = self.driver_for(socket_path=claim.socket_path)
+        return self._observed_occupant(driver=driver, claim=claim, candidate=candidate)
+
+    def _observed_occupant(
+        self,
+        *,
+        driver: tmuxio_protocols.BootstrapDriver,
+        claim: terminal_ownership.OwnershipClaim,
+        candidate: str,
+    ) -> bootstrap.DaemonHostReading:
+        return tmux_generation.guard(
+            driver=driver,
+            claim=claim,
+            daemon_executable=self.daemon_executable,
+            valid=partial(self._occupant_from, driver=driver, claim=claim, candidate=candidate),
+            invalid=partial(bootstrap.DaemonHostReading, pane_id="", unresolved=""),
+        )
+
+    def _occupant_from(
+        self,
+        *,
+        driver: tmuxio_protocols.BootstrapDriver,
+        claim: terminal_ownership.OwnershipClaim,
+        candidate: str,
+    ) -> bootstrap.DaemonHostReading:
+        """Read a candidate through an already generation-validated driver."""
         command = driver.pane_current_command(session=candidate)
         if command is None:
             return bootstrap.DaemonHostReading(
@@ -200,8 +247,7 @@ class TmuxBootstrap:
                     "foreground command"
                 ),
             )
-        pane_pid_reader = getattr(driver, "pane_pid", None)
-        pane_pid = pane_pid_reader(session=candidate) if pane_pid_reader is not None else None
+        pane_pid = driver.pane_pid(session=candidate)
         if pane_pid is None:
             daemon_process = None
         elif self.daemon_executable is None:

@@ -55,6 +55,7 @@ import os
 import time
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
+from typing import Protocol
 
 import claude_sessions
 import herdr_calls
@@ -65,9 +66,11 @@ from _seams import PidToOptionalStr
 
 __all__: list[str] = [
     "REQUEST_ID_PREFIX",
+    "ForegroundObserver",
     "ForegroundReading",
     "HerdrAdapter",
     "InstanceIdentification",
+    "OwnershipObserver",
     "PaneCapture",
     "PaneListing",
 ]
@@ -125,6 +128,22 @@ class ForegroundReading:
     ok: bool
     process: herdr_calls.ForegroundProcess | None
     error: str
+
+
+class ForegroundObserver(Protocol):
+    """The exact-pane process observation required by public bootstrap."""
+
+    def foreground(self, *, target: herdr_identity.HerdrPaneTarget) -> ForegroundReading: ...
+
+
+class OwnershipObserver(Protocol):
+    """The complete read-only Herdr surface required for ownership discovery."""
+
+    def identify(self, *, socket_path: str) -> InstanceIdentification: ...
+
+    def list_panes(self, *, target: herdr_identity.HerdrPaneTarget) -> PaneListing: ...
+
+    def foreground(self, *, target: herdr_identity.HerdrPaneTarget) -> ForegroundReading: ...
 
 
 def _unreadable(*, kind: str) -> str:

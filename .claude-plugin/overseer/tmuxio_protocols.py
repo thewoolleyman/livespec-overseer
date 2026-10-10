@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from typing import Protocol
 
 __all__: list[str] = [
+    "BootstrapDriver",
+    "BootstrapDriverFactory",
     "PaneDriver",
     "PaneGeometry",
     "SessionNameDriver",
@@ -27,6 +29,32 @@ class SessionNameDriver(Protocol):
     """The tmux read needed by ``overseer-declare`` topic inference."""
 
     def pane_session_name(self, *, pane: str) -> str | None: ...
+
+
+class BootstrapDriver(Protocol):
+    """The typed observation and mutation surface used by public tmux bootstrap."""
+
+    def window_pane_geometries(self, *, pane: str) -> list[PaneGeometry]: ...
+
+    def pane_current_command(self, *, session: str) -> str | None: ...
+
+    def pane_pid(self, *, session: str) -> int | None: ...
+
+    def split_window_top(self, *, pane: str, cwd: str, command: str) -> str | None: ...
+
+    def pane_exists(self, *, pane: str) -> bool: ...
+
+    def set_pane_title(self, *, pane: str, title: str) -> bool: ...
+
+    def set_pane_height_percent(self, *, pane: str, percent: int) -> bool: ...
+
+    def server_generation(self) -> tuple[int, str] | None: ...
+
+
+class BootstrapDriverFactory(Protocol):
+    """Build a bootstrap driver retained to one selected tmux socket."""
+
+    def __call__(self, *, socket_path: str) -> BootstrapDriver: ...
 
 
 class PaneDriver(Protocol):
