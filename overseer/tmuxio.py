@@ -47,6 +47,7 @@ from typing import TypeGuard
 import input_provenance
 import streams
 import terminal_probes
+import tmux_layout
 import tmux_process
 from tmuxio_env import with_env_delta
 from tmuxio_protocols import PaneDriver, PaneGeometry, SessionNameDriver, WindowLayoutDriver
@@ -109,9 +110,17 @@ class TmuxIO:
             if input_provenance_path is None
             else Path(input_provenance_path)
         )
+        self._layout = tmux_layout.TmuxLayout(
+            call=self._call,
+            split_size=tuple(tmux_process.bootstrap_split_size(run=self._run)),
+        )
 
     def tmux_binary(self) -> str:
         return self._tmux
+
+    def text_process_run(self) -> tmux_process.TextProcessRun:
+        """The selected text-process seam, for a more constrained driver view."""
+        return self._run
 
     # ----------------------------------------------------------------- #
     # Internal: run one tmux subcommand, fail-soft.
@@ -369,36 +378,15 @@ class TmuxIO:
         skill's OWN window — never in a session grabbed by name. Returns the new
         pane id (e.g. ``%47``) or None on failure.
         """
-        completed = self._call(
-            args=[
-                "split-window",
-                "-v",
-                "-b",
-                "-d",
-                "-P",
-                "-F",
-                "#{pane_id}",
-                "-t",
-                pane,
-                "-c",
-                cwd,
-                command,
-            ]
-        )
-        if not self._ok(completed=completed):
-            return None
-        return (completed.stdout or "").strip() or None
+        return self._layout.split_window_top(pane=pane, cwd=cwd, command=command)
 
     def pane_exists(self, *, pane: str) -> bool:
         """Whether PANE is still present in the tmux server."""
-        completed = self._call(args=["list-panes", "-a", "-F", "#{pane_id}"])
-        if not self._ok(completed=completed):
-            return False
-        return pane in {line.strip() for line in (completed.stdout or "").splitlines()}
+        return self._layout.pane_exists(pane=pane)
 
     def set_pane_title(self, *, pane: str, title: str) -> bool:
         """``tmux select-pane -t <pane> -T <title>`` — tag a pane (idempotency)."""
-        return self._ok(completed=self._call(args=["select-pane", "-t", pane, "-T", title]))
+        return self._layout.set_pane_title(pane=pane, title=title)
 
     def select_layout_even(self, *, pane: str) -> bool:
         """``tmux select-layout -t <pane> even-vertical`` — restack the window evenly.
@@ -409,7 +397,7 @@ class TmuxIO:
         :meth:`set_pane_height_percent` gives the daemon its share — so the resize
         starts from a known stack rather than whatever a stray pane left behind.
         """
-        return self._ok(completed=self._call(args=["select-layout", "-t", pane, "even-vertical"]))
+        return self._layout.select_layout_even(pane=pane)
 
     def pane_by_title(self, *, pane: str, title: str) -> str | None:
         """The pane id in PANE's window whose title is TITLE (``None`` if absent).
@@ -419,14 +407,7 @@ class TmuxIO:
         target the daemon pane for a resize when ``overseer-start`` re-runs and did
         not create it (so never held its id).
         """
-        completed = self._call(args=["list-panes", "-t", pane, "-F", "#{pane_id}\t#{pane_title}"])
-        if not self._ok(completed=completed):
-            return None
-        for line in (completed.stdout or "").splitlines():
-            pane_id, _, pane_title = line.partition("\t")
-            if pane_title.strip() == title:
-                return pane_id.strip() or None
-        return None
+        return self._layout.pane_by_title(pane=pane, title=title)
 
     def window_pane_geometries(self, *, pane: str) -> list[PaneGeometry]:
         """Every pane id, top row, and height in PANE's window.
@@ -435,26 +416,7 @@ class TmuxIO:
         TOP pane. Pane indexes are intentionally not used because tmux renumbers
         panes after a collapse, silently retargeting index-based commands.
         """
-        completed = self._call(
-            args=["list-panes", "-t", pane, "-F", "#{pane_id}\t#{pane_top}\t#{pane_height}"]
-        )
-        if not self._ok(completed=completed):
-            return []
-        geometries: list[PaneGeometry] = []
-        for line in (completed.stdout or "").splitlines():
-            pane_id, _, rest = line.partition("\t")
-            top, _, height = rest.partition("\t")
-            try:
-                geometries.append(
-                    PaneGeometry(
-                        pane=pane_id.strip(),
-                        top=int(top.strip()),
-                        height=int(height.strip()),
-                    )
-                )
-            except ValueError:
-                return []
-        return geometries
+        return self._layout.window_pane_geometries(pane=pane)
 
     def set_pane_height_percent(self, *, pane: str, percent: int) -> bool:
         """``tmux resize-pane -t <pane> -y <percent>%`` — size PANE to a share of its window.
@@ -463,7 +425,7 @@ class TmuxIO:
         have to be recomputed in rows against a window height that changes whenever the
         terminal is resized.
         """
-        return self._ok(completed=self._call(args=["resize-pane", "-t", pane, "-y", f"{percent}%"]))
+        return self._layout.set_pane_height_percent(pane=pane, percent=percent)
 
     def rename_window(self, *, pane: str, name: str) -> bool:
         """Rename PANE's window to NAME, and PIN the name (``automatic-rename off``).
@@ -472,15 +434,8 @@ class TmuxIO:
         window's name from its foreground command on the next tick and silently
         overwrites NAME. Both steps must succeed for the rename to hold.
         """
-        if not self._ok(completed=self._call(args=["rename-window", "-t", pane, name])):
-            return False
-        return self._ok(
-            completed=self._call(args=["set-window-option", "-t", pane, "automatic-rename", "off"])
-        )
+        return self._layout.rename_window(pane=pane, name=name)
 
     def window_pane_titles(self, *, pane: str) -> list[str]:
         """Every pane title in PANE's window (``[]`` on error) — the idempotency read."""
-        completed = self._call(args=["list-panes", "-t", pane, "-F", "#{pane_title}"])
-        if not self._ok(completed=completed):
-            return []
-        return [line for line in (completed.stdout or "").splitlines() if line.strip()]
+        return self._layout.window_pane_titles(pane=pane)

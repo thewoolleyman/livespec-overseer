@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shlex
 import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -9,14 +10,26 @@ from typing import Protocol, cast
 
 __all__: list[str] = [
     "TEXT_PROCESS_RUN",
+    "GenerationBoundRun",
     "SocketScopedRun",
     "TextProcess",
     "TextProcessRun",
     "TmuxCall",
+    "bootstrap_split_size",
     "pane_field",
 ]
 
 _PANE_ROW_FIELDS = 3
+
+
+def _generation_guard(*, server_pid: int, server_starttime: str) -> str:
+    """A server-side shell predicate for the generation on this tmux connection."""
+    return (
+        f'[ "#{{pid}}" = "{server_pid}" ] && '
+        f"IFS= read -r stat < /proc/{server_pid}/stat && "
+        "stat=${stat##*) } && set -- $stat && "
+        f'[ "${{20}}" = "{server_starttime}" ]'
+    )
 
 
 class TextProcess(Protocol):
@@ -78,6 +91,59 @@ class SocketScopedRun:
             check=check,
             timeout=timeout,
         )
+
+
+@dataclass(frozen=True, kw_only=True)
+class GenerationBoundRun:
+    """Run one command only on the selected generation of the connected server.
+
+    ``if-shell`` evaluates the PID/start-time predicate and queues the real command
+    on the SAME tmux client connection.  If that server exits after the predicate,
+    the connection dies with it; the queued command cannot reconnect to a namesake
+    that rebound the socket path.
+    """
+
+    server_pid: int
+    server_starttime: str
+    split_height_percent: int
+    run: TextProcessRun
+
+    def __call__(
+        self,
+        argv: Sequence[str],
+        *,
+        input: str | None = None,
+        capture_output: bool | None = None,
+        text: bool | None = None,
+        check: bool | None = None,
+        timeout: float | None = None,
+    ) -> TextProcess:
+        binary, *command = argv
+        guarded_argv = [
+            binary,
+            "if-shell",
+            _generation_guard(
+                server_pid=self.server_pid,
+                server_starttime=self.server_starttime,
+            ),
+            shlex.join(command),
+            shlex.join(["run-shell", "exit 125"]),
+        ]
+        return self.run(
+            guarded_argv,
+            input=input,
+            capture_output=capture_output,
+            text=text,
+            check=check,
+            timeout=timeout,
+        )
+
+
+def bootstrap_split_size(*, run: TextProcessRun) -> list[str]:
+    """The allocation-scoped size carried only by a generation-bound bootstrap."""
+    if not isinstance(run, GenerationBoundRun):
+        return []
+    return ["-l", f"{run.split_height_percent}%"]
 
 
 def pane_field(*, call: TmuxCall, target: str, fmt: str) -> str | None:
