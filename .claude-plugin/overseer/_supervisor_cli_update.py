@@ -69,6 +69,12 @@ def add_update_fields(*, epic: object, ctx_threshold: object, idle_nudge: object
 
 def add_mapping_write_args(*, parser: argparse.ArgumentParser) -> None:
     _ = parser.add_argument(
+        "--retarget",
+        default=UNSET,
+        metavar="TARGET",
+        help="explicitly replace an existing track's terminal coordinate",
+    )
+    _ = parser.add_argument(
         "--epic",
         default=UNSET,
         help="ledger epic id for the plan state",
@@ -92,9 +98,16 @@ def add_mapping_write_args(*, parser: argparse.ArgumentParser) -> None:
 
 
 def upsert_track(
-    *, track: registry.Track, update_fields: frozenset[str] = frozenset({"tmux"})
+    *,
+    track: registry.Track,
+    update_fields: frozenset[str] = frozenset({"tmux"}),
+    allow_retarget: bool = False,
 ) -> bool:
     """Create a mapping row or update only the fields this CLI invocation supplied."""
     return registry.upsert_mapping(
-        track=track, store_path=None, added_at=iso_now(), update_fields=update_fields
+        track=track,
+        store_path=None,
+        added_at=iso_now(),
+        update_fields=update_fields,
+        allow_retarget=allow_retarget,
     )

@@ -296,7 +296,10 @@ class TmuxIO:
         :meth:`send_keys` ``Enter`` — because ``paste-buffer`` never submits.
         """
         buffer_name = _next_inject_buffer()
-        loaded = self._call(args=["load-buffer", "-b", buffer_name, "-"], input_text=text)
+        if isinstance(self._run, tmux_process.GenerationBoundRun):
+            loaded = self._call(args=["set-buffer", "-b", buffer_name, "--", text])
+        else:
+            loaded = self._call(args=["load-buffer", "-b", buffer_name, "-"], input_text=text)
         if not self._ok(completed=loaded):
             _warn(message=f"load-buffer failed for session {session!r}")
             return False

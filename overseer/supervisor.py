@@ -215,7 +215,15 @@ def _cmd_add(*, args: argparse.Namespace) -> int:
     ) is not None
     if not allow_reserved and _refuse_reserved_topic(repo=repo, topic=args.topic):
         return 1
-    session = _derive_tmux_or_refuse(repo=repo, topic=args.topic, allow_reserved=allow_reserved)
+    requested_target = _supervisor_cli_update.optional_str_value(value=args.retarget)
+    if requested_target is not None:
+        session = requested_target
+    else:
+        session = _derive_tmux_or_refuse(
+            repo=repo,
+            topic=args.topic,
+            allow_reserved=allow_reserved,
+        )
     if session is None:
         return 1
     try:
@@ -239,6 +247,7 @@ def _cmd_add(*, args: argparse.Namespace) -> int:
     if not _supervisor_cli_update.upsert_track(
         track=track,
         update_fields=update_fields,
+        allow_retarget=_supervisor_cli_update.field_supplied(value=args.retarget),
     ):
         fields = ", ".join(sorted(update_fields))
         streams.write_stderr(text=f"could not write requested field(s): {fields}\n")
