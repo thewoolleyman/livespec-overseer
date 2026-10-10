@@ -773,6 +773,34 @@ def test_provision_peer_discovery_retains_a_concurrently_migrated_binding(
     }
 
 
+def test_provision_peer_discovery_rejects_noncanonical_peer_record_paths(
+    tmp_path: pathlib.Path,
+) -> None:
+    current, peer = _BINDINGS[:2]
+    for ordinal, (family, record) in enumerate(
+        (("assignments", _assignment(binding=peer)), ("tombstones", _tombstone(binding=peer))),
+        start=36,
+    ):
+        state_dir = _state(tmp_path=tmp_path / family)
+        _seed_binding(state_dir=state_dir, binding=current)
+        _seed(path=state_dir / family / "noncanonical.json", value=record)
+        operation = _operation(
+            ordinal=ordinal,
+            command="provision",
+            normalized_input=_request(run_id=current.run_id),
+            effects=_PROVISION_EFFECTS,
+            completed_step=1,
+        )
+        _persist_operation(state_dir=state_dir, operation=operation)
+
+        refused = _drive(state_dir=state_dir, operation=operation)
+
+        assert isinstance(refused, Failure), refused
+        assert refused.failure().error_type == "store-unavailable"
+        assert "canonical" in refused.failure().message
+        assert not (state_dir / "coexistence-proof.json").exists()
+
+
 def test_replayed_completion_does_not_recreate_evidence_cleared_by_auth_failure(
     tmp_path: pathlib.Path,
 ) -> None:
