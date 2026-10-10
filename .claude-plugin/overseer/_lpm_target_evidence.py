@@ -23,8 +23,10 @@ from _lpm_time import is_at_or_after
 from overseer._vendor.returns.result import Failure, Result, Success
 
 __all__: list[str] = [
+    "TargetEvidence",
     "TargetEvidenceBinding",
     "commit_with_evidence",
+    "target_evidence_from_object",
     "target_status_with_evidence",
     "write_target_evidence",
 ]
@@ -54,7 +56,7 @@ class TargetEvidenceBinding:
 
 
 @dataclass(frozen=True, kw_only=True)
-class _TargetEvidence:
+class TargetEvidence:
     status: str
     target_ref: str
     consumer_run_id: str
@@ -65,7 +67,7 @@ class _TargetEvidence:
 
 
 def write_target_evidence(
-    *, path: Path, record: _TargetEvidence, owner_uid: int
+    *, path: Path, record: TargetEvidence, owner_uid: int
 ) -> Result[None, ManagerError]:
     """Persist the contract's exact eight-member evidence record."""
     value: dict[str, object] = {"version": 1}
@@ -84,7 +86,7 @@ def commit_with_evidence(
     prepared_at = sample_time()
     if is_at_or_after(moment=prepared_at, limit=lease_expires_at) is not False:
         return _outcome(status=UNCOMMITTED, committed_at=None)
-    evidence = _TargetEvidence(
+    evidence = TargetEvidence(
         status="prepared",
         target_ref=binding.target_ref,
         consumer_run_id=binding.consumer_run_id,
@@ -113,7 +115,7 @@ def commit_with_evidence(
 def _finish_commit(
     *,
     binding: TargetEvidenceBinding,
-    evidence: _TargetEvidence,
+    evidence: TargetEvidence,
     path: Path,
     staged: Path,
     lease_expires_at: str,
@@ -144,14 +146,14 @@ def target_status_with_evidence(
     stored = read_local_record(path=path, owner_uid=binding.owner_uid).unwrap()
     if stored is None:
         return Success(_outcome(status=UNCOMMITTED, committed_at=None))
-    parsed = _evidence_from_object(parsed=stored)
+    parsed = target_evidence_from_object(parsed=stored)
     if isinstance(parsed, Failure):
         return Failure(parsed.failure())
     return _reconcile(binding=binding, path=path, evidence=parsed.unwrap())
 
 
 def _reconcile(
-    *, binding: TargetEvidenceBinding, path: Path, evidence: _TargetEvidence
+    *, binding: TargetEvidenceBinding, path: Path, evidence: TargetEvidence
 ) -> Result[CommitOutcome, ManagerError]:
     if _binding_tuple(evidence=evidence) != _binding_tuple(evidence=binding):
         return Failure(store_unavailable(message="target evidence names another binding"))
@@ -168,12 +170,18 @@ def _reconcile(
     return Success(_outcome(status=COMMITTED, committed_at=evidence.committed_at))
 
 
-def _evidence_from_object(*, parsed: object) -> Result[_TargetEvidence, ManagerError]:
-    source = cast("dict[str, object]", parsed)
-    if set(source) != set(_MEMBERS):
-        return Failure(store_unavailable(message="target evidence has the wrong shape"))
+def target_evidence_from_object(*, parsed: object) -> Result[TargetEvidence, ManagerError]:
+    """Decode one exact target-evidence object without weakening its member boundary."""
+    is_object = isinstance(parsed, dict)
+    source = cast("dict[str, object]", parsed) if is_object else {}
+    if not is_object or set(source) != set(_MEMBERS):
+        messages = {
+            False: "target evidence is not an object",
+            True: "target evidence has the wrong shape",
+        }
+        return Failure(store_unavailable(message=messages[is_object]))
     return Success(
-        _TargetEvidence(
+        TargetEvidence(
             status=str(source["status"]),
             target_ref=str(source["target_ref"]),
             consumer_run_id=str(source["consumer_run_id"]),
@@ -205,13 +213,13 @@ def _replace_staged(*, staged: Path, destination: Path) -> None:
         os.close(descriptor)
 
 
-def _target_matches(*, binding: TargetEvidenceBinding, evidence: _TargetEvidence) -> bool:
+def _target_matches(*, binding: TargetEvidenceBinding, evidence: TargetEvidence) -> bool:
     return (
         hashlib.sha256(Path(binding.destination).read_bytes()).hexdigest() == evidence.target_sha256
     )
 
 
-def _binding_tuple(*, evidence: _TargetEvidence | TargetEvidenceBinding) -> tuple[str, str, str]:
+def _binding_tuple(*, evidence: TargetEvidence | TargetEvidenceBinding) -> tuple[str, str, str]:
     return (evidence.target_ref, evidence.consumer_run_id, evidence.value_generation)
 
 
