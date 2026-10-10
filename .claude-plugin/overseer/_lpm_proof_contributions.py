@@ -15,23 +15,59 @@ from _lpm_proof import CompletionMarker, ProofRecord
 _ = VENDOR_PATHS_INSTALLED
 
 __all__: list[str] = [
+    "authentication_contribution",
     "completion_contribution",
 ]
 
 
-def completion_contribution(*, proof: ProofRecord, marker: CompletionMarker) -> ProofRecord:
+def completion_contribution(
+    *, proof: ProofRecord, marker: CompletionMarker, legacy_pool_absent: bool
+) -> ProofRecord:
     """Apply one previously-unseen qualifying completion exactly once."""
+    identity = (marker.consumer_run_id, marker.record_id)
+    if identity in [(held.consumer_run_id, held.record_id) for held in proof.completion_markers]:
+        return proof
     by_identity = {
         (held.consumer_run_id, held.record_id): held for held in proof.completion_markers
     }
-    by_identity[(marker.consumer_run_id, marker.record_id)] = marker
+    by_identity[identity] = marker
     markers = tuple(
         sorted(
             by_identity.values(),
             key=lambda held: (held.completed_at, held.consumer_run_id, held.record_id),
         )
     )
+    evidence = {
+        "consumer_run_id": marker.consumer_run_id,
+        "completed_at": marker.completed_at,
+    }
+    dates = proof.successful_consumer_dates
+    soak_started_at = proof.soak_started_at
+    after_failure = (
+        proof.last_auth_failure_at is None or marker.completed_at > proof.last_auth_failure_at
+    )
+    if after_failure and soak_started_at is None:
+        dates = (marker.completed_at[:10],)
+        soak_started_at = marker.completed_at
     return replace(
         proof,
         completion_markers=markers,
+        successful_consumer_dates=dates,
+        soak_started_at=soak_started_at,
+        production_success=proof.production_success or evidence,
+        legacy_pool_absence_success=(
+            proof.legacy_pool_absence_success
+            if proof.legacy_pool_absence_success is not None or not legacy_pool_absent
+            else evidence
+        ),
+    )
+
+
+def authentication_contribution(*, proof: ProofRecord, occurred_at: str) -> ProofRecord:
+    """Record an authentication failure and invalidate the currently accumulated dated soak."""
+    return replace(
+        proof,
+        successful_consumer_dates=(),
+        soak_started_at=None,
+        last_auth_failure_at=occurred_at,
     )

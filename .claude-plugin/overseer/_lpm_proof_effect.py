@@ -22,7 +22,7 @@ from _lpm_operation_replay import PERFORMED, SATISFIED
 from _lpm_paths import PROOF_RECORD_NAME
 from _lpm_proof import CompletionMarker, ProofRecord, proof_object, read_proof_record
 from _lpm_proof_binding import proof_binding
-from _lpm_proof_contributions import completion_contribution
+from _lpm_proof_contributions import authentication_contribution, completion_contribution
 from _lpm_proof_peers import simultaneous_spread_contribution
 from _lpm_results import ManagerError
 
@@ -90,7 +90,9 @@ def _merged(
         return _completion_contribution(
             context=context, proof=proof, binding=cast("ClosingRecord", binding)
         )
-    return Success(proof)
+    return _report_contribution(
+        context=context, proof=proof, binding=cast("ClosingRecord", binding)
+    )
 
 
 def _provision_contribution(
@@ -131,7 +133,31 @@ def _completion_contribution(
     )
     if not _qualifying_completion(context=context, proof=proof, binding=binding):
         return Success(proof)
-    return Success(completion_contribution(proof=proof, marker=marker))
+    return Success(
+        completion_contribution(
+            proof=proof,
+            marker=marker,
+            legacy_pool_absent=cast("bool", source["legacy_pool_absent"]),
+        )
+    )
+
+
+def _report_contribution(
+    *, context: EffectContext, proof: ProofRecord, binding: ClosingRecord
+) -> Result[ProofRecord, ManagerError]:
+    source = context.operation.normalized_input
+    request = cast("dict[str, object]", binding.stored["request"])
+    if (
+        source["classification"] != "authentication"
+        or proof.rollout_started_at is None
+        or request["provider"] != "anthropic"
+        or request["purpose"] != "factory"
+        or binding.target_committed_at < proof.rollout_started_at
+    ):
+        return Success(proof)
+    return Success(
+        authentication_contribution(proof=proof, occurred_at=cast("str", source["occurred_at"]))
+    )
 
 
 def _qualifying_completion(
