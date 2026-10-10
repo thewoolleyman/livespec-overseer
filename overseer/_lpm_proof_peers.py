@@ -16,7 +16,8 @@ from typing import cast
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 from _lpm_assignment import Assignment, assignment_from_object
 from _lpm_localstate import ensure_state_directory, read_local_record
-from _lpm_results import ManagerError
+from _lpm_paths import local_record_path
+from _lpm_results import ManagerError, store_unavailable
 from _lpm_tombstone import Tombstone, tombstone_from_object
 
 from overseer._vendor.returns.result import Failure, Result, Success
@@ -77,11 +78,11 @@ def _retained_bindings(
     *, state_dir: Path, owner_uid: int
 ) -> Result[tuple[_SpreadBinding, ...], ManagerError]:
     retained: dict[str, _SpreadBinding] = {}
-    for family, parser in (
-        ("assignments", assignment_from_object),
-        ("tombstones", tombstone_from_object),
+    for directory_name, family, parser in (
+        ("assignments", "assignment", assignment_from_object),
+        ("tombstones", "tombstone", tombstone_from_object),
     ):
-        directory = state_dir / family
+        directory = state_dir / directory_name
         if not directory.exists():
             continue
         safe = ensure_state_directory(path=directory, owner_uid=owner_uid)
@@ -94,7 +95,18 @@ def _retained_bindings(
             parsed = parser(parsed=stored.unwrap())
             if isinstance(parsed, Failure):
                 return parsed
-            binding = _from_record(record=parsed.unwrap())
+            record = parsed.unwrap()
+            run_id = str(record.request["consumer_run_id"])
+            canonical = local_record_path(
+                state_dir=state_dir, family=family, identity=(run_id,)
+            ).unwrap()
+            if path != canonical:
+                return Failure(
+                    store_unavailable(
+                        message=f"a {family} peer record is not at its canonical path"
+                    )
+                )
+            binding = _from_record(record=record)
             if binding is None:
                 continue
             retained[binding.consumer_run_id] = binding
