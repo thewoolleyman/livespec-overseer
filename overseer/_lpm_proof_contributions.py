@@ -64,10 +64,11 @@ def completion_contribution(
 
 
 def authentication_contribution(*, proof: ProofRecord, occurred_at: str) -> ProofRecord:
-    """Record an authentication failure and invalidate the currently accumulated dated soak."""
+    """Advance failure time and clear only a soak that had begun by this event."""
+    preserve_soak = proof.soak_started_at is not None and occurred_at < proof.soak_started_at
     return replace(
         proof,
-        successful_consumer_dates=(),
-        soak_started_at=None,
-        last_auth_failure_at=occurred_at,
+        successful_consumer_dates=(proof.successful_consumer_dates if preserve_soak else ()),
+        soak_started_at=proof.soak_started_at if preserve_soak else None,
+        last_auth_failure_at=max(proof.last_auth_failure_at or occurred_at, occurred_at),
     )
