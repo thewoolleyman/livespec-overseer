@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import shlex
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, cast
 
@@ -62,7 +63,14 @@ class SubmitResult:
 
 
 class NativeSubmit(Protocol):
-    def __call__(self, *, session: str, text: str) -> tuple[bool, bool]: ...
+    def __call__(
+        self,
+        *,
+        session: str,
+        text: str,
+        expect_codex: bool,
+        sleep: Callable[[float], None],
+    ) -> tuple[bool, bool]: ...
 
 
 def session_of(*, sup: Supervisor, track: registry.Track) -> str:
@@ -224,7 +232,15 @@ def resend_enter_budgeted(*, sup: Supervisor, target: str, max_enters: int) -> t
 def submit_prompt(*, sup: Supervisor, target: str, text: str, expect_codex: bool = False) -> bool:
     submit_once = cast(NativeSubmit | None, getattr(sup.tmux, "submit_prompt_once", None))
     if target.startswith(herdr_identity.HERDR_SCHEME) and submit_once is not None:
-        return submit_once(session=target, text=text)[0]
+        submitted, effect_unknown = submit_once(
+            session=target,
+            text=text,
+            expect_codex=expect_codex,
+            sleep=sup.sleep,
+        )
+        if effect_unknown:
+            sup.log(message=f"native prompt effect unknown for pane {target}; refusing replay")
+        return submitted
     return submit_prompt_result(
         sup=sup, target=target, text=text, expect_codex=expect_codex
     ).submitted

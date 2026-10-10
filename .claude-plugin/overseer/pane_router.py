@@ -15,6 +15,7 @@ import herdr_identity
 import herdr_write
 import pane_router_coordinates
 import pane_router_reads
+import pane_router_submit_signals
 import pane_router_writes
 import terminal_ownership
 import terminal_probes
@@ -53,12 +54,15 @@ class MixedPaneDriver:
 
     tmux: PaneDriver = field(default_factory=tmuxio.TmuxIO)
     herdr: pane_router_reads.HerdrObserver = field(default_factory=herdr_adapter.HerdrAdapter)
-    herdr_writer: pane_router_writes.HerdrInput = field(default_factory=herdr_write.HerdrWriter)
+    herdr_writer: pane_router_submit_signals.HerdrInput = field(
+        default_factory=herdr_write.HerdrWriter
+    )
     herdr_endpoints: Callable[[], Iterable[str]] = field(
         default_factory=lambda: partial(tuple, _DEFAULT_HERDR_ENDPOINTS)
     )
     tmux_run: tmux_process.TextProcessRun = tmux_process.TEXT_PROCESS_RUN
     coordinates: set[str] = field(default_factory=set)
+    prompt_states: dict[str, pane_router_submit_signals.PromptState] = field(default_factory=dict)
 
     def _reads(self) -> pane_router_reads.PaneRoutingReads:
         return pane_router_reads.PaneRoutingReads(
@@ -76,6 +80,7 @@ class MixedPaneDriver:
         return pane_router_writes.PaneRoutingWrites(
             reads=self._reads(),
             herdr_writer=self.herdr_writer,
+            prompt_states=self.prompt_states,
         )
 
     def capture_pane(self, *, session: str) -> str:
@@ -135,8 +140,20 @@ class MixedPaneDriver:
     def rename_window(self, *, pane: str, name: str) -> bool:
         return self._writes().rename_window(pane=pane, name=name)
 
-    def submit_prompt_once(self, *, session: str, text: str) -> tuple[bool, bool]:
-        return self._writes().submit_prompt_once(session=session, text=text)
+    def submit_prompt_once(
+        self,
+        *,
+        session: str,
+        text: str,
+        expect_codex: bool,
+        sleep: Callable[[float], None],
+    ) -> tuple[bool, bool]:
+        return self._writes().submit_prompt_once(
+            session=session,
+            text=text,
+            expect_codex=expect_codex,
+            sleep=sleep,
+        )
 
 
 def default_pane_driver() -> PaneDriver:
