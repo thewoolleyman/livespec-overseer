@@ -27,6 +27,7 @@ from _lpm_results import (
     invalid_request,
     store_unavailable,
 )
+from _lpm_role_runner import subprocess_role_launch
 from _lpm_runtime_backend import RolePorts
 from _lpm_runtime_base import (
     FinalProvisioningPort,
@@ -145,7 +146,13 @@ def runtime_for_host() -> Result[ConcreteManagerRuntime, ManagerError]:
         return Failure(configured.failure())
     state_dir = manager_state_dir(home=home)
     ports = RolePorts(
-        config=configured.unwrap(), owner_uid=uid, state_dir=state_dir, environ=os.environ
+        config=configured.unwrap(),
+        owner_uid=uid,
+        state_dir=state_dir,
+        environ=os.environ,
+        launch=subprocess_role_launch,
+        python_executable=str(Path(sys.executable).resolve()),
+        packaged_companion=str(Path(__file__).with_name("_lpm_companion.py").resolve()),
     )
     return Success(
         ConcreteManagerRuntime(
