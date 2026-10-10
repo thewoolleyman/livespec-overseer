@@ -46,6 +46,13 @@ claim that the historical timing was reproduced. Deterministic persistent
 unavailable and wrong-process controls prove both expiry directions without
 sleeping away their bounds.
 
+The initial retained-shell observation needs the same bounded treatment: a
+successful workspace creation can precede readable process-info. Before sending
+the sentinel command, wait for a usable observation whose foreground group is
+the owned pane's root shell. The controlled initial-unreadable variant and the
+persistent occupied/unavailable controls exercise this fixture boundary without
+claiming to reproduce the original native timing failure.
+
 **Session isolation is herdr's own `--session` mechanism**, which is what herdr
 documents: each named session owns its directory and socket under the normal
 config root. No `HOME`, `XDG_*` or `*_HOME` variable is repurposed — herdr 0.9.3
@@ -228,29 +235,37 @@ def _run_in_pane(*, live: LiveHerdr, command: str) -> None:
 
 
 def _await_requested_foreground(
-    *, read: Callable[[], Any], requested_name: str, poll: BoundedPoll
+    *, read: Callable[[], Any], requested_name: str | None, poll: BoundedPoll
 ) -> Any:
     """Return the requested process within `poll`, or fail with the last observation.
 
     An unavailable sample establishes nothing and a different live process is not
-    the requested sentinel. Both remain observations to consume until the bound,
-    rather than conditions that silently shorten it.
+    the requested sentinel. A None name requests the initial retained shell,
+    whose foreground group must equal its positive shell PID. Consume other
+    observations until the bound rather than silently shortening it.
     """
+    requested = requested_name if requested_name is not None else "owned retained shell"
     deadline = poll.monotonic() + poll.seconds
     last: Any | None = None
     while poll.monotonic() < deadline:
         last = read()
-        if last.ok is True and last.process is not None and last.process.name == requested_name:
-            return last
+        if last.ok is True and last.process is not None:
+            matches = (
+                last.process.name == requested_name
+                if requested_name is not None
+                else last.process.process_group_id == last.process.shell_pid > 0
+            )
+            if matches:
+                return last
         poll.sleep(FOREGROUND_POLL_SECONDS)
     if last is None:
         pytest.fail(
             f"no foreground observation was taken before the {poll.seconds}s deadline "
-            f"for {requested_name!r}"
+            f"for {requested!r}"
         )
     detail = f"unavailable: {last.error}" if last.ok is False else f"process: {last.process!r}"
     pytest.fail(
-        f"foreground {requested_name!r} was not observed within {poll.seconds}s; "
+        f"foreground {requested!r} was not observed within {poll.seconds}s; "
         f"last observation was {detail}"
     )
 
@@ -352,7 +367,10 @@ def test_the_default_capture_is_visible_pane_content_that_retains_ansi(*, live: 
     assert "\x1b" not in stripped.text, "the stripped reading carries no escapes"
 
 
-def test_the_adapter_reports_the_actual_foreground_process_not_the_pane_shell(*, live: LiveHerdr):
+@pytest.mark.parametrize("unreadable_first", [False, True])
+def test_the_adapter_reports_the_actual_foreground_process_not_the_pane_shell(
+    *, live: LiveHerdr, unreadable_first: bool
+):
     """A foreground child must be reported as itself, with ITS cwd, not the shell's.
 
     The sentinel is launched WITHOUT `exec`, so it occupies its own process group
@@ -372,7 +390,25 @@ def test_the_adapter_reports_the_actual_foreground_process_not_the_pane_shell(*,
         server_starttime=identified.peer.starttime,
         pane_id=live.pane_id,
     )
-    at_prompt = adapter.foreground(target=target)
+    reads = 0
+
+    def initial_shell_reading() -> Any:
+        nonlocal reads
+        reads += 1
+        if unreadable_first and reads == 1:
+            return adapter_module.ForegroundReading(
+                ok=False, process=None, error="controlled initial unreadable process-info reply"
+            )
+        return adapter.foreground(target=target)
+
+    # Workspace creation does not establish that its retained shell already has
+    # coherent process-info. Observe the owned shell before sending any input.
+    at_prompt = _await_requested_foreground(
+        read=initial_shell_reading,
+        requested_name=None,
+        poll=BoundedPoll(seconds=FOREGROUND_TIMEOUT),
+    )
+    assert reads >= (2 if unreadable_first else 1)
     assert at_prompt.ok is True, at_prompt.error
     shell_pid = at_prompt.process.shell_pid
     assert shell_pid > 0
@@ -440,8 +476,9 @@ def test_the_foreground_wait_consumes_one_controlled_unreadable_before_the_nativ
 
 
 @pytest.mark.parametrize("persistent", ["unavailable", "wrong-process"])
+@pytest.mark.parametrize("requested_name", [SENTINEL_NAME, None])
 def test_persistent_foreground_observations_fail_at_the_bound_with_the_last_reading(
-    *, persistent: str
+    *, persistent: str, requested_name: str | None
 ) -> None:
     """Neither persistent refusal nor a different process can satisfy the wait."""
     calls_module, adapter_module = _modules()
@@ -459,14 +496,14 @@ def test_persistent_foreground_observations_fail_at_the_bound_with_the_last_read
             process=calls_module.ForegroundProcess(
                 pane_id="w1:p1",
                 shell_pid=101,
-                process_group_id=101,
-                name="bash",
-                cmdline="bash",
+                process_group_id=101 if requested_name is not None else 202,
+                name="bash" if requested_name is not None else SENTINEL_NAME,
+                cmdline="bash" if requested_name is not None else SENTINEL_COMMAND,
                 cwd=PANE_CWD,
             ),
             error="",
         )
-        expected = "name='bash'"
+        expected = "name='bash'" if requested_name is not None else "process_group_id=202"
     reads = 0
 
     def persistent_reading() -> Any:
@@ -477,7 +514,7 @@ def test_persistent_foreground_observations_fail_at_the_bound_with_the_last_read
     with pytest.raises(pytest.fail.Exception) as failed:
         _ = _await_requested_foreground(
             read=persistent_reading,
-            requested_name=SENTINEL_NAME,
+            requested_name=requested_name,
             poll=_frozen_poll(seconds=2.0, ticks=[0.0, 1.0, 3.0]),
         )
 
