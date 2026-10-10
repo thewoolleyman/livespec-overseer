@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 from collections.abc import Sequence
 from pathlib import Path
 from types import ModuleType
-from typing import Final
+from typing import Final, cast
 
 __all__: list[str] = [
     "INTERNAL_BUG_LINE",
@@ -19,6 +20,9 @@ __all__: list[str] = [
 
 _PACKAGE_NAME: Final = "overseer"
 _INTERNAL_BUG_STATUS: Final = 70
+_ROLE_VECTOR_LENGTH: Final = 2
+_FIRST_INHERITED_DESCRIPTOR: Final = 3
+_ROLE_EXEC_MARKER: Final = "LIVESPEC_LPM_EXECUTED_ROLE"
 INTERNAL_BUG_LINE: Final = (
     '{"version":1,"status":"error","error_type":"internal-bug",'
     '"message":"the manager product package could not be loaded"}'
@@ -53,6 +57,8 @@ def run(*, arguments: Sequence[str], root: Path) -> int:
     if load_product_package(root=root) is None:
         _write_line(line=INTERNAL_BUG_LINE)
         return _INTERNAL_BUG_STATUS
+    if len(arguments) == _ROLE_VECTOR_LENGTH and arguments[0] == "--credential-role":
+        return _dispatch_role(role_name=arguments[1])
     return _dispatch(arguments=arguments)
 
 
@@ -80,6 +86,72 @@ def _dispatch(*, arguments: Sequence[str]) -> int:
             outcome = run_manager_command(arguments=arguments, runtime=runtime.unwrap())
     _write_line(line=render_outcome(outcome=outcome))
     return outcome.exit_status
+
+
+def _dispatch_role(*, role_name: str) -> int:
+    from _lpm_canonical import canonical_json_text, parse_canonical_json
+    from _lpm_launcher import pre_exec_failure_object
+    from _lpm_role_child import ClosedRoleInput, HostProcessOS, launch_credential_role
+    from _lpm_role_service import role_result
+    from _lpm_roles import CredentialRole, PackagedCompanion, credential_role
+
+    role = cast("CredentialRole", credential_role(name=role_name))
+    if _needs_role_exec(variable=role.variable):
+        os.environ[_ROLE_EXEC_MARKER] = role.name
+        refusal = launch_credential_role(
+            role_input=ClosedRoleInput(
+                role_name=role.name,
+                key_description=role.key_description,
+                descriptors=role.descriptors,
+                descriptor_fds=_inherited_descriptors(names=role.descriptors),
+            ),
+            companion=PackagedCompanion(
+                python_executable=str(Path(sys.executable).resolve()),
+                packaged_companion=str(Path(__file__).resolve()),
+            ),
+            environ=os.environ,
+            process_os=HostProcessOS(),
+        )
+        result = refusal.failure_object
+    else:
+        parsed = parse_canonical_json(text=sys.stdin.read())
+        result = parsed.map(
+            lambda request: role_result(
+                role_name=role.name,
+                request=request,
+                environ=os.environ,
+                lock_descriptor=next(
+                    iter(_inherited_descriptors(names=role.descriptors).values()), None
+                ),
+            )
+        ).value_or(pre_exec_failure_object(role_name=role.name))
+    encoded = canonical_json_text(value=result).unwrap()
+    _write_line(line=encoded)
+    return 0
+
+
+def _inherited_descriptors(*, names: tuple[str, ...]) -> dict[str, int]:
+    descriptors: list[int] = []
+    for candidate in os.listdir("/proc/self/fd"):
+        if candidate.isdigit() and int(candidate) >= _FIRST_INHERITED_DESCRIPTOR:
+            descriptor = int(candidate)
+            try:
+                _ = os.fstat(descriptor)
+            except OSError:
+                continue
+            descriptors.append(descriptor)
+    return _descriptor_mapping(names=names, descriptors=tuple(sorted(descriptors)))
+
+
+def _descriptor_mapping(*, names: tuple[str, ...], descriptors: tuple[int, ...]) -> dict[str, int]:
+    try:
+        return dict(zip(names, descriptors, strict=True))
+    except ValueError:
+        return {}
+
+
+def _needs_role_exec(*, variable: str | None) -> bool:
+    return (variable or _ROLE_EXEC_MARKER) not in os.environ
 
 
 def _write_line(*, line: str) -> None:
