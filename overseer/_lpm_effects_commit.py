@@ -17,8 +17,8 @@ and `assignment-commit` reads the instant back instead of re-sampling a clock.
 
 THE ADAPTER'S THREE STATUSES MEAN THREE DIFFERENT THINGS AND ARE KEPT APART. `in-progress`
 says a timed-out or orphaned sibling may still own the reference lock and still be writing, so
-the destination's state is unknowable and this is `store-unavailable`; `uncommitted` says the
-prior bytes definitively survive, which is the pre-commit failure that routes `start` to
+the destination's state is unknowable and this is `retryable-exhaustion`; `uncommitted` says
+the prior bytes definitively survive, which is the pre-commit failure that routes `start` to
 `cleanup`; `committed` is the only one that may persist an instant.
 
 A COMMITTED ASSIGNMENT AT A DIFFERENT INSTANT IS A BUG, NOT A REWRITE. Two disagreeing commit
@@ -52,8 +52,14 @@ from _lpm_engine_records import (
     write_action,
 )
 from _lpm_localstate import write_local_record
-from _lpm_results import ManagerError, internal_bug, provisioning_failed, store_unavailable
-from _lpm_target import COMMITTED, IN_PROGRESS, commit_credential
+from _lpm_results import (
+    ManagerError,
+    internal_bug,
+    provisioning_failed,
+    retryable_exhaustion,
+    store_unavailable,
+)
+from _lpm_target import COMMITTED, IN_PROGRESS, CommitOutcome, commit_credential
 from _lpm_target_commit import TargetCommit, target_commit_from_object, target_commit_object
 
 from overseer._vendor.returns.result import Failure, Result, Success
@@ -72,7 +78,7 @@ def target_write(*, context: EffectContext) -> Result[str, ManagerError]:
     The adapter's three statuses are kept apart because the contract gives them different
     meanings: `in-progress` says a timed-out or orphaned sibling may still own the reference
     lock and still be writing, so the destination's state is unknowable and this is
-    `store-unavailable`; `uncommitted` says the prior bytes definitively survive, which is
+    `retryable-exhaustion`; `uncommitted` says the prior bytes definitively survive, which is
     the pre-commit failure that routes `start` to `cleanup`.
     """
     prepared = _commit_preconditions(context=context)
@@ -134,16 +140,24 @@ def _committed_write(
     target_ref: str,
     assignment: Assignment,
 ) -> Result[None, ManagerError]:
-    outcome = commit_credential(
-        destination=inputs.destination,
-        value=inputs.credential_value,
-        owner_uid=context.engine.owner_uid,
-        fence_now=inputs.fence_now,
-        lease_expires_at=assignment.lease_expires_at,
-        lock=inputs.lock,
+    committed = (
+        inputs.provision_target(lease_expires_at=assignment.lease_expires_at)
+        if inputs.provision_target is not None
+        else _local_target_write(
+            context=context, inputs=inputs, lease_expires_at=assignment.lease_expires_at
+        )
     )
+    if isinstance(committed, Failure):
+        return Failure(committed.failure())
+    outcome: CommitOutcome = committed.unwrap()
     if outcome.status == IN_PROGRESS:
-        return Failure(store_unavailable(message="another writer still owns this target reference"))
+        if inputs.provision_target is None:
+            return Failure(
+                store_unavailable(message="another writer still owns this target reference")
+            )
+        return Failure(
+            retryable_exhaustion(message="the target write outcome is still in progress")
+        )
     if outcome.status != COMMITTED or outcome.committed_at is None:
         return Failure(
             provisioning_failed(message="the target write did not commit; the prior bytes stand")
@@ -161,6 +175,24 @@ def _committed_write(
         ),
         value=target_commit_object(commit=commit),
         owner_uid=context.engine.owner_uid,
+    )
+
+
+def _local_target_write(
+    *, context: EffectContext, inputs: ProvisionInputs, lease_expires_at: str
+) -> Result[CommitOutcome, ManagerError]:
+    """Retain direct writes for callers already inside an isolated credential role."""
+    if inputs.credential_value is None:
+        return Failure(internal_bug(message="the direct target port received no credential value"))
+    return Success(
+        commit_credential(
+            destination=inputs.destination,
+            value=inputs.credential_value,
+            owner_uid=context.engine.owner_uid,
+            fence_now=inputs.fence_now,
+            lease_expires_at=lease_expires_at,
+            lock=inputs.lock,
+        )
     )
 
 

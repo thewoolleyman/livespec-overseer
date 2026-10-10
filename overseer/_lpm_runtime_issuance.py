@@ -5,9 +5,10 @@ from __future__ import annotations
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 from _lpm_localstate import read_local_record
 from _lpm_paths import local_record_path
+from _lpm_provision_request import ProvisionRequest
 from _lpm_results import ManagerError, invalid_request, store_unavailable
 from _lpm_runtime_base import RuntimeHost
-from _lpm_target import TargetIssuance, issuance_from_object
+from _lpm_target import TargetIssuance, issuance_from_object, resolve_issuance
 from _lpm_time import is_at_or_after
 
 from overseer._vendor.returns.result import Failure, Result, Success
@@ -18,7 +19,30 @@ __all__: list[str] = [
     "existing_issuance_payload",
     "issuance_for_run",
     "read_runtime_issuance",
+    "resolved_runtime_issuance",
 ]
+
+
+def resolved_runtime_issuance(
+    *, host: RuntimeHost, request: ProvisionRequest, bound: bool, now: str | None = None
+) -> Result[TargetIssuance, ManagerError]:
+    """Resolve a persisted issuance for its exact run, reference and expiry state."""
+    stored = read_runtime_issuance(host=host, reference=request.target_ref)
+    if isinstance(stored, Failure):
+        return Failure(stored.failure())
+    issuance = stored.unwrap()
+    if issuance is None:
+        return Failure(invalid_request(message="target_ref does not name an issuance"))
+    resolved = resolve_issuance(
+        issuance=issuance,
+        target_ref=request.target_ref,
+        consumer_run_id=request.consumer_run_id,
+        now=host.capture_time() if now is None else now,
+        bound=bound,
+    )
+    if isinstance(resolved, Failure):
+        return Failure(resolved.failure())
+    return Success(issuance)
 
 
 def read_runtime_issuance(
