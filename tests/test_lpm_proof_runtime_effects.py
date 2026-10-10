@@ -176,7 +176,13 @@ def _lease(*, run_id: str, record_id: str, account_id: str) -> dict[str, object]
     }
 
 
-def _completion(*, run_id: str, record_id: str, completed_at: str) -> dict[str, object]:
+def _completion(
+    *,
+    run_id: str,
+    record_id: str,
+    completed_at: str,
+    legacy_pool_absent: bool = False,
+) -> dict[str, object]:
     return {
         "version": 1,
         "consumer_run_id": run_id,
@@ -185,7 +191,7 @@ def _completion(*, run_id: str, record_id: str, completed_at: str) -> dict[str, 
         "consumer_class": "production",
         "provider_authenticated": True,
         "alternate_credential_used": False,
-        "legacy_pool_absent": False,
+        "legacy_pool_absent": legacy_pool_absent,
     }
 
 
@@ -655,3 +661,75 @@ def test_concurrent_public_engine_contributions_retain_the_complete_shared_proof
         tmp_path=tmp_path, monkeypatch=monkeypatch, proof_effect=proof_effect
     )
     _assert_downstream_completion_refusals(tmp_path=tmp_path)
+
+
+def test_replayed_completion_does_not_recreate_evidence_cleared_by_auth_failure(
+    tmp_path: pathlib.Path,
+) -> None:
+    state_dir = _state(tmp_path=tmp_path)
+    _establish_rollout_and_pair(state_dir=state_dir)
+    completion = _operation(
+        ordinal=21,
+        command="complete",
+        normalized_input=_completion(
+            run_id="run-a",
+            record_id=_RECORD_A,
+            completed_at="2026-10-03T12:00:00Z",
+            legacy_pool_absent=True,
+        ),
+        effects=_COMPLETE_EFFECTS,
+        completed_step=-1,
+    )
+    _persist_operation(state_dir=state_dir, operation=completion)
+    operation_path = _path(
+        state_dir=state_dir,
+        family="operation",
+        identity=(completion.command, completion.idempotency_key),
+    )
+    operation_path.chmod(0o644)
+
+    crashed = _drive(state_dir=state_dir, operation=completion)
+
+    assert isinstance(crashed, Failure), crashed
+    operation_path.chmod(0o600)
+    report = _operation(
+        ordinal=22,
+        command="report",
+        normalized_input={
+            "version": 1,
+            "consumer_run_id": "run-b",
+            "record_id": _RECORD_B,
+            "occurred_at": "2026-10-04T12:00:00Z",
+            "classification": "authentication",
+        },
+        effects=(
+            "audit-append",
+            "credential-conditional-set",
+            "proof-update",
+            "report-marker-update",
+        ),
+        completed_step=1,
+    )
+    _persist_operation(state_dir=state_dir, operation=report)
+    reported = _drive(state_dir=state_dir, operation=report)
+    assert isinstance(reported, Success), reported
+
+    recovered = _module(name="_lpm_engine").resume_phase(
+        engine=_engine(state_dir=state_dir),
+        command="complete",
+        idempotency_key=completion.idempotency_key,
+        inputs=_module(name="_lpm_engine_context").EffectInputs(),
+    )
+
+    assert isinstance(recovered, Success), recovered
+    assert recovered.unwrap().skipped[0] == 0
+    proof = _proof(state_dir=state_dir)
+    assert len(proof.completion_markers) == 1
+    assert proof.production_success == {
+        "consumer_run_id": "run-a",
+        "completed_at": "2026-10-03T12:00:00Z",
+    }
+    assert proof.legacy_pool_absence_success == proof.production_success
+    assert proof.last_auth_failure_at == "2026-10-04T12:00:00Z"
+    assert proof.successful_consumer_dates == ()
+    assert proof.soak_started_at is None
