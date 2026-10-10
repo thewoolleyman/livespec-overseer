@@ -102,7 +102,9 @@ def _observe(*, pid: int) -> ProcessObservation | None:
     )
 
 
-def _lookalike_below(*, root_pid: int, lookalike: Path) -> ProcessObservation | None:
+def _lookalike_below(
+    *, root_pid: int, lookalike: Path, daemon_runtime: Path
+) -> ProcessObservation | None:
     pending = list(claude_sessions.proc_children(pid=root_pid))
     seen = {root_pid}
     while pending:
@@ -111,16 +113,23 @@ def _lookalike_below(*, root_pid: int, lookalike: Path) -> ProcessObservation | 
             continue
         seen.add(pid)
         observation = _observe(pid=pid)
-        if observation is not None and str(lookalike) in observation.argv:
+        if (
+            observation is not None
+            and observation.executable == daemon_runtime
+            and observation.argv[1:] == (str(lookalike),)
+            and observation.process_group == observation.foreground_group
+        ):
             return observation
         pending.extend(claude_sessions.proc_children(pid=pid))
     return None
 
 
-def _await_lookalike(*, root_pid: int, lookalike: Path) -> ProcessObservation:
+def _await_lookalike(*, root_pid: int, lookalike: Path, daemon_runtime: Path) -> ProcessObservation:
     deadline = time.monotonic() + WAIT_SECONDS
     while time.monotonic() < deadline:
-        observation = _lookalike_below(root_pid=root_pid, lookalike=lookalike)
+        observation = _lookalike_below(
+            root_pid=root_pid, lookalike=lookalike, daemon_runtime=daemon_runtime
+        )
         if observation is not None:
             return observation
         time.sleep(0.05)
@@ -252,6 +261,7 @@ def test_native_tmux_refuses_an_unprepared_same_runtime_overseerd_script(
     first = _await_lookalike(
         root_pid=native_case.candidate_root,
         lookalike=native_case.lookalike,
+        daemon_runtime=native_case.daemon_runtime,
     )
     second = _observe(pid=first.pid)
     assert second == first
