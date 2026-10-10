@@ -44,6 +44,8 @@ class PaneRoutingWrites:
 
     def bracketed_paste(self, *, session: str, text: str) -> bool:
         decoded = self.reads.decode(value=session)
+        if decoded.herdr is not None:
+            return self.herdr_writer.bracketed_paste(target=decoded.herdr, text=text).ok
         if decoded.tmux is not None:
             return self.reads.tmux_driver(target=decoded.tmux).bracketed_paste(
                 session=decoded.tmux.pane_id,

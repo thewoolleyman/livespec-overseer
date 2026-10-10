@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Protocol, cast
@@ -9,6 +10,7 @@ from typing import Protocol, cast
 import herdr_adapter
 import herdr_identity
 import pane_discovery
+import terminal_probes
 import tmux_bootstrap_driver
 import tmux_process
 import tmuxio
@@ -126,8 +128,41 @@ class PaneRoutingReads:
             )
         return False if decoded.error else self.tmux.session_exists(session=session)
 
+    def _tmux_pid_coordinates(self) -> dict[int, str]:
+        """Exact coordinates for panes on the tmux socket named by the environment."""
+        probe = terminal_probes.TmuxOwnershipProbe()
+        named_endpoints = tuple(
+            endpoint
+            for endpoint in probe.endpoints(environ=os.environ)
+            if endpoint != terminal_probes.DEFAULT_TMUX_ENDPOINT
+        )
+        ambient = self.tmux.pane_pid_sessions()
+        # A real ambient TmuxIO inherits TMUX. Once that names an explicit socket,
+        # its bare session map is not durable identity and must fail closed if the
+        # exact probe cannot reproduce it. Injected drivers retain their own declared
+        # semantics; a successful exact probe still overwrites matching pids below.
+        out = {
+            (False, False): ambient,
+            (False, True): ambient,
+            (True, False): ambient,
+            (True, True): {},
+        }[(bool(named_endpoints), isinstance(self.tmux, tmuxio.TmuxIO))]
+        for endpoint in named_endpoints:
+            reading = probe.owned_panes(endpoint=endpoint)
+            for pane in reading.panes:
+                coordinate = herdr_identity.encode_tmux_target(
+                    target=herdr_identity.TmuxPaneTarget(
+                        socket_path=pane.socket_path,
+                        server_pid=pane.server_pid,
+                        server_starttime=pane.server_starttime,
+                        pane_id=pane.pane_id,
+                    )
+                )
+                out.update(dict.fromkeys(pane.pane_process_pids, coordinate))
+        return out
+
     def pane_pid_sessions(self) -> dict[int, str]:
-        out = self.tmux.pane_pid_sessions()
+        out = self._tmux_pid_coordinates()
         recorded = (
             herdr_identity.decode_target(value=coordinate).herdr for coordinate in self.coordinates
         )

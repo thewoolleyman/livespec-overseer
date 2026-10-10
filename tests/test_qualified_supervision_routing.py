@@ -67,7 +67,9 @@ class RecordedHerdr:
             ok=True,
             panes=(
                 herdr_calls.PaneRow(
-                    pane_id=target.pane_id,
+                    # list_panes receives an instance probe whose pane id is blank;
+                    # the native API returns the pane ids owned by that instance.
+                    pane_id="w1:p1",
                     tab_id="w1:t1",
                     workspace_id="w1",
                     cwd=self.repositories[target.socket_path],

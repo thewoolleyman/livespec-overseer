@@ -42,10 +42,14 @@ OWNERSHIP_PROBES: Callable[[], tuple[terminal_ownership.TerminalProbe, ...]] = p
         terminal_probes.HerdrOwnershipProbe(),
     ),
 )
-_DEFAULT_HERDR_ENDPOINTS = tuple(filter(None, (os.environ.get(terminal_probes.HERDR_SOCKET_ENV),)))
 _THIS_MODULE = sys.modules[__name__]
 sys.modules["pane_router"] = _THIS_MODULE
 sys.modules["overseer.pane_router"] = _THIS_MODULE
+
+
+def _default_herdr_endpoints() -> tuple[str, ...]:
+    """The standard default Herdr socket plus any explicitly selected instance."""
+    return terminal_probes.HerdrOwnershipProbe().endpoints(environ=os.environ)
 
 
 @dataclass(kw_only=True)
@@ -57,9 +61,7 @@ class MixedPaneDriver:
     herdr_writer: pane_router_submit_signals.HerdrInput = field(
         default_factory=herdr_write.HerdrWriter
     )
-    herdr_endpoints: Callable[[], Iterable[str]] = field(
-        default_factory=lambda: partial(tuple, _DEFAULT_HERDR_ENDPOINTS)
-    )
+    herdr_endpoints: Callable[[], Iterable[str]] = _default_herdr_endpoints
     tmux_run: tmux_process.TextProcessRun = tmux_process.TEXT_PROCESS_RUN
     coordinates: set[str] = field(default_factory=set)
     prompt_states: dict[str, pane_router_submit_signals.PromptState] = field(default_factory=dict)

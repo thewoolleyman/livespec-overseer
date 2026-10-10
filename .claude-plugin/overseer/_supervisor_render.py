@@ -22,6 +22,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
+import pane_router_coordinates
 import registry
 from _supervisor_config import WINDOW_NAME, iso_now
 from _supervisor_surface_attention import SurfaceAttention
@@ -49,6 +50,14 @@ __all__: list[str] = [
 ]
 
 _TABLE_PREAMBLE_LINES = 2  # header + separator
+
+
+def _herdr_attention_target(*, row: RowView) -> tuple[str, str] | None:
+    attention = pane_router_coordinates.herdr_attention(coordinate=row.tmux or "")
+    if attention is None:
+        return None
+    runtime = f" ({row.runtime})" if row.runtime is not None else ""
+    return f"{attention.display}{runtime}", attention.jump
 
 
 def render_table(
@@ -148,17 +157,23 @@ def attention_lines(
         # Elide the note here too: a session can write an arbitrarily long `blocked:`
         # reason, and the full text lives in the pane this line points at.
         detail = f" — {elide(text=row.note, limit=MAX_REASON_IN_ALERT)}" if row.note else ""
-        # Annotate the tmux coordinate with the runtime the SAME way the table does
-        # (`tmux_cell`), so the operator knows whether they are jumping into a Claude
-        # or a Codex pane before they do. The jump command itself stays the bare
-        # session name (`tmux switch-client -t` takes no runtime).
-        coords = (
-            f"topic: {row.topic} | tmux: {tmux_cell(row=row)} "
-            f"| repo: {registry.repo_slug(repo=row.repo)}"
-        )
+        herdr_target = _herdr_attention_target(row=row)
+        if herdr_target is None:
+            # Legacy and qualified tmux rows retain their tmux-native handover.
+            coords = (
+                f"topic: {row.topic} | tmux: {tmux_cell(row=row)} "
+                f"| repo: {registry.repo_slug(repo=row.repo)}"
+            )
+            jump = f"tmux switch-client -t {row.tmux}" if row.tmux else ""
+        else:
+            display, jump = herdr_target
+            coords = (
+                f"topic: {row.topic} | herdr: {display} "
+                f"| repo: {registry.repo_slug(repo=row.repo)}"
+            )
         lines.append(f"  ! {coords} — {row.status}{detail}")
-        if row.tmux:
-            lines.append(f"      jump: tmux switch-client -t {row.tmux}")
+        if jump:
+            lines.append(f"      jump: {jump}")
     return lines
 
 

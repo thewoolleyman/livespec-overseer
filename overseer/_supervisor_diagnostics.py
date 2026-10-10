@@ -9,6 +9,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+import pane_router_coordinates
 import registry
 import streams
 from _supervisor_config import iso_now, track_key
@@ -230,12 +231,10 @@ def alert(*, request: AlertRequest) -> None:
     a healthy status its entry is dropped, so the NEXT time it goes bad it reports
     again.
     """
-    where = (
-        f"tmux session '{request.session}' pane {request.pane}"
-        if request.session
-        else "no live tmux session"
+    where, jump_command = pane_router_coordinates.alert_attention(
+        coordinate=request.session, pane=request.pane
     )
-    jump = f" — jump: tmux switch-client -t {request.session}" if request.session else ""
+    jump = f" — jump: {jump_command}" if jump_command else ""
     line = (
         f"{request.topic} ({registry.repo_slug(repo=request.repo)}) — "
         f"{request.message} [{where}]{jump}"
