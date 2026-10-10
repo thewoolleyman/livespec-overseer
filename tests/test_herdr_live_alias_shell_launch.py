@@ -127,6 +127,7 @@ from pathlib import Path
 from typing import Any
 
 import claude_sessions
+import herdr_alias_fixture_identity
 import herdr_identity
 import herdr_protocol
 import herdr_transport
@@ -873,6 +874,23 @@ def _assert_session_path_is_bounded(*, session: str, legacy_session: str) -> Non
         socket_capacity,
     )
     assert session != legacy_session
+
+
+def test_client_socket_path_reuses_public_api_path(*, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The longer client socket retains the public API socket's registry parent."""
+    api_path = Path("/fixture-registry/owned/herdr.sock")
+    observed_sessions: list[str] = []
+
+    def api_socket_path(*, session: str) -> Path:
+        observed_sessions.append(session)
+        return api_path
+
+    monkeypatch.setattr(herdr_alias_fixture_identity, "herdr_api_socket_path", api_socket_path)
+
+    client_path = herdr_alias_fixture_identity.herdr_client_socket_path(session="owned")
+
+    assert client_path == api_path.with_name("herdr-client.sock")
+    assert observed_sessions == ["owned"]
 
 
 @pytest.mark.parametrize(
