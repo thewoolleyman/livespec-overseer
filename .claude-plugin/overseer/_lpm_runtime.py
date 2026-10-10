@@ -1,4 +1,4 @@
-"""Shared installed pre-operation runtime and typed consumer wire boundary."""
+"""Shared concrete command runtime used by both installed executable surfaces."""
 
 from __future__ import annotations
 
@@ -7,12 +7,16 @@ import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 from _lpm_attention import attention_item_object, attention_items
 from _lpm_commands import ManagerInvocation
 from _lpm_config import ManagerConfig, load_manager_config
+from _lpm_operation_input import normalized_input_defect
 from _lpm_paths import account_database_home, config_file, manager_state_dir
+from _lpm_provision_request import provision_request_from_object
+from _lpm_reports import report_from_object
 from _lpm_results import (
     ManagerError,
     internal_bug,
@@ -20,6 +24,10 @@ from _lpm_results import (
     invalid_request,
     store_unavailable,
 )
+from _lpm_runtime_base import ProvisionRuntimeHost, RuntimeHost
+from _lpm_runtime_provision import run_provision
+from _lpm_runtime_report import run_report
+from _lpm_runtime_target import run_target
 from _lpm_wire import CommandOutcome, error_outcome, read_command_object, success_outcome
 
 from overseer._vendor.returns.result import Failure, Result, Success
@@ -42,17 +50,9 @@ class ConcreteManagerRuntime:
     read_input: Callable[[], str]
 
     def run(self, *, invocation: ManagerInvocation) -> CommandOutcome:
-        """Answer attention and reject malformed object commands before any operation."""
+        """Validate one invocation, then drive its concrete operation or attention query."""
         if invocation.command == "attention":
-            listed = attention_items(state_dir=self.state_dir, owner_uid=self.owner_uid)
-            if isinstance(listed, Failure):
-                return error_outcome(error=listed.failure())
-            return success_outcome(
-                payload={
-                    "operation": "attention",
-                    "items": [attention_item_object(item=item) for item in listed.unwrap()],
-                }
-            )
+            return self._attention()
         source = invocation.source
         if source is None:
             return error_outcome(
@@ -62,7 +62,55 @@ class ConcreteManagerRuntime:
         parsed = read_command_object(source=source, read_input=self.read_input, refuse=refuse)
         if isinstance(parsed, Failure):
             return error_outcome(error=parsed.failure())
-        return error_outcome(error=refuse(message=f"{invocation.command} input is invalid"))
+        defect = self._input_defect(command=invocation.command, parsed=parsed.unwrap())
+        if defect is not None:
+            return error_outcome(error=defect)
+        return self._run_object(command=invocation.command, parsed=parsed.unwrap())
+
+    def _attention(self) -> CommandOutcome:
+        listed = attention_items(state_dir=self.state_dir, owner_uid=self.owner_uid)
+        if isinstance(listed, Failure):
+            return error_outcome(error=listed.failure())
+        return success_outcome(
+            payload={
+                "operation": "attention",
+                "items": [attention_item_object(item=item) for item in listed.unwrap()],
+            }
+        )
+
+    def _input_defect(self, *, command: str, parsed: object) -> ManagerError | None:
+        if command == "target":
+            defect = normalized_input_defect(command=command, normalized_input=parsed)
+            if defect is not None:
+                return invalid_request(message=defect)
+            source = cast("dict[str, object]", parsed)
+            if source["adapter"] not in self.config.enabled_target_adapters:
+                return invalid_request(message="target adapter is not enabled")
+            return None
+        if command == "provision":
+            accepted = provision_request_from_object(parsed=parsed)
+            return accepted.failure() if isinstance(accepted, Failure) else None
+        accepted_report = report_from_object(parsed=parsed)
+        return accepted_report.failure() if isinstance(accepted_report, Failure) else None
+
+    def _run_object(self, *, command: str, parsed: object) -> CommandOutcome:
+        if command == "target":
+            result = run_target(
+                host=cast("RuntimeHost", self),
+                normalized_input=cast("dict[str, object]", parsed),
+            )
+        elif command == "provision":
+            result = run_provision(
+                host=cast("ProvisionRuntimeHost", self),
+                request=provision_request_from_object(parsed=parsed).unwrap(),
+            )
+        else:
+            result = run_report(
+                host=cast("RuntimeHost", self), report=report_from_object(parsed=parsed).unwrap()
+            )
+        if isinstance(result, Failure):
+            return error_outcome(error=result.failure())
+        return success_outcome(payload=result.unwrap())
 
 
 def runtime_for_host() -> Result[ConcreteManagerRuntime, ManagerError]:
