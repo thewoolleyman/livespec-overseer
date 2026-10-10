@@ -12,7 +12,7 @@ import os
 import pathlib
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from overseer._vendor.returns.result import Failure, Success
 
@@ -733,3 +733,65 @@ def test_replayed_completion_does_not_recreate_evidence_cleared_by_auth_failure(
     assert proof.last_auth_failure_at == "2026-10-04T12:00:00Z"
     assert proof.successful_consumer_dates == ()
     assert proof.soak_started_at is None
+
+
+def test_out_of_order_events_preserve_the_soak_and_advance_auth_failure_monotonically(
+    tmp_path: pathlib.Path,
+) -> None:
+    state_dir = _state(tmp_path=tmp_path)
+    _establish_rollout_and_pair(state_dir=state_dir)
+    standing = replace(
+        _proof(state_dir=state_dir),
+        successful_consumer_dates=("2026-10-05", "2026-10-06"),
+        soak_started_at="2026-10-05T10:00:00Z",
+        last_auth_failure_at="2026-10-04T10:00:00Z",
+    )
+    _seed(
+        path=state_dir / "coexistence-proof.json",
+        value=_module(name="_lpm_proof").proof_object(proof=standing),
+    )
+    out_of_order = _operation(
+        ordinal=23,
+        command="complete",
+        normalized_input=_completion(
+            run_id="run-c",
+            record_id=_RECORD_C,
+            completed_at="2026-10-04T12:00:00Z",
+        ),
+        effects=_COMPLETE_EFFECTS,
+        completed_step=-1,
+    )
+    _persist_operation(state_dir=state_dir, operation=out_of_order)
+    completed = _drive(state_dir=state_dir, operation=out_of_order)
+    assert isinstance(completed, Success), completed
+
+    for ordinal, occurred_at in (
+        (24, "2026-10-05T09:00:00Z"),
+        (25, "2026-10-04T09:00:00Z"),
+    ):
+        report = _operation(
+            ordinal=ordinal,
+            command="report",
+            normalized_input={
+                "version": 1,
+                "consumer_run_id": "run-b",
+                "record_id": _RECORD_B,
+                "occurred_at": occurred_at,
+                "classification": "authentication",
+            },
+            effects=(
+                "audit-append",
+                "credential-conditional-set",
+                "proof-update",
+                "report-marker-update",
+            ),
+            completed_step=1,
+        )
+        _persist_operation(state_dir=state_dir, operation=report)
+        reported = _drive(state_dir=state_dir, operation=report)
+        assert isinstance(reported, Success), reported
+
+    proof = _proof(state_dir=state_dir)
+    assert proof.successful_consumer_dates == ("2026-10-05", "2026-10-06")
+    assert proof.soak_started_at == "2026-10-05T10:00:00Z"
+    assert proof.last_auth_failure_at == "2026-10-05T09:00:00Z"
