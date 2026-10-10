@@ -36,6 +36,7 @@ import os
 import time
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
+from typing import Protocol
 
 import _herdr_shell_identity
 import claude_sessions
@@ -48,6 +49,7 @@ from _seams import PidToOptionalStr
 
 __all__: list[str] = [
     "DEFAULT_TOP_RATIO",
+    "BootstrapWriter",
     "HerdrWriter",
     "LayoutOutcome",
     "WriteOutcome",
@@ -57,6 +59,28 @@ __all__: list[str] = [
 # `registry` and `supervisor` re-export their own collaborators here.
 DEFAULT_TOP_RATIO = herdr_layout.DEFAULT_TOP_RATIO
 LayoutOutcome = herdr_layout.LayoutOutcome
+
+
+class BootstrapWriter(Protocol):
+    """The exact-generation Herdr mutation surface public bootstrap requires."""
+
+    def request(
+        self,
+        *,
+        target: herdr_identity.HerdrPaneTarget,
+        method: str,
+        params: Mapping[str, object],
+        expect: herdr_protocol.ReplyExpectation,
+    ) -> herdr_transport.RpcOutcome: ...
+
+    def split_window_top(
+        self,
+        *,
+        target: herdr_identity.HerdrPaneTarget,
+        cwd: str,
+        command: str,
+        ratio: float = herdr_layout.DEFAULT_TOP_RATIO,
+    ) -> herdr_layout.LayoutOutcome: ...
 
 
 def _default_request_ids() -> Iterator[str]:

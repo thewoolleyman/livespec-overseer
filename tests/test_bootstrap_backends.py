@@ -30,6 +30,7 @@ import pytest
 from overseer import (
     daemon_liveness,
     herdr_bootstrap,
+    legacy_start,
     terminal_ownership,
     terminal_probes,
     tmux_bootstrap,
@@ -140,6 +141,7 @@ class FakeProcess:
 @dataclass(kw_only=True)
 class FakeAdapter:
     processes: dict[str, FakeProcess] = field(default_factory=dict)
+    process_sequences: dict[str, list[FakeProcess | None]] = field(default_factory=dict)
     errors: dict[str, str] = field(default_factory=dict)
     targets: list[Any] = field(default_factory=list)
 
@@ -148,6 +150,14 @@ class FakeAdapter:
         error = self.errors.get(target.pane_id, "")
         if error:
             return _Foreground(ok=False, process=None, error=error)
+        sequence = self.process_sequences.get(target.pane_id, [])
+        if sequence:
+            process = sequence.pop(0)
+            return _Foreground(
+                ok=process is not None,
+                process=process,
+                error="daemon process is not ready" if process is None else "",
+            )
         return _Foreground(ok=True, process=self.processes.get(target.pane_id), error="")
 
 
@@ -378,8 +388,26 @@ def test_the_herdr_placement_carries_the_layout_outcome_through_unchanged() -> N
     assert writer.splits == [("w1:p5", CORE_ROOT, DAEMON_COMMAND)]
 
 
-def test_a_successful_herdr_placement_reports_the_pane_it_created() -> None:
-    backend = _herdr()
+def test_a_successful_herdr_placement_waits_for_the_exact_daemon_process() -> None:
+    shell = FakeProcess(
+        pane_id="w1:p2",
+        shell_pid=811,
+        process_group_id=811,
+        name="dash",
+        cmdline="/usr/bin/dash",
+    )
+    daemon = FakeProcess(
+        pane_id="w1:p2",
+        shell_pid=811,
+        process_group_id=822,
+        name="python",
+        cmdline="/tmp/candidate/venv/bin/python /tmp/candidate/venv/bin/overseerd",
+    )
+    adapter = FakeAdapter(process_sequences={"w1:p2": [shell, daemon]})
+    backend = _herdr(
+        adapter=adapter,
+        daemon_processes=FakeDaemonProcesses(identities={811: _daemon_identity(pid=822)}),
+    )
 
     placement = backend.place_daemon_above(
         claim=_herdr_claim(), cwd=CORE_ROOT, command=DAEMON_COMMAND
@@ -388,6 +416,35 @@ def test_a_successful_herdr_placement_reports_the_pane_it_created() -> None:
     assert placement.ok
     assert placement.pane_id == "w1:p2"
     assert placement.effect_unknown is False
+    assert [target.pane_id for target in adapter.targets] == ["w1:p2", "w1:p2"]
+
+
+def test_a_herdr_launch_without_exact_daemon_readiness_remains_unresolved(
+    *, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(herdr_bootstrap, "DAEMON_READY_TIMEOUT_SECONDS", 0.0, raising=False)
+    backend = _herdr(
+        adapter=FakeAdapter(
+            processes={
+                "w1:p2": FakeProcess(
+                    pane_id="w1:p2",
+                    shell_pid=811,
+                    process_group_id=811,
+                    name="dash",
+                    cmdline="/usr/bin/dash",
+                )
+            }
+        )
+    )
+
+    placement = backend.place_daemon_above(
+        claim=_herdr_claim(), cwd=CORE_ROOT, command=DAEMON_COMMAND
+    )
+
+    assert not placement.ok
+    assert placement.pane_id == "w1:p2"
+    assert placement.effect_unknown is True
+    assert "exact daemon process readiness" in placement.error
 
 
 # ------------------------------------------------------------------- tmux arm
@@ -409,7 +466,13 @@ class FakeTmuxDriver:
     pane_pids: dict[str, int | None] = field(default_factory=dict)
     split_result: str | None = "%88"
     pane_alive: bool = True
+    server_generations: list[tuple[int, str] | None] = field(default_factory=list)
     calls: list[tuple[str, Any]] = field(default_factory=list)
+
+    def server_generation(self) -> tuple[int, str] | None:
+        generation = self.server_generations.pop(0) if self.server_generations else (300, "gen-1")
+        self.calls.append(("server_generation", generation))
+        return generation
 
     def window_pane_geometries(self, *, pane: str) -> list[Geometry]:
         self.calls.append(("window_pane_geometries", pane))
@@ -454,7 +517,10 @@ def _tmux(*, driver: FakeTmuxDriver) -> tuple[tmux_bootstrap.TmuxBootstrap, list
         addressed.append(socket_path)
         return driver
 
-    return tmux_bootstrap.TmuxBootstrap(driver_for=driver_for), addressed
+    return tmux_bootstrap.TmuxBootstrap(
+        daemon_executable=PREPARED_DAEMON,
+        driver_for=driver_for,
+    ), addressed
 
 
 def _recorded_argv(*, socket_path: str) -> list[str]:
@@ -643,9 +709,27 @@ def test_a_tmux_live_daemon_is_bound_to_the_prepared_executable(
     assert observed == [(811, PREPARED_DAEMON)]
 
 
-def test_a_tmux_placement_titles_normalizes_and_resizes_the_new_top_pane() -> None:
-    """The legacy layout steps are preserved, in the legacy order."""
-    driver = FakeTmuxDriver(geometries=(Geometry(pane="%7", top=0, height=30),))
+def test_a_tmux_placement_waits_for_the_daemon_without_normalizing_sibling_geometry(
+    *, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only the created pane is resized; the whole window is never normalized."""
+    monkeypatch.setattr(
+        tmux_bootstrap.tmux_daemon_liveness,
+        "foreground_daemon_process",
+        lambda *, root_pid, daemon_executable: (
+            _daemon_identity(pid=822)
+            if (root_pid, daemon_executable) == (811, PREPARED_DAEMON)
+            else None
+        ),
+    )
+    driver = FakeTmuxDriver(
+        geometries=(
+            Geometry(pane="%7", top=20, height=20),
+            Geometry(pane="%9", top=40, height=10),
+        ),
+        commands={"%88": "python"},
+        pane_pids={"%88": 811},
+    )
     backend, _ = _tmux(driver=driver)
 
     placement = backend.place_daemon_above(
@@ -655,13 +739,33 @@ def test_a_tmux_placement_titles_normalizes_and_resizes_the_new_top_pane() -> No
     assert placement.ok
     assert placement.pane_id == "%88"
     assert placement.effect_unknown is False
-    assert driver.calls == [
-        ("split_window_top", ("%7", CORE_ROOT, DAEMON_COMMAND)),
-        ("set_pane_title", ("%88", tmux_bootstrap.DAEMON_PANE_TITLE)),
-        ("pane_exists", "%88"),
-        ("select_layout_even", "%7"),
-        ("set_pane_height_percent", ("%88", tmux_bootstrap.DAEMON_PANE_HEIGHT_PERCENT)),
-    ]
+    assert ("split_window_top", ("%7", CORE_ROOT, DAEMON_COMMAND)) in driver.calls
+    assert ("set_pane_title", ("%88", tmux_bootstrap.DAEMON_PANE_TITLE)) in driver.calls
+    assert ("pane_pid", "%88") in driver.calls
+    assert (
+        "set_pane_height_percent",
+        ("%88", tmux_bootstrap.DAEMON_PANE_HEIGHT_PERCENT),
+    ) in driver.calls
+    assert "pane_exists" not in driver.verbs()
+    assert "select_layout_even" not in driver.verbs()
+    assert driver.verbs()[-1] == "set_pane_height_percent"
+
+
+def test_tmux_revalidates_the_selected_server_generation_before_follow_up_mutation() -> None:
+    driver = FakeTmuxDriver(
+        server_generations=[(300, "gen-1"), (301, "gen-2")],
+    )
+    backend, _ = _tmux(driver=driver)
+
+    placement = backend.place_daemon_above(
+        claim=_tmux_claim(), cwd=CORE_ROOT, command=DAEMON_COMMAND
+    )
+
+    assert not placement.ok
+    assert placement.pane_id == "%88"
+    assert placement.effect_unknown is True
+    assert "server generation changed" in placement.error
+    assert driver.verbs() == ["server_generation", "split_window_top", "server_generation"]
 
 
 def test_a_refused_tmux_split_is_a_known_failure_with_nothing_created() -> None:
@@ -691,3 +795,28 @@ def test_a_tmux_daemon_pane_that_closed_immediately_is_reported_as_not_alive() -
     assert placement.pane_id == "%88"
     assert "did not stay alive" in placement.error
     assert "set_pane_height_percent" not in driver.verbs()
+
+
+def test_legacy_decomposition_preserves_the_load_bearing_design_records_verbatim() -> None:
+    source = Path(legacy_start.__file__).read_text(encoding="utf-8")
+
+    assert (
+        """# 1. Start the daemon in a TOP pane of THIS window (idempotent). The title is
+    # only an identity anchor; pane indexes are deliberately avoided because tmux
+    # renumbers after a collapse. The geometry read proves the titled pane itself
+    # is the top pane in the two-pane operator window. The daemon self-update path
+    # uses process re-exec, so it preserves its pane by construction; this bootstrap
+    # handles the recovery case where a pane-command shape closed the daemon pane."""
+        in source
+    )
+    assert (
+        """# 1b. Normalize the stack (self-heals an uneven split — e.g. after a stray third
+    # pane was opened and closed, redistributing rows), THEN give the daemon its share.
+    # The daemon pane is the one that must be readable: it carries the live table AND
+    # the `NEEDS YOU` block, which is where the operator learns what wants them. The
+    # bottom pane is a command prompt and needs far less room. Resolve the daemon pane
+    # BY TITLE rather than reusing `new_pane`, so the idempotent re-run path (where the
+    # pane already existed and we never held its id) resizes it too."""
+        in source
+    )
+    assert "# 2. Adopt existing worker sessions that match active plan topics." in source

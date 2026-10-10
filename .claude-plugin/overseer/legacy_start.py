@@ -80,6 +80,12 @@ def run_legacy_start(
     ensure_daemon_runtime: Callable[[], Path | None],
 ) -> int:
     """Run the deterministic injected-driver tmux compatibility surface."""
+    # 1. Start the daemon in a TOP pane of THIS window (idempotent). The title is
+    # only an identity anchor; pane indexes are deliberately avoided because tmux
+    # renumbers after a collapse. The geometry read proves the titled pane itself
+    # is the top pane in the two-pane operator window. The daemon self-update path
+    # uses process re-exec, so it preserves its pane by construction; this bootstrap
+    # handles the recovery case where a pane-command shape closed the daemon pane.
     existing_daemon_pane = layout.pane_by_title(pane=pane, title=DAEMON_PANE_TITLE)
     if existing_daemon_pane is not None and _daemon_pane_is_top_of_two(
         layout=layout, pane=existing_daemon_pane
@@ -105,10 +111,18 @@ def run_legacy_start(
             daemon_executable=daemon_executable,
         ):
             return 1
+    # 1b. Normalize the stack (self-heals an uneven split — e.g. after a stray third
+    # pane was opened and closed, redistributing rows), THEN give the daemon its share.
+    # The daemon pane is the one that must be readable: it carries the live table AND
+    # the `NEEDS YOU` block, which is where the operator learns what wants them. The
+    # bottom pane is a command prompt and needs far less room. Resolve the daemon pane
+    # BY TITLE rather than reusing `new_pane`, so the idempotent re-run path (where the
+    # pane already existed and we never held its id) resizes it too.
     _ = layout.select_layout_even(pane=pane)
     daemon_pane = layout.pane_by_title(pane=pane, title=DAEMON_PANE_TITLE)
     if daemon_pane is not None and _daemon_pane_is_top_of_two(layout=layout, pane=daemon_pane):
         _ = layout.set_pane_height_percent(pane=daemon_pane, percent=DAEMON_PANE_HEIGHT_PERCENT)
+    # 2. Adopt existing worker sessions that match active plan topics.
     build = build_supervisor if build_supervisor is not None else supervisor.build_supervisor
     adopted = build().adopt_sessions()
     for track in adopted:

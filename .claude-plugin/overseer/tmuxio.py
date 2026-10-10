@@ -40,12 +40,14 @@ from __future__ import annotations
 import itertools
 import os
 import subprocess
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import TypeGuard
 
 import input_provenance
 import streams
+import terminal_probes
+import tmux_process
 from tmuxio_env import with_env_delta
 from tmuxio_protocols import PaneDriver, PaneGeometry, SessionNameDriver, WindowLayoutDriver
 
@@ -74,11 +76,6 @@ _TMUX_TIMEOUT_SECONDS = 10.0
 _INJECT_BUFFER_PREFIX = "overseer-inject"
 _buffer_counter = itertools.count()
 
-# Fields in one ``list-panes -F`` row: ``#{pane_id}``, ``#{pane_active}``, and the
-# caller's requested field. The row is split with ``maxsplit`` one less than this,
-# so a requested field containing a literal tab stays intact in the last element.
-_PANE_ROW_FIELDS = 3
-
 
 def _next_inject_buffer() -> str:
     return f"{_INJECT_BUFFER_PREFIX}-{os.getpid()}-{next(_buffer_counter)}"
@@ -102,11 +99,11 @@ class TmuxIO:
         self,
         *,
         tmux_bin: str = "tmux",
-        run: Callable[..., Any] | None = None,
+        run: tmux_process.TextProcessRun | None = None,
         input_provenance_path: str | os.PathLike[str] | None = None,
     ) -> None:
         self._tmux = tmux_bin
-        self._run = run if run is not None else subprocess.run
+        self._run = run if run is not None else tmux_process.TEXT_PROCESS_RUN
         self._input_provenance_path = (
             input_provenance.DEFAULT_PATH
             if input_provenance_path is None
@@ -120,7 +117,9 @@ class TmuxIO:
     # Internal: run one tmux subcommand, fail-soft.
     # ----------------------------------------------------------------- #
 
-    def _call(self, *, args: list[str], input_text: str | None = None) -> Any:
+    def _call(
+        self, *, args: list[str], input_text: str | None = None
+    ) -> tmux_process.TextProcess | None:
         """Run ``tmux <args>`` and return the CompletedProcess, or None on error.
 
         ``shell=False`` (argv list) bypasses any zsh ``tmux`` shim — the
@@ -143,8 +142,8 @@ class TmuxIO:
             return None
 
     @staticmethod
-    def _ok(*, completed: Any) -> bool:
-        return completed is not None and getattr(completed, "returncode", 1) == 0
+    def _ok(*, completed: tmux_process.TextProcess | None) -> TypeGuard[tmux_process.TextProcess]:
+        return completed is not None and completed.returncode == 0
 
     # ----------------------------------------------------------------- #
     # Reads.
@@ -155,7 +154,7 @@ class TmuxIO:
         completed = self._call(args=["capture-pane", "-e", "-p", "-t", session])
         if not self._ok(completed=completed):
             return ""
-        return completed.stdout
+        return completed.stdout or ""
 
     def _pane_field(self, *, target: str, fmt: str) -> str | None:
         """One RELIABLE per-pane read via ``list-panes`` (not ``display-message``).
@@ -169,27 +168,7 @@ class TmuxIO:
         fails soft to None rather than a prefix sibling). None on any error or
         empty value.
         """
-        completed = self._call(
-            args=["list-panes", "-t", target, "-F", "#{pane_id}\t#{pane_active}\t" + fmt]
-        )
-        if not self._ok(completed=completed):
-            return None
-        rows = [
-            parts
-            for line in (completed.stdout or "").splitlines()
-            if line.strip()
-            for parts in [line.split("\t", _PANE_ROW_FIELDS - 1)]
-            if len(parts) == _PANE_ROW_FIELDS
-        ]
-        if not rows:
-            return None
-        if target.startswith("%"):
-            chosen = next((r for r in rows if r[0] == target), None)
-        else:
-            chosen = next((r for r in rows if r[1] == "1"), rows[0])
-        if chosen is None:
-            return None
-        return chosen[2].strip() or None
+        return tmux_process.pane_field(call=self._call, target=target, fmt=fmt)
 
     def pane_id(self, *, session: str) -> str | None:
         """``#{pane_id}`` — the pane's globally-unique id (e.g. ``%5``), or None.
@@ -247,6 +226,17 @@ class TmuxIO:
     def pane_session_name(self, *, pane: str) -> str | None:
         """``#{session_name}`` for an exact pane id, or None when tmux cannot answer."""
         return self._pane_field(target=pane, fmt="#{session_name}")
+
+    def server_generation(self) -> tuple[int, str] | None:
+        """The exact answering server's PID and fresh `/proc` start time."""
+        return (
+            terminal_probes.TmuxOwnershipProbe(
+                tmux_binary=self._tmux,
+                run=self._run,
+            )
+            .instance_listing(endpoint=terminal_probes.DEFAULT_TMUX_ENDPOINT)
+            .generation
+        )
 
     def pane_pid_sessions(self) -> dict[int, str]:
         """``{pane_pid: session_name}`` for EVERY pane across all sessions (``{}`` on error).
