@@ -681,6 +681,98 @@ def test_concurrent_public_engine_contributions_retain_the_complete_shared_proof
     _assert_downstream_completion_refusals(tmp_path=tmp_path)
 
 
+def _migration_operations(*, state_dir: pathlib.Path) -> tuple[_Binding, _Binding, object, object]:
+    current, peer = _BINDINGS[:2]
+    _seed_binding(state_dir=state_dir, binding=current)
+    completion = _completion(
+        run_id=peer.run_id,
+        record_id=peer.record_id,
+        completed_at="2026-10-07T13:00:00Z",
+    )
+    peer_assignment = _assignment(binding=peer, completion=completion)
+    peer_assignment["actual_lease_ended_at"] = "2026-10-07T13:00:00Z"
+    _seed(
+        path=_path(state_dir=state_dir, family="assignment", identity=(peer.run_id,)),
+        value=peer_assignment,
+    )
+    provision = _operation(
+        ordinal=34,
+        command="provision",
+        normalized_input=_request(run_id=current.run_id),
+        effects=_PROVISION_EFFECTS,
+        completed_step=1,
+    )
+    migration = _operation(
+        ordinal=35,
+        command="complete",
+        normalized_input=completion,
+        effects=_COMPLETE_EFFECTS,
+        completed_step=3,
+    )
+    _persist_operation(state_dir=state_dir, operation=provision)
+    _persist_operation(state_dir=state_dir, operation=migration)
+    return current, peer, provision, migration
+
+
+def _drive_while_peer_migrates(
+    *, state_dir: pathlib.Path, provision: object, migration: object, monkeypatch
+) -> tuple[object, object]:
+    proof_peers = _module(name="_lpm_proof_peers")
+    original_ensure = proof_peers.ensure_state_directory
+    assignment_scan_reached = threading.Event()
+    migration_finished = threading.Event()
+
+    def pause_before_assignment_scan(*, path: pathlib.Path, owner_uid: int):
+        safe = original_ensure(path=path, owner_uid=owner_uid)
+        if path == state_dir / "assignments":
+            assignment_scan_reached.set()
+            assert migration_finished.wait(timeout=2), "peer migration did not finish"
+        return safe
+
+    monkeypatch.setattr(proof_peers, "ensure_state_directory", pause_before_assignment_scan)
+
+    def migrate_peer() -> object:
+        assert assignment_scan_reached.wait(timeout=2), "proof scan did not reach assignments"
+        try:
+            return _drive(state_dir=state_dir, operation=migration)
+        finally:
+            migration_finished.set()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        provision_future = executor.submit(_drive, state_dir=state_dir, operation=provision)
+        migration_future = executor.submit(migrate_peer)
+        provision_outcome = provision_future.result(timeout=5)
+        migration_outcome = migration_future.result(timeout=5)
+    return provision_outcome, migration_outcome
+
+
+def test_provision_peer_discovery_retains_a_concurrently_migrated_binding(
+    tmp_path: pathlib.Path, monkeypatch
+) -> None:
+    state_dir = _state(tmp_path=tmp_path)
+    current, peer, provision, migration = _migration_operations(state_dir=state_dir)
+
+    provision_outcome, migration_outcome = _drive_while_peer_migrates(
+        state_dir=state_dir,
+        provision=provision,
+        migration=migration,
+        monkeypatch=monkeypatch,
+    )
+
+    assert isinstance(provision_outcome, Success), provision_outcome
+    assert isinstance(migration_outcome, Success), migration_outcome
+    assert not _path(state_dir=state_dir, family="assignment", identity=(peer.run_id,)).exists()
+    assert _path(state_dir=state_dir, family="tombstone", identity=(peer.run_id,)).exists()
+    assert _proof(state_dir=state_dir).simultaneous_spread == {
+        "first_consumer_run_id": current.run_id,
+        "first_account_id": current.account_id,
+        "second_consumer_run_id": peer.run_id,
+        "second_account_id": peer.account_id,
+        "overlap_started_at": "2026-10-01T09:00:00Z",
+        "overlap_ended_at": peer.committed_at,
+    }
+
+
 def test_replayed_completion_does_not_recreate_evidence_cleared_by_auth_failure(
     tmp_path: pathlib.Path,
 ) -> None:
