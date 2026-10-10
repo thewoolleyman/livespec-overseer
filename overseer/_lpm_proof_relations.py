@@ -53,9 +53,12 @@ def _dates_defect(*, source: dict[str, object]) -> str | None:
     parsed_dates: list[date] = []
     for value in raw_dates:
         try:
-            parsed_dates.append(date.fromisoformat(value))
+            parsed = date.fromisoformat(value)
         except ValueError:
+            parsed = None
+        if parsed is None or parsed.isoformat() != value:
             return "each proof successful_consumer_date must be a real UTC calendar date"
+        parsed_dates.append(parsed)
     for previous, current in pairwise(parsed_dates):
         if current != previous + timedelta(days=1):
             return "proof successful_consumer_dates must be sorted, unique and consecutive"
