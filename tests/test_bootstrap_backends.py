@@ -21,6 +21,7 @@ what would split again after a lost acknowledgement.
 
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -712,7 +713,7 @@ def test_a_tmux_live_daemon_is_bound_to_the_prepared_executable(
 def test_a_tmux_placement_waits_for_the_daemon_without_normalizing_sibling_geometry(
     *, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Only the created pane is resized; the whole window is never normalized."""
+    """The split owns only the invoking allocation; no later window resize is allowed."""
     monkeypatch.setattr(
         tmux_bootstrap.tmux_daemon_liveness,
         "foreground_daemon_process",
@@ -742,13 +743,120 @@ def test_a_tmux_placement_waits_for_the_daemon_without_normalizing_sibling_geome
     assert ("split_window_top", ("%7", CORE_ROOT, DAEMON_COMMAND)) in driver.calls
     assert ("set_pane_title", ("%88", tmux_bootstrap.DAEMON_PANE_TITLE)) in driver.calls
     assert ("pane_pid", "%88") in driver.calls
-    assert (
-        "set_pane_height_percent",
-        ("%88", tmux_bootstrap.DAEMON_PANE_HEIGHT_PERCENT),
-    ) in driver.calls
+    assert "set_pane_height_percent" not in driver.verbs()
     assert "pane_exists" not in driver.verbs()
     assert "select_layout_even" not in driver.verbs()
-    assert driver.verbs()[-1] == "set_pane_height_percent"
+    assert driver.verbs()[-1] == "pane_pid"
+
+
+def test_tmux_bootstrap_binds_each_call_to_the_selected_generation_connection() -> None:
+    calls: list[list[str]] = []
+
+    def recording(argv: list[str], **kwargs: Any) -> Any:
+        del kwargs
+        calls.append(list(argv))
+        raise OSError("deliberately not spawned")
+
+    driver = tmux_bootstrap.socket_scoped_driver(
+        socket_path=NAMED_TMUX_SOCKET,
+        run=recording,
+    )
+    backend = tmux_bootstrap.TmuxBootstrap(
+        daemon_executable=PREPARED_DAEMON,
+        driver_for=lambda *, socket_path: driver,
+    )
+
+    placement = backend.place_daemon_above(
+        claim=_tmux_claim(socket_path=NAMED_TMUX_SOCKET),
+        cwd=CORE_ROOT,
+        command=DAEMON_COMMAND,
+    )
+
+    assert not placement.ok
+    assert calls
+    assert calls[0][:4] == ["tmux", "-S", NAMED_TMUX_SOCKET, "if-shell"]
+    assert "#{pid}" in calls[0][4]
+    assert "/proc/300/stat" in calls[0][4]
+    assert '"gen-1"' in calls[0][4]
+    assert "list-panes" in calls[0][5]
+
+
+@pytest.mark.skipif(shutil.which("tmux") is None, reason="native tmux is unavailable")
+def test_native_tmux_split_preserves_the_unrelated_sibling_allocation(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    socket_path = str(tmp_path / "tmux.sock")
+
+    def native(*args: str, check: bool = True) -> str:
+        completed = terminal_probes.TEXT_PROCESS_RUN(
+            ["tmux", "-S", socket_path, *args],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10.0,
+        )
+        if check:
+            assert completed.returncode == 0, completed.stderr
+        return completed.stdout or ""
+
+    native("new-session", "-d", "-x", "120", "-y", "60", "-s", "probe", "sleep 30")
+    try:
+        invoking = native("list-panes", "-t", "probe", "-F", "#{pane_id}").strip()
+        native("split-window", "-v", "-d", "-l", "60%", "-t", invoking, "sleep 30")
+
+        def geometries() -> dict[str, Geometry]:
+            rows = native(
+                "list-panes",
+                "-t",
+                invoking,
+                "-F",
+                "#{pane_id}\t#{pane_top}\t#{pane_height}",
+            )
+            return {
+                pane: Geometry(pane=pane, top=int(top), height=int(height))
+                for pane, top, height in (line.split("\t") for line in rows.splitlines())
+            }
+
+        before = geometries()
+        sibling = next(pane for pane in before if pane != invoking)
+        listing = terminal_probes.TmuxOwnershipProbe().instance_listing(endpoint=socket_path)
+        assert listing.generation is not None
+        pane_row = next(row for row in listing.rows if row[0] == invoking)
+        server_pid, server_starttime = listing.generation
+        claim = terminal_ownership.OwnershipClaim(
+            backend="tmux",
+            socket_path=socket_path,
+            server_pid=server_pid,
+            server_starttime=server_starttime,
+            pane_id=invoking,
+            pane_process_pid=pane_row[1],
+            distance=1,
+        )
+        monkeypatch.setattr(
+            tmux_bootstrap.tmux_daemon_liveness,
+            "foreground_daemon_process",
+            lambda *, root_pid, daemon_executable: _daemon_identity(pid=root_pid),
+        )
+        backend = tmux_bootstrap.TmuxBootstrap(daemon_executable=PREPARED_DAEMON)
+
+        placement = backend.place_daemon_above(
+            claim=claim,
+            cwd=CORE_ROOT,
+            command="sleep 30",
+        )
+
+        assert placement.ok
+        after = geometries()
+        assert after[sibling] == before[sibling]
+        assert after[placement.pane_id].top == before[invoking].top
+        assert after[invoking].top + after[invoking].height == (
+            before[invoking].top + before[invoking].height
+        )
+        assert after[placement.pane_id].height + after[invoking].height + 1 == (
+            before[invoking].height
+        )
+    finally:
+        native("kill-server", check=False)
 
 
 def test_tmux_revalidates_the_selected_server_generation_before_follow_up_mutation() -> None:

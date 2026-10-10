@@ -16,7 +16,6 @@ class LaunchPolicy:
     """Presentation and readiness bounds for one known-created daemon pane."""
 
     title: str
-    height_percent: int
     timeout_seconds: float
     poll_seconds: float
 
@@ -28,7 +27,7 @@ def finish_created_pane(
     observe: bootstrap_readiness.DaemonHostObserver,
     policy: LaunchPolicy,
 ) -> bootstrap.PlacementOutcome:
-    """Prove the exact daemon in `created`, then resize only that pane."""
+    """Prove the exact daemon in the allocation-scoped pane `created`."""
     _ = driver.set_pane_title(pane=created, title=policy.title)
     first = observe()
 
@@ -55,5 +54,4 @@ def finish_created_pane(
             ),
             effect_unknown=True,
         )
-    _ = driver.set_pane_height_percent(pane=created, percent=policy.height_percent)
     return bootstrap.PlacementOutcome(ok=True, pane_id=created, error="", effect_unknown=False)
