@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING
 import _supervisor_archived_live
 import _supervisor_codex_adoption
 import claude_sessions
+import pane_router
 import registry
 import signals
 from _supervisor_archive_gc import archive_gc as archive_gc
@@ -112,6 +113,14 @@ def refresh_claude_status(*, sup: Supervisor) -> None:
     the read-only path. Fail-soft: any read error yields an empty map (no session
     marked busy from this signal), never a raised exception.
     """
+    pane_router.register_coordinates(
+        driver=sup.tmux,
+        coordinates=(
+            track.tmux
+            for track in registry.read_valid_mapping(store_path=sup.store_path)
+            if track.tmux is not None
+        ),
+    )
     pane_pids = sup.tmux.pane_pid_sessions()
     # `status` feeds the busy check (last-wins is fine); `names` feeds the identity gate's
     # `topic in names` parity check (R2) and is a SET so a helper Claude in the same tmux

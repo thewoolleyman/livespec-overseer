@@ -2,9 +2,8 @@
 
 This is the shipped path that joins the accepted pure pieces: both ownership
 probes, both selected-instance bootstrap backends, the durable uncertainty
-journal, and the existing daemon-runtime preparation.  Supervision adoption is
-retained for tmux only; Herdr registry/adoption and predecessor replacement are
-dependent slices and are deliberately not activated here.
+journal, the existing daemon-runtime preparation and live-session adoption.
+Replacement of a Herdr predecessor remains a dependent slice.
 """
 
 from __future__ import annotations
@@ -43,7 +42,7 @@ def _report_refusal(*, outcome: bootstrap.BootstrapOutcome) -> None:
     streams.write_stderr(text=f"overseer-start: {outcome.error}.{uncertainty}{pane}\n")
 
 
-def _adopt_tmux(*, build_supervisor: Callable[[], supervisor.Supervisor] | None) -> None:
+def _adopt(*, build_supervisor: Callable[[], supervisor.Supervisor] | None) -> None:
     build = build_supervisor if build_supervisor is not None else supervisor.build_supervisor
     adopted = build().adopt_sessions()
     for track in adopted:
@@ -104,6 +103,5 @@ def run_verified_bootstrap(
             f"top pane {outcome.pane_id}.\n"
         )
     )
-    if outcome.backend == herdr_identity.TMUX_BACKEND:
-        _adopt_tmux(build_supervisor=build_supervisor)
+    _adopt(build_supervisor=build_supervisor)
     return 0

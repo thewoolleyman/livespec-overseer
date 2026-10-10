@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 import claude_sessions
 import codex_sessions
+import pane_router
 import registry
 import signals
 from _supervisor_codex_adoption import codex_host_readers
@@ -120,6 +121,10 @@ def _active_topics_by_repo(*, watch: list[str]) -> dict[str, set[str]]:
 
 def _mapped_tmux_by_track(*, sup: Supervisor) -> dict[tuple[str, str], str | None]:
     mapping = registry.read_valid_mapping(store_path=sup.store_path)
+    pane_router.register_coordinates(
+        driver=sup.tmux,
+        coordinates=(track.tmux for track in mapping if track.tmux is not None),
+    )
     for track in mapping:
         epic = track.epic
         if registry.epic_is_resolved(epic=epic) and epic is not None:
