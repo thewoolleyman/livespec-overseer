@@ -375,6 +375,55 @@ def _synchronized_reader(*, proof_effect: object, state_dir: pathlib.Path):
     return synchronized_read
 
 
+def _selection_context(*, state_dir: pathlib.Path, binding: _Binding, ordinal: int) -> object:
+    _seed_binding(state_dir=state_dir, binding=binding)
+    operation = _operation(
+        ordinal=ordinal,
+        command="provision",
+        normalized_input=_request(run_id=binding.run_id),
+        effects=_PROVISION_EFFECTS,
+        completed_step=0,
+    )
+    position = _module(name="_lpm_operation_identity").effect_positions(operation=operation)[1]
+    engine_context = _module(name="_lpm_engine_context")
+    return engine_context.EffectContext(
+        engine=_engine(state_dir=state_dir),
+        operation=operation,
+        inputs=engine_context.EffectInputs(),
+        position=position,
+    )
+
+
+def _synchronized_selection_reader(*, effects_shared: object, state_dir: pathlib.Path):
+    before_read = threading.Barrier(2)
+    after_read = threading.Barrier(2)
+    probe_lock = threading.Lock()
+    original_read = effects_shared.read_selection_state
+    lock_path = state_dir / "locks" / "selection-state.lock"
+    lock_path.parent.mkdir(mode=0o700)
+
+    def synchronized_read(*, path: pathlib.Path, owner_uid: int):
+        with probe_lock:
+            descriptor = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                lock_is_held = True
+            else:
+                lock_is_held = False
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
+        if not lock_is_held:
+            before_read.wait(timeout=2)
+        selected = original_read(path=path, owner_uid=owner_uid)
+        if not lock_is_held:
+            after_read.wait(timeout=2)
+        return selected
+
+    return synchronized_read, original_read
+
+
 def _drive_concurrently(
     *, state_dir: pathlib.Path, operations: tuple[object, object]
 ) -> tuple[object, object]:
@@ -387,6 +436,33 @@ def _drive_concurrently(
     with ThreadPoolExecutor(max_workers=len(operations)) as executor:
         first, second = executor.map(synchronized_drive, operations)
     return first, second
+
+
+def test_concurrent_selection_updates_lock_the_complete_authoritative_merge(
+    tmp_path: pathlib.Path, monkeypatch
+) -> None:
+    state_dir = _state(tmp_path=tmp_path / "selection-concurrency")
+    effects_shared = _module(name="_lpm_effects_shared")
+    contexts = tuple(
+        _selection_context(state_dir=state_dir, binding=binding, ordinal=40 + ordinal)
+        for ordinal, binding in enumerate(_BINDINGS[:2])
+    )
+    synchronized_read, authoritative_read = _synchronized_selection_reader(
+        effects_shared=effects_shared, state_dir=state_dir
+    )
+    monkeypatch.setattr(effects_shared, "read_selection_state", synchronized_read)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        outcomes = tuple(
+            executor.map(lambda context: effects_shared.selection_update(context=context), contexts)
+        )
+    state = authoritative_read(
+        path=state_dir / "selection-state.json", owner_uid=os.getuid()
+    ).unwrap()
+
+    assert all(isinstance(outcome, Success) for outcome in outcomes), outcomes
+    assert {entry.record_id for entry in state.last_assignments} == {_RECORD_A, _RECORD_B}
+    assert (state_dir / "locks" / "selection-state.lock").stat().st_mode & 0o777 == 0o600
 
 
 def _assert_shared_proof(*, state_dir: pathlib.Path) -> None:
