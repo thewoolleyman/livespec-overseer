@@ -4,17 +4,23 @@ from __future__ import annotations
 
 import importlib
 import io
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import _supervisor_diagnostics
 import _supervisor_discovery_adoption
+import _supervisor_render
 import herdr_adapter
 import herdr_calls
 import herdr_identity
+import herdr_transport
 import herdr_write
 import registry
 import supervisor
+import terminal_ownership
+import terminal_probes
 from test_supervisor_builders import idle_capture
 from test_supervisor_fakes import FakeTmux
 
@@ -34,8 +40,24 @@ def _claude_composer(*, text: str) -> str:
 class RecordedHerdr:
     captures: dict[str, str]
     repositories: dict[str, str]
+    generations: dict[str, tuple[int, str]] = field(default_factory=dict)
     unavailable: set[str] = field(default_factory=set)
     calls: list[tuple[str, herdr_identity.HerdrPaneTarget]] = field(default_factory=list)
+
+    def identify(self, *, socket_path: str) -> herdr_adapter.InstanceIdentification:
+        generation = self.generations.get(socket_path)
+        if generation is None:
+            return herdr_adapter.InstanceIdentification(
+                ok=False,
+                peer=None,
+                error="server is unavailable",
+            )
+        pid, starttime = generation
+        return herdr_adapter.InstanceIdentification(
+            ok=True,
+            peer=herdr_transport.PeerIdentity(pid=pid, uid=1000, starttime=starttime),
+            error="",
+        )
 
     def list_panes(self, *, target: herdr_identity.HerdrPaneTarget) -> herdr_adapter.PaneListing:
         self.calls.append(("list", target))
@@ -171,6 +193,10 @@ def _scenario(*, tmp_path: Path, pane_router: Any) -> Scenario:
             target_b.socket_path: "\x1b[2mnative-b\x1b[0m\n" + idle_capture(ctx=70),
         },
         repositories={target_a.socket_path: str(repo_a), target_b.socket_path: str(repo_b)},
+        generations={
+            target_a.socket_path: (target_a.server_pid, target_a.server_starttime),
+            target_b.socket_path: (target_b.server_pid, target_b.server_starttime),
+        },
         unavailable={stale.socket_path},
     )
     writes, legacy = RecordedWrites(native=native), FakeTmux()
@@ -350,3 +376,135 @@ def test_native_submit_never_calls_an_acknowledged_but_visible_prompt_delivered(
     operations = [call[0] for call in scenario.writes.calls]
     assert operations.count("paste") == 1
     assert operations.count("enter") >= 2
+
+
+@dataclass(kw_only=True)
+class NamedTmuxProbe:
+    socket_path: str
+    calls: list[str] = field(default_factory=list)
+
+    def endpoints(self, *, environ: Any) -> tuple[str, ...]:
+        del environ
+        return (terminal_probes.DEFAULT_TMUX_ENDPOINT, self.socket_path)
+
+    def owned_panes(self, *, endpoint: str) -> terminal_ownership.ClaimReading:
+        self.calls.append(endpoint)
+        return terminal_ownership.ClaimReading(
+            panes=(
+                terminal_ownership.OwnedPane(
+                    backend=herdr_identity.TMUX_BACKEND,
+                    socket_path=endpoint,
+                    server_pid=777,
+                    server_starttime="named-start",
+                    pane_id="%3",
+                    pane_process_pids=(701,),
+                ),
+            ),
+            error="",
+        )
+
+
+def test_named_tmux_adoption_records_the_exact_server_generation(
+    *, tmp_path: Path, monkeypatch: Any
+) -> None:
+    module = importlib.import_module("pane_router")
+    socket_path = str(tmp_path / "named-tmux.sock")
+    probe = NamedTmuxProbe(socket_path=socket_path)
+    monkeypatch.setenv(terminal_probes.TMUX_ENV, f"{socket_path},777,0")
+    monkeypatch.setattr(terminal_probes, "TmuxOwnershipProbe", lambda **_kwargs: probe)
+    ambient = FakeTmux()
+    ambient.pane_pids[701] = "ambient-session"
+    driver = module.MixedPaneDriver(tmux=ambient)
+
+    coordinate = driver.pane_pid_sessions()[701]
+
+    assert coordinate != "ambient-session"
+    assert herdr_identity.decode_target(value=coordinate).tmux == herdr_identity.TmuxPaneTarget(
+        socket_path=socket_path,
+        server_pid=777,
+        server_starttime="named-start",
+        pane_id="%3",
+    )
+    assert probe.calls == [socket_path]
+
+
+def test_production_router_discovers_the_default_herdr_socket_without_environment(
+    *, tmp_path: Path, monkeypatch: Any
+) -> None:
+    module = importlib.import_module("pane_router")
+    monkeypatch.delenv(terminal_probes.HERDR_SOCKET_ENV, raising=False)
+    default_socket = str(tmp_path / ".config" / "herdr" / "herdr.sock")
+    monkeypatch.setattr(
+        terminal_probes,
+        "default_herdr_socket",
+        lambda *, home=None: default_socket,
+    )
+    target = _target(socket_path=default_socket, pid=606)
+    native = RecordedHerdr(
+        captures={default_socket: idle_capture(ctx=81)},
+        repositories={default_socket: str(tmp_path)},
+        generations={default_socket: (target.server_pid, target.server_starttime)},
+    )
+    writes = RecordedWrites(native=native)
+    driver = module.MixedPaneDriver(tmux=FakeTmux(), herdr=native, herdr_writer=writes)
+
+    coordinate = driver.pane_pid_sessions()[7000 + target.server_pid]
+
+    assert herdr_identity.decode_target(value=coordinate).herdr == target
+
+
+def test_herdr_attention_uses_native_coordinates_and_a_native_jump(
+    *, tmp_path: Path, capsys: Any
+) -> None:
+    target = _target(socket_path="/run/herdr-attention.sock", pid=505)
+    coordinate = herdr_identity.encode_herdr_target(target=target)
+    row = supervisor.RowView(
+        topic="alpha",
+        repo=str(tmp_path / "repo"),
+        tmux=coordinate,
+        ctx=10,
+        status="danger",
+        runtime="claude",
+    )
+
+    rendered = "\n".join(_supervisor_render.attention_lines(rows=[row]))
+
+    assert (
+        "herdr: /run/herdr-attention.sock · server 505/start-505 · pane w1:p1 (claude)" in rendered
+    )
+    assert "jump: env HERDR_ENV=1 HERDR_SOCKET_PATH=/run/herdr-attention.sock" in rendered
+    assert "HERDR_PANE_ID=w1:p1 herdr" in rendered
+    assert "tmux switch-client" not in rendered
+
+    sup = _supervisor(tmp_path=tmp_path, driver=FakeTmux())
+    _supervisor_diagnostics.alert(
+        request=_supervisor_diagnostics.AlertRequest(
+            sup=sup,
+            repo=str(tmp_path / "repo"),
+            topic="alpha",
+            session=coordinate,
+            pane=coordinate,
+            message="needs attention",
+            condition="danger",
+        )
+    )
+    event = json.loads(capsys.readouterr().err)
+    message = event["message"]
+    assert "herdr socket '/run/herdr-attention.sock' server 505/start-505 pane w1:p1" in message
+    assert "jump: env HERDR_ENV=1 HERDR_SOCKET_PATH=/run/herdr-attention.sock" in message
+    assert "tmux session" not in message
+
+
+def test_herdr_picker_reminder_is_delivered_as_paste_without_submission(*, tmp_path: Path) -> None:
+    module = importlib.import_module("pane_router")
+    scenario = _scenario(tmp_path=tmp_path, pane_router=module)
+
+    assert (
+        scenario.driver.bracketed_paste(
+            session=scenario.coordinate_a,
+            text="Charter reminder only",
+        )
+        is True
+    )
+
+    assert scenario.writes.calls == [("paste", scenario.target_a, "Charter reminder only")]
