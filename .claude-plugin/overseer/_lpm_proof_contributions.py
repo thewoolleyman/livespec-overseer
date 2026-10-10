@@ -8,6 +8,7 @@ depends on concurrent arrival order.
 from __future__ import annotations
 
 from dataclasses import replace
+from datetime import date, timedelta
 
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 from _lpm_proof import CompletionMarker, ProofRecord
@@ -41,14 +42,7 @@ def completion_contribution(
         "consumer_run_id": marker.consumer_run_id,
         "completed_at": marker.completed_at,
     }
-    dates = proof.successful_consumer_dates
-    soak_started_at = proof.soak_started_at
-    after_failure = (
-        proof.last_auth_failure_at is None or marker.completed_at > proof.last_auth_failure_at
-    )
-    if after_failure and soak_started_at is None:
-        dates = (marker.completed_at[:10],)
-        soak_started_at = marker.completed_at
+    dates, soak_started_at = _dated_soak(proof=proof, marker=marker)
     return replace(
         proof,
         completion_markers=markers,
@@ -61,6 +55,22 @@ def completion_contribution(
             else evidence
         ),
     )
+
+
+def _dated_soak(
+    *, proof: ProofRecord, marker: CompletionMarker
+) -> tuple[tuple[str, ...], str | None]:
+    if proof.last_auth_failure_at is not None and marker.completed_at <= proof.last_auth_failure_at:
+        return proof.successful_consumer_dates, proof.soak_started_at
+    observed_date = marker.completed_at[:10]
+    if not proof.successful_consumer_dates:
+        return (observed_date,), marker.completed_at
+    latest = proof.successful_consumer_dates[-1]
+    if observed_date <= latest:
+        return proof.successful_consumer_dates, proof.soak_started_at
+    if date.fromisoformat(observed_date) == date.fromisoformat(latest) + timedelta(days=1):
+        return (*proof.successful_consumer_dates, observed_date), proof.soak_started_at
+    return (observed_date,), marker.completed_at
 
 
 def authentication_contribution(*, proof: ProofRecord, occurred_at: str) -> ProofRecord:

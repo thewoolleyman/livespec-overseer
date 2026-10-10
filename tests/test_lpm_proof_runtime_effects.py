@@ -795,3 +795,120 @@ def test_out_of_order_events_preserve_the_soak_and_advance_auth_failure_monotoni
     assert proof.successful_consumer_dates == ("2026-10-05", "2026-10-06")
     assert proof.soak_started_at == "2026-10-05T10:00:00Z"
     assert proof.last_auth_failure_at == "2026-10-05T09:00:00Z"
+
+
+def test_restarted_processes_preserve_first_writers_and_consecutive_date_progression(
+    tmp_path: pathlib.Path,
+) -> None:
+    blocked_state = _state(tmp_path=tmp_path / "blocked-by-auth")
+    _establish_rollout_and_pair(state_dir=blocked_state)
+    _seed(
+        path=blocked_state / "coexistence-proof.json",
+        value=_module(name="_lpm_proof").proof_object(
+            proof=replace(
+                _proof(state_dir=blocked_state),
+                last_auth_failure_at="2026-10-07T20:00:00Z",
+            )
+        ),
+    )
+    blocked_binding = _Binding(
+        run_id="run-at-auth-failure",
+        record_id=_RECORD_A,
+        account_id="account-at-auth-failure",
+        committed_at="2026-10-01T11:00:00Z",
+    )
+    _seed(
+        path=_path(
+            state_dir=blocked_state,
+            family="tombstone",
+            identity=(blocked_binding.run_id,),
+        ),
+        value=_tombstone(binding=blocked_binding),
+    )
+    blocked = _operation(
+        ordinal=26,
+        command="complete",
+        normalized_input=_completion(
+            run_id=blocked_binding.run_id,
+            record_id=blocked_binding.record_id,
+            completed_at="2026-10-07T20:00:00Z",
+            legacy_pool_absent=True,
+        ),
+        effects=_COMPLETE_EFFECTS[:2],
+        completed_step=-1,
+    )
+    _persist_operation(state_dir=blocked_state, operation=blocked)
+    blocked_outcome = _drive(state_dir=blocked_state, operation=blocked)
+    assert isinstance(blocked_outcome, Success), blocked_outcome
+    blocked_proof = _proof(state_dir=blocked_state)
+    assert blocked_proof.successful_consumer_dates == ()
+    assert blocked_proof.soak_started_at is None
+
+    state_dir = _state(tmp_path=tmp_path)
+    _establish_rollout_and_pair(state_dir=state_dir)
+    observations = (
+        (26, "run-day-one", "2026-10-07T23:50:00Z", False, ("2026-10-07",)),
+        (27, "run-legacy-first", "2026-10-07T23:40:00Z", True, ("2026-10-07",)),
+        (
+            28,
+            "run-next-day",
+            "2026-10-08T00:05:00Z",
+            True,
+            ("2026-10-07", "2026-10-08"),
+        ),
+        (
+            29,
+            "run-latest-day",
+            "2026-10-08T23:55:00Z",
+            False,
+            ("2026-10-07", "2026-10-08"),
+        ),
+        (30, "run-gap", "2026-10-12T00:05:00Z", False, ("2026-10-12",)),
+        (
+            31,
+            "run-after-gap",
+            "2026-10-13T00:05:00Z",
+            False,
+            ("2026-10-12", "2026-10-13"),
+        ),
+    )
+    for ordinal, run_id, completed_at, legacy_absent, expected_dates in observations:
+        binding = _Binding(
+            run_id=run_id,
+            record_id=_RECORD_A,
+            account_id=f"account-{run_id}",
+            committed_at="2026-10-01T11:00:00Z",
+        )
+        _seed(
+            path=_path(state_dir=state_dir, family="tombstone", identity=(run_id,)),
+            value=_tombstone(binding=binding),
+        )
+        operation = _operation(
+            ordinal=ordinal,
+            command="complete",
+            normalized_input=_completion(
+                run_id=run_id,
+                record_id=binding.record_id,
+                completed_at=completed_at,
+                legacy_pool_absent=legacy_absent,
+            ),
+            effects=_COMPLETE_EFFECTS[:2],
+            completed_step=-1,
+        )
+        _persist_operation(state_dir=state_dir, operation=operation)
+
+        outcome = _drive(state_dir=state_dir, operation=operation)
+
+        assert isinstance(outcome, Success), outcome
+        assert _proof(state_dir=state_dir).successful_consumer_dates == expected_dates
+
+    proof = _proof(state_dir=state_dir)
+    assert proof.soak_started_at == "2026-10-12T00:05:00Z"
+    assert proof.production_success == {
+        "consumer_run_id": "run-day-one",
+        "completed_at": "2026-10-07T23:50:00Z",
+    }
+    assert proof.legacy_pool_absence_success == {
+        "consumer_run_id": "run-legacy-first",
+        "completed_at": "2026-10-07T23:40:00Z",
+    }
