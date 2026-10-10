@@ -1,5 +1,28 @@
 # Changelog
 
+## [5.17.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.16.0...v5.17.0) (2026-10-10)
+
+
+### Features
+
+* enumerate each terminal instance's panes with its live generation ([4e85b58](https://github.com/thewoolleyman/livespec-overseer/commit/4e85b58f97128a5f7a1401fd392fb55ac0a5812c))
+* order the two-pane bootstrap so refusals precede every mutation ([6161445](https://github.com/thewoolleyman/livespec-overseer/commit/6161445377237098577d62da953783322b0661f2))
+* place a live daemon above a real herdr pane and reuse it on repeat ([496533e](https://github.com/thewoolleyman/livespec-overseer/commit/496533e280f89a21eccca11dced167aa7549adbb))
+* verify terminal ownership before choosing an overseer pane ([774e75c](https://github.com/thewoolleyman/livespec-overseer/commit/774e75cd8f5630d0f2f755e523f6d02f38d8c9c7))
+* wire verified terminal bootstrap through overseer-start ([c933894](https://github.com/thewoolleyman/livespec-overseer/commit/c9338944e3aedb15850347a5321e47d85e9e52f7))
+
+
+### Bug Fixes
+
+* bind reuse to prepared daemon runtime ([696bc4b](https://github.com/thewoolleyman/livespec-overseer/commit/696bc4b68fb7f82ec8b91ef44e749acbc2656bfa))
+* **bootstrap:** retain selected tmux instance geometry ([a7ce8e3](https://github.com/thewoolleyman/livespec-overseer/commit/a7ce8e315846afbee76235a96e48a50af62fc79b))
+* **bootstrap:** scope daemon reuse to caller allocation ([92ec512](https://github.com/thewoolleyman/livespec-overseer/commit/92ec5124a72643bb14b2ce4b56eb121993091e6f))
+* reject non-python tmux daemon lookalikes ([3d2b1ea](https://github.com/thewoolleyman/livespec-overseer/commit/3d2b1ea01e936f12a076dc46a39baecfb23b780c))
+* require daemon ownership of tmux foreground ([41923a4](https://github.com/thewoolleyman/livespec-overseer/commit/41923a474269c3d6330b78270f73f37581aea6f5))
+* require exact Herdr daemon process identity ([ffbb364](https://github.com/thewoolleyman/livespec-overseer/commit/ffbb364211c10680d3648653643c2a12744eb57a))
+* require exact process evidence for tmux host reuse ([4de1a64](https://github.com/thewoolleyman/livespec-overseer/commit/4de1a64a1efccf9f36136582a31b0105ca70f1da))
+* require foreground daemon identity for tmux reuse ([64cfb06](https://github.com/thewoolleyman/livespec-overseer/commit/64cfb062e92784ee9f48c325000bda6b39e1ed7b))
+
 ## [5.16.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.15.1...v5.16.0) (2026-10-09)
 
 
