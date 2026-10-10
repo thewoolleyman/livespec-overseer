@@ -247,14 +247,7 @@ def _cmd_add(*, args: argparse.Namespace) -> int:
     if not _supervisor_cli_update.upsert_track(
         track=track,
         update_fields=update_fields,
-        allow_retarget=(
-            _supervisor_cli_update.field_supplied(value=args.retarget)
-            or (
-                _supervisor_cli_update.field_supplied(value=args.epic)
-                and not _supervisor_cli_update.field_supplied(value=args.ctx_threshold)
-                and not _supervisor_cli_update.field_supplied(value=args.idle_nudge)
-            )
-        ),
+        allow_retarget=_supervisor_cli_update.field_supplied(value=args.retarget),
     ):
         fields = ", ".join(sorted(update_fields))
         streams.write_stderr(text=f"could not write requested field(s): {fields}\n")
