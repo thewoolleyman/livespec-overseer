@@ -726,6 +726,19 @@ class _ListenerFailureClock:
         return (0.0, 1.0, 3.0)[min(self.attempts, 2)]
 
 
+def _await_controlled_exit(*, pid: int) -> None:
+    """Observe the injected exit without stealing Popen's child status."""
+    deadline = time.monotonic() + SERVER_READY_TIMEOUT
+    exited = None
+    while exited is None:
+        time.sleep(0.01)
+        assert time.monotonic() < deadline, f"controlled SIGTERM did not exit owned server {pid}"
+        exited = os.waitid(os.P_PID, pid, os.WEXITED | os.WNOWAIT | os.WNOHANG)
+    assert exited.si_pid == pid
+    assert exited.si_code == os.CLD_KILLED
+    assert exited.si_status == signal.SIGTERM
+
+
 def _exercise_listener_failure(*, tmp_path: Path, failure: str) -> _ListenerFailureReceipt:
     """Drive one controlled listener failure against an unrelated live peer."""
     peer_scratch = tmp_path / "peer"
@@ -748,7 +761,7 @@ def _exercise_listener_failure(*, tmp_path: Path, failure: str) -> _ListenerFail
         assert Path(socket_path).exists(), "the refusal is after pathname publication"
         if failure == "exited" and controlled_clock.attempts == 1:
             os.kill(expected_pid, signal.SIGTERM)
-            time.sleep(0.05)
+            _await_controlled_exit(pid=expected_pid)
         raise ConnectionRefusedError(f"controlled {failure} listener refusal")
 
     target = _serve(

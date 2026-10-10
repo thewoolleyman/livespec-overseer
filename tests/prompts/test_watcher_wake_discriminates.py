@@ -521,12 +521,21 @@ def test_both_forms_report_busy_while_a_pane_keeps_changing(
     assert watcher_shipped(tmux=tmux, target="wk") == _BUSY
 
 
-def test_both_forms_report_idle_while_a_pane_stays_static(
-    *, tmux: Tmux, settle: Callable[[str, str], str]
-) -> None:
+def test_both_forms_report_idle_while_a_pane_stays_static(*, tmux: Tmux, settle: Settle) -> None:
     """CONTROL: the busy leg must still discriminate from a static pane."""
-    _worker(tmux=tmux)
-    _run(tmux=tmux, command="echo STATIC", settle=settle, needle="STATIC")
+    created = tmux(
+        "new-session",
+        "-d",
+        "-s",
+        "wk",
+        "-x",
+        "80",
+        "-y",
+        "20",
+        "printf '%s\\n' STATIC; exec sleep 600",
+    )
+    assert created.returncode == 0, created.stderr
+    settle("=wk:", "STATIC", fail_on_timeout=True)
     assert watcher_proposed(tmux=tmux, target="=wk:") == _IDLE
     assert watcher_shipped(tmux=tmux, target="wk") == _IDLE
 
