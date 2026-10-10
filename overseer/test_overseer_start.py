@@ -19,6 +19,9 @@ def _load():
 
 def _runtime_supported(*, monkeypatch, supported: bool):
     monkeypatch.setattr(_load(), "_running_under_supported_agent", lambda: supported)
+    # These guard tests declare their own terminal context, not the runner's.
+    for name in ("TMUX", "TMUX_PANE", "HERDR_SOCKET_PATH"):
+        monkeypatch.delenv(name, raising=False)
 
 
 def test_refuses_outside_agent_runtime(*, monkeypatch, capsys):

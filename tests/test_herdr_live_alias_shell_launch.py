@@ -718,17 +718,12 @@ class _ListenerFailureReceipt:
 
 @dataclass(kw_only=True)
 class _ListenerFailureClock:
-    """Keep deadline establishment separate from readiness observations."""
+    """Advance after controlled probes, independent of socket publication timing."""
 
-    address: Path
-    ticks: Iterator[float] = field(default_factory=lambda: iter([0.0, 1.0, 3.0]))
-    deadline_pending: bool = True
+    attempts: int = 0
 
     def __call__(self) -> float:
-        if self.deadline_pending:
-            self.deadline_pending = False
-            return 0.0
-        return next(self.ticks, 1e9) if self.address.exists() else 0.0
+        return (0.0, 1.0, 3.0)[min(self.attempts, 2)]
 
 
 def _exercise_listener_failure(*, tmp_path: Path, failure: str) -> _ListenerFailureReceipt:
@@ -746,13 +741,12 @@ def _exercise_listener_failure(*, tmp_path: Path, failure: str) -> _ListenerFail
     target_label = f"listener-{failure}"
     target_session = alias_session_name(label=target_label)
     target_address = _socket_for(session=target_session)
-    controlled_clock = _ListenerFailureClock(address=target_address)
-    attempts = [0]
+    controlled_clock = _ListenerFailureClock()
 
     def controlled_refusal(*, socket_path: str, expected_pid: int) -> int:
-        attempts[0] += 1
+        controlled_clock.attempts += 1
         assert Path(socket_path).exists(), "the refusal is after pathname publication"
-        if failure == "exited" and attempts[0] == 1:
+        if failure == "exited" and controlled_clock.attempts == 1:
             os.kill(expected_pid, signal.SIGTERM)
             time.sleep(0.05)
         raise ConnectionRefusedError(f"controlled {failure} listener refusal")
@@ -773,7 +767,7 @@ def _exercise_listener_failure(*, tmp_path: Path, failure: str) -> _ListenerFail
             _ = next(target)
         return _ListenerFailureReceipt(
             message=str(refused.value),
-            attempts=attempts[0],
+            attempts=controlled_clock.attempts,
             target_session=target_session,
             target_removed=not target_address.parent.exists(),
             peer_usable=peer_server.root in _pane_ids(socket_path=peer_server.socket_path),

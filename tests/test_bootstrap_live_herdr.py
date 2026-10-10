@@ -269,7 +269,7 @@ def _await_outcome(*, path: Path) -> dict[str, Any]:
 
 def _different_caller(*, daemon_executable: Path) -> Path:
     """The supported system Python kept deliberately distinct from uv's daemon Python."""
-    caller = Path("/usr/bin/python3.12").resolve(strict=True)
+    caller = Path("/usr/bin/python3").resolve(strict=True)
     daemon_runtime = (daemon_executable.parent / "python").resolve(strict=True)
     assert caller != daemon_runtime
     return caller

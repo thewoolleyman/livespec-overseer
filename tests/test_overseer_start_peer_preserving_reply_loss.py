@@ -7,7 +7,11 @@ proxy changes the peer whose credentials the ownership probe verifies.
 
 The fault here lives at the installed client's reply boundary instead.  A
 ``sitecustomize`` fixture patches only ``HerdrTransport._send_and_read`` in the
-genuine, non-editably installed ``overseer-start`` process.  The normal transport
+genuine, non-editably installed ``overseer-start`` process. The launch-loss fixture
+waits for two matching native/kernel readings of the
+new split's idle shell, because the split reply can precede the shell's exec.
+This bounded test-only wait observes the original peer and never repeats a mutation.
+The normal transport
 still connects directly to the real Herdr socket, checks ``SO_PEERCRED``, sends
 the real native mutation, and receives its reply.  Before the fixture withholds
 that reply from product code, it opens a second direct connection to the same
@@ -198,6 +202,7 @@ _FAULT_SOURCE = r"""
 import json
 import os
 import socket
+import shutil
 import struct
 import sys
 import time
@@ -249,6 +254,39 @@ def _leader(result):
     if len(leaders) != 1:
         return None
     return info, leaders[0]
+
+
+def _await_split_shell(mutation_reply):
+    # Establish the real split's coherent shell before grading launch ACK loss.
+    pane_id = mutation_reply["result"]["pane"]["pane_id"]
+    deadline = time.monotonic() + 120.0
+    previous = None
+    while time.monotonic() < deadline:
+        result, peer_pid, peer_starttime = _observe("pane.process_info", {"pane_id": pane_id})
+        parsed = _leader(result)
+        if parsed is not None:
+            info, leader = parsed
+            pid = info["shell_pid"]
+            try:
+                executable = str(Path(f"/proc/{pid}/exe").readlink().resolve())
+                registered = shutil.which(leader["name"])
+                coherent = Path(executable).name == leader["name"] or (
+                    registered is not None and str(Path(registered).resolve()) == executable
+                )
+                identity = (pid, _starttime(pid), executable)
+                if info["pane_id"] == pane_id and leader["pid"] == pid and coherent:
+                    if identity == previous:
+                        return {"pane_id": pane_id, "shell_pid": pid,
+                                "shell_starttime": identity[1], "executable": executable,
+                                "reported_name": leader["name"], "server_pid": peer_pid,
+                                "server_starttime": peer_starttime}
+                    previous = identity
+                else:
+                    previous = None
+            except OSError:
+                previous = None
+        time.sleep(0.05)
+    raise RuntimeError(f"created pane {pane_id!r} never supplied coherent retained-shell evidence")
 
 
 def _record_split(request, mutation_reply):
@@ -320,6 +358,7 @@ if Path(sys.argv[0]).name == "overseer-start" and os.environ.get("OVERSEER_FAULT
     import herdr_transport
 
     _original = herdr_transport.HerdrTransport._send_and_read
+    _split_readiness = {}
 
     def _withhold_after_observation(self, *, sock, payload, deadline):
         raw, error, timed_out = _original(self, sock=sock, payload=payload, deadline=deadline)
@@ -328,6 +367,10 @@ if Path(sys.argv[0]).name == "overseer-start" and os.environ.get("OVERSEER_FAULT
         request = json.loads(payload)
         method = os.environ["OVERSEER_FAULT_METHOD"]
         output = Path(os.environ["OVERSEER_FAULT_OBSERVATION"])
+        if request["method"] == "pane.split" and method == "pane.send_input":
+            split_reply = json.loads(raw)
+            if "result" in split_reply:
+                _split_readiness.update(_await_split_shell(split_reply))
         if request["method"] != method or output.exists():
             return raw, error, timed_out
         mutation_reply = json.loads(raw)
@@ -337,6 +380,7 @@ if Path(sys.argv[0]).name == "overseer-start" and os.environ.get("OVERSEER_FAULT
             record = _record_split(request, mutation_reply)
         else:
             record = _record_daemon(request)
+            record["split_readiness"] = dict(_split_readiness)
         ack_shape = os.environ["OVERSEER_FAULT_ACK_SHAPE"]
         record["observation_completed_before_reply_loss"] = True
         record["ack_shape"] = ack_shape
