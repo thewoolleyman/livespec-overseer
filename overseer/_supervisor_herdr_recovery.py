@@ -16,13 +16,13 @@ if TYPE_CHECKING:
 __all__: list[str] = ["reconcile_bare_shell"]
 
 
-def _row(*, track: registry.Track, note: str) -> RowView:
+def _row(*, track: registry.Track, note: str, status: str = "replacement-pending") -> RowView:
     return RowView(
         topic=track.topic,
         repo=track.repo,
         tmux=track.tmux,
         ctx=None,
-        status="replacement-pending",
+        status=status,
         note=note,
     )
 
@@ -61,11 +61,24 @@ def reconcile_bare_shell(
     if herdr_identity.decode_target(value=target).herdr is None:
         return None
     scratch = _herdr_replacement_store.scratch_path(track=track)
-    transaction = _herdr_replacement_store.read_transaction(
-        path=scratch / _herdr_replacement_store.RECORD_NAME
-    )
-    if transaction is None or transaction.get("target") != target:
+    try:
+        transaction = _herdr_replacement_store.read_transaction(
+            path=scratch / _herdr_replacement_store.RECORD_NAME
+        )
+    except (AttributeError, OSError, TypeError, ValueError) as exc:
+        return _row(
+            track=track,
+            status="replacement-failed",
+            note=f"malformed durable Herdr replacement: {exc}",
+        )
+    if transaction is None:
         return None
+    if transaction.get("target") != target:
+        return _row(
+            track=track,
+            status="replacement-failed",
+            note="durable Herdr replacement does not match the live backend generation and pane",
+        )
     phase = transaction.get("phase")
     if phase == "stopped-awaiting-shell" and act:
         _launch_recorded_successor(
