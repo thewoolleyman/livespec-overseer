@@ -333,3 +333,70 @@ def test_recreated_supervisor_recovers_only_a_never_attempted_launch(
     recreated.evaluate(track=track, act=True)
 
     assert counts == {"signal": 1, "launch": 1}
+
+
+def _stopped_transaction(*, tmp_path: Path) -> tuple[_World, registry.Track, dict[str, int], Path]:
+    world, first, track = _armed_world(tmp_path=tmp_path)
+    counts = {"signal": 0, "launch": 0}
+
+    def stop(*, session: str, process_group: int) -> SimpleNamespace:
+        counts["signal"] += 1
+        busy = _idle_snapshot()
+        busy.foreground_group = 300
+        world.snapshot["value"] = busy
+        return SimpleNamespace(ok=True, error="")
+
+    def launch(**_kwargs: object) -> SimpleNamespace:
+        counts["launch"] += 1
+        return SimpleNamespace(ok=True, effect_unknown=False, error="")
+
+    world.fake.herdr_terminate = stop
+    world.fake.herdr_launch = launch
+    first.evaluate(track=track, act=True)
+    record_path = world.repo / "tmp" / "overseer" / world.topic / ".herdr-replacement.json"
+    return world, track, counts, record_path
+
+
+@pytest.mark.parametrize(
+    ("record_case", "act", "expected_status"),
+    [
+        ("absent", True, "session-gone"),
+        ("malformed", True, "replacement-failed"),
+        ("mismatched", True, "replacement-failed"),
+        ("valid-read-only", False, "replacement-pending"),
+    ],
+)
+def test_public_tick_never_acts_on_an_unusable_bare_shell_transaction(
+    *,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    record_case: str,
+    act: bool,
+    expected_status: str,
+) -> None:
+    world, track, counts, record_path = _stopped_transaction(tmp_path=tmp_path)
+    if record_case == "absent":
+        record_path.unlink()
+    elif record_case == "malformed":
+        record_path.write_text("{not-json", encoding="utf-8")
+    elif record_case == "mismatched":
+        record = json.loads(record_path.read_text(encoding="utf-8"))
+        record["target"] = _target(tmp_path=tmp_path / "other")
+        record_path.write_text(json.dumps(record), encoding="utf-8")
+    world.snapshot["value"] = _idle_snapshot()
+    world.fake.cmds[world.target] = "bash"
+    world.fake.calls.clear()
+    counts["signal"] = 0
+    recreated = make_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1003.0)
+    monkeypatch.setattr(recreated, "build_rows", lambda *, act: [track])
+
+    try:
+        rows = recreated.tick(act=act)
+        statuses = [row.status for row in rows]
+    except (OSError, TypeError, ValueError):
+        statuses = ["uncaught-transaction-error"]
+
+    input_calls = [call for call in world.fake.calls if call[0] in {"keys", "paste"}]
+    assert counts == {"signal": 0, "launch": 0}
+    assert input_calls == []
+    assert expected_status in statuses
