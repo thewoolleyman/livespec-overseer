@@ -123,7 +123,10 @@ class ConcreteManagerRuntime:
             acquire = cast(
                 "Callable[..., Result[dict[str, object], ManagerError]]", self.acquisition
             )
-            return error_outcome(error=acquire(request=parsed).failure())
+            result = acquire(request=parsed)
+            if isinstance(result, Failure):
+                return error_outcome(error=result.failure())
+            return success_outcome(payload=result.unwrap())
         bound = self.store is not None and (
             command != "provision" or self.provision_target is not None
         )
