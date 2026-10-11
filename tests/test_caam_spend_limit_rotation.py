@@ -191,8 +191,15 @@ def test_a_pass_whose_only_candidate_is_spend_capped_holds_rather_than_spilling(
         active=usage(five_hour=5.0, seven_day=60.0),
         candidates=(
             candidate(
-                name="capped",
+                name="short-window-capped",
                 five_hour=0.0,
+                weekly_reset=_SOON,
+                block=CAPPED_BLOCK,
+            ),
+            candidate(
+                name="weekly-capped",
+                five_hour=98.0,
+                seven_day=0.0,
                 weekly_reset=_SOON,
                 block=CAPPED_BLOCK,
             ),
@@ -200,6 +207,10 @@ def test_a_pass_whose_only_candidate_is_spend_capped_holds_rather_than_spilling(
     )
 
     assert outcome.held
+    assert next(line for line in outcome.lines if line.startswith("hold:")) == (
+        "hold: the candidate set was empty -- the extra-usage spend cap excludes "
+        "these live-verified candidates (short-window-capped, weekly-capped)"
+    )
 
 
 # ---------------------------------------------------------------------------
