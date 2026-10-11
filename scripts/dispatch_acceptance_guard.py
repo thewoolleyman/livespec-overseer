@@ -24,6 +24,10 @@ from pathlib import Path
 __all__: list[str] = []
 
 _LIVE_EXERCISE = re.compile(r"live[\s-]exercis|live[\s-]verif", re.IGNORECASE)
+# A token holding a slash or ending in a file extension names a FILE, e.g. the
+# research note `003-live-verification-plan.md` in a reading list. Naming that
+# file states no live-exercise criterion, so path tokens are dropped first.
+_PATH_TOKEN = re.compile(r"\S*/\S*|\S+\.[A-Za-z0-9]{1,8}\b")
 _PARKING_LABELS = frozenset({"acceptance:ai-then-human", "acceptance:human-only"})
 _DISPATCH_TIER_PREFIX = "dispatch-tier:"
 _HOST_TIER_LABEL = "dispatch-tier:host"
@@ -67,7 +71,7 @@ def _missing_acceptance_bar(*, item: dict[str, object]) -> bool:
 
 def _needs_parking_label(*, item: dict[str, object]) -> bool:
     text = "\n".join(value for key in _TEXT_KEYS if isinstance(value := item.get(key), str))
-    if _LIVE_EXERCISE.search(text) is None:
+    if _LIVE_EXERCISE.search(_PATH_TOKEN.sub(" ", text)) is None:
         return False
     labels = item.get("labels")
     if not isinstance(labels, list):
