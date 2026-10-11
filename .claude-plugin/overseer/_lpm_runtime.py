@@ -181,5 +181,6 @@ def runtime_for_host() -> Result[ConcreteManagerRuntime, ManagerError]:
             store=ports,
             provision_target=ports,
             target_status=ports.target_status,
+            acquisition=ports.acquire,
         )
     )

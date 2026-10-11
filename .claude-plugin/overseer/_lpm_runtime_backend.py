@@ -10,7 +10,7 @@ from typing import TypeVar, cast
 from _lpm_config import ManagerConfig
 from _lpm_locks import release_lock, take_lock, try_lock
 from _lpm_prereq import RuntimePrerequisites, runtime_prerequisites
-from _lpm_results import ManagerError
+from _lpm_results import ManagerError, invalid_request
 from _lpm_role_child import ClosedRoleInput
 from _lpm_role_results import CONDITIONAL_SET_MODE
 from _lpm_role_runner import RoleLaunch, run_credential_role
@@ -73,6 +73,20 @@ class RolePorts:
                 "desired_record": request.desired_record,
             },
         )
+
+    def acquire(self, *, request: object) -> Result[dict[str, object], ManagerError]:
+        """Refuse an absent acquisition item before any durable acquisition state."""
+        source = cast("dict[str, object]", request)
+        _ = self._store_role(
+            role_name="acquisition-prerequisite",
+            request={
+                "version": 1,
+                "provider": source["provider"],
+                "account_id": source["account_id"],
+                "kind": source["kind"],
+            },
+        )
+        return Failure(invalid_request(message="matching acquisition material is unavailable"))
 
     def __call__(
         self, *, request: FinalProvisioningRequest, destination: str, lock: TargetLock
