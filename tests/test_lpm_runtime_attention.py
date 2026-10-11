@@ -68,7 +68,9 @@ def test_zero_arguments_return_exact_path_sorted_pending_attention(
 ) -> None:
     module_path = pathlib.Path(__file__).parents[1] / "overseer" / "_lpm_attention.py"
     assert module_path.is_file(), "the shared attention reader must exist"
-    empty = _run(state_dir=tmp_path / "absent")
+    empty_state = tmp_path / "empty"
+    (empty_state / "attention").mkdir(parents=True, mode=0o700)
+    empty = _run(state_dir=empty_state)
     state_dir = tmp_path / "manager-state"
     path_b = _write(
         state_dir=state_dir, name="bb.json", value=_artifact(record_id=_RECORD_B, status="pending")
