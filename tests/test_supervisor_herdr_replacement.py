@@ -445,3 +445,93 @@ def test_termination_reverifies_processes_and_surfaces_the_one_signal_failure(
 
     assert signal_count == expected_signals
     assert any(key[-1] == condition for key in sup.alerted)
+
+
+def _launched_unknown_world(*, tmp_path: Path) -> tuple[_World, registry.Track, dict[str, int]]:
+    world, first, track = _armed_world(tmp_path=tmp_path)
+    counts = {"signal": 0, "launch": 0}
+
+    def stop(*, session: str, process_group: int) -> SimpleNamespace:
+        counts["signal"] += 1
+        world.snapshot["value"] = _idle_snapshot()
+        return SimpleNamespace(ok=True, error="")
+
+    def launch(**_kwargs: object) -> SimpleNamespace:
+        counts["launch"] += 1
+        return SimpleNamespace(ok=False, effect_unknown=True, error="lost acknowledgement")
+
+    world.fake.herdr_terminate = stop
+    world.fake.herdr_launch = launch
+    first.evaluate(track=track, act=True)
+    return world, track, counts
+
+
+def _install_successor(*, world: _World, successor_case: str) -> str:
+    shell = _process(pid=100, starttime="shell-start", executable="/bin/bash", pgrp=100)
+    launcher = _process(pid=300, starttime="launcher-new", executable="/usr/bin/node", pgrp=300)
+    runtime = _process(pid=301, starttime="runtime-new", executable="/usr/bin/node", pgrp=300)
+    if successor_case == "old-process":
+        launcher = _process(pid=200, starttime="leader-start", executable="/usr/bin/node", pgrp=200)
+        runtime = _process(pid=201, starttime="runtime-start", executable="/usr/bin/node", pgrp=200)
+    elif successor_case == "reused-predecessor-pid":
+        runtime = _process(pid=201, starttime="runtime-new", executable="/usr/bin/node", pgrp=300)
+    elif successor_case == "replaced-shell":
+        shell.executable = "/bin/zsh"
+    foreground_group = 400 if successor_case == "wrong-foreground-group" else launcher.process_group
+    world.snapshot["value"] = SimpleNamespace(
+        ok=True,
+        error="",
+        shell=shell,
+        foreground_group=foreground_group,
+        processes=(shell, launcher, runtime),
+    )
+    world.fake.cmds[world.target] = "bun" if successor_case == "wrong-runtime" else "node"
+    world.fake.panes[world.target] = idle_capture(ctx=100)
+    world.fake.calls.clear()
+    return f"claude:{runtime.pid}:{runtime.starttime}:{world.topic}"
+
+
+@pytest.mark.parametrize(
+    ("successor_case", "expected_pastes"),
+    [
+        ("fresh-runtime-child", 1),
+        ("old-process", 0),
+        ("reused-predecessor-pid", 0),
+        ("replaced-shell", 0),
+        ("wrong-foreground-group", 0),
+        ("wrong-runtime", 0),
+    ],
+)
+def test_recreated_tick_resumes_only_an_exact_fresh_successor(
+    *, tmp_path: Path, successor_case: str, expected_pastes: int
+) -> None:
+    world, track, counts = _launched_unknown_world(tmp_path=tmp_path)
+    identity = _install_successor(world=world, successor_case=successor_case)
+    recreated = make_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1003.0)
+    recreated.claude_identity_by_session[(world.target, world.topic)] = identity
+    recreated.claude_names_by_session[world.target] = {world.topic}
+    recreated.refresh_claude_status = lambda: None
+
+    recreated.evaluate(track=track, act=True)
+
+    record = json.loads(
+        (world.repo / "tmp" / "overseer" / world.topic / ".herdr-replacement.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    pastes = [call for call in world.fake.calls if call[0] == "paste"]
+    assert counts == {"signal": 1, "launch": 1}
+    assert len(pastes) == expected_pastes
+    if expected_pastes:
+        assert record["phase"] == "completed"
+        assert record["successor"] == {
+            "pid": 301,
+            "starttime": "runtime-new",
+            "executable": "/usr/bin/node",
+            "argv": ["/usr/bin/node"],
+            "process_group": 300,
+            "session_id": 90,
+        }
+        assert signals.read_state(repo=str(world.repo), topic=world.topic).token == "restarted"
+    else:
+        assert record["phase"] == "launch-attempted"
