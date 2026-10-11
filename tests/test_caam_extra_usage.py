@@ -50,11 +50,16 @@ def meter(*, block: dict[str, object] | None) -> object:
     return module.extra_usage_from(body=body)
 
 
-def record(*, block: dict[str, object] | None) -> object:
+def record(
+    *,
+    block: dict[str, object] | None,
+    five_hour_remaining: float = 50.0,
+    seven_day_remaining: float = 50.0,
+) -> object:
     models = importlib.import_module("caam_decision_models")
     return models.UsageRecord(
-        five_hour_remaining=50.0,
-        seven_day_remaining=50.0,
+        five_hour_remaining=five_hour_remaining,
+        seven_day_remaining=seven_day_remaining,
         five_hour_resets_at=None,
         seven_day_resets_at=None,
         fable_remaining=None,
@@ -177,13 +182,15 @@ def test_a_window_reporting_no_dollars_at_all_yields_no_dollar_record() -> None:
     assert module.window_dollars_from(window={"utilization": 12.5}) is None
 
 
-def test_spend_capped_is_true_only_for_an_account_that_hit_its_cap() -> None:
+def test_spend_capped_requires_a_cap_and_an_exhausted_included_window() -> None:
     module = extra_usage_module()
 
     assert module.spend_capped(usage=None) is False
     assert module.spend_capped(usage=record(block=None)) is False
     assert module.spend_capped(usage=record(block=ARMED_BLOCK)) is False
-    assert module.spend_capped(usage=record(block=CAPPED_BLOCK)) is True
+    assert module.spend_capped(usage=record(block=CAPPED_BLOCK)) is False
+    assert module.spend_capped(usage=record(block=CAPPED_BLOCK, five_hour_remaining=0.0)) is True
+    assert module.spend_capped(usage=record(block=CAPPED_BLOCK, seven_day_remaining=0.0)) is True
 
 
 def test_spending_dollars_keys_on_dollars_spent_not_on_the_enabled_flag() -> None:

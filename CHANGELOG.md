@@ -1,5 +1,26 @@
 # Changelog
 
+## [5.19.4](https://github.com/thewoolleyman/livespec-overseer/compare/v5.19.3...v5.19.4) (2026-10-11)
+
+
+### Bug Fixes
+
+* **caam:** report spend-capped hold candidates ([08555fc](https://github.com/thewoolleyman/livespec-overseer/commit/08555fc4a1e74c1101a6bc6e357e44e1e95ca731))
+
+## [5.19.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.19.2...v5.19.3) (2026-10-11)
+
+
+### Bug Fixes
+
+* **caam:** require exhausted included quota for spend cap ([d90877c](https://github.com/thewoolleyman/livespec-overseer/commit/d90877c8fdfbd52bbf9a80b8cfc143f96dd18558))
+
+## [5.19.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.19.1...v5.19.2) (2026-10-11)
+
+
+### Bug Fixes
+
+* **dispatch-guard:** ignore file paths when detecting live-exercise criteria ([fcadee2](https://github.com/thewoolleyman/livespec-overseer/commit/fcadee21ca79eddc4ecee65c358dbf0643f149e6))
+
 ## [5.19.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.19.0...v5.19.1) (2026-10-11)
 
 

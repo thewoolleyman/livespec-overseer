@@ -40,10 +40,9 @@ class ExtraUsage:
     dollars are only spent once an included allowance is gone, and the meter that
     records them is not the meter the percentages come from.
 
-    `spend_limit_reached` is the fact selection turns on. An account that has hit
-    its monthly dollar cap has exhausted its included quota AND the paid path
-    that was standing in for it, so there is nothing left for it to serve a
-    request from.
+    `spend_limit_reached` is the raw monthly-cap fact. Selection combines it
+    with the included-window balances: the flag survives an included reset, so
+    it disqualifies an account only while either included window is exhausted.
     """
 
     is_enabled: bool

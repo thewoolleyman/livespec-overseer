@@ -8,13 +8,14 @@ healthy table while every session on it was refused: the meter that had actually
 stopped it was in the same response, one key away, and was parsed and dropped.
 
 Reading and MEANING live together here because the meaning is the whole reason
-to read it. `spend_capped` is the predicate selection turns on -- an account at
-its monthly dollar cap has exhausted its included quota and the paid path that
-was standing in for it, so it can serve no request at all -- and `spending_dollars`
-is the one the operator surfaces turn on. Every predicate fails CLOSED on an
-absent meter: an account whose response carried no `extra_usage` block is never
-reported as capped and never as spending, because not having read a meter is a
-different fact from having read one that says something.
+to read it. `spend_capped` is the predicate selection turns on -- the monthly
+cap disqualifies an account only while one of its included windows is exhausted.
+The cap flag survives an included-window reset, so treating it as sufficient on
+its own can strand healthy included quota. `spending_dollars` is the predicate
+the operator surfaces turn on. Every predicate fails CLOSED on an absent meter:
+an account whose response carried no `extra_usage` block is never reported as
+capped and never as spending, because not having read a meter is a different
+fact from having read one that says something.
 """
 
 from __future__ import annotations
@@ -31,6 +32,7 @@ __all__: list[str] = [
 ]
 
 _NOTHING_SPENT = 0.0
+_NOTHING_LEFT = 0.0
 _NO_SCALE_DECIMAL_PLACES = 0
 
 
@@ -100,13 +102,12 @@ def window_dollars_from(*, window: dict[str, object]) -> WindowDollars | None:
 
 
 def spend_capped(*, usage: UsageRecord | None) -> bool:
-    """Whether this account has reached its monthly extra-usage spend limit.
+    """Whether a reached monthly cap coincides with exhausted included quota.
 
-    The disqualifying fact. An account here has spent its included quota AND the
-    dollar allowance that was covering it afterwards, so it cannot serve a
-    request immediately -- the same class as an account with nothing left on its
-    weekly allowance, and the same answer: not a candidate, and a reason to leave
-    when it is the account in use.
+    The monthly flag remains set after an included allowance resets. It becomes
+    a disqualifying fact only while the five-hour or weekly allowance has
+    nothing left, because an account with headroom in both included windows can
+    still serve without spending another dollar.
 
     An unread account answers False, because being unreadable is a different fact
     that the live-verification rule already carries; this predicate must not
@@ -116,6 +117,9 @@ def spend_capped(*, usage: UsageRecord | None) -> bool:
         usage is not None
         and usage.extra_usage is not None
         and usage.extra_usage.spend_limit_reached
+        and (
+            usage.five_hour_remaining <= _NOTHING_LEFT or usage.seven_day_remaining <= _NOTHING_LEFT
+        )
     )
 
 

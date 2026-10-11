@@ -92,10 +92,10 @@ def binding(
     protection_floors: Mapping[str, float] = NO_PROTECTION_FLOORS,
 ) -> tuple[str, float, str]:
     protection_floor = protection_floor_for(name=active_name, protection_floors=protection_floors)
-    # First, because it outranks every percentage below it: an account at its
-    # dollar cap can serve nothing at all, so naming a healthy 5-hour window as
-    # the reason the pass is leaving would report a figure that has stopped
-    # meaning anything about what this account can do.
+    # First, because it outranks every percentage below it: a spend-capped
+    # account has no included or paid path left, so naming the other healthy
+    # window as the reason the pass is leaving would report a figure that has
+    # stopped meaning anything about what this account can do.
     if spend_capped(usage=usage):
         return ("five_hour", usage.five_hour_remaining, "extra-usage spend limit")
     if usage.five_hour_remaining <= five_hour_remaining_floor():
@@ -169,11 +169,11 @@ def eligible_profiles(
 ) -> EligibleProfiles:
     reserve = weekly_reserve()
     # The relative-headroom margin asks a candidate to beat the balance the
-    # account in use still has. An account at its dollar cap has no balance it is
-    # permitted to spend, however healthy its percentages read, so there is
-    # nothing for a candidate to beat and the margin is WAIVED rather than
-    # measured -- measuring it against unusable headroom is precisely what would
-    # leave the fleet stranded on the account that cannot serve it.
+    # account in use still has. A spend-capped account has no balance it is
+    # permitted to spend, so there is nothing for a candidate to beat and the
+    # margin is WAIVED rather than measured -- measuring it against unusable
+    # headroom is precisely what would leave the fleet stranded on the account
+    # that cannot serve it.
     gain_needed = (
         -inf if spend_capped(usage=active.usage) else (0.01 if force else min_headroom_gain())
     )
