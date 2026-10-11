@@ -14,12 +14,13 @@ from _lpm_eligibility import (
     eligible_records,
 )
 from _lpm_engine_context import SelectedCredential
-from _lpm_leases import lease_is_live, read_lease
+from _lpm_leases import AccountLease, lease_is_live, read_lease
 from _lpm_paths import SELECTION_STATE_NAME, local_record_path
 from _lpm_provision_request import ProvisionRequest
 from _lpm_record import CredentialRecord, credential_record_from_object
 from _lpm_results import ManagerError, store_unavailable
 from _lpm_runtime_base import RuntimeHost
+from _lpm_runtime_recovery_selection import selected_from_recovery_lease
 from _lpm_selection_state import read_selection_state
 from _lpm_strategy import select_record
 from _lpm_time import add_seconds
@@ -29,6 +30,7 @@ from overseer._vendor.returns.result import Failure, Result, Success
 _ = VENDOR_PATHS_INSTALLED
 
 __all__: list[str] = [
+    "selected_for_recovery",
     "selected_for_request",
     "selected_from_assignment",
 ]
@@ -86,6 +88,31 @@ def selected_from_assignment(*, assignment: Assignment) -> SelectedCredential:
     )
 
 
+def selected_for_recovery(
+    *,
+    host: RuntimeHost,
+    request: ProvisionRequest,
+    lease_started_at: str,
+) -> Result[SelectedCredential, ManagerError]:
+    """Recover the exact selection named by a lease whose create effect already committed."""
+    matches = [
+        record
+        for record in _metadata_records(host=host).unwrap()
+        if (record.provider, record.kind, record.purpose)
+        == (
+            request.provider,
+            request.kind,
+            request.purpose,
+        )
+    ]
+    record = matches[0]
+    lease = cast("AccountLease", _lease_for_record(host=host, record=record).unwrap())
+    _ = _lease_names_request(
+        lease=lease, request=request, record=record, lease_started_at=lease_started_at
+    )
+    return Success(selected_from_recovery_lease(record=record, lease=lease))
+
+
 def _metadata_records(*, host: RuntimeHost) -> Result[tuple[CredentialRecord, ...], ManagerError]:
     listed = host.store.metadata_list()
     if listed.get("status") != "ok":
@@ -139,6 +166,35 @@ def _lease_observations(
             )
         )
     return Success(observations)
+
+
+def _lease_for_record(
+    *, host: RuntimeHost, record: CredentialRecord
+) -> Result[AccountLease | None, ManagerError]:
+    path = local_record_path(
+        state_dir=host.state_dir,
+        family="lease",
+        identity=(record.provider, record.account_id),
+    ).unwrap()
+    return read_lease(path=path, owner_uid=host.owner_uid)
+
+
+def _lease_names_request(
+    *,
+    lease: AccountLease,
+    request: ProvisionRequest,
+    record: CredentialRecord,
+    lease_started_at: str,
+) -> bool:
+    expected_expiry = add_seconds(timestamp=lease_started_at, seconds=request.lease_seconds)
+    return (
+        lease.provider == request.provider
+        and lease.account_id == record.account_id
+        and lease.record_id == record.record_id
+        and lease.consumer_run_id == request.consumer_run_id
+        and lease.lease_started_at == lease_started_at
+        and lease.lease_expires_at == expected_expiry
+    )
 
 
 def _selected(

@@ -114,11 +114,13 @@ def selection_update(*, context: EffectContext) -> Result[str, ManagerError]:
         timeout_seconds=context.engine.lock_timeout_seconds,
         monotonic=context.engine.lock_monotonic,
         sleep=context.engine.lock_sleep,
-    ).unwrap()
+    )
+    if isinstance(held, Failure):
+        return held
     try:
         return _locked_selection_update(context=context, assignment=bound)
     finally:
-        release_lock(held=held)
+        release_lock(held=held.unwrap())
 
 
 def _locked_selection_update(

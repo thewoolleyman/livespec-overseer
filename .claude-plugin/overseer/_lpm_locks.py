@@ -45,6 +45,7 @@ __all__: list[str] = [
     "HeldLock",
     "release_lock",
     "take_lock",
+    "try_lock",
 ]
 
 LOCK_POLL_SECONDS: Final = 0.05
@@ -68,6 +69,34 @@ def take_lock(
     sleep: Callable[[float], None],
 ) -> Result[HeldLock, ManagerError]:
     """Take the owner-only exclusive lock at `path`, waiting no longer than the budget."""
+    opened = _open_lock(path=path, owner_uid=owner_uid)
+    if isinstance(opened, Failure):
+        return opened
+    descriptor = opened.unwrap()
+    deadline = monotonic() + timeout_seconds
+    while True:
+        taken = _try_lock(descriptor=descriptor)
+        if taken:
+            return Success(HeldLock(path=path, descriptor=descriptor))
+        if monotonic() >= deadline:
+            os.close(descriptor)
+            return Failure(store_unavailable(message=f"{path.name} was held past the wait budget"))
+        sleep(LOCK_POLL_SECONDS)
+
+
+def try_lock(*, path: Path, owner_uid: int) -> Result[HeldLock | None, ManagerError]:
+    """Attempt one non-blocking lock acquisition; contention is the successful `None` case."""
+    opened = _open_lock(path=path, owner_uid=owner_uid)
+    if isinstance(opened, Failure):
+        return opened
+    descriptor = opened.unwrap()
+    if _try_lock(descriptor=descriptor):
+        return Success(HeldLock(path=path, descriptor=descriptor))
+    os.close(descriptor)
+    return Success(None)
+
+
+def _open_lock(*, path: Path, owner_uid: int) -> Result[int, ManagerError]:
     directory = ensure_state_directory(path=path.parent, owner_uid=owner_uid)
     if isinstance(directory, Failure):
         return directory
@@ -79,15 +108,7 @@ def take_lock(
         return Failure(
             store_unavailable(message=f"{path.name} is unusable: {failure.__class__.__name__}")
         )
-    deadline = monotonic() + timeout_seconds
-    while True:
-        taken = _try_lock(descriptor=descriptor)
-        if taken:
-            return Success(HeldLock(path=path, descriptor=descriptor))
-        if monotonic() >= deadline:
-            os.close(descriptor)
-            return Failure(store_unavailable(message=f"{path.name} was held past the wait budget"))
-        sleep(LOCK_POLL_SECONDS)
+    return Success(descriptor)
 
 
 def release_lock(*, held: HeldLock) -> None:
