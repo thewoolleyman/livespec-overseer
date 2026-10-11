@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
 __all__: list[str] = [
+    "NativeCleaner",
     "NativeCreator",
     "NativeMutation",
     "StartContext",
@@ -42,6 +43,10 @@ class SupervisorFactory(Protocol):
 
 class NativeCreator(Protocol):
     def create_initial_pane(self, *, source: str, name: str, cwd: str) -> NativeMutation: ...
+
+
+class NativeCleaner(Protocol):
+    def cleanup_initial_pane(self, *, session: str) -> bool: ...
 
 
 @dataclass(frozen=True, kw_only=True)

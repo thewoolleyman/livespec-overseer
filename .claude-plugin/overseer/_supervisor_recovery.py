@@ -183,7 +183,6 @@ def _start_claude_process(
 ) -> tuple[bool, bool, LaunchResult]:
     """Start one initial Claude process, distinguishing native input uncertainty."""
     native = herdr_identity.decode_herdr_target(value=target) is not None
-    failure = LaunchResult(launched=False, reason="claude_launch_failed")
     if native:
         mutation = cast(NativeLauncher, sup.tmux).launch_initial_agent(
             session=target,
@@ -193,6 +192,11 @@ def _start_claude_process(
             expected_process="claude",
         )
         launched = mutation.ok
+        failure = LaunchResult(
+            launched=False,
+            reason=mutation.error or "claude_launch_failed",
+            effect_unknown=mutation.effect_unknown,
+        )
     else:
         launched = sup.tmux.respawn_pane(
             session=target,
@@ -200,6 +204,7 @@ def _start_claude_process(
             command=launch.command,
             env=launch.env,
         )
+        failure = LaunchResult(launched=False, reason="claude_launch_failed")
     ready = launched and _supervisor_launch.await_pane(
         sup=sup,
         target=target,

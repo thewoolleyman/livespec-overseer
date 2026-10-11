@@ -8,6 +8,7 @@ from dataclasses import replace
 from typing import cast
 
 import _supervisor_assignment
+import _supervisor_cli_start_failures
 import _supervisor_cli_update
 import herdr_identity
 import pane_router
@@ -22,8 +23,7 @@ from _supervisor_cli_start_types import (
     TmuxFactory,
 )
 from _supervisor_dead_track import AmbiguousRuntime, classify_dead_track
-from _supervisor_start_cli import StartLaunchMessage, launch_attempt_message
-from tmuxio_protocols import PaneDriver
+from _supervisor_start_cli import launch_attempt_message
 
 __all__: list[str] = [
     "start_command",
@@ -121,6 +121,11 @@ def _created_context(
         creation = cast(NativeCreator, context.io).create_initial_pane(
             source=cast(str, context.native_source), name=topic, cwd=repo
         )
+        if not creation.ok:
+            _supervisor_cli_start_failures.report_creation_failure(
+                creation=creation, repo=repo, topic=topic
+            )
+            return None
         track = replace(context.track, tmux=creation.target)
         _ = _supervisor_cli_update.upsert_track(
             track=track,
@@ -140,33 +145,6 @@ def _created_context(
         )
     )
     return None
-
-
-def _report_launch_failure(
-    *,
-    io: PaneDriver,
-    attempt: StartLaunchMessage,
-    repo: str,
-    topic: str,
-    session: str,
-    created_session: bool,
-) -> None:
-    """Report a launch that never landed, tearing down a session this call created.
-
-    A session `start` created and then failed to launch into is torn down so a retry can
-    take the create-then-launch path again rather than inheriting a husk; a session that
-    already existed is left exactly as it was found.
-    """
-    cleanup = "not_created"
-    if created_session:
-        cleanup = "cleaned" if io.kill_session(session=session) else "leftover_session"
-    streams.write_stderr(
-        text=(
-            f"start FAILED to launch {repo}::{topic} in tmux session {session}; "
-            f"reason={attempt.reason or 'launch_failed'} "
-            f"session={session} repo={repo} topic={topic} cleanup={cleanup}\n"
-        )
-    )
 
 
 def start_command(
@@ -227,7 +205,7 @@ def start_command(
         runtime=runtime,
     )
     if attempt.message is None:
-        _report_launch_failure(
+        _supervisor_cli_start_failures.report_launch_failure(
             io=created.io,
             attempt=attempt,
             repo=repo,
