@@ -13,6 +13,7 @@ __all__: list[str] = [
     "predecessor",
     "predecessor_still_live",
     "process_record",
+    "proven_successor",
     "replacement_still_owned",
     "retained_shell_is_idle",
 ]
@@ -112,3 +113,40 @@ def retained_shell_is_idle(
         and snapshot.shell.executable == shell["executable"]
         and snapshot.foreground_group == snapshot.shell.process_group
     )
+
+
+def proven_successor(
+    *,
+    transaction: Mapping[str, object],
+    snapshot: ReplacementSnapshot,
+    identity: str,
+) -> ProcessObservation | None:
+    """Return the distinct runtime generation proven inside the retained pane.
+
+    A runtime PID need not lead its foreground process group: both Claude and Codex
+    can run below a launcher.  The group must nevertheless have a live leader in the
+    original shell session, and neither that group nor the runtime may reuse the
+    predecessor identity.
+    """
+    predecessor_record = cast(dict[str, object], transaction["predecessor"])
+    shell_record = cast(dict[str, object], transaction["shell"])
+    server_record = cast(dict[str, object], transaction["server"])
+    try:
+        successor = predecessor(snapshot=snapshot, identity=identity)
+    except (TypeError, ValueError):
+        successor = None
+    group = snapshot.foreground_group
+    leader = next((process for process in snapshot.processes if process.pid == group), None)
+    valid = successor is not None and all(
+        (
+            not predecessor_still_live(transaction=transaction, snapshot=snapshot),
+            successor.pid != predecessor_record["pid"],
+            process_record(process=snapshot.shell) == shell_record,
+            group not in {shell_record["pid"], server_record["pid"]},
+            successor.process_group == group,
+            successor.session_id == snapshot.shell.session_id,
+            leader is not None,
+            False if leader is None else leader.session_id == snapshot.shell.session_id,
+        )
+    )
+    return successor if valid else None

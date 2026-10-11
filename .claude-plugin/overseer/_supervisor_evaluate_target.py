@@ -61,6 +61,8 @@ def resolve_evaluate_target(
         target=target,
         act=act,
     )
+    if recovery is not None:
+        return recovery
 
     # Identity gate (B3): the mapped session exists, but before reading its pane
     # for any ACT we confirm it is really OUR Claude in OUR repo — never
@@ -68,8 +70,6 @@ def resolve_evaluate_target(
     if not _supervisor_observe.pane_is_managed(
         sup=sup, target=target, repo=repo, topic=topic, session=session
     ):
-        if recovery is not None:
-            return recovery
         # The gate stays exactly what it was — an ACT guard (never keystroke into a
         # pane not proven ours). What changed is that its answer is no longer a row
         # STATUS of its own. Whether the pane is a bare shell (our session exited) or
