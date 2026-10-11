@@ -173,6 +173,7 @@ def test_a_capped_account_with_included_headroom_reports_included_quota() -> Non
 
     assert len(lines) == 1
     assert "included quota remains" in lines[0]
+    assert "account is selectable" in lines[0]
     assert "can serve no request" not in lines[0]
     assert "before it stops serving" not in lines[0]
 

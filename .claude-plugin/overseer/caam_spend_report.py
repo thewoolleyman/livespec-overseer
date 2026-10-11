@@ -34,7 +34,7 @@ _CAPPED_ALERT = (
 )
 _CAPPED_WITH_INCLUDED_QUOTA_ALERT = (
     "ALERT: {name} has reached its pay-as-you-go monthly spend limit "
-    "({used} spent of {limit}) -- included quota remains"
+    "({used} spent of {limit}) -- included quota remains and the account is selectable"
 )
 _SPENDING_ALERT = (
     "ALERT: {name} is spending pay-as-you-go dollars "
