@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.19.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.19.0...v5.19.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **overseer:** isolate declare tests from pane ancestry ([3ef9df6](https://github.com/thewoolleyman/livespec-overseer/commit/3ef9df66801f7cd0df95f1f2daa9658e72fac842))
+
 ## [5.19.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.18.0...v5.19.0) (2026-10-10)
 
 
