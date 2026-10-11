@@ -57,11 +57,8 @@ def companion_path() -> Path:
 
 
 def main() -> int:
-    """Scrub first; answer help locally or replace this process with the companion."""
+    """Scrub first, then replace this process with the shared command companion."""
     _ = scrub_credential_overrides(environ=os.environ)
-    if sys.argv[1:] == ["--help"]:
-        _ = sys.stdout.write("usage: llm-provider-manager <subcommand> [options]\n")
-        return 0
     companion = companion_path()
     with contextlib.suppress(OSError):
         execv(sys.executable, [sys.executable, "-I", "-S", str(companion), *sys.argv[1:]])
