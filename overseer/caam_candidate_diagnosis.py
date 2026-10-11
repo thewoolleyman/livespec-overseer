@@ -19,6 +19,7 @@ from dataclasses import dataclass
 
 from caam_decision_models import ProfileUsage
 from caam_decision_protection import protection_floor_for, weekly_left
+from caam_extra_usage import spend_capped
 
 __all__: list[str] = [
     "CandidatePopulation",
@@ -88,6 +89,12 @@ def no_candidate_cause(*, population: CandidatePopulation, gain_needed: float) -
         return (
             f"no account other than {active_name} could be verified live this pass "
             f"({_names(profiles=others)}), so no {dimension} headroom comparison was made"
+        )
+    spend_cap_excluded = tuple(profile for profile in live if spend_capped(usage=profile.usage))
+    if spend_cap_excluded:
+        return (
+            "the extra-usage spend cap excludes these live-verified candidates "
+            f"({_names(profiles=spend_cap_excluded)})"
         )
     if all(
         _exhausted(profile=profile, protection_floors=population.protection_floors)
