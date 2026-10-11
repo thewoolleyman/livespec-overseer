@@ -68,6 +68,7 @@ def test_ready_uses_real_tmux_driver_when_no_driver_is_injected(*, tmp_path, mon
     repo = tmp_path / "repo"
     repo.mkdir()
     monkeypatch.setenv("TMUX_PANE", "%9")
+    monkeypatch.setattr(declare.pane_router, "current_process_coordinate", lambda: None)
     monkeypatch.setattr(declare.tmuxio, "TmuxIO", lambda: FakeTmux(session="default-topic"))
 
     code = declare.main(argv=["ready", "--repo", str(repo)])
@@ -82,6 +83,7 @@ def test_ready_reports_missing_topic_when_no_tmux_context(*, tmp_path, capsys, m
     monkeypatch.delenv("OVERSEER_TOPIC", raising=False)
     monkeypatch.delenv("TMUX", raising=False)
     monkeypatch.delenv("TMUX_PANE", raising=False)
+    monkeypatch.setattr(declare.pane_router, "current_process_coordinate", lambda: None)
 
     code = declare.main(argv=["ready", "--repo", str(repo)])
 
