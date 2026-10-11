@@ -20,6 +20,7 @@ __all__: list[str] = ["StartLaunchMessage", "launch_attempt_message"]
 class StartLaunchMessage:
     message: str | None
     reason: str | None = None
+    effect_unknown: bool = False
 
 
 def launch_attempt_message(
@@ -60,4 +61,8 @@ def launch_attempt_message(
         return StartLaunchMessage(
             message=f"started {track.repo}::{track.topic} in tmux session {session}"
         )
-    return StartLaunchMessage(message=None, reason=result.reason or "launch_failed")
+    return StartLaunchMessage(
+        message=None,
+        reason=result.reason or "launch_failed",
+        effect_unknown=result.effect_unknown,
+    )
