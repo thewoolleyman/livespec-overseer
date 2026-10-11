@@ -7,7 +7,9 @@ dispatcher before the later slices exercise recovery and process I/O.
 
 from __future__ import annotations
 
+import fcntl
 import importlib
+import os
 import pathlib
 from dataclasses import dataclass, field
 from typing import Protocol
@@ -85,3 +87,24 @@ def test_both_installed_surfaces_delegate_target_provision_and_report_to_one_run
     monkeypatch.setattr(bootstrap.sys, "argv", ["llm-provider-manager", "--help"])
     assert bootstrap.main() == 0
     assert capsys.readouterr().out.startswith("usage: llm-provider-manager")
+
+
+def test_role_companion_maps_only_explicitly_inheritable_descriptors(
+    *, tmp_path: pathlib.Path
+) -> None:
+    companion = importlib.import_module("_lpm_companion")
+    assert hasattr(
+        companion, "inherited_descriptor_mapping"
+    ), "the role companion must distinguish explicit inheritance from its own open files"
+    allowed = os.open(tmp_path / "target.lock", os.O_RDWR | os.O_CREAT, 0o600)
+    internal = os.open(tmp_path / "runtime-internal", os.O_RDWR | os.O_CREAT, 0o600)
+    flags = fcntl.fcntl(allowed, fcntl.F_GETFD)
+    _ = fcntl.fcntl(allowed, fcntl.F_SETFD, flags & ~fcntl.FD_CLOEXEC)
+    try:
+        assert os.get_inheritable(internal) is False
+        assert companion.inherited_descriptor_mapping(names=("target-reference-lock",)) == {
+            "target-reference-lock": allowed
+        }
+    finally:
+        os.close(internal)
+        os.close(allowed)
