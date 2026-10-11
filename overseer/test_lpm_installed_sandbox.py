@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TypedDict, cast
 
+from overseer.test_lpm_installed_attention import write_attention
 from overseer.test_lpm_installed_credentials import (
     SeededCredential,
     bind_target_lock,
@@ -178,6 +179,10 @@ class InstalledManagerSandbox:
     def write_registered_target(self, *, destination: Path, value: bytes) -> None:
         """Create fixture-owned prior bytes at a registered destination."""
         write_registered_target(destination=destination, value=value)
+
+    def write_attention(self, *, record_id: str) -> str:
+        """Write one pending attention artifact inside the installed root."""
+        return write_attention(root=self.root, record_id=record_id)
 
     def _install_distribution(self) -> None:
         destination = self.root / "opt" / "lpm"
