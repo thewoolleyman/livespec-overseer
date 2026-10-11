@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.19.4](https://github.com/thewoolleyman/livespec-overseer/compare/v5.19.3...v5.19.4) (2026-10-11)
+
+
+### Bug Fixes
+
+* **caam:** report spend-capped hold candidates ([08555fc](https://github.com/thewoolleyman/livespec-overseer/commit/08555fc4a1e74c1101a6bc6e357e44e1e95ca731))
+
 ## [5.19.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.19.2...v5.19.3) (2026-10-11)
 
 
