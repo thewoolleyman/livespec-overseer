@@ -13,8 +13,11 @@ if TYPE_CHECKING:
 
 __all__: list[str] = [
     "NativeCleaner",
+    "NativeCreationCommitter",
     "NativeCreator",
     "NativeMutation",
+    "NativePending",
+    "NativePreserver",
     "StartContext",
     "SupervisorFactory",
     "TmuxDeriver",
@@ -47,6 +50,18 @@ class NativeCreator(Protocol):
 
 class NativeCleaner(Protocol):
     def cleanup_initial_pane(self, *, session: str) -> bool: ...
+
+
+class NativeCreationCommitter(Protocol):
+    def created_initial_pane_persisted(self, *, repo: str, topic: str, session: str) -> None: ...
+
+
+class NativePending(Protocol):
+    def pending_initial_start(self, *, repo: str, topic: str, session: str) -> str: ...
+
+
+class NativePreserver(Protocol):
+    def preserve_initial_pane(self, *, session: str) -> bool: ...
 
 
 @dataclass(frozen=True, kw_only=True)

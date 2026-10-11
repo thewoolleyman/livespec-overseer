@@ -15,14 +15,13 @@ classifier and one verified launcher rather than two that can drift.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol, cast
+from typing import TYPE_CHECKING
 
 import _supervisor_codex_recovery
+import _supervisor_initial_process
 import _supervisor_launch
-import herdr_identity
 import registry
 import signals
-from _supervisor_cli_start_types import NativeMutation
 from _supervisor_dead_track import (
     AmbiguousRuntime,
     CodexRuntime,
@@ -52,18 +51,6 @@ class LaunchResult:
     effect_unknown: bool = False
 
 
-class NativeLauncher(Protocol):
-    def launch_initial_agent(
-        self,
-        *,
-        session: str,
-        cwd: str,
-        command: str,
-        env: object,
-        expected_process: str,
-    ) -> NativeMutation: ...
-
-
 def dead_track_launch_result(
     *,
     sup: Supervisor,
@@ -80,10 +67,14 @@ def dead_track_launch_result(
     byte-for-byte, ``start`` semantics included.
     """
     if isinstance(runtime, CodexRuntime):
-        reason = _supervisor_codex_recovery.codex_launch_reason(
+        codex = _supervisor_codex_recovery.codex_launch_result(
             sup=sup, track=track, session=session, session_id=runtime.session_id
         )
-        return LaunchResult(launched=reason is None, reason=reason)
+        return LaunchResult(
+            launched=codex.reason is None,
+            reason=codex.reason,
+            effect_unknown=codex.effect_unknown,
+        )
     return do_launch_result(sup=sup, track=track, session=session, start=start)
 
 
@@ -182,35 +173,35 @@ def _start_claude_process(
     *, sup: Supervisor, track: registry.Track, target: str, launch: ClaudeLaunchPlan
 ) -> tuple[bool, bool, LaunchResult]:
     """Start one initial Claude process, distinguishing native input uncertainty."""
-    native = herdr_identity.decode_herdr_target(value=target) is not None
-    if native:
-        mutation = cast(NativeLauncher, sup.tmux).launch_initial_agent(
-            session=target,
-            cwd=track.repo,
-            command=launch.command,
-            env=launch.env,
-            expected_process="claude",
-        )
-        launched = mutation.ok
-        failure = LaunchResult(
-            launched=False,
-            reason=mutation.error or "claude_launch_failed",
-            effect_unknown=mutation.effect_unknown,
-        )
-    else:
-        launched = sup.tmux.respawn_pane(
-            session=target,
-            cwd=track.repo,
-            command=launch.command,
-            env=launch.env,
-        )
-        failure = LaunchResult(launched=False, reason="claude_launch_failed")
-    ready = launched and _supervisor_launch.await_pane(
+    attempt = _supervisor_initial_process.start_initial_process(
+        sup=sup,
+        track=track,
+        target=target,
+        launch=launch,
+        expected_process="claude",
+        failure_reason="claude_launch_failed",
+    )
+    ready = attempt.launched and _supervisor_launch.await_pane(
         sup=sup,
         target=target,
         is_ready=signals.pane_is_claude,
     )
-    return ready, native, failure
+    finished = _supervisor_initial_process.finish_initial_process(
+        sup=sup,
+        track=track,
+        target=target,
+        attempt=attempt,
+        confirmed=ready,
+    )
+    return (
+        ready,
+        attempt.native,
+        LaunchResult(
+            launched=False,
+            reason=finished.reason,
+            effect_unknown=finished.effect_unknown,
+        ),
+    )
 
 
 def do_launch_result(

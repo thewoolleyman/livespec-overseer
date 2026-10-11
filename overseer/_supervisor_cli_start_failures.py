@@ -6,7 +6,7 @@ from typing import cast
 
 import herdr_identity
 import streams
-from _supervisor_cli_start_types import NativeCleaner, NativeMutation
+from _supervisor_cli_start_types import NativeCleaner, NativeMutation, NativePreserver
 from _supervisor_start_cli import StartLaunchMessage
 from tmuxio_protocols import PaneDriver
 
@@ -18,11 +18,14 @@ __all__: list[str] = [
 
 def report_creation_failure(*, creation: NativeMutation, repo: str, topic: str) -> None:
     """Name the exact native target whose creation was refused."""
+    uncertainty = (
+        " effect is unknown; mutation will not be repeated" if creation.effect_unknown else ""
+    )
     streams.write_stderr(
         text=(
             f"start FAILED to create Herdr pane for {repo}::{topic}; "
             f"reason={creation.error or 'pane_create_failed'} backend=herdr "
-            f"target={creation.target}\n"
+            f"target={creation.target}{uncertainty}\n"
         )
     )
 
@@ -53,20 +56,28 @@ def report_launch_failure(
 ) -> None:
     """Report a failed launch and clean only a resource this invocation created."""
     native = herdr_identity.decode_herdr_target(value=session) is not None
-    cleanup = _cleanup(
-        io=io,
-        session=session,
-        native=native,
-        created_session=created_session,
-    )
+    if native and attempt.effect_unknown:
+        _ = cast(NativePreserver, io).preserve_initial_pane(session=session)
+        cleanup = "preserved_uncertain"
+    else:
+        cleanup = _cleanup(
+            io=io,
+            session=session,
+            native=native,
+            created_session=created_session,
+        )
     location = {
         True: f"in herdr pane {session}; backend=herdr target={session}",
         False: f"in tmux session {session}; session={session}",
     }[native]
+    uncertainty = (
+        "effect is unknown; mutation will not be repeated " if attempt.effect_unknown else ""
+    )
     streams.write_stderr(
         text=(
             f"start FAILED to launch {repo}::{topic} {location}; "
             f"reason={attempt.reason or 'launch_failed'} "
+            f"{uncertainty}"
             f"repo={repo} topic={topic} cleanup={cleanup}\n"
         )
     )
