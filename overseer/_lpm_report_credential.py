@@ -114,12 +114,10 @@ def authoritative_record(
         return Failure(
             store_unavailable(message="the authoritative envelope names no revision of this record")
         )
-    parsed = parse_canonical_json(text=_text(value=envelope.get("record")))
-    if isinstance(parsed, Failure):
-        return Failure(
-            store_unavailable(message=f"the authoritative record is {parsed.failure().reason}")
-        )
-    validated = credential_record_from_object(parsed=parsed.unwrap())
+    decoded = _decoded_record(value=envelope.get("record"))
+    if isinstance(decoded, Failure):
+        return decoded
+    validated = credential_record_from_object(parsed=decoded.unwrap())
     if isinstance(validated, Failure):
         return Failure(
             store_unavailable(
@@ -187,3 +185,14 @@ def _authoritative(*, record: CredentialRecord, revision: int) -> AuthoritativeR
 
 def _text(*, value: object) -> str:
     return value if isinstance(value, str) else ""
+
+
+def _decoded_record(*, value: object) -> Result[object, ManagerError]:
+    if not isinstance(value, str):
+        return Success(value)
+    parsed = parse_canonical_json(text=value)
+    if isinstance(parsed, Failure):
+        return Failure(
+            store_unavailable(message=f"the authoritative record is {parsed.failure().reason}")
+        )
+    return Success(parsed.unwrap())
