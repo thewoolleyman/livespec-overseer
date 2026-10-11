@@ -303,3 +303,33 @@ def test_successor_launch_is_fenced_and_requires_the_original_idle_shell(
     assert len(launches) == expected_launches
     if launches:
         assert launches[0]["record"]["phase"] == "launch-attempted"
+
+
+@pytest.mark.parametrize("phase", ["stopped-awaiting-shell", "launch-attempted"])
+def test_recreated_supervisor_recovers_only_a_never_attempted_launch(
+    *, tmp_path: Path, phase: str
+) -> None:
+    world, first, track = _armed_world(tmp_path=tmp_path)
+    counts = {"signal": 0, "launch": 0}
+
+    def stop(*, session: str, process_group: int) -> SimpleNamespace:
+        counts["signal"] += 1
+        world.snapshot["value"] = _idle_snapshot()
+        if phase == "stopped-awaiting-shell":
+            world.snapshot["value"].foreground_group = 300
+        return SimpleNamespace(ok=True, error="")
+
+    def launch(**_kwargs: object) -> SimpleNamespace:
+        counts["launch"] += 1
+        return SimpleNamespace(ok=False, effect_unknown=True, error="lost acknowledgement")
+
+    world.fake.herdr_terminate = stop
+    world.fake.herdr_launch = launch
+    first.evaluate(track=track, act=True)
+    world.snapshot["value"] = _idle_snapshot()
+    world.fake.cmds[world.target] = "bash"
+    recreated = make_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1003.0)
+
+    recreated.evaluate(track=track, act=True)
+
+    assert counts == {"signal": 1, "launch": 1}

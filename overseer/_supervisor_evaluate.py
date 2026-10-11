@@ -71,7 +71,7 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
     place in the order; load-bearing rationale that explains a branch remains
     beside that branch's code.
     """
-    resolved = _supervisor_evaluate_target.resolve_evaluate_target(sup=sup, track=track)
+    resolved = _supervisor_evaluate_target.resolve_evaluate_target(sup=sup, track=track, act=act)
     if isinstance(resolved, RowView):
         return resolved
     repo, topic = resolved.repo, resolved.topic
