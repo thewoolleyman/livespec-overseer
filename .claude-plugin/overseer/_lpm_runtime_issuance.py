@@ -19,6 +19,7 @@ __all__: list[str] = [
     "existing_issuance_payload",
     "issuance_for_run",
     "read_runtime_issuance",
+    "refuse_destination_conflict",
     "resolved_runtime_issuance",
 ]
 
@@ -64,14 +65,43 @@ def issuance_for_run(
     *, host: RuntimeHost, consumer_run_id: str
 ) -> Result[TargetIssuance | None, ManagerError]:
     """Find the sole retained issuance for a run, refusing ambiguous local state."""
+    inventory = _issuance_inventory(host=host)
+    if isinstance(inventory, Failure):
+        return Failure(inventory.failure())
+    matches = [
+        issuance for issuance in inventory.unwrap() if issuance.consumer_run_id == consumer_run_id
+    ]
+    if len(matches) > 1:
+        return Failure(store_unavailable(message="more than one issuance names this consumer run"))
+    return Success(matches[0] if matches else None)
+
+
+def refuse_destination_conflict(
+    *, host: RuntimeHost, consumer_run_id: str, destination: str
+) -> Result[None, ManagerError]:
+    """Refuse a canonical destination already issued to another consumer run."""
+    inventory = _issuance_inventory(host=host)
+    if isinstance(inventory, Failure):
+        return Failure(inventory.failure())
+    conflict = any(
+        issuance.destination == destination and issuance.consumer_run_id != consumer_run_id
+        for issuance in inventory.unwrap()
+    )
+    if conflict:
+        return Failure(invalid_request(message="target destination is issued to another run"))
+    return Success(None)
+
+
+def _issuance_inventory(*, host: RuntimeHost) -> Result[tuple[TargetIssuance, ...], ManagerError]:
+    """Read every retained issuance from the one authoritative local directory."""
     directory = host.state_dir / "issuances"
     if not directory.exists():
-        return Success(None)
+        return Success(())
     try:
         paths = sorted(directory.iterdir())
     except OSError:
         return Failure(store_unavailable(message="the issuance directory is unreadable"))
-    matches: list[TargetIssuance] = []
+    issuances: list[TargetIssuance] = []
     for path in paths:
         stored = read_local_record(path=path, owner_uid=host.owner_uid)
         if isinstance(stored, Failure):
@@ -81,11 +111,8 @@ def issuance_for_run(
         parsed = issuance_from_object(parsed=stored.unwrap())
         if isinstance(parsed, Failure):
             return Failure(store_unavailable(message="a retained issuance is malformed"))
-        if parsed.unwrap().consumer_run_id == consumer_run_id:
-            matches.append(parsed.unwrap())
-    if len(matches) > 1:
-        return Failure(store_unavailable(message="more than one issuance names this consumer run"))
-    return Success(matches[0] if matches else None)
+        issuances.append(parsed.unwrap())
+    return Success(tuple(issuances))
 
 
 def existing_issuance_payload(

@@ -30,6 +30,7 @@ __all__: list[str] = [
     "ProvisionRuntimeHost",
     "RuntimeHost",
     "TargetStatusPort",
+    "destination_lock",
     "engine_for",
     "new_operation",
     "run_lock",
@@ -188,6 +189,21 @@ def run_lock(*, host: RuntimeHost, consumer_run_id: str) -> Result[HeldLock, Man
             return Failure(ensured.failure())
     return take_lock(
         path=_lock_path(state_dir=host.state_dir, family="run", identity=(consumer_run_id,)),
+        owner_uid=host.owner_uid,
+        timeout_seconds=float(host.config.external_call_timeout_seconds),
+        monotonic=host.monotonic,
+        sleep=host.sleep,
+    )
+
+
+def destination_lock(*, host: RuntimeHost, destination: str) -> Result[HeldLock, ManagerError]:
+    """Take the canonical-destination serialization used by target issuance."""
+    return take_lock(
+        path=_lock_path(
+            state_dir=host.state_dir,
+            family="destination",
+            identity=(destination,),
+        ),
         owner_uid=host.owner_uid,
         timeout_seconds=float(host.config.external_call_timeout_seconds),
         monotonic=host.monotonic,
