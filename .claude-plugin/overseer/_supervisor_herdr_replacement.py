@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
+import _herdr_replacement_authorization
 import _herdr_replacement_process
 import _herdr_replacement_store
-import herdr_identity
 import registry
-import signals
 from _supervisor_launch_profile import ClaudeLaunchPlan
 
 if TYPE_CHECKING:
@@ -27,60 +27,6 @@ class ReplacementFailure:
     condition: str
 
 
-def _record(
-    *,
-    sup: Supervisor,
-    track: registry.Track,
-    target: str,
-    launch: ClaudeLaunchPlan,
-    snapshot: _herdr_replacement_process.ReplacementSnapshot,
-) -> tuple[dict[str, object] | None, str]:
-    decoded = herdr_identity.decode_target(value=target)
-    server = cast(herdr_identity.HerdrPaneTarget, decoded.herdr)
-    round_record = registry.read_round_record(
-        repo=track.repo,
-        topic=track.topic,
-        stamp_path=sup.stamp_path,
-    )
-    declared = signals.read_state(repo=track.repo, topic=track.topic)
-    identity = cast(str, round_record.session_identity)
-    predecessor = _herdr_replacement_process.predecessor(snapshot=snapshot, identity=identity)
-    if declared is None:
-        return None, "ready declaration changed before durable binding"
-    if predecessor is None:
-        return None, "predecessor process identity was reused or disappeared"
-    if snapshot.shell.pid == predecessor.pid:
-        return None, "root shell was exec-replaced by the predecessor"
-    return {
-        "version": 1,
-        "phase": "before-stop",
-        "target": target,
-        "server": {
-            "socket_path": server.socket_path,
-            "pid": server.server_pid,
-            "starttime": server.server_starttime,
-            "pane_id": server.pane_id,
-        },
-        "runtime": "claude",
-        "predecessor": {
-            "pid": predecessor.pid,
-            "starttime": predecessor.starttime,
-            "process_group": snapshot.foreground_group,
-        },
-        "shell": _herdr_replacement_process.process_record(process=snapshot.shell),
-        "round": {
-            "ready_mtime": declared.mtime,
-            "round_at": round_record.at,
-            "session_identity": identity,
-        },
-        "launch": {
-            "command": launch.command,
-            "cwd": track.repo,
-            "env": dict(launch.env),
-        },
-    }, ""
-
-
 def _refuse(
     *,
     sup: Supervisor,
@@ -94,10 +40,61 @@ def _refuse(
         topic=track.topic,
         session=target,
         pane=target,
-        message=f"Herdr replacement refused before signal: {reason}",
+        message=f"Herdr replacement refused: {reason}",
         condition=condition,
     )
     return ReplacementFailure(reason=reason, condition=condition)
+
+
+def _stop_predecessor(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    target: str,
+    transaction: dict[str, object],
+    pane: _herdr_replacement_process.ReplacementPane,
+    record_path: Path,
+) -> tuple[_herdr_replacement_process.ReplacementSnapshot | None, ReplacementFailure | None]:
+    verified = pane.herdr_replacement_snapshot(session=target)
+    if not _herdr_replacement_process.replacement_still_owned(
+        transaction=transaction, snapshot=verified
+    ) or not _herdr_replacement_authorization.round_still_authorizes(
+        sup=sup, track=track, transaction=transaction
+    ):
+        failure = _refuse(
+            sup=sup,
+            track=track,
+            target=target,
+            reason="process ownership or restart authorization changed before signal",
+        )
+        return None, failure
+    transaction["phase"] = "signal-attempted"
+    _durable_write(path=record_path, value=transaction)
+    predecessor = cast(dict[str, object], transaction["predecessor"])
+    terminated = pane.herdr_terminate(
+        session=target,
+        process_group=cast(int, predecessor["process_group"]),
+    )
+    if not terminated.ok:
+        failure = _refuse(
+            sup=sup,
+            track=track,
+            target=target,
+            reason=terminated.error,
+            condition="herdr-signal-failed",
+        )
+        return None, failure
+    stopped = pane.herdr_replacement_snapshot(session=target)
+    if _herdr_replacement_process.predecessor_still_live(transaction=transaction, snapshot=stopped):
+        failure = _refuse(
+            sup=sup,
+            track=track,
+            target=target,
+            reason="predecessor survived the one termination attempt",
+            condition="herdr-predecessor-survived",
+        )
+        return None, failure
+    return stopped, None
 
 
 def begin_herdr_replacement(
@@ -128,7 +125,7 @@ def begin_herdr_replacement(
                     reason="predecessor survived the one termination attempt",
                     condition="herdr-predecessor-survived",
                 )
-            transaction, reason = _record(
+            transaction, reason = _herdr_replacement_authorization.bind_authorization(
                 sup=sup,
                 track=track,
                 target=target,
@@ -141,27 +138,17 @@ def begin_herdr_replacement(
                 path=scratch / _herdr_replacement_store.RECORD_NAME,
                 value=transaction,
             )
-            transaction["phase"] = "signal-attempted"
-            _durable_write(
-                path=scratch / _herdr_replacement_store.RECORD_NAME,
-                value=transaction,
+            stopped, failure = _stop_predecessor(
+                sup=sup,
+                track=track,
+                target=target,
+                transaction=transaction,
+                pane=pane,
+                record_path=scratch / _herdr_replacement_store.RECORD_NAME,
             )
-            predecessor = cast(dict[str, object], transaction["predecessor"])
-            _ = pane.herdr_terminate(
-                session=target,
-                process_group=cast(int, predecessor["process_group"]),
-            )
-            stopped = pane.herdr_replacement_snapshot(session=target)
-            if _herdr_replacement_process.predecessor_still_live(
-                transaction=transaction, snapshot=stopped
-            ):
-                return _refuse(
-                    sup=sup,
-                    track=track,
-                    target=target,
-                    reason="predecessor survived the one termination attempt",
-                    condition="herdr-predecessor-survived",
-                )
+            if failure is not None:
+                return failure
+            stopped = cast(_herdr_replacement_process.ReplacementSnapshot, stopped)
             transaction["phase"] = "stopped-awaiting-shell"
             _durable_write(
                 path=scratch / _herdr_replacement_store.RECORD_NAME,
