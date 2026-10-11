@@ -115,7 +115,7 @@ def _record_failed_resume(
     )
 
 
-def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -> None:
+def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -> str | None:
     launch = _supervisor_launch.claude_launch_plan(track=track, daemon_restart=True)
     if not isinstance(launch, ClaudeLaunchPlan):
         sup.alert(
@@ -136,13 +136,12 @@ def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -
         return
     sup.log_claude_build(phase="respawn")
     if herdr_identity.decode_target(value=target).herdr is not None:
-        _supervisor_herdr_replacement.begin_herdr_replacement(
+        return _supervisor_herdr_replacement.begin_herdr_replacement(
             sup=sup,
             track=track,
             target=target,
             launch=launch,
         )
-        return
     if not sup.tmux.respawn_pane(
         session=target,
         cwd=track.repo,
@@ -226,7 +225,7 @@ def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -
 
 def do_restart(
     *, sup: Supervisor, track: registry.Track, target: str, is_codex: bool = False
-) -> None:
+) -> str | None:
     """Atomic restart, RUNTIME-DISPATCHED: respawn → wait for the TUI → resume → close.
 
     ``target`` is the resolved pane id (RB3), STABLE across the respawn.
@@ -269,8 +268,8 @@ def do_restart(
     docstring for the archived-vs-live branch.
     """
     if handle_uncertified_restart_binder(sup=sup, track=track, target=target):
-        return
+        return None
     if is_codex:
         do_codex_restart(sup=sup, track=track, target=target)
-        return
-    _do_claude_restart(sup=sup, track=track, target=target)
+        return None
+    return _do_claude_restart(sup=sup, track=track, target=target)

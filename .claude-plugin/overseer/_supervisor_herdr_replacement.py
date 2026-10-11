@@ -85,14 +85,13 @@ def _durable_write(*, path: Path, value: Mapping[str, object]) -> None:
         os.close(directory_fd)
 
 
-def _predecessor(*, snapshot: ReplacementSnapshot, identity: str) -> ProcessObservation:
+def _predecessor(*, snapshot: ReplacementSnapshot, identity: str) -> ProcessObservation | None:
     _, pid_text, starttime, _ = identity.split(":", 3)
     pid = int(pid_text)
-    return next(
-        process
-        for process in snapshot.processes
-        if process.pid == pid and process.starttime == starttime
-    )
+    for process in snapshot.processes:
+        if process.pid == pid and process.starttime == starttime:
+            return process
+    return None
 
 
 def _process_record(*, process: ProcessObservation) -> dict[str, object]:
@@ -113,7 +112,7 @@ def _record(
     target: str,
     launch: ClaudeLaunchPlan,
     snapshot: ReplacementSnapshot,
-) -> dict[str, object]:
+) -> tuple[dict[str, object] | None, str]:
     decoded = herdr_identity.decode_target(value=target)
     server = cast(herdr_identity.HerdrPaneTarget, decoded.herdr)
     round_record = registry.read_round_record(
@@ -121,9 +120,15 @@ def _record(
         topic=track.topic,
         stamp_path=sup.stamp_path,
     )
-    declared = cast(signals.TrackState, signals.read_state(repo=track.repo, topic=track.topic))
+    declared = signals.read_state(repo=track.repo, topic=track.topic)
     identity = cast(str, round_record.session_identity)
     predecessor = _predecessor(snapshot=snapshot, identity=identity)
+    if declared is None:
+        return None, "ready declaration changed before durable binding"
+    if predecessor is None:
+        return None, "predecessor process identity was reused or disappeared"
+    if snapshot.shell.pid == predecessor.pid:
+        return None, "root shell was exec-replaced by the predecessor"
     return {
         "version": 1,
         "phase": "before-stop",
@@ -151,29 +156,49 @@ def _record(
             "cwd": track.repo,
             "env": dict(launch.env),
         },
-    }
+    }, ""
+
+
+def _refuse(*, sup: Supervisor, track: registry.Track, target: str, reason: str) -> None:
+    sup.alert(
+        repo=track.repo,
+        topic=track.topic,
+        session=target,
+        pane=target,
+        message=f"Herdr replacement refused before signal: {reason}",
+        condition="herdr-replacement-refused",
+    )
 
 
 def begin_herdr_replacement(
     *, sup: Supervisor, track: registry.Track, target: str, launch: ClaudeLaunchPlan
-) -> None:
+) -> str | None:
     """Fence the ready authorization durably, then make its one stop attempt."""
     pane = cast(ReplacementPane, sup.tmux)
     scratch = _scratch_path(track=track)
-    with _transaction_lock(path=scratch / _LOCK_NAME):
-        snapshot = pane.herdr_replacement_snapshot(session=target)
-        transaction = _record(
-            sup=sup,
-            track=track,
-            target=target,
-            launch=launch,
-            snapshot=snapshot,
-        )
-        _durable_write(path=scratch / _RECORD_NAME, value=transaction)
-        transaction["phase"] = "signal-attempted"
-        _durable_write(path=scratch / _RECORD_NAME, value=transaction)
-        predecessor = cast(dict[str, object], transaction["predecessor"])
-        _ = pane.herdr_terminate(
-            session=target,
-            process_group=cast(int, predecessor["process_group"]),
-        )
+    try:
+        with _transaction_lock(path=scratch / _LOCK_NAME):
+            snapshot = pane.herdr_replacement_snapshot(session=target)
+            transaction, reason = _record(
+                sup=sup,
+                track=track,
+                target=target,
+                launch=launch,
+                snapshot=snapshot,
+            )
+            if transaction is None:
+                _refuse(sup=sup, track=track, target=target, reason=reason)
+                return reason
+            _durable_write(path=scratch / _RECORD_NAME, value=transaction)
+            transaction["phase"] = "signal-attempted"
+            _durable_write(path=scratch / _RECORD_NAME, value=transaction)
+            predecessor = cast(dict[str, object], transaction["predecessor"])
+            _ = pane.herdr_terminate(
+                session=target,
+                process_group=cast(int, predecessor["process_group"]),
+            )
+    except OSError as exc:
+        reason = str(exc)
+        _refuse(sup=sup, track=track, target=target, reason=reason)
+        return reason
+    return None
