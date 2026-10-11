@@ -26,6 +26,7 @@ and would also hide which identity a given read was actually checked against.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import stat
 import tempfile
@@ -196,19 +197,22 @@ def _status_defect(*, name: str, status: os.stat_result, owner_uid: int) -> str 
 
 
 def _atomic_replace(*, path: Path, payload: bytes) -> Result[None, ManagerError]:
-    handle, staged = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.")
-    try:
-        with os.fdopen(handle, "wb") as staged_file:
-            _ = staged_file.write(payload)
-            staged_file.flush()
-            os.fsync(staged_file.fileno())
-        Path(staged).chmod(LOCAL_FILE_MODE)
-        _ = Path(staged).replace(path)
-        _sync_directory(path=path.parent)
-    except OSError as failure:
-        Path(staged).unlink(missing_ok=True)
-        reason = _named(failure=failure)
-        return Failure(store_unavailable(message=f"{path.name} was not replaced: {reason}"))
+    with contextlib.ExitStack() as staged_cleanup:
+        try:
+            handle, staged = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.")
+            staged_path = Path(staged)
+            _ = staged_cleanup.callback(staged_path.unlink, missing_ok=True)
+            with os.fdopen(handle, "wb") as staged_file:
+                _ = staged_file.write(payload)
+                staged_file.flush()
+                os.fsync(staged_file.fileno())
+            staged_path.chmod(LOCAL_FILE_MODE)
+            _ = staged_path.replace(path)
+            _ = staged_cleanup.pop_all()
+            _sync_directory(path=path.parent)
+        except OSError as failure:
+            reason = _named(failure=failure)
+            return Failure(store_unavailable(message=f"{path.name} was not replaced: {reason}"))
     return Success(None)
 
 
