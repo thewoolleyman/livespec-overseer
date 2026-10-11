@@ -6,8 +6,16 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import TypedDict, cast
 
+from overseer.test_lpm_installed_credentials import (
+    SeededCredential,
+    bind_target_lock,
+    install_credential_services,
+    register_target,
+    seed_credential,
+    write_decoy_target,
+)
 from overseer.test_lpm_installed_runtime import copy_installed_python, copy_shell_runtime
 
 __all__: list[str] = [
@@ -22,6 +30,19 @@ _PLUGIN = "/plugin/bin/llm-provider-manager"
 _PATH = "/opt/lpm/bin:/usr/bin:/bin"
 
 
+class _ManagerBody(TypedDict, total=False):
+    version: int
+    status: str
+    error_type: str
+    message: str
+    operation: str
+    target_ref: str
+    expires_at: str
+    receipt: dict[str, object]
+    items: list[dict[str, object]]
+    duplicate: bool
+
+
 @dataclass(frozen=True, kw_only=True)
 class ManagerResult:
     """One installed launcher completion and its decoded wire object."""
@@ -30,7 +51,7 @@ class ManagerResult:
     exit_status: int
     stdout: str
     stderr: str
-    body: dict[str, object]
+    body: _ManagerBody
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -50,6 +71,7 @@ class InstalledManagerSandbox:
         copy_shell_runtime(root=sandbox.root)
         sandbox._copy_plugin()
         sandbox._write_account_database()
+        install_credential_services(root=sandbox.root)
         return sandbox
 
     def console_on_path(self) -> str | None:
@@ -88,11 +110,11 @@ class InstalledManagerSandbox:
             },
         )
         lines = completed.stdout.splitlines()
-        body: dict[str, object] = {}
+        body: _ManagerBody = {}
         if len(lines) == 1:
             decoded = json.loads(lines[0])
             if isinstance(decoded, dict):
-                body = cast("dict[str, object]", decoded)
+                body = cast("_ManagerBody", decoded)
         return ManagerResult(
             executable=_CONSOLE if surface == "console" else _PLUGIN,
             exit_status=completed.returncode,
@@ -100,6 +122,22 @@ class InstalledManagerSandbox:
             stderr=completed.stderr,
             body=body,
         )
+
+    def seed_credential(self, *, value: bytes) -> SeededCredential:
+        """Seed one selectable record and its exact isolated value bytes."""
+        return seed_credential(root=self.root, value=value)
+
+    def register_target(self, *, consumer_run_id: str) -> Path:
+        """Register one owner-only isolated-run destination for `consumer_run_id`."""
+        return register_target(root=self.root, consumer_run_id=consumer_run_id)
+
+    def write_decoy_target(self, *, value: bytes) -> Path:
+        """Write an unregistered destination whose bytes must remain unchanged."""
+        return write_decoy_target(root=self.root, value=value)
+
+    def bind_target_lock(self, *, target_ref: str) -> None:
+        """Expose the target lock through the chroot's proc descriptor view."""
+        bind_target_lock(root=self.root, target_ref=target_ref)
 
     def _install_distribution(self) -> None:
         destination = self.root / "opt" / "lpm"
