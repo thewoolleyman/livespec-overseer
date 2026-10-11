@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.22.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.22.0...v5.22.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **overseer:** run installed LPM fixtures only where chroot is possible ([d5a2049](https://github.com/thewoolleyman/livespec-overseer/commit/d5a2049a65a7f62f86376d377821f43e5350e985))
+
 ## [5.22.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.21.0...v5.22.0) (2026-10-11)
 
 
