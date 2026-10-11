@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 from collections.abc import Callable
 from dataclasses import dataclass, replace
@@ -11,10 +12,13 @@ from unittest.mock import Mock
 import pytest
 
 from overseer._lpm_config import ManagerConfig, default_config
+from overseer._lpm_localstate import write_local_record
+from overseer._lpm_paths import local_record_path
 from overseer._lpm_results import ManagerError, internal_bug, store_unavailable
 from overseer._lpm_runtime_roles import FinalProvisioningRequest
 from overseer._lpm_store import InMemorySecretStore, SecretStore
 from overseer._lpm_target import CommitOutcome, TargetLock
+from overseer._lpm_time import add_seconds
 from overseer._vendor.returns.result import Failure, Result, Success
 
 __all__: list[str] = []
@@ -29,6 +33,73 @@ _OPERATION_IDS = (
     "50000000-0000-4000-8000-000000000005",
     "60000000-0000-4000-8000-000000000006",
 )
+_REGISTERED_RUNS = (
+    "run-a",
+    "run-b",
+    "run-c",
+    "run-errors",
+    "run-fixture",
+    "run-run_lock",
+    "run-idempotency_key_for",
+    "run-pending_operation",
+    "run-issuance_for_run",
+    "run-new_operation",
+    "run-write_new_operation",
+    "run-drive_operation",
+    "run-read-failure",
+    "run-read-missing",
+)
+
+
+def _register_isolated_run(*, state_dir: Path, run_id: str, created_at: str) -> Path:
+    digest = hashlib.sha256(run_id.encode()).hexdigest()
+    state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    state_dir.chmod(0o700)
+    isolated_root = state_dir / "consumer-targets" / digest
+    target = isolated_root / "credentials" / ".credentials.json"
+    target.parent.mkdir(mode=0o700, parents=True)
+    isolated_root.chmod(0o700)
+    target.parent.chmod(0o700)
+    expires_at = add_seconds(timestamp=created_at, seconds=86400)
+    assert expires_at is not None
+    path = local_record_path(
+        state_dir=state_dir,
+        family="run-registration",
+        identity=(run_id,),
+    ).unwrap()
+    write_local_record(
+        path=path,
+        value=_registration_object(
+            run_id=run_id,
+            isolated_root=isolated_root,
+            target=target,
+            created_at=created_at,
+            expires_at=expires_at,
+        ),
+        owner_uid=os.getuid(),
+    ).unwrap()
+    return target
+
+
+def _registration_object(
+    *, run_id: str, isolated_root: Path, target: Path, created_at: str, expires_at: str
+) -> dict[str, object]:
+    return {
+        "version": 1,
+        "consumer_run_id": run_id,
+        "isolated_root": str(isolated_root),
+        "target_path": str(target),
+        "created_at": created_at,
+        "expires_at": expires_at,
+    }
+
+
+def _registration_path(*, state_dir: Path, run_id: str) -> Path:
+    return local_record_path(
+        state_dir=state_dir,
+        family="run-registration",
+        identity=(run_id,),
+    ).unwrap()
 
 
 class _UnusedProvision:
@@ -57,8 +128,12 @@ class _Host:
     sleep: Callable[[float], None]
 
 
-def _host(*, state_dir: Path, now: str = _NOW) -> _Host:
+def _host(
+    *, state_dir: Path, now: str = _NOW, registered_runs: tuple[str, ...] = _REGISTERED_RUNS
+) -> _Host:
     identifiers = iter(_OPERATION_IDS)
+    for run_id in registered_runs:
+        _register_isolated_run(state_dir=state_dir, run_id=run_id, created_at=_NOW)
     return _Host(
         state_dir=state_dir,
         owner_uid=os.getuid(),
@@ -135,6 +210,218 @@ def test_target_runtime_issues_retries_and_recovers(
         ).unwrap()["target_ref"]
         == _OPERATION_IDS[0]
     )
+
+
+def _assert_invalid_registrations(*, tmp_path: Path) -> None:
+    import overseer._lpm_runtime_target as target_runtime
+
+    invalid_objects: tuple[tuple[str, object], ...] = (
+        ("not-object", []),
+        ("shape", {}),
+        (
+            "extra",
+            {
+                **_registration_object(
+                    run_id="run-extra",
+                    isolated_root=tmp_path / "extra-root",
+                    target=tmp_path / "extra-root" / "credential",
+                    created_at=_NOW,
+                    expires_at="2026-10-11T12:00:00Z",
+                ),
+                "extra": "member",
+            },
+        ),
+        (
+            "version",
+            {
+                **_registration_object(
+                    run_id="run-version",
+                    isolated_root=tmp_path / "version-root",
+                    target=tmp_path / "version-root" / "credential",
+                    created_at=_NOW,
+                    expires_at="2026-10-11T12:00:00Z",
+                ),
+                "version": True,
+            },
+        ),
+        (
+            "text-type",
+            {
+                **_registration_object(
+                    run_id="run-text-type",
+                    isolated_root=tmp_path / "text-type-root",
+                    target=tmp_path / "text-type-root" / "credential",
+                    created_at=_NOW,
+                    expires_at="2026-10-11T12:00:00Z",
+                ),
+                "target_path": 7,
+            },
+        ),
+        (
+            "empty",
+            _registration_object(
+                run_id="",
+                isolated_root=tmp_path / "empty-root",
+                target=tmp_path / "empty-root" / "credential",
+                created_at=_NOW,
+                expires_at="2026-10-11T12:00:00Z",
+            ),
+        ),
+        (
+            "identity",
+            _registration_object(
+                run_id="another-run",
+                isolated_root=tmp_path / "identity-root",
+                target=tmp_path / "identity-root" / "credential",
+                created_at=_NOW,
+                expires_at="2026-10-11T12:00:00Z",
+            ),
+        ),
+        (
+            "relative",
+            _registration_object(
+                run_id="run-relative",
+                isolated_root=Path("relative-root"),
+                target=Path("relative-root/credential"),
+                created_at=_NOW,
+                expires_at="2026-10-11T12:00:00Z",
+            ),
+        ),
+        (
+            "escape",
+            _registration_object(
+                run_id="run-escape",
+                isolated_root=tmp_path / "escape-root",
+                target=tmp_path / "outside" / "credential",
+                created_at=_NOW,
+                expires_at="2026-10-11T12:00:00Z",
+            ),
+        ),
+        (
+            "time",
+            _registration_object(
+                run_id="run-time",
+                isolated_root=tmp_path / "time-root",
+                target=tmp_path / "time-root" / "credential",
+                created_at="not-a-time",
+                expires_at="2026-10-11T12:00:00Z",
+            ),
+        ),
+        (
+            "expiry-time",
+            _registration_object(
+                run_id="run-expiry-time",
+                isolated_root=tmp_path / "expiry-time-root",
+                target=tmp_path / "expiry-time-root" / "credential",
+                created_at=_NOW,
+                expires_at="not-a-time",
+            ),
+        ),
+        (
+            "time-order",
+            _registration_object(
+                run_id="run-time-order",
+                isolated_root=tmp_path / "time-order-root",
+                target=tmp_path / "time-order-root" / "credential",
+                created_at=_NOW,
+                expires_at=_NOW,
+            ),
+        ),
+        (
+            "duration",
+            _registration_object(
+                run_id="run-duration",
+                isolated_root=tmp_path / "duration-root",
+                target=tmp_path / "duration-root" / "credential",
+                created_at=_NOW,
+                expires_at=_LATER,
+            ),
+        ),
+    )
+    for suffix, value in invalid_objects:
+        state = tmp_path / suffix
+        run_id = f"run-{suffix}"
+        _ = _register_isolated_run(state_dir=state, run_id=run_id, created_at=_NOW)
+        write_local_record(
+            path=_registration_path(state_dir=state, run_id=run_id),
+            value=value,
+            owner_uid=os.getuid(),
+        ).unwrap()
+        refused = target_runtime.run_target(
+            host=_host(state_dir=state, registered_runs=()),
+            normalized_input=_request(run_id=run_id),
+        )
+        assert isinstance(refused, Failure)
+        assert refused.failure().error_type == "invalid-request"
+
+
+def _assert_expired_and_unsafe_registrations(*, tmp_path: Path) -> None:
+    import overseer._lpm_runtime_target as target_runtime
+
+    expired_state = tmp_path / "expired"
+    _ = _register_isolated_run(
+        state_dir=expired_state,
+        run_id="run-expired",
+        created_at=_NOW,
+    )
+    expired = target_runtime.run_target(
+        host=_host(state_dir=expired_state, now=_LATER, registered_runs=()),
+        normalized_input=_request(run_id="run-expired"),
+    )
+    assert isinstance(expired, Failure)
+    assert expired.failure().error_type == "invalid-request"
+
+    unsafe_state = tmp_path / "unsafe"
+    _ = _register_isolated_run(
+        state_dir=unsafe_state,
+        run_id="run-unsafe",
+        created_at=_NOW,
+    )
+    _registration_path(state_dir=unsafe_state, run_id="run-unsafe").chmod(0o644)
+    unsafe = target_runtime.run_target(
+        host=_host(state_dir=unsafe_state, registered_runs=()),
+        normalized_input=_request(run_id="run-unsafe"),
+    )
+    assert isinstance(unsafe, Failure)
+    assert unsafe.failure().error_type == "invalid-request"
+
+
+def test_target_runtime_requires_and_consumes_the_isolated_run_registration(
+    *, tmp_path: Path
+) -> None:
+    import overseer._lpm_runtime_target as target_runtime
+    from overseer._lpm_runtime_issuance import read_runtime_issuance
+
+    missing = target_runtime.run_target(
+        host=_host(state_dir=tmp_path / "missing", registered_runs=()),
+        normalized_input=_request(run_id="run-missing"),
+    )
+    assert isinstance(missing, Failure)
+    assert missing.failure().error_type == "invalid-request"
+    _assert_invalid_registrations(tmp_path=tmp_path)
+    _assert_expired_and_unsafe_registrations(tmp_path=tmp_path)
+
+    state_dir = tmp_path / "registered"
+    destination = _register_isolated_run(
+        state_dir=state_dir,
+        run_id="run-registered",
+        created_at=_NOW,
+    )
+    host = _host(state_dir=state_dir, registered_runs=())
+    issued = target_runtime.run_target(
+        host=host,
+        normalized_input=_request(run_id="run-registered"),
+    ).unwrap()
+    issuance = read_runtime_issuance(
+        host=host,
+        reference=str(issued["target_ref"]),
+    ).unwrap()
+    assert issuance is not None
+    assert issuance.destination == str(destination)
+    assert not _registration_path(
+        state_dir=state_dir,
+        run_id="run-registered",
+    ).exists()
 
 
 def test_target_runtime_refuses_changed_and_expired_retries(

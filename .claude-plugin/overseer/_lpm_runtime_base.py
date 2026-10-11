@@ -33,7 +33,6 @@ __all__: list[str] = [
     "engine_for",
     "new_operation",
     "run_lock",
-    "target_destination",
     "target_lock",
     "target_lock_path",
     "write_new_operation",
@@ -209,12 +208,6 @@ def target_lock(*, host: RuntimeHost, target_ref: str) -> TargetLock:
 def target_lock_path(*, state_dir: Path, target_ref: str) -> Path:
     """Return the canonical target-reference lock path."""
     return _lock_path(state_dir=state_dir, family="target", identity=(target_ref,))
-
-
-def target_destination(*, state_dir: Path, reference: str) -> Path:
-    """Derive this runtime's isolated destination from its opaque reference."""
-    digest = length_prefixed_digest(values=(reference,))
-    return state_dir / "targets" / digest / "credential"
 
 
 def _lock_path(*, state_dir: Path, family: str, identity: tuple[str, ...]) -> Path:
