@@ -1,5 +1,41 @@
 # Changelog
 
+## [5.21.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.20.0...v5.21.0) (2026-10-11)
+
+
+### Features
+
+* **overseer:** compose authoritative installed role ports ([472b4d1](https://github.com/thewoolleyman/livespec-overseer/commit/472b4d1731f6ff8f8575484dd3ce5545b4b9377e))
+* **overseer:** compose durable target runtime ([a493753](https://github.com/thewoolleyman/livespec-overseer/commit/a49375339cb010281db1b710753c4d49f0faa385))
+* **overseer:** compose installed manager runtime ([cead2af](https://github.com/thewoolleyman/livespec-overseer/commit/cead2afc119abc9d2b812f376e31e14dbceb792f))
+* **overseer:** dispatch concrete manager operations ([18e964f](https://github.com/thewoolleyman/livespec-overseer/commit/18e964fb288fcd856895cca84d668e40fb0b75c3))
+* **overseer:** emit installed manager wire results ([2d07ea2](https://github.com/thewoolleyman/livespec-overseer/commit/2d07ea2076402495f375b89898d6b0b263f0fa82))
+* **overseer:** execute installed credential roles ([54c8747](https://github.com/thewoolleyman/livespec-overseer/commit/54c8747caead8bf06560ad3df7e54e93a1af0d37))
+* **overseer:** execute installed store roles ([05b7207](https://github.com/thewoolleyman/livespec-overseer/commit/05b7207ef7e067ff96a5728825417e0a45674a48))
+* **overseer:** isolate final provisioning transport ([b4aeac4](https://github.com/thewoolleyman/livespec-overseer/commit/b4aeac4c16d46e3c146175361b8ffc8301fd7ce7))
+* **overseer:** launch installed credential role ports ([7a182e9](https://github.com/thewoolleyman/livespec-overseer/commit/7a182e9ffe36b43c8349001e7a4f1bbe7f7dce79))
+* **overseer:** recover concrete provisioning runtime ([ad44086](https://github.com/thewoolleyman/livespec-overseer/commit/ad44086e24fd1f4547e0a928005969d4b9cf7af0))
+* **overseer:** route zero-argument attention ([de000e5](https://github.com/thewoolleyman/livespec-overseer/commit/de000e5fd392625d0f0f2dd334bb25eb306ef764))
+
+
+### Bug Fixes
+
+* **overseer:** accept installed report envelopes ([e4cfaeb](https://github.com/thewoolleyman/livespec-overseer/commit/e4cfaeb935dd7b15ea46804cfc16d94f0fbe5f55))
+* **overseer:** bind target issuance to run registration ([6053513](https://github.com/thewoolleyman/livespec-overseer/commit/6053513887db4d6b2ba5ededfb0af6055a8f559e))
+* **overseer:** close remaining runtime review findings ([0533b9a](https://github.com/thewoolleyman/livespec-overseer/commit/0533b9aadb504749f36c30149101a8f79bb80692))
+* **overseer:** close second runtime review findings ([26b40f5](https://github.com/thewoolleyman/livespec-overseer/commit/26b40f59086182b4b5010544f8971108d94ccb8f))
+* **overseer:** compose typed runtime recovery ([8d8172d](https://github.com/thewoolleyman/livespec-overseer/commit/8d8172d2f08cb764462d2885aaa7c98453cdccb3))
+* **overseer:** distinguish authoritative target evidence ([5651232](https://github.com/thewoolleyman/livespec-overseer/commit/5651232a6a178aad6ebcf95a78175b64fa50a869))
+* **overseer:** preserve explicit role descriptors ([9c04f03](https://github.com/thewoolleyman/livespec-overseer/commit/9c04f037cb9b5a4bd95fcac911b0ab7715481c01))
+* **overseer:** preserve typed role port failures ([97b83fe](https://github.com/thewoolleyman/livespec-overseer/commit/97b83fedeaca7ea39ffd5832bf9bfedc5ab46b26))
+* **overseer:** recover manager operation phases ([9cab5db](https://github.com/thewoolleyman/livespec-overseer/commit/9cab5dbab85be0b61723e2c23dd15c2d5309d30d))
+* **overseer:** reject unsafe attention state ([15a222e](https://github.com/thewoolleyman/livespec-overseer/commit/15a222e850ac6f32b279b987606dceded868076b))
+* **overseer:** replay exact target evidence ([979bfbe](https://github.com/thewoolleyman/livespec-overseer/commit/979bfbec5c523f1cee6c619b6476a8b30661bf0b))
+* **overseer:** require authoritative runtime ports ([a272d91](https://github.com/thewoolleyman/livespec-overseer/commit/a272d9187fd6e89da4b7913d08985df5563dd642))
+* **overseer:** retain ambiguous direct target state ([51f4761](https://github.com/thewoolleyman/livespec-overseer/commit/51f4761292305d34234152adb53564f55055d03c))
+* **overseer:** retain ambiguous target recovery state ([6787d16](https://github.com/thewoolleyman/livespec-overseer/commit/6787d16b1bbbe22c858ad4fc5433714745bd19d5))
+* **overseer:** serialize selection state updates ([f2472c1](https://github.com/thewoolleyman/livespec-overseer/commit/f2472c17c42781df919f1cc0bb8ef2b769df9201))
+
 ## [5.20.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.19.5...v5.20.0) (2026-10-11)
 
 
