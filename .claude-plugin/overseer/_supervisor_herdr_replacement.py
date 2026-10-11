@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol, cast
+from typing import TYPE_CHECKING, cast
 
+import _herdr_replacement_process
 import _herdr_replacement_store
 import herdr_identity
 import registry
@@ -27,59 +27,13 @@ class ReplacementFailure:
     condition: str
 
 
-class ProcessObservation(Protocol):
-    pid: int
-    starttime: str
-    executable: str
-    argv: Sequence[str]
-    process_group: int
-    session_id: int
-
-
-class ReplacementSnapshot(Protocol):
-    shell: ProcessObservation
-    foreground_group: int
-    processes: Sequence[ProcessObservation]
-
-
-class ReplacementResult(Protocol):
-    ok: bool
-    error: str
-
-
-class ReplacementPane(Protocol):
-    def herdr_replacement_snapshot(self, *, session: str) -> ReplacementSnapshot: ...
-
-    def herdr_terminate(self, *, session: str, process_group: int) -> ReplacementResult: ...
-
-
-def _predecessor(*, snapshot: ReplacementSnapshot, identity: str) -> ProcessObservation | None:
-    _, pid_text, starttime, _ = identity.split(":", 3)
-    pid = int(pid_text)
-    for process in snapshot.processes:
-        if process.pid == pid and process.starttime == starttime:
-            return process
-    return None
-
-
-def _process_record(*, process: ProcessObservation) -> dict[str, object]:
-    return {
-        "pid": process.pid,
-        "starttime": process.starttime,
-        "executable": process.executable,
-        "argv": list(process.argv),
-        "process_group": process.process_group,
-        "session_id": process.session_id,
-    }
-
-
 def _record(
     *,
     sup: Supervisor,
     track: registry.Track,
     target: str,
     launch: ClaudeLaunchPlan,
-    snapshot: ReplacementSnapshot,
+    snapshot: _herdr_replacement_process.ReplacementSnapshot,
 ) -> tuple[dict[str, object] | None, str]:
     decoded = herdr_identity.decode_target(value=target)
     server = cast(herdr_identity.HerdrPaneTarget, decoded.herdr)
@@ -90,7 +44,7 @@ def _record(
     )
     declared = signals.read_state(repo=track.repo, topic=track.topic)
     identity = cast(str, round_record.session_identity)
-    predecessor = _predecessor(snapshot=snapshot, identity=identity)
+    predecessor = _herdr_replacement_process.predecessor(snapshot=snapshot, identity=identity)
     if declared is None:
         return None, "ready declaration changed before durable binding"
     if predecessor is None:
@@ -113,7 +67,7 @@ def _record(
             "starttime": predecessor.starttime,
             "process_group": snapshot.foreground_group,
         },
-        "shell": _process_record(process=snapshot.shell),
+        "shell": _herdr_replacement_process.process_record(process=snapshot.shell),
         "round": {
             "ready_mtime": declared.mtime,
             "round_at": round_record.at,
@@ -146,21 +100,11 @@ def _refuse(
     return ReplacementFailure(reason=reason, condition=condition)
 
 
-def _predecessor_still_live(
-    *, transaction: Mapping[str, object], snapshot: ReplacementSnapshot
-) -> bool:
-    recorded = cast(dict[str, object], transaction["predecessor"])
-    return any(
-        process.pid == recorded["pid"] and process.starttime == recorded["starttime"]
-        for process in snapshot.processes
-    )
-
-
 def begin_herdr_replacement(
     *, sup: Supervisor, track: registry.Track, target: str, launch: ClaudeLaunchPlan
 ) -> ReplacementFailure | None:
     """Fence the ready authorization durably, then make its one stop attempt."""
-    pane = cast(ReplacementPane, sup.tmux)
+    pane = cast(_herdr_replacement_process.ReplacementPane, sup.tmux)
     scratch = _herdr_replacement_store.scratch_path(track=track)
     try:
         with _herdr_replacement_store.transaction_lock(
@@ -173,7 +117,9 @@ def begin_herdr_replacement(
             if (
                 existing is not None
                 and existing.get("phase") == "signal-attempted"
-                and _predecessor_still_live(transaction=existing, snapshot=snapshot)
+                and _herdr_replacement_process.predecessor_still_live(
+                    transaction=existing, snapshot=snapshot
+                )
             ):
                 return _refuse(
                     sup=sup,
@@ -204,6 +150,44 @@ def begin_herdr_replacement(
             _ = pane.herdr_terminate(
                 session=target,
                 process_group=cast(int, predecessor["process_group"]),
+            )
+            stopped = pane.herdr_replacement_snapshot(session=target)
+            if _herdr_replacement_process.predecessor_still_live(
+                transaction=transaction, snapshot=stopped
+            ):
+                return _refuse(
+                    sup=sup,
+                    track=track,
+                    target=target,
+                    reason="predecessor survived the one termination attempt",
+                    condition="herdr-predecessor-survived",
+                )
+            transaction["phase"] = "stopped-awaiting-shell"
+            _durable_write(
+                path=scratch / _herdr_replacement_store.RECORD_NAME,
+                value=transaction,
+            )
+            if not _herdr_replacement_process.retained_shell_is_idle(
+                transaction=transaction, snapshot=stopped
+            ):
+                return _refuse(
+                    sup=sup,
+                    track=track,
+                    target=target,
+                    reason="retained shell is absent or has a foreign foreground process",
+                    condition="herdr-shell-not-idle",
+                )
+            transaction["phase"] = "launch-attempted"
+            _durable_write(
+                path=scratch / _herdr_replacement_store.RECORD_NAME,
+                value=transaction,
+            )
+            launch_record = cast(dict[str, object], transaction["launch"])
+            _ = pane.herdr_launch(
+                session=target,
+                cwd=cast(str, launch_record["cwd"]),
+                command=cast(str, launch_record["command"]),
+                env=cast(dict[str, str | None], launch_record["env"]),
             )
     except OSError as exc:
         reason = str(exc)

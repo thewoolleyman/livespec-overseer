@@ -273,3 +273,33 @@ def test_surviving_predecessor_receives_only_one_signal_per_ready_round(*, tmp_p
     assert signal_count == 1
     assert record["phase"] == "signal-attempted"
     assert any(key[-1] == "herdr-predecessor-survived" for key in sup.alerted)
+
+
+@pytest.mark.parametrize(("foreign_foreground", "expected_launches"), [(False, 1), (True, 0)])
+def test_successor_launch_is_fenced_and_requires_the_original_idle_shell(
+    *, tmp_path: Path, foreign_foreground: bool, expected_launches: int
+) -> None:
+    world, sup, track = _armed_world(tmp_path=tmp_path)
+    launches: list[dict[str, object]] = []
+
+    def stop(*, session: str, process_group: int) -> SimpleNamespace:
+        idle = _idle_snapshot()
+        if foreign_foreground:
+            foreign = _process(pid=300, starttime="foreign", executable="sleep", pgrp=300)
+            idle.foreground_group = 300
+            idle.processes = (*idle.processes, foreign)
+        world.snapshot["value"] = idle
+        return SimpleNamespace(ok=True, error="")
+
+    def launch(**kwargs: object) -> SimpleNamespace:
+        record_path = world.repo / "tmp" / "overseer" / world.topic / ".herdr-replacement.json"
+        launches.append({"kwargs": kwargs, "record": json.loads(record_path.read_text())})
+        return SimpleNamespace(ok=False, effect_unknown=True, error="lost acknowledgement")
+
+    world.fake.herdr_terminate = stop
+    world.fake.herdr_launch = launch
+    sup.evaluate(track=track, act=True)
+
+    assert len(launches) == expected_launches
+    if launches:
+        assert launches[0]["record"]["phase"] == "launch-attempted"
