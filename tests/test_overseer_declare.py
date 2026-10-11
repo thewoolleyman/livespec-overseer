@@ -232,6 +232,7 @@ def test_overseer_declare_ready_needs_tmux_pane_context(*, tmp_path, capsys, mon
     monkeypatch.delenv("OVERSEER_TOPIC", raising=False)
     monkeypatch.setenv("TMUX", "/tmp/fake,0,0")
     monkeypatch.delenv("TMUX_PANE", raising=False)
+    monkeypatch.setattr(module.pane_router, "current_process_coordinate", lambda: None)
 
     code = module.main(argv=["ready", "--repo", str(repo)])
 
