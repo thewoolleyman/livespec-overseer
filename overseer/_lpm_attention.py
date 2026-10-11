@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Final, cast
 
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 from _lpm_localstate import read_local_record
@@ -21,6 +21,21 @@ __all__: list[str] = [
     "attention_item_object",
     "attention_items",
 ]
+
+_ARTIFACT_MEMBERS: Final = (
+    "version",
+    "type",
+    "record_id",
+    "operation_id",
+    "worker_pid",
+    "worker_start_ticks",
+    "provider",
+    "account_id",
+    "reason",
+    "status",
+    "raised_at",
+    "deadline",
+)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -56,7 +71,10 @@ def attention_items(
         return Success(())
     items: list[AttentionItem] = []
     for path in sorted(directory.glob("*.json"), key=lambda candidate: str(candidate).encode()):
-        stored = read_local_record(path=path, owner_uid=owner_uid).unwrap()
+        reading = read_local_record(path=path, owner_uid=owner_uid)
+        if isinstance(reading, Failure):
+            return reading
+        stored = reading.unwrap()
         decoded = _attention_item(path=path, parsed=stored)
         if isinstance(decoded, Failure):
             return decoded
@@ -67,7 +85,11 @@ def attention_items(
 
 
 def _attention_item(*, path: Path, parsed: object) -> Result[AttentionItem | None, ManagerError]:
+    if not isinstance(parsed, dict):
+        return _malformed(message="an attention artifact must be an object")
     source = cast("dict[str, object]", parsed)
+    if set(source) != set(_ARTIFACT_MEMBERS):
+        return _malformed(message="an attention artifact has the wrong shape")
     defect = _artifact_defect(source=source)
     if defect is not None:
         return _malformed(message=defect)

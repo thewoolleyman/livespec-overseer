@@ -16,4 +16,6 @@ from pathlib import Path
 # so there is nothing to guard against.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+_lpm_attention = sys.modules.get(f"{__name__}._lpm_attention")
+
 __all__: list[str] = []

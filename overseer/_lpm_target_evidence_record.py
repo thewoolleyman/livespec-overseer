@@ -111,6 +111,8 @@ def _evidence_time_defect(*, source: dict[str, object]) -> str | None:
         return "target evidence prepared_at must be a UTC RFC 3339-second timestamp"
     committed_at = source["committed_at"]
     if source["status"] == "prepared":
+        if committed_at is not None:
+            return "prepared target evidence must not carry committed_at"
         return None
     if (
         not isinstance(committed_at, str)

@@ -5,7 +5,7 @@ from __future__ import annotations
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 from _lpm_assignment import Assignment
 from _lpm_engine import drive_operation
-from _lpm_engine_context import EffectInputs, SelectedCredential
+from _lpm_engine_context import EffectInputs
 from _lpm_operation import OperationRecord
 from _lpm_operation_plan import PlanContext
 from _lpm_provision_request import ProvisionRequest
@@ -27,7 +27,13 @@ from _lpm_runtime_provision_effects import (
     finish_provision_cleanup,
     provision_effect_inputs,
 )
+from _lpm_runtime_provision_selection import (
+    cleanup_selection,
+    fresh_selection,
+    recovered_selection,
+)
 from _lpm_runtime_selection import (
+    selected_for_cleanup,
     selected_for_recovery,
     selected_for_request,
     selected_from_assignment,
@@ -55,11 +61,16 @@ def fresh_provision(
     issuance = resolved_runtime_issuance(host=host, request=request, bound=False, now=first_now)
     if isinstance(issuance, Failure):
         return Failure(issuance.failure())
-    prepared = _fresh_selection(
-        host=host,
-        request=request,
-        normalized=normalized,
+    prepared = fresh_selection(
         first_now=first_now,
+        select_at=lambda now: selected_for_request(host=host, request=request, now=now),
+        create_operation=lambda: new_operation(
+            host=host,
+            command="provision",
+            phase="start",
+            normalized_input=normalized,
+            context=PlanContext(),
+        ),
     )
     if isinstance(prepared, Failure):
         return Failure(prepared.failure())
@@ -97,11 +108,18 @@ def resume_provision(
         return _resume_cleanup(
             host=host, request=request, operation=operation, assignment=assignment
         )
-    selected = _recovered_selection(
-        host=host,
-        request=request,
-        operation=operation,
+    selected = recovered_selection(
         assignment=assignment,
+        completed_step=operation.completed_step,
+        assignment_selection=lambda current: selected_from_assignment(assignment=current),
+        fresh_selection=lambda: selected_for_request(
+            host=host, request=request, now=operation.accepted_at
+        ),
+        retained_selection=lambda: selected_for_recovery(
+            host=host,
+            request=request,
+            lease_started_at=operation.accepted_at,
+        ),
     )
     if isinstance(selected, Failure):
         return Failure(selected.failure())
@@ -147,34 +165,6 @@ def drive_provision(
     )
 
 
-def _fresh_selection(
-    *,
-    host: ProvisionRuntimeHost,
-    request: ProvisionRequest,
-    normalized: dict[str, object],
-    first_now: str,
-) -> Result[tuple[OperationRecord, SelectedCredential], ManagerError]:
-    selected = selected_for_request(host=host, request=request, now=first_now)
-    if isinstance(selected, Failure):
-        return Failure(selected.failure())
-    created = new_operation(
-        host=host,
-        command="provision",
-        phase="start",
-        normalized_input=normalized,
-        context=PlanContext(),
-    )
-    if isinstance(created, Failure):
-        return Failure(created.failure())
-    operation = created.unwrap()
-    if operation.accepted_at == first_now:
-        return Success((operation, selected.unwrap()))
-    reselection = selected_for_request(host=host, request=request, now=operation.accepted_at)
-    if isinstance(reselection, Failure):
-        return Failure(reselection.failure())
-    return Success((operation, reselection.unwrap()))
-
-
 def _resume_cleanup(
     *,
     host: ProvisionRuntimeHost,
@@ -182,10 +172,19 @@ def _resume_cleanup(
     operation: OperationRecord,
     assignment: Assignment | None,
 ) -> Result[dict[str, object] | None, ManagerError]:
-    selected = (
-        selected_for_request(host=host, request=request, now=operation.accepted_at)
-        if assignment is None
-        else Success(selected_from_assignment(assignment=assignment))
+    selected = cleanup_selection(
+        assignment=assignment,
+        assignment_selection=lambda current: selected_from_assignment(assignment=current),
+        retained_selection=lambda: selected_for_cleanup(
+            host=host,
+            request=request,
+            lease_started_at=operation.accepted_at,
+            fallback=lambda: selected_for_request(
+                host=host,
+                request=request,
+                now=operation.accepted_at,
+            ),
+        ),
     )
     if isinstance(selected, Failure):
         return Failure(selected.failure())
@@ -201,17 +200,3 @@ def _resume_cleanup(
     if isinstance(cleaned, Failure):
         return Failure(cleaned.failure())
     return Success(None)
-
-
-def _recovered_selection(
-    *,
-    host: ProvisionRuntimeHost,
-    request: ProvisionRequest,
-    operation: OperationRecord,
-    assignment: Assignment | None,
-) -> Result[SelectedCredential, ManagerError]:
-    if assignment is not None:
-        return Success(selected_from_assignment(assignment=assignment))
-    if operation.completed_step < 0:
-        return selected_for_request(host=host, request=request, now=operation.accepted_at)
-    return selected_for_recovery(host=host, request=request, lease_started_at=operation.accepted_at)
