@@ -462,6 +462,68 @@ def test_guard_refuses_live_exercise_item_missing_labels_field(
     assert rc == 1, stderr
 
 
+@pytest.mark.parametrize(
+    "reading_list",
+    [
+        "Read plan/herdr-overseer/research/{001-scope-and-evidence,"
+        "003-live-verification-plan}.md before implementing.",
+        "Read plan/herdr-overseer/research/001-scope-and-evidence.md, "
+        "003-live-verification-plan.md and the current specification.",
+    ],
+)
+def test_guard_passes_item_whose_only_match_is_a_file_path(
+    *,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    reading_list: str,
+) -> None:
+    """A research file NAMED for live verification is a reading list, not a criterion."""
+    stub = _stub_bd(
+        root=tmp_path,
+        item={
+            "id": "overseer-fake5",
+            "title": "exact owned-pane initial start",
+            "description": f"Acceptance: the factory proves each assertion. {reading_list}",
+            "acceptance_criteria": "Explicit start launches into the exact owned pane.",
+            "labels": ["intake:triaged"],
+        },
+    )
+
+    rc, stdout, stderr = _run_guard(
+        stub=stub, item_id="overseer-fake5", monkeypatch=monkeypatch, capsys=capsys
+    )
+
+    assert rc == 0, stderr
+    assert "dispatch acceptance guard: overseer-fake5 ok" in stdout
+
+
+def test_guard_still_refuses_live_exercise_wording_beside_a_file_path(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Ignoring path tokens must not hide a genuine live-exercise criterion next to one."""
+    stub = _stub_bd(
+        root=tmp_path,
+        item={
+            "id": "overseer-fake6",
+            "title": "ship the operator skill",
+            "description": (
+                "Read plan/herdr-overseer/research/003-live-verification-plan.md. "
+                "Closure requires live verification in a real operator session."
+            ),
+            "acceptance_criteria": "Observed in a real operator session.",
+            "labels": ["intake:triaged"],
+        },
+    )
+
+    rc, _stdout, stderr = _run_guard(
+        stub=stub, item_id="overseer-fake6", monkeypatch=monkeypatch, capsys=capsys
+    )
+
+    assert rc == 1, stderr
+    assert "live-exercise" in stderr
+
+
 def test_guard_accepts_bare_dict_payload(
     *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
