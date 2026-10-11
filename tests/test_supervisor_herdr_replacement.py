@@ -249,3 +249,27 @@ def test_replacement_prerequisite_failure_never_signals(
 
     assert signal_count == 0
     assert any(key[-1] == "herdr-replacement-refused" for key in sup.alerted)
+
+
+def test_surviving_predecessor_receives_only_one_signal_per_ready_round(*, tmp_path: Path) -> None:
+    world, sup, track = _armed_world(tmp_path=tmp_path)
+    signal_count = 0
+
+    def leave_predecessor_live(*, session: str, process_group: int) -> SimpleNamespace:
+        nonlocal signal_count
+        signal_count += 1
+        return SimpleNamespace(ok=True, error="")
+
+    world.fake.herdr_terminate = leave_predecessor_live
+
+    sup.evaluate(track=track, act=True)
+    sup.evaluate(track=track, act=True)
+
+    record = json.loads(
+        (world.repo / "tmp" / "overseer" / world.topic / ".herdr-replacement.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert signal_count == 1
+    assert record["phase"] == "signal-attempted"
+    assert any(key[-1] == "herdr-predecessor-survived" for key in sup.alerted)

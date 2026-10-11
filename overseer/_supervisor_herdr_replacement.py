@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-import fcntl
-import json
-import os
-import tempfile
-from collections.abc import Iterator, Mapping, Sequence
-from contextlib import contextmanager
-from pathlib import Path
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, cast
 
+import _herdr_replacement_store
 import herdr_identity
 import registry
 import signals
@@ -19,10 +15,16 @@ from _supervisor_launch_profile import ClaudeLaunchPlan
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
-__all__: list[str] = ["begin_herdr_replacement"]
+__all__: list[str] = ["ReplacementFailure", "begin_herdr_replacement"]
 
-_RECORD_NAME = ".herdr-replacement.json"
-_LOCK_NAME = ".herdr-replacement.lock"
+# Kept as the module-local persistence seam used by deterministic failure tests.
+_durable_write = _herdr_replacement_store.durable_write
+
+
+@dataclass(frozen=True, kw_only=True)
+class ReplacementFailure:
+    reason: str
+    condition: str
 
 
 class ProcessObservation(Protocol):
@@ -49,40 +51,6 @@ class ReplacementPane(Protocol):
     def herdr_replacement_snapshot(self, *, session: str) -> ReplacementSnapshot: ...
 
     def herdr_terminate(self, *, session: str, process_group: int) -> ReplacementResult: ...
-
-
-def _scratch_path(*, track: registry.Track) -> Path:
-    return Path(track.repo) / "tmp" / "overseer" / track.topic
-
-
-@contextmanager
-def _transaction_lock(*, path: Path) -> Iterator[None]:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a+", encoding="utf-8") as handle:
-        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        yield
-
-
-def _durable_write(*, path: Path, value: Mapping[str, object]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        mode="w",
-        encoding="utf-8",
-        dir=path.parent,
-        prefix=f".{path.name}.",
-        delete=False,
-    ) as handle:
-        json.dump(value, handle, sort_keys=True, separators=(",", ":"))
-        _ = handle.write("\n")
-        handle.flush()
-        os.fsync(handle.fileno())
-        temporary = Path(handle.name)
-    _ = temporary.replace(path)
-    directory_fd = os.open(path.parent, os.O_RDONLY)
-    try:
-        os.fsync(directory_fd)
-    finally:
-        os.close(directory_fd)
 
 
 def _predecessor(*, snapshot: ReplacementSnapshot, identity: str) -> ProcessObservation | None:
@@ -159,26 +127,61 @@ def _record(
     }, ""
 
 
-def _refuse(*, sup: Supervisor, track: registry.Track, target: str, reason: str) -> None:
+def _refuse(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    target: str,
+    reason: str,
+    condition: str = "herdr-replacement-refused",
+) -> ReplacementFailure:
     sup.alert(
         repo=track.repo,
         topic=track.topic,
         session=target,
         pane=target,
         message=f"Herdr replacement refused before signal: {reason}",
-        condition="herdr-replacement-refused",
+        condition=condition,
+    )
+    return ReplacementFailure(reason=reason, condition=condition)
+
+
+def _predecessor_still_live(
+    *, transaction: Mapping[str, object], snapshot: ReplacementSnapshot
+) -> bool:
+    recorded = cast(dict[str, object], transaction["predecessor"])
+    return any(
+        process.pid == recorded["pid"] and process.starttime == recorded["starttime"]
+        for process in snapshot.processes
     )
 
 
 def begin_herdr_replacement(
     *, sup: Supervisor, track: registry.Track, target: str, launch: ClaudeLaunchPlan
-) -> str | None:
+) -> ReplacementFailure | None:
     """Fence the ready authorization durably, then make its one stop attempt."""
     pane = cast(ReplacementPane, sup.tmux)
-    scratch = _scratch_path(track=track)
+    scratch = _herdr_replacement_store.scratch_path(track=track)
     try:
-        with _transaction_lock(path=scratch / _LOCK_NAME):
+        with _herdr_replacement_store.transaction_lock(
+            path=scratch / _herdr_replacement_store.LOCK_NAME
+        ):
+            existing = _herdr_replacement_store.read_transaction(
+                path=scratch / _herdr_replacement_store.RECORD_NAME
+            )
             snapshot = pane.herdr_replacement_snapshot(session=target)
+            if (
+                existing is not None
+                and existing.get("phase") == "signal-attempted"
+                and _predecessor_still_live(transaction=existing, snapshot=snapshot)
+            ):
+                return _refuse(
+                    sup=sup,
+                    track=track,
+                    target=target,
+                    reason="predecessor survived the one termination attempt",
+                    condition="herdr-predecessor-survived",
+                )
             transaction, reason = _record(
                 sup=sup,
                 track=track,
@@ -187,11 +190,16 @@ def begin_herdr_replacement(
                 snapshot=snapshot,
             )
             if transaction is None:
-                _refuse(sup=sup, track=track, target=target, reason=reason)
-                return reason
-            _durable_write(path=scratch / _RECORD_NAME, value=transaction)
+                return _refuse(sup=sup, track=track, target=target, reason=reason)
+            _durable_write(
+                path=scratch / _herdr_replacement_store.RECORD_NAME,
+                value=transaction,
+            )
             transaction["phase"] = "signal-attempted"
-            _durable_write(path=scratch / _RECORD_NAME, value=transaction)
+            _durable_write(
+                path=scratch / _herdr_replacement_store.RECORD_NAME,
+                value=transaction,
+            )
             predecessor = cast(dict[str, object], transaction["predecessor"])
             _ = pane.herdr_terminate(
                 session=target,
@@ -199,6 +207,5 @@ def begin_herdr_replacement(
             )
     except OSError as exc:
         reason = str(exc)
-        _refuse(sup=sup, track=track, target=target, reason=reason)
-        return reason
+        return _refuse(sup=sup, track=track, target=target, reason=reason)
     return None

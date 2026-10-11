@@ -115,7 +115,9 @@ def _record_failed_resume(
     )
 
 
-def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -> str | None:
+def _do_claude_restart(
+    *, sup: Supervisor, track: registry.Track, target: str
+) -> _supervisor_herdr_replacement.ReplacementFailure | None:
     launch = _supervisor_launch.claude_launch_plan(track=track, daemon_restart=True)
     if not isinstance(launch, ClaudeLaunchPlan):
         sup.alert(
@@ -225,7 +227,7 @@ def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -
 
 def do_restart(
     *, sup: Supervisor, track: registry.Track, target: str, is_codex: bool = False
-) -> str | None:
+) -> _supervisor_herdr_replacement.ReplacementFailure | None:
     """Atomic restart, RUNTIME-DISPATCHED: respawn → wait for the TUI → resume → close.
 
     ``target`` is the resolved pane id (RB3), STABLE across the respawn.
