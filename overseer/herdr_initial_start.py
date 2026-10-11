@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import itertools
+import shlex
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from functools import partial
@@ -164,10 +165,11 @@ class HerdrInitialStart:
             proof=proof,
         )
         authorized = (first.identity is not None) & (second.identity == first.identity)
-        rendered = tmuxio_env.with_env_delta(
+        environment_launch = tmuxio_env.with_env_delta(
             command=command,
             env=cast(Mapping[str, str | None] | None, env),
         )
+        rendered = f"cd -- {shlex.quote(cwd)} && {environment_launch}"
         requests = itertools.compress((rendered,), (authorized,))
         outcomes = tuple(
             self._send_launch(writer=self.writer, target=target, command=request)

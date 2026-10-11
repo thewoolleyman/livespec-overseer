@@ -114,9 +114,9 @@ def codex_launch_result(
             reason=finished.reason,
             effect_unknown=finished.effect_unknown,
         )
-    if not ready:
+    if not finished.launched:
         return CodexLaunchResult(
-            reason=CODEX_PANE_NOT_CODEX,
+            reason={False: CODEX_PANE_NOT_CODEX, True: CODEX_LIVE_PROCESS_MISSING}[ready],
             effect_unknown=finished.effect_unknown,
         )
     return CodexLaunchResult(
