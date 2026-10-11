@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 from _lpm_engine import drive_operation, pending_operation
 from _lpm_engine_context import EffectInputs, TargetInputs
@@ -22,7 +24,7 @@ from _lpm_runtime_issuance import (
     issuance_for_run,
     read_runtime_issuance,
 )
-from _lpm_runtime_target_registration import registered_destination
+from _lpm_runtime_target_registration import RegisteredDestination, registered_destination
 
 from overseer._vendor.returns.result import Failure, Result, Success
 
@@ -82,7 +84,7 @@ def _recover(
     )
     if isinstance(destination, Failure):
         return Failure(destination.failure())
-    return _drive(host=host, operation=operation, destination=destination.unwrap())
+    return _drive_registered(host=host, operation=operation, registration=destination.unwrap())
 
 
 def _fresh(
@@ -102,23 +104,51 @@ def _fresh(
     )
     if isinstance(destination, Failure):
         return Failure(destination.failure())
-    created = new_operation(
-        host=host,
-        command="target",
-        phase="issue",
-        normalized_input=normalized_input,
-        context=PlanContext(),
-    )
-    if isinstance(created, Failure):
-        return Failure(created.failure())
-    written = write_new_operation(host=host, operation=created.unwrap())
-    if isinstance(written, Failure):
-        return Failure(written.failure())
-    return _drive(host=host, operation=written.unwrap(), destination=destination.unwrap())
+    registration = destination.unwrap()
+    try:
+        created = new_operation(
+            host=host,
+            command="target",
+            phase="issue",
+            normalized_input=normalized_input,
+            context=PlanContext(),
+        )
+        if isinstance(created, Failure):
+            return Failure(created.failure())
+        written = write_new_operation(host=host, operation=created.unwrap())
+        if isinstance(written, Failure):
+            return Failure(written.failure())
+        return _drive(
+            host=host,
+            operation=written.unwrap(),
+            destination=registration.destination,
+            release_destination_lock=registration.release,
+        )
+    finally:
+        registration.release()
+
+
+def _drive_registered(
+    *, host: RuntimeHost, operation: OperationRecord, registration: RegisteredDestination
+) -> Result[dict[str, object], ManagerError]:
+    """Drive recovered issuance while releasing its destination lock exactly once."""
+    try:
+        return _drive(
+            host=host,
+            operation=operation,
+            destination=registration.destination,
+            release_destination_lock=registration.release,
+        )
+    finally:
+        registration.release()
 
 
 def _drive(
-    *, host: RuntimeHost, operation: OperationRecord, destination: str
+    *,
+    host: RuntimeHost,
+    operation: OperationRecord,
+    destination: str,
+    release_destination_lock: Callable[[], None] | None = None,
 ) -> Result[dict[str, object], ManagerError]:
     reference = operation.operation_id
     driven = drive_operation(
@@ -129,6 +159,7 @@ def _drive(
                 reference=reference,
                 adapter=str(operation.normalized_input["adapter"]),
                 destination=destination,
+                release_destination_lock=release_destination_lock,
             )
         ),
         condition="every-effect-committed",

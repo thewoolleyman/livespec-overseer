@@ -106,6 +106,7 @@ class TargetInputs:
     reference: str
     adapter: str
     destination: str
+    release_destination_lock: Callable[[], None] | None = None
 
 
 class ProvisionTarget(Protocol):

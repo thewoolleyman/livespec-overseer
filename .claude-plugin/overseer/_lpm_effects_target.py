@@ -84,6 +84,12 @@ def issuance_create(*, context: EffectContext) -> Result[str, ManagerError]:
 
 def registration_remove(*, context: EffectContext) -> Result[str, ManagerError]:
     """Remove this run's registration, or settle an already-absent one."""
+    inputs = required_input(value=context.inputs.target, member="target inputs")
+    if isinstance(inputs, Failure):
+        return inputs
+    release_destination_lock = inputs.unwrap().release_destination_lock
+    if release_destination_lock is not None:
+        release_destination_lock()
     run_id = input_text(operation=context.operation, member="consumer_run_id")
     if isinstance(run_id, Failure):
         return run_id
