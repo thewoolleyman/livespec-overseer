@@ -1,13 +1,13 @@
 """The operator-facing surfaces of the extra-usage dollar meter: the cells and the alert.
 
 The stall this closes was SILENT, and that is the fact these two surfaces are
-built around. On 2026-09-08 the pass printed a table of healthy percentages
-every half hour while every session on the active account was being refused for
-reaching a monthly DOLLAR cap, and nothing anywhere on the operator's surfaces
-mentioned dollars at all. Reporting the state alone would have repeated that
-failure at one remove -- a column is only read when someone is already looking
--- so the meter owes an ALERT as well, and the alert fires on the FIRST dollar
-rather than at the cap, which is strictly earlier than "near" it.
+built around. On 2026-09-08 the pass printed a table of percentages every half
+hour while every session on the active account was being refused for reaching a
+monthly DOLLAR cap, and nothing anywhere on the operator's surfaces mentioned
+dollars at all. Reporting the state alone would have repeated that failure at
+one remove -- a column is only read when someone is already looking -- so the
+meter owes an ALERT as well, and the alert fires on the FIRST dollar rather than
+at the cap, which is strictly earlier than "near" it.
 
 Both surfaces live here so they cannot drift apart: the table says what is true
 of every account, the alert says which of those facts needs somebody, and they
@@ -34,7 +34,7 @@ _CAPPED_ALERT = (
 )
 _SPENDING_ALERT = (
     "ALERT: {name} is spending pay-as-you-go dollars "
-    "({used} spent of {limit}, {left} left before it stops serving)"
+    "({used} spent of {limit}, {left} extra-usage balance remaining)"
 )
 
 
