@@ -186,7 +186,11 @@ def _reconcile_armed(
     if isinstance(matching, Failure):
         return matching
     if not matching.unwrap():
-        removed = remove_local_record(path=path, owner_uid=binding.owner_uid)
+        removed = _discard_attempt(
+            binding=binding,
+            path=path,
+            staged=_staged_path(binding=binding),
+        )
         if isinstance(removed, Failure):
             return removed
         return Success(_outcome(status=UNCOMMITTED, committed_at=None))
