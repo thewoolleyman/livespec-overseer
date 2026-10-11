@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.22.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.21.0...v5.22.0) (2026-10-11)
+
+
+### Features
+
+* **overseer:** prove installed attention output ([4a5ca8f](https://github.com/thewoolleyman/livespec-overseer/commit/4a5ca8f8daefaf907cce26e0f11c93d18c21372f))
+* **overseer:** prove installed manager launchers ([8916a8d](https://github.com/thewoolleyman/livespec-overseer/commit/8916a8d3554e8ea4028c0c9635cc39ad49f32925))
+* **overseer:** prove installed provisioning success ([109381e](https://github.com/thewoolleyman/livespec-overseer/commit/109381ec6e19fc5da4d7a2f42e60a7b2dc978ecb))
+* **overseer:** prove installed recovery paths ([1f8d672](https://github.com/thewoolleyman/livespec-overseer/commit/1f8d672c072c24beb9b67a5a65983f7186559c63))
+* **overseer:** prove installed report replay ([35e936f](https://github.com/thewoolleyman/livespec-overseer/commit/35e936f0de58ca6c6f22a3a85981d91ee6e96fb0))
+* **overseer:** prove installed wire surfaces ([6f730a6](https://github.com/thewoolleyman/livespec-overseer/commit/6f730a67a18ddb4b0a6361cc31a60f3f518451d7))
+
 ## [5.21.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.20.0...v5.21.0) (2026-10-11)
 
 
