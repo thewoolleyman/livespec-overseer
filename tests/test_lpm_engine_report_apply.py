@@ -327,6 +327,37 @@ def _live_report(*, tmp_path: pathlib.Path):
     return state_dir, store, operation
 
 
+class _DecodedEnvelopeStore:
+    """The installed OnePassword reader's decoded metadata-envelope shape."""
+
+    def metadata_get(self, *, record_id: str) -> dict[str, object]:
+        title = _module("_lpm_revisions").revision_title(
+            record_id=record_id, revision=1, effect_id=_SEED_EFFECT_ID
+        )
+        return {
+            "version": 1,
+            "status": "ok",
+            "item": {"item_id": title, "record": _credential()},
+        }
+
+    def metadata_list(self) -> dict[str, object]:
+        return {"version": 1, "status": "unavailable"}
+
+    def credential_conditional_set(self, *, request: object) -> dict[str, object]:
+        _ = request
+        return {"version": 1, "status": "unavailable"}
+
+
+def test_an_authoritative_report_read_accepts_the_installed_decoded_envelope() -> None:
+    report = _module("_lpm_report_credential")
+
+    found = report.authoritative_record(store=_DecodedEnvelopeStore(), record_id=_RECORD_ID)
+
+    assert isinstance(found, Success), found
+    assert found.unwrap() is not None
+    assert found.unwrap().record == _credential()
+
+
 def test_a_live_assignment_report_applies_every_ordered_effect_and_closes_the_run(
     tmp_path: pathlib.Path,
 ) -> None:
