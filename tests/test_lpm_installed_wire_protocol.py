@@ -48,6 +48,34 @@ def _run(*, launcher: Path, arguments: tuple[str, ...], input_text: str = "") ->
     }
 
 
+def test_attention_refuses_missing_symlinked_and_broad_directory_state(
+    tmp_path: Path,
+) -> None:
+    from overseer._lpm_attention import attention_items
+    from overseer._vendor.returns.result import Failure
+
+    missing = attention_items(state_dir=tmp_path / "missing", owner_uid=os.getuid())
+    assert isinstance(missing, Failure)
+    assert missing.failure().error_type == "store-unavailable"
+
+    target = tmp_path / "target"
+    target.mkdir(mode=0o700)
+    symlinked_state = tmp_path / "symlinked"
+    symlinked_state.mkdir(mode=0o700)
+    (symlinked_state / "attention").symlink_to(target, target_is_directory=True)
+    symlinked = attention_items(state_dir=symlinked_state, owner_uid=os.getuid())
+    assert isinstance(symlinked, Failure)
+    assert symlinked.failure().error_type == "store-unavailable"
+
+    broad_state = tmp_path / "broad"
+    broad_attention = broad_state / "attention"
+    broad_attention.mkdir(parents=True, mode=0o700)
+    broad_attention.chmod(0o755)
+    broad = attention_items(state_dir=broad_state, owner_uid=os.getuid())
+    assert isinstance(broad, Failure)
+    assert broad.failure().error_type == "store-unavailable"
+
+
 def test_both_installed_executables_emit_the_exact_secret_free_wire_result(
     *, installed_console: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -56,7 +84,7 @@ def test_both_installed_executables_emit_the_exact_secret_free_wire_result(
     monkeypatch.setenv("OP_SERVICE_ACCOUNT_TOKEN", _SECRET)
     monkeypatch.delenv("PYTHONPATH", raising=False)
     cases = (
-        ((), "", 0, None),
+        ((), "", 4, "store-unavailable"),
         (("target", "--target-json", "-"), "{}", 2, "invalid-request"),
         (("provision", "--request-json", "-"), "{}", 2, "invalid-request"),
         (("report", "--report-json", "-"), "{}", 2, "invalid-report"),
@@ -151,13 +179,8 @@ def test_companion_loads_and_dispatches_only_the_adjacent_product(
         context.setitem(sys.modules, "overseer", original)
         loaded = _lpm_companion.load_product_package(root=_PACKAGE)
         assert loaded is not None
-        assert _lpm_companion.run(arguments=(), root=_PACKAGE) == 0
-    assert json.loads(capsys.readouterr().out) == {
-        "version": 1,
-        "status": "ok",
-        "operation": "attention",
-        "items": [],
-    }
+        assert _lpm_companion.run(arguments=(), root=_PACKAGE) == 4
+    assert json.loads(capsys.readouterr().out)["error_type"] == "store-unavailable"
     assert _lpm_companion.run(arguments=("unknown",), root=_PACKAGE) == 2
     assert json.loads(capsys.readouterr().out)["error_type"] == "invalid-request"
     import _lpm_runtime
@@ -202,12 +225,9 @@ def test_runtime_types_every_pre_operation_refusal(
         config=default_config(),
         read_input=lambda: "{}",
     )
-    assert runtime.run(invocation=ManagerInvocation(command="attention", source=None)).body == {
-        "version": 1,
-        "status": "ok",
-        "operation": "attention",
-        "items": [],
-    }
+    absent_attention = runtime.run(invocation=ManagerInvocation(command="attention", source=None))
+    assert absent_attention.exit_status == 4
+    assert absent_attention.body["error_type"] == "store-unavailable"
     for command, error_type in (
         ("target", "invalid-request"),
         ("provision", "invalid-request"),
