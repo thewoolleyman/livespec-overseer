@@ -10,11 +10,12 @@ from typing import TypeVar, cast
 from _lpm_config import ManagerConfig
 from _lpm_locks import release_lock, take_lock, try_lock
 from _lpm_prereq import RuntimePrerequisites, runtime_prerequisites
-from _lpm_results import ManagerError, retryable_exhaustion, store_unavailable
+from _lpm_results import ManagerError
 from _lpm_role_child import ClosedRoleInput
 from _lpm_role_results import CONDITIONAL_SET_MODE
-from _lpm_role_runner import RoleLaunch, RoleOutcome, run_credential_role
+from _lpm_role_runner import RoleLaunch, run_credential_role
 from _lpm_roles import CredentialRole, PackagedCompanion, credential_role
+from _lpm_runtime_role_outcome import classify_role_outcome
 from _lpm_runtime_roles import (
     FinalProvisioningRequest,
     TargetStatusRequest,
@@ -85,7 +86,7 @@ class RolePorts:
                 request=request,
                 lock=lock,
             ),
-            failure=lambda error: Failure(error),
+            failure=lambda error: Failure(replace(error, cleanup_safe=True)),
         )
 
     def _provision_with(
@@ -115,7 +116,7 @@ class RolePorts:
             )
         finally:
             release_lock(held=held)
-        return _commit_outcome(outcome=outcome, operation="final provisioning")
+        return classify_role_outcome(outcome=outcome, operation="final provisioning")
 
     def target_status(
         self, *, request: TargetStatusRequest, destination: str, lock: TargetLock
@@ -142,7 +143,7 @@ class RolePorts:
             )
         finally:
             release_lock(held=held)
-        return _commit_outcome(outcome=outcome, operation="target status")
+        return classify_role_outcome(outcome=outcome, operation="target status")
 
     def _store_role(self, *, role_name: str, request: dict[str, object]) -> dict[str, object]:
         return _with_prerequisites(
@@ -206,21 +207,4 @@ def _closed_input(*, role: CredentialRole | None) -> ClosedRoleInput:
         role_name=registered.name,
         key_description=registered.key_description,
         descriptors=registered.descriptors,
-    )
-
-
-def _commit_outcome(*, outcome: RoleOutcome, operation: str) -> Result[CommitOutcome, ManagerError]:
-    if outcome.refusal_reason is not None:
-        if not outcome.launched:
-            return Failure(store_unavailable(message=f"{operation} was refused before launch"))
-        return Failure(retryable_exhaustion(message=f"{operation} has an unknown target outcome"))
-    if outcome.result_object["status"] == "store-unavailable":
-        return Failure(store_unavailable(message=f"{operation} was unavailable before write"))
-    if outcome.result_object["status"] == IN_PROGRESS:
-        return Failure(retryable_exhaustion(message=f"{operation} has an unknown target outcome"))
-    return Success(
-        CommitOutcome(
-            status=str(outcome.result_object["status"]),
-            committed_at=cast("str | None", outcome.result_object["committed_at"]),
-        )
     )

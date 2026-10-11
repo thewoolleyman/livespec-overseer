@@ -148,7 +148,10 @@ def _target_inputs(*, destination: str):
     context_module = _module("_lpm_engine_context")
     return context_module.EffectInputs(
         target=context_module.TargetInputs(
-            reference=_REFERENCE, adapter=_ADAPTER, destination=destination
+            reference=_REFERENCE,
+            adapter=_ADAPTER,
+            isolated_root=str(pathlib.Path(destination).parent),
+            destination=destination,
         )
     )
 
@@ -200,10 +203,11 @@ def test_a_lost_issue_checkpoint_replays_as_one_logical_effect_from_the_durable_
     assert issuance_path.read_bytes() == committed_bytes
     assert _read(path=issuance_path) == {
         "version": 1,
-        "reference": _REFERENCE,
+        "target_ref": _REFERENCE,
         "consumer_run_id": _TARGET_RUN_ID,
         "adapter": _ADAPTER,
-        "destination": destination,
+        "isolated_root": str(pathlib.Path(destination).parent),
+        "target_path": destination,
         "issued_at": _TARGET_ACCEPTED_AT,
         "expires_at": _TARGET_EXPIRES_AT,
     }

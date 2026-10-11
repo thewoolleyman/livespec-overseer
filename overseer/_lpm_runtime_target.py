@@ -77,7 +77,12 @@ def _recover(
         return Failure(issued.failure())
     issuance = issued.unwrap()
     if issuance is not None:
-        return _drive(host=host, operation=operation, destination=issuance.destination)
+        return _drive(
+            host=host,
+            operation=operation,
+            isolated_root=issuance.isolated_root,
+            destination=issuance.destination,
+        )
     destination = registered_destination(
         host=host,
         consumer_run_id=str(normalized_input["consumer_run_id"]),
@@ -121,6 +126,7 @@ def _fresh(
         return _drive(
             host=host,
             operation=written.unwrap(),
+            isolated_root=registration.isolated_root,
             destination=registration.destination,
             release_destination_lock=registration.release,
         )
@@ -136,6 +142,7 @@ def _drive_registered(
         return _drive(
             host=host,
             operation=operation,
+            isolated_root=registration.isolated_root,
             destination=registration.destination,
             release_destination_lock=registration.release,
         )
@@ -147,6 +154,7 @@ def _drive(
     *,
     host: RuntimeHost,
     operation: OperationRecord,
+    isolated_root: str,
     destination: str,
     release_destination_lock: Callable[[], None] | None = None,
 ) -> Result[dict[str, object], ManagerError]:
@@ -158,6 +166,7 @@ def _drive(
             target=TargetInputs(
                 reference=reference,
                 adapter=str(operation.normalized_input["adapter"]),
+                isolated_root=isolated_root,
                 destination=destination,
                 release_destination_lock=release_destination_lock,
             )

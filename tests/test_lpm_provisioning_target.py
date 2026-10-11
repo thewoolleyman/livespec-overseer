@@ -59,6 +59,7 @@ def _issuance(target, **changes):
         "reference": "tgt-0001",
         "consumer_run_id": "run-a",
         "adapter": "isolated-run",
+        "isolated_root": "/nowhere",
         "destination": "/nowhere/credential",
         "issued_at": _NOW,
         "expires_at": _LATER,
@@ -80,6 +81,7 @@ def test_an_issued_reference_is_bound_to_one_run_and_expires_in_twenty_four_hour
         reference="tgt-0001",
         consumer_run_id="run-a",
         adapter="isolated-run",
+        isolated_root="/run/a",
         destination="/run/a/credential",
         now=_NOW,
     ).unwrap()
@@ -97,17 +99,24 @@ def test_issuing_refuses_an_unregistered_adapter_an_empty_reference_and_an_unusa
         reference="tgt-0001",
         consumer_run_id="run-a",
         adapter="host-wide",
+        isolated_root="/run/a",
         destination="/run/a/credential",
         now=_NOW,
     )
     assert unregistered.failure().error_type == "invalid-request"
     assert "isolated-run" in target.REGISTERED_TARGET_ADAPTERS
 
-    for empty in ({"reference": ""}, {"consumer_run_id": ""}):
+    for empty in (
+        {"reference": ""},
+        {"consumer_run_id": ""},
+        {"isolated_root": ""},
+        {"destination": ""},
+    ):
         fields = {
             "reference": "tgt-0001",
             "consumer_run_id": "run-a",
             "adapter": "isolated-run",
+            "isolated_root": "/run/a",
             "destination": "/run/a/credential",
             "now": _NOW,
         }
@@ -118,6 +127,7 @@ def test_issuing_refuses_an_unregistered_adapter_an_empty_reference_and_an_unusa
         reference="tgt-0001",
         consumer_run_id="run-a",
         adapter="isolated-run",
+        isolated_root="/run/a",
         destination="/run/a/credential",
         now="yesterday",
     )
@@ -136,8 +146,8 @@ def test_the_issuance_record_round_trips_and_rejects_every_malformed_shape():
     assert "carries exactly" in _refusal(target, extra="no")
     assert "integer 1" in _refusal(target, version=2)
     assert "integer 1" in _refusal(target, version=True)
-    assert "non-empty string" in _refusal(target, reference="")
-    assert "non-empty string" in _refusal(target, destination=7)
+    assert "non-empty string" in _refusal(target, target_ref="")
+    assert "non-empty string" in _refusal(target, target_path=7)
     assert "RFC 3339" in _refusal(target, issued_at="yesterday")
     assert "RFC 3339" in _refusal(target, expires_at=7)
 

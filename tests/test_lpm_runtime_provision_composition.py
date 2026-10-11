@@ -674,6 +674,7 @@ def test_target_recovery_preserves_typed_registration_and_issuance_paths(
         reference=operation.operation_id,
         consumer_run_id="run-target-recovery",
         adapter="isolated-run",
+        isolated_root=str(tmp_path),
         destination=str(tmp_path / "registered-target"),
         issued_at=_NOW,
         expires_at="2026-10-11T12:00:00Z",
@@ -697,6 +698,7 @@ def test_target_recovery_preserves_typed_registration_and_issuance_paths(
     drive.assert_called_once_with(
         host=host,
         operation=operation,
+        isolated_root=issuance.isolated_root,
         destination=issuance.destination,
     )
     with monkeypatch.context() as context:

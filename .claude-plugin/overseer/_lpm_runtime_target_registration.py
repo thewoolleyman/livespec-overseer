@@ -23,6 +23,7 @@ _ = VENDOR_PATHS_INSTALLED
 __all__: list[str] = [
     "RegisteredDestination",
     "registered_destination",
+    "validate_target_destination",
 ]
 
 _REGISTRATION_VERSION: Final = 1
@@ -41,6 +42,7 @@ _REGISTRATION_MEMBERS: Final = (
 class RegisteredDestination:
     """One validated destination and the issuance lock that currently protects it."""
 
+    isolated_root: str
     destination: str
     held_lock: HeldLock | None
 
@@ -70,10 +72,15 @@ def registered_destination(
     if isinstance(validated, Failure):
         return Failure(validated.failure())
     destination = validated.unwrap()
+    isolated_root = str(Path(str(source.unwrap()["isolated_root"])).resolve(strict=False))
     held = destination_lock(host=host, destination=destination)
     if isinstance(held, Failure):
         return Failure(held.failure())
-    registration = RegisteredDestination(destination=destination, held_lock=held.unwrap())
+    registration = RegisteredDestination(
+        isolated_root=isolated_root,
+        destination=destination,
+        held_lock=held.unwrap(),
+    )
     conflict = refuse_destination_conflict(
         host=host,
         consumer_run_id=consumer_run_id,
@@ -113,7 +120,11 @@ def _validated_registration(
     times = _validated_registration_times(host=host, path=path, source=source)
     if isinstance(times, Failure):
         return Failure(times.failure())
-    return _validated_destination(host=host, source=source)
+    return validate_target_destination(
+        isolated_root=str(source["isolated_root"]),
+        target_path=str(source["target_path"]),
+        owner_uid=host.owner_uid,
+    )
 
 
 def _validated_registration_times(
@@ -134,11 +145,12 @@ def _validated_registration_times(
     return Success(None)
 
 
-def _validated_destination(
-    *, host: RuntimeHost, source: dict[str, object]
+def validate_target_destination(
+    *, isolated_root: str, target_path: str, owner_uid: int
 ) -> Result[str, ManagerError]:
-    root = Path(str(source["isolated_root"]))
-    target = Path(str(source["target_path"]))
+    """Revalidate one isolated destination against its current filesystem shape."""
+    root = Path(isolated_root)
+    target = Path(target_path)
     if not all((root.is_absolute(), target.is_absolute())):
         return Failure(invalid_request(message="isolated-run registration paths must be absolute"))
     canonical_root = root.resolve(strict=False)
@@ -150,11 +162,11 @@ def _validated_destination(
     safe_directories = _safe_target_directories(
         root=root,
         target_parent=target.parent,
-        owner_uid=host.owner_uid,
+        owner_uid=owner_uid,
     )
     if isinstance(safe_directories, Failure):
         return Failure(safe_directories.failure())
-    home = account_database_home(uid=host.owner_uid)
+    home = account_database_home(uid=owner_uid)
     if home is None:
         return Failure(invalid_request(message="the manager account home is unavailable"))
     protected = (home / ".claude" / ".credentials.json").resolve(strict=False)
