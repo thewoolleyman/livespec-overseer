@@ -66,7 +66,10 @@ verb = " ".join(argv[:2])
 vault = argv[argv.index("--vault") + 1]
 state["calls"].append({"argv": argv, "token": os.environ.get("OP_SERVICE_ACCOUNT_TOKEN", "")})
 answer = None
-if verb not in state["refuse"] and verb not in state["garble"]:
+garbled_list = verb == "item list" and state.get("garble_list_count", 0) > 0
+if garbled_list:
+    state["garble_list_count"] -= 1
+if verb not in state["refuse"] and verb not in state["garble"] and not garbled_list:
     if verb == "item list":
         answer = [
             {"id": item["id"], "title": item["title"], "vault": {"name": vault}}
@@ -92,9 +95,12 @@ if verb not in state["refuse"] and verb not in state["garble"]:
         }
         state["items"].append(created)
         answer = {"id": created["id"], "title": created["title"]}
+        if state.get("interrupt_next_create", False):
+            state["interrupt_next_create"] = False
+            state["garble_list_count"] = 1
 with open(STATE, "w", encoding="utf-8") as handle:
     json.dump(state, handle)
-if verb in state["garble"]:
+if verb in state["garble"] or garbled_list:
     sys.stdout.write("not-json")
 elif answer is not None:
     sys.stdout.write(json.dumps(answer))

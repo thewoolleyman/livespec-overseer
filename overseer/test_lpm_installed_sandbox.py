@@ -21,6 +21,11 @@ from overseer.test_lpm_installed_inspection import (
     report_snapshot,
     target_committed_at,
 )
+from overseer.test_lpm_installed_recovery import (
+    interrupt_next_metadata_create,
+    interrupt_provision_after_target_commit,
+    write_registered_target,
+)
 from overseer.test_lpm_installed_runtime import copy_installed_python, copy_shell_runtime
 
 __all__: list[str] = [
@@ -70,7 +75,7 @@ class InstalledManagerSandbox:
     def create(cls, *, root: Path, repository: Path) -> "InstalledManagerSandbox":
         """Install the package and flatten the plugin into an isolated root."""
         sandbox = cls(root=root / "installed-root", repository=repository)
-        sandbox.root.mkdir(mode=0o755)
+        sandbox.root.mkdir(mode=0o755, parents=True)
         sandbox._install_distribution()
         copy_installed_python(root=sandbox.root)
         copy_shell_runtime(root=sandbox.root)
@@ -158,6 +163,21 @@ class InstalledManagerSandbox:
     def target_committed_at(self, *, consumer_run_id: str) -> str:
         """Read a provisioned run's target commit instant."""
         return target_committed_at(root=self.root, consumer_run_id=consumer_run_id)
+
+    def interrupt_provision_after_target_commit(self, *, consumer_run_id: str) -> None:
+        """Restore a provision operation whose target-write checkpoint was lost."""
+        interrupt_provision_after_target_commit(
+            root=self.root,
+            consumer_run_id=consumer_run_id,
+        )
+
+    def interrupt_next_metadata_create(self) -> None:
+        """Lose the authoritative reread after the next metadata create commits."""
+        interrupt_next_metadata_create(root=self.root)
+
+    def write_registered_target(self, *, destination: Path, value: bytes) -> None:
+        """Create fixture-owned prior bytes at a registered destination."""
+        write_registered_target(destination=destination, value=value)
 
     def _install_distribution(self) -> None:
         destination = self.root / "opt" / "lpm"
