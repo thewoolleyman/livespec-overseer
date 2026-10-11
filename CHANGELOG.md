@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.19.5](https://github.com/thewoolleyman/livespec-overseer/compare/v5.19.4...v5.19.5) (2026-10-11)
+
+
+### Bug Fixes
+
+* **caam:** report healthy capped accounts as selectable ([94b2199](https://github.com/thewoolleyman/livespec-overseer/commit/94b219949363a7d25d7d0b6843072cca0f7a96f4))
+* **caam:** report included quota for healthy capped accounts ([2d57732](https://github.com/thewoolleyman/livespec-overseer/commit/2d577329d8ec9e0d90db0e7a4eaa05d7c54e035b))
+
 ## [5.19.4](https://github.com/thewoolleyman/livespec-overseer/compare/v5.19.3...v5.19.4) (2026-10-11)
 
 
