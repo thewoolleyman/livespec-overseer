@@ -166,13 +166,14 @@ def test_a_capped_account_raises_an_alert_naming_the_spend_limit() -> None:
     assert "$100.00" in lines[0]
 
 
-def test_a_capped_account_with_included_headroom_has_no_unservable_claim() -> None:
+def test_a_capped_account_with_included_headroom_reports_included_quota() -> None:
     module = spend_report_module()
 
     lines = module.spend_alert_lines(profiles=(profile(name="anthropic-0", block=CAPPED_BLOCK),))
 
     assert len(lines) == 1
-    assert "is spending pay-as-you-go dollars" in lines[0]
+    assert "included quota remains" in lines[0]
+    assert "account is selectable" in lines[0]
     assert "can serve no request" not in lines[0]
     assert "before it stops serving" not in lines[0]
 

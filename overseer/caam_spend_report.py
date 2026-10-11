@@ -32,6 +32,10 @@ _CAPPED_ALERT = (
     "ALERT: {name} has reached its extra-usage monthly spend limit "
     "({used} spent of {limit}) -- it can serve no request and is not selectable"
 )
+_CAPPED_WITH_INCLUDED_QUOTA_ALERT = (
+    "ALERT: {name} has reached its pay-as-you-go monthly spend limit "
+    "({used} spent of {limit}) -- included quota remains and the account is selectable"
+)
 _SPENDING_ALERT = (
     "ALERT: {name} is spending pay-as-you-go dollars "
     "({used} spent of {limit}, {left} extra-usage balance remaining)"
@@ -77,6 +81,12 @@ def alert_for(*, profile: ProfileUsage) -> str | None:
     )
     if spend_capped(usage=profile.usage):
         return _CAPPED_ALERT.format(name=profile.name, used=used, limit=limit)
+    if extra_usage is not None and extra_usage.spend_limit_reached:
+        return _CAPPED_WITH_INCLUDED_QUOTA_ALERT.format(
+            name=profile.name,
+            used=used,
+            limit=limit,
+        )
     if spending_dollars(extra_usage=extra_usage):
         return _SPENDING_ALERT.format(
             name=profile.name,
