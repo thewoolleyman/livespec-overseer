@@ -12,6 +12,7 @@ from typing import Final, cast
 
 __all__: list[str] = [
     "INTERNAL_BUG_LINE",
+    "inherited_descriptor_mapping",
     "load_product_package",
     "main",
     "package_root",
@@ -103,7 +104,7 @@ def _dispatch_role(*, role_name: str) -> int:
                 role_name=role.name,
                 key_description=role.key_description,
                 descriptors=role.descriptors,
-                descriptor_fds=_inherited_descriptors(names=role.descriptors),
+                descriptor_fds=inherited_descriptor_mapping(names=role.descriptors),
             ),
             companion=PackagedCompanion(
                 python_executable=str(Path(sys.executable).resolve()),
@@ -121,7 +122,7 @@ def _dispatch_role(*, role_name: str) -> int:
                 request=request,
                 environ=os.environ,
                 lock_descriptor=next(
-                    iter(_inherited_descriptors(names=role.descriptors).values()), None
+                    iter(inherited_descriptor_mapping(names=role.descriptors).values()), None
                 ),
             )
         ).value_or(pre_exec_failure_object(role_name=role.name))
@@ -130,16 +131,19 @@ def _dispatch_role(*, role_name: str) -> int:
     return 0
 
 
-def _inherited_descriptors(*, names: tuple[str, ...]) -> dict[str, int]:
+def inherited_descriptor_mapping(*, names: tuple[str, ...]) -> dict[str, int]:
+    """Map only descriptors explicitly marked to survive role-process replacement."""
     descriptors: list[int] = []
     for candidate in os.listdir("/proc/self/fd"):
         if candidate.isdigit() and int(candidate) >= _FIRST_INHERITED_DESCRIPTOR:
             descriptor = int(candidate)
             try:
                 _ = os.fstat(descriptor)
+                inheritable = os.get_inheritable(descriptor)
             except OSError:
                 continue
-            descriptors.append(descriptor)
+            if inheritable:
+                descriptors.append(descriptor)
     return _descriptor_mapping(names=names, descriptors=tuple(sorted(descriptors)))
 
 
