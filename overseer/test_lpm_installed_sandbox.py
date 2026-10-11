@@ -16,6 +16,11 @@ from overseer.test_lpm_installed_credentials import (
     seed_credential,
     write_decoy_target,
 )
+from overseer.test_lpm_installed_inspection import (
+    ReportSnapshot,
+    report_snapshot,
+    target_committed_at,
+)
 from overseer.test_lpm_installed_runtime import copy_installed_python, copy_shell_runtime
 
 __all__: list[str] = [
@@ -138,6 +143,21 @@ class InstalledManagerSandbox:
     def bind_target_lock(self, *, target_ref: str) -> None:
         """Expose the target lock through the chroot's proc descriptor view."""
         bind_target_lock(root=self.root, target_ref=target_ref)
+
+    def report_snapshot(
+        self, *, consumer_run_id: str, record_id: str, account_id: str
+    ) -> ReportSnapshot:
+        """Read the durable report effects for one provisioned run."""
+        return report_snapshot(
+            root=self.root,
+            consumer_run_id=consumer_run_id,
+            record_id=record_id,
+            account_id=account_id,
+        )
+
+    def target_committed_at(self, *, consumer_run_id: str) -> str:
+        """Read a provisioned run's target commit instant."""
+        return target_committed_at(root=self.root, consumer_run_id=consumer_run_id)
 
     def _install_distribution(self) -> None:
         destination = self.root / "opt" / "lpm"
