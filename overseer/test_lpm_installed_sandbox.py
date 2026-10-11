@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TypedDict, cast
 
+from overseer import test_lpm_installed_runtime as runtime
 from overseer.test_lpm_installed_attention import write_attention
 from overseer.test_lpm_installed_credentials import (
     SeededCredential,
@@ -27,7 +28,6 @@ from overseer.test_lpm_installed_recovery import (
     interrupt_provision_after_target_commit,
     write_registered_target,
 )
-from overseer.test_lpm_installed_runtime import copy_installed_python, copy_shell_runtime
 from overseer.test_lpm_installed_taints import credential_environment, credential_taints
 
 __all__: list[str] = [
@@ -76,11 +76,12 @@ class InstalledManagerSandbox:
     @classmethod
     def create(cls, *, root: Path, repository: Path) -> "InstalledManagerSandbox":
         """Install the package and flatten the plugin into an isolated root."""
+        _ = runtime.chroot_binary()
         sandbox = cls(root=root / "installed-root", repository=repository)
         sandbox.root.mkdir(mode=0o755, parents=True)
         sandbox._install_distribution()
-        copy_installed_python(root=sandbox.root)
-        copy_shell_runtime(root=sandbox.root)
+        runtime.copy_installed_python(root=sandbox.root)
+        runtime.copy_shell_runtime(root=sandbox.root)
         sandbox._copy_plugin()
         sandbox._write_account_database()
         install_credential_services(root=sandbox.root)
@@ -104,7 +105,7 @@ class InstalledManagerSandbox:
         executable = "llm-provider-manager" if surface == "console" else _PLUGIN
         completed = subprocess.run(  # noqa: S603 - fixed chroot and fixture-owned argv
             [
-                "/usr/sbin/chroot",
+                runtime.chroot_binary(),
                 f"--userspec={_UID}:{_GID}",
                 str(self.root),
                 executable,
@@ -200,7 +201,7 @@ class InstalledManagerSandbox:
                 "venv",
                 "--relocatable",
                 "--python",
-                "/usr/bin/python3.12",
+                str(runtime.system_python()),
                 "--no-python-downloads",
                 str(destination),
             ),
