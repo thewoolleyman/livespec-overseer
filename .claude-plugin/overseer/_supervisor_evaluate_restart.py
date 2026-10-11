@@ -90,12 +90,19 @@ def ready_restart_decision(*, request: ReadyRestartRequest) -> ReadyRestartDecis
     track = _track_ready_to_restart(request=request)
     if track is None:
         return _missing_plan_epic_decision(request=request, note=request.note)
+    refusal = None
     if request.act:
-        _supervisor_restart.do_restart(
+        refusal = _supervisor_restart.do_restart(
             sup=request.sup,
             track=track,
             target=request.target,
             is_codex=request.is_codex,
+        )
+    if refusal is not None:
+        return ReadyRestartDecision(
+            status="replacement-failed",
+            note=_supervisor_liveness.append_note(note=request.note, extra=refusal),
+            active_conditions={"herdr-replacement-refused"},
         )
     return ReadyRestartDecision(
         status="restarting",

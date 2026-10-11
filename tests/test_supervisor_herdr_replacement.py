@@ -7,9 +7,13 @@ import json
 from dataclasses import dataclass, replace
 from pathlib import Path
 from types import SimpleNamespace
+from typing import IO
 
+import _supervisor_herdr_replacement
 import herdr_identity
+import pytest
 import registry
+import signals
 import supervisor
 from test_supervisor_builders import (
     FakeTmux,
@@ -175,3 +179,73 @@ def test_ready_authorization_is_durably_bound_before_the_herdr_signal(*, tmp_pat
     assert launch["command"].startswith("claude --model 'opus[1m]'")
     assert launch["cwd"] == str(world.repo)
     assert launch["env"]["ANTHROPIC_MODEL"] is None
+
+
+def _arm_hazard(
+    *,
+    hazard: str,
+    world: _World,
+    monkeypatch: pytest.MonkeyPatch,
+) -> IO[str] | None:
+    if hazard == "lock-failed":
+        lock = world.repo / "tmp" / "overseer" / world.topic / ".herdr-replacement.lock"
+        handle = lock.open("a+", encoding="utf-8")
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return handle
+    if hazard == "write-failed":
+
+        def fail_write(**_kwargs: object) -> None:
+            raise OSError("fixture durable write failure")
+
+        monkeypatch.setattr(_supervisor_herdr_replacement, "_durable_write", fail_write)
+    elif hazard == "changed-interlock":
+        original = world.fake.herdr_replacement_snapshot
+
+        def remove_ready(*, session: str) -> SimpleNamespace:
+            snapshot = original(session=session)
+            signals.state_path(repo=str(world.repo), topic=world.topic).unlink()
+            return snapshot
+
+        world.fake.herdr_replacement_snapshot = remove_ready
+    elif hazard == "reused-process-identity":
+        reused = _running_snapshot()
+        reused.processes[-1].starttime = "reused-start"
+        world.snapshot["value"] = reused
+    else:
+        running = _running_snapshot()
+        running.shell = running.processes[-1]
+        world.snapshot["value"] = running
+    return None
+
+
+@pytest.mark.parametrize(
+    "hazard",
+    [
+        "lock-failed",
+        "write-failed",
+        "changed-interlock",
+        "reused-process-identity",
+        "exec-replaced-root-shell",
+    ],
+)
+def test_replacement_prerequisite_failure_never_signals(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, hazard: str
+) -> None:
+    world, sup, track = _armed_world(tmp_path=tmp_path)
+    signal_count = 0
+
+    def count_signal(*, session: str, process_group: int) -> SimpleNamespace:
+        nonlocal signal_count
+        signal_count += 1
+        return SimpleNamespace(ok=True, error="")
+
+    world.fake.herdr_terminate = count_signal
+    held_lock = _arm_hazard(hazard=hazard, world=world, monkeypatch=monkeypatch)
+    try:
+        sup.evaluate(track=track, act=True)
+    finally:
+        if held_lock is not None:
+            held_lock.close()
+
+    assert signal_count == 0
+    assert any(key[-1] == "herdr-replacement-refused" for key in sup.alerted)
