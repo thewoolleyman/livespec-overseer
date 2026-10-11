@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import os
-import stat
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -18,6 +16,7 @@ from _lpm_localstate import (
 from _lpm_paths import local_record_path
 from _lpm_results import ManagerError, store_unavailable
 from _lpm_target import COMMITTED, IN_PROGRESS, UNCOMMITTED, CommitOutcome
+from _lpm_target_evidence_io import replace_staged_target, target_matches_evidence
 from _lpm_target_evidence_record import (
     TARGET_EVIDENCE_MEMBERS,
     TargetEvidence,
@@ -36,7 +35,6 @@ __all__: list[str] = [
     "write_target_evidence",
 ]
 
-_MATCHED = True
 _NOT_MATCHED = False
 
 
@@ -127,8 +125,9 @@ def _finish_commit(
             status=UNCOMMITTED if isinstance(cleaned, Success) else IN_PROGRESS,
             committed_at=None,
         )
-    replaced = _replace_staged(staged=staged, destination=Path(binding.destination))
-    _ = replaced
+    replaced = replace_staged_target(staged=staged, destination=Path(binding.destination))
+    if isinstance(replaced, Failure):
+        return _outcome(status=IN_PROGRESS, committed_at=None)
     committed = replace(armed, status=COMMITTED)
     persisted = write_target_evidence(path=path, record=committed, owner_uid=binding.owner_uid)
     return (
@@ -143,7 +142,10 @@ def target_status_with_evidence(
 ) -> Result[CommitOutcome, ManagerError]:
     """Resolve prepared or armed evidence against authoritative target bytes."""
     path = _evidence_path(binding=binding)
-    stored = read_local_record(path=path, owner_uid=binding.owner_uid).unwrap()
+    reading = read_local_record(path=path, owner_uid=binding.owner_uid)
+    if isinstance(reading, Failure):
+        return reading
+    stored = reading.unwrap()
     if stored is None:
         return Success(_outcome(status=UNCOMMITTED, committed_at=None))
     parsed = target_evidence_from_object(parsed=stored)
@@ -168,18 +170,30 @@ def _discard_prepared(
     *, binding: TargetEvidenceBinding, path: Path
 ) -> Result[CommitOutcome, ManagerError]:
     cleaned = _discard_attempt(binding=binding, path=path, staged=_staged_path(binding=binding))
-    _ = cleaned.unwrap()
+    if isinstance(cleaned, Failure):
+        return cleaned
     return Success(_outcome(status=UNCOMMITTED, committed_at=None))
 
 
 def _reconcile_armed(
     *, binding: TargetEvidenceBinding, path: Path, evidence: TargetEvidence
 ) -> Result[CommitOutcome, ManagerError]:
-    if not _target_matches(binding=binding, evidence=evidence):
-        remove_local_record(path=path, owner_uid=binding.owner_uid).unwrap()
+    matching = target_matches_evidence(
+        destination=Path(binding.destination),
+        owner_uid=binding.owner_uid,
+        target_sha256=evidence.target_sha256,
+    )
+    if isinstance(matching, Failure):
+        return matching
+    if not matching.unwrap():
+        removed = remove_local_record(path=path, owner_uid=binding.owner_uid)
+        if isinstance(removed, Failure):
+            return removed
         return Success(_outcome(status=UNCOMMITTED, committed_at=None))
     committed = replace(evidence, status=COMMITTED)
-    write_target_evidence(path=path, record=committed, owner_uid=binding.owner_uid).unwrap()
+    persisted = write_target_evidence(path=path, record=committed, owner_uid=binding.owner_uid)
+    if isinstance(persisted, Failure):
+        return persisted
     return Success(_outcome(status=COMMITTED, committed_at=evidence.committed_at))
 
 
@@ -194,34 +208,17 @@ def _staged_path(*, binding: TargetEvidenceBinding) -> Path:
     return destination.with_name(f".{destination.name}.lpm-prepared")
 
 
-def _replace_staged(*, staged: Path, destination: Path) -> None:
-    _ = staged.replace(destination)
-    descriptor = os.open(str(destination.parent), os.O_RDONLY)
-    try:
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
-
-
-def _target_matches(*, binding: TargetEvidenceBinding, evidence: TargetEvidence) -> bool:
-    destination = Path(binding.destination)
-    try:
-        status = destination.lstat()
-    except FileNotFoundError:
-        return _NOT_MATCHED
-    mode = stat.S_IMODE(status.st_mode)
-    if not stat.S_ISREG(status.st_mode) or status.st_uid != binding.owner_uid or mode & ~0o600:
-        return _NOT_MATCHED
-    payload = destination.read_bytes()
-    return (
-        _MATCHED if hashlib.sha256(payload).hexdigest() == evidence.target_sha256 else _NOT_MATCHED
-    )
-
-
 def _discard_attempt(
     *, binding: TargetEvidenceBinding, path: Path, staged: Path
 ) -> Result[None, ManagerError]:
-    staged.unlink(missing_ok=True)
+    try:
+        staged.unlink(missing_ok=True)
+    except OSError as failure:
+        return Failure(
+            store_unavailable(
+                message=f"staged target was not removed: {failure.__class__.__name__}"
+            )
+        )
     return remove_local_record(path=path, owner_uid=binding.owner_uid)
 
 
