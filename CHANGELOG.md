@@ -1,5 +1,19 @@
 # Changelog
 
+## [5.20.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.19.5...v5.20.0) (2026-10-11)
+
+
+### Features
+
+* contain native start failures ([56cbaac](https://github.com/thewoolleyman/livespec-overseer/commit/56cbaac59ddce35a9a123bcc119028addd510aee))
+* preserve uncertain native starts ([0639cff](https://github.com/thewoolleyman/livespec-overseer/commit/0639cff4d959e87595f4f8923baed48b25638a17))
+* start exact owned Herdr pane ([89c8c5d](https://github.com/thewoolleyman/livespec-overseer/commit/89c8c5d7fd748ad2f4c5b338b7d8f663ab6323c5))
+
+
+### Bug Fixes
+
+* honor native start durability boundaries ([e2fb451](https://github.com/thewoolleyman/livespec-overseer/commit/e2fb451747cafdf6092a29515ae4433e829b8e85))
+
 ## [5.19.5](https://github.com/thewoolleyman/livespec-overseer/compare/v5.19.4...v5.19.5) (2026-10-11)
 
 
