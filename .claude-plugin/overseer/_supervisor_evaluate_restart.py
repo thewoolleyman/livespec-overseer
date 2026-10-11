@@ -101,8 +101,8 @@ def ready_restart_decision(*, request: ReadyRestartRequest) -> ReadyRestartDecis
     if refusal is not None:
         return ReadyRestartDecision(
             status="replacement-failed",
-            note=_supervisor_liveness.append_note(note=request.note, extra=refusal),
-            active_conditions={"herdr-replacement-refused"},
+            note=_supervisor_liveness.append_note(note=request.note, extra=refusal.reason),
+            active_conditions={refusal.condition},
         )
     return ReadyRestartDecision(
         status="restarting",
