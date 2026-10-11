@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import os
+import stat
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Final, cast
 
 from _lpm_localstate import (
     read_local_record,
@@ -18,6 +18,11 @@ from _lpm_localstate import (
 from _lpm_paths import local_record_path
 from _lpm_results import ManagerError, store_unavailable
 from _lpm_target import COMMITTED, IN_PROGRESS, UNCOMMITTED, CommitOutcome
+from _lpm_target_evidence_record import (
+    TARGET_EVIDENCE_MEMBERS,
+    TargetEvidence,
+    target_evidence_from_object,
+)
 from _lpm_time import is_at_or_after
 
 from overseer._vendor.returns.result import Failure, Result, Success
@@ -31,16 +36,8 @@ __all__: list[str] = [
     "write_target_evidence",
 ]
 
-_MEMBERS: Final = (
-    "version",
-    "status",
-    "target_ref",
-    "consumer_run_id",
-    "value_generation",
-    "target_sha256",
-    "prepared_at",
-    "committed_at",
-)
+_MATCHED = True
+_NOT_MATCHED = False
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -55,23 +52,12 @@ class TargetEvidenceBinding:
     value_generation: str
 
 
-@dataclass(frozen=True, kw_only=True)
-class TargetEvidence:
-    status: str
-    target_ref: str
-    consumer_run_id: str
-    value_generation: str
-    target_sha256: str
-    prepared_at: str
-    committed_at: str | None
-
-
 def write_target_evidence(
     *, path: Path, record: TargetEvidence, owner_uid: int
 ) -> Result[None, ManagerError]:
     """Persist the contract's exact eight-member evidence record."""
     value: dict[str, object] = {"version": 1}
-    value.update({name: getattr(record, name) for name in _MEMBERS[1:]})
+    value.update({name: getattr(record, name) for name in TARGET_EVIDENCE_MEMBERS[1:]})
     return write_local_record(path=path, value=value, owner_uid=owner_uid)
 
 
@@ -97,11 +83,16 @@ def commit_with_evidence(
     )
     path = _evidence_path(binding=binding)
     staged = _staged_path(binding=binding)
-    write_local_bytes(path=staged, payload=value, owner_uid=binding.owner_uid).unwrap()
+    staged_write = write_local_bytes(path=staged, payload=value, owner_uid=binding.owner_uid)
+    if isinstance(staged_write, Failure):
+        return _outcome(status=UNCOMMITTED, committed_at=None)
     prepared = write_target_evidence(path=path, record=evidence, owner_uid=binding.owner_uid)
     if isinstance(prepared, Failure):
-        staged.unlink(missing_ok=True)
-        return _outcome(status=UNCOMMITTED, committed_at=None)
+        cleaned = _discard_attempt(binding=binding, path=path, staged=staged)
+        return _outcome(
+            status=UNCOMMITTED if isinstance(cleaned, Success) else IN_PROGRESS,
+            committed_at=None,
+        )
     return _finish_commit(
         binding=binding,
         evidence=evidence,
@@ -123,12 +114,21 @@ def _finish_commit(
 ) -> CommitOutcome:
     committed_at = sample_time()
     if is_at_or_after(moment=committed_at, limit=lease_expires_at) is not False:
-        staged.unlink(missing_ok=True)
-        remove_local_record(path=path, owner_uid=binding.owner_uid).unwrap()
-        return _outcome(status=UNCOMMITTED, committed_at=None)
+        cleaned = _discard_attempt(binding=binding, path=path, staged=staged)
+        return _outcome(
+            status=UNCOMMITTED if isinstance(cleaned, Success) else IN_PROGRESS,
+            committed_at=None,
+        )
     armed = replace(evidence, status="armed", committed_at=committed_at)
-    write_target_evidence(path=path, record=armed, owner_uid=binding.owner_uid).unwrap()
-    _replace_staged(staged=staged, destination=Path(binding.destination))
+    armed_write = write_target_evidence(path=path, record=armed, owner_uid=binding.owner_uid)
+    if isinstance(armed_write, Failure):
+        cleaned = _discard_attempt(binding=binding, path=path, staged=staged)
+        return _outcome(
+            status=UNCOMMITTED if isinstance(cleaned, Success) else IN_PROGRESS,
+            committed_at=None,
+        )
+    replaced = _replace_staged(staged=staged, destination=Path(binding.destination))
+    _ = replaced
     committed = replace(armed, status=COMMITTED)
     persisted = write_target_evidence(path=path, record=committed, owner_uid=binding.owner_uid)
     return (
@@ -158,39 +158,29 @@ def _reconcile(
     if _binding_tuple(evidence=evidence) != _binding_tuple(evidence=binding):
         return Failure(store_unavailable(message="target evidence names another binding"))
     if evidence.status == "prepared":
-        remove_local_record(path=path, owner_uid=binding.owner_uid).unwrap()
-        _staged_path(binding=binding).unlink(missing_ok=True)
-        return Success(_outcome(status=UNCOMMITTED, committed_at=None))
+        return _discard_prepared(binding=binding, path=path)
+    if evidence.status == COMMITTED:
+        return Success(_outcome(status=COMMITTED, committed_at=evidence.committed_at))
+    return _reconcile_armed(binding=binding, path=path, evidence=evidence)
+
+
+def _discard_prepared(
+    *, binding: TargetEvidenceBinding, path: Path
+) -> Result[CommitOutcome, ManagerError]:
+    cleaned = _discard_attempt(binding=binding, path=path, staged=_staged_path(binding=binding))
+    _ = cleaned.unwrap()
+    return Success(_outcome(status=UNCOMMITTED, committed_at=None))
+
+
+def _reconcile_armed(
+    *, binding: TargetEvidenceBinding, path: Path, evidence: TargetEvidence
+) -> Result[CommitOutcome, ManagerError]:
     if not _target_matches(binding=binding, evidence=evidence):
         remove_local_record(path=path, owner_uid=binding.owner_uid).unwrap()
         return Success(_outcome(status=UNCOMMITTED, committed_at=None))
-    if evidence.status == "armed":
-        committed = replace(evidence, status=COMMITTED)
-        write_target_evidence(path=path, record=committed, owner_uid=binding.owner_uid).unwrap()
+    committed = replace(evidence, status=COMMITTED)
+    write_target_evidence(path=path, record=committed, owner_uid=binding.owner_uid).unwrap()
     return Success(_outcome(status=COMMITTED, committed_at=evidence.committed_at))
-
-
-def target_evidence_from_object(*, parsed: object) -> Result[TargetEvidence, ManagerError]:
-    """Decode one exact target-evidence object without weakening its member boundary."""
-    is_object = isinstance(parsed, dict)
-    source = cast("dict[str, object]", parsed) if is_object else {}
-    if not is_object or set(source) != set(_MEMBERS):
-        messages = {
-            False: "target evidence is not an object",
-            True: "target evidence has the wrong shape",
-        }
-        return Failure(store_unavailable(message=messages[is_object]))
-    return Success(
-        TargetEvidence(
-            status=str(source["status"]),
-            target_ref=str(source["target_ref"]),
-            consumer_run_id=str(source["consumer_run_id"]),
-            value_generation=str(source["value_generation"]),
-            target_sha256=str(source["target_sha256"]),
-            prepared_at=str(source["prepared_at"]),
-            committed_at=cast("str | None", source["committed_at"]),
-        )
-    )
 
 
 def _evidence_path(*, binding: TargetEvidenceBinding) -> Path:
@@ -214,9 +204,25 @@ def _replace_staged(*, staged: Path, destination: Path) -> None:
 
 
 def _target_matches(*, binding: TargetEvidenceBinding, evidence: TargetEvidence) -> bool:
+    destination = Path(binding.destination)
+    try:
+        status = destination.lstat()
+    except FileNotFoundError:
+        return _NOT_MATCHED
+    mode = stat.S_IMODE(status.st_mode)
+    if not stat.S_ISREG(status.st_mode) or status.st_uid != binding.owner_uid or mode & ~0o600:
+        return _NOT_MATCHED
+    payload = destination.read_bytes()
     return (
-        hashlib.sha256(Path(binding.destination).read_bytes()).hexdigest() == evidence.target_sha256
+        _MATCHED if hashlib.sha256(payload).hexdigest() == evidence.target_sha256 else _NOT_MATCHED
     )
+
+
+def _discard_attempt(
+    *, binding: TargetEvidenceBinding, path: Path, staged: Path
+) -> Result[None, ManagerError]:
+    staged.unlink(missing_ok=True)
+    return remove_local_record(path=path, owner_uid=binding.owner_uid)
 
 
 def _binding_tuple(*, evidence: TargetEvidence | TargetEvidenceBinding) -> tuple[str, str, str]:
