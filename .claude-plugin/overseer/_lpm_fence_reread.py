@@ -129,13 +129,17 @@ def _classified(*, fence: MetadataFence, envelope: dict[str, object]) -> str:
     desired = canonical_json_text(value=fence.desired_record)
     if isinstance(desired, Failure):
         return _UNREADABLE
-    if envelope.get("item_id") == fence.item_title and envelope.get("record") == desired.unwrap():
+    stored = envelope.get("record")
+    if envelope.get("item_id") == fence.item_title and stored in (
+        desired.unwrap(),
+        fence.desired_record,
+    ):
         return DESIRED_REVISION
     expected = _expected_text(fence=fence)
     if isinstance(expected, Failure):
         return _UNREADABLE
-    stored = expected.unwrap()
-    if stored is not None and envelope.get("record") == stored:
+    predecessor = expected.unwrap()
+    if predecessor is not None and stored in (predecessor, fence.expected_record):
         return _EXPECTED
     return _DIFFERENT
 

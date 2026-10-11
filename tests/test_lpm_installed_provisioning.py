@@ -92,3 +92,96 @@ def test_fresh_installed_target_and_provision_write_only_the_registered_target(
     assert receipt["record_id"] == credential.record_id
     assert destination.read_bytes() == selected
     assert decoy.read_bytes() == b"do-not-replace"
+
+
+def test_installed_report_is_durable_and_its_duplicate_repeats_no_effect(
+    tmp_path: Path,
+) -> None:
+    sandbox = _support().InstalledManagerSandbox.create(root=tmp_path, repository=_ROOT)
+    assert hasattr(sandbox, "report_snapshot"), "the sandbox must expose durable report state"
+
+    credential = sandbox.seed_credential(value=b"sk-ant-oat01-installed-report")
+    run_id = "installed-report-run"
+    _ = sandbox.register_target(consumer_run_id=run_id)
+    target = sandbox.run(
+        surface="plugin",
+        arguments=("target", "--target-json", "-"),
+        input_text=json.dumps({"version": 1, "consumer_run_id": run_id, "adapter": "isolated-run"}),
+    )
+    target_ref = target.body["target_ref"]
+    assert isinstance(target_ref, str)
+    sandbox.bind_target_lock(target_ref=target_ref)
+    provision = sandbox.run(
+        surface="plugin",
+        arguments=("provision", "--request-json", "-"),
+        input_text=json.dumps(
+            {
+                "version": 1,
+                "provider": "anthropic",
+                "kind": "claude-code-oauth",
+                "purpose": "factory",
+                "consumer_run_id": run_id,
+                "target_ref": target_ref,
+                "lease_seconds": 3600,
+            }
+        ),
+    )
+    assert provision.exit_status == 0
+    before = sandbox.report_snapshot(
+        consumer_run_id=run_id,
+        record_id=credential.record_id,
+        account_id=credential.account_id,
+    )
+    report_object = {
+        "version": 1,
+        "consumer_run_id": run_id,
+        "record_id": credential.record_id,
+        "occurred_at": sandbox.target_committed_at(consumer_run_id=run_id),
+        "classification": "authentication",
+    }
+
+    reported = sandbox.run(
+        surface="plugin",
+        arguments=("report", "--report-json", "-"),
+        input_text=json.dumps(report_object),
+    )
+    after = sandbox.report_snapshot(
+        consumer_run_id=run_id,
+        record_id=credential.record_id,
+        account_id=credential.account_id,
+    )
+    duplicate = sandbox.run(
+        surface="plugin",
+        arguments=("report", "--report-json", "-"),
+        input_text=json.dumps(report_object),
+    )
+
+    assert reported.exit_status == 0
+    assert reported.body == {
+        "version": 1,
+        "status": "ok",
+        "operation": "report",
+        "duplicate": False,
+    }
+    assert before.status == "valid"
+    assert before.lease_exists is True
+    assert after.status == "suspect"
+    assert after.lease_exists is False
+    assert after.assignment_exists is False
+    assert after.tombstone_exists is True
+    assert after.metadata_revisions == before.metadata_revisions + 1
+    assert duplicate.exit_status == 0
+    assert duplicate.body == {
+        "version": 1,
+        "status": "ok",
+        "operation": "report",
+        "duplicate": True,
+    }
+    assert (
+        sandbox.report_snapshot(
+            consumer_run_id=run_id,
+            record_id=credential.record_id,
+            account_id=credential.account_id,
+        )
+        == after
+    )
