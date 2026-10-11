@@ -5,10 +5,32 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
 __all__: list[str] = [
+    "chroot_binary",
     "copy_installed_python",
     "copy_shell_runtime",
+    "system_python",
 ]
+
+
+def chroot_binary() -> str:
+    """Resolve chroot, skipping where this process cannot enter an isolated root.
+
+    The factory sandbox and CI run as root; a host janitor checkout runs
+    unprivileged, and AppArmor refuses it an unprivileged user namespace, so
+    the capability is absent there by design rather than broken.
+    """
+    resolved = shutil.which("chroot", path="/usr/sbin:/usr/bin:/sbin:/bin")
+    if resolved is None or os.geteuid() != 0:
+        pytest.skip("entering the installed root needs root and a chroot binary")
+    return resolved
+
+
+def system_python() -> Path:
+    """Resolve the system interpreter rather than naming its minor version."""
+    return Path("/usr/bin/python3").resolve()
 
 
 def copy_installed_python(*, root: Path) -> None:
