@@ -325,11 +325,24 @@
       // repo's own `just check` cannot fit one 30-minute turn; these values
       // are the ones the console tenant measured and declared for the same
       // shape (livespec-console-beads-fabro .livespec.jsonc, 2026-09-01).
+      //
+      // `review_fix` RAISED 3600 -> 14400 and `fix` 3600 -> 7200, MEASURED
+      // 2026-10-11 on overseer-sqeifg. review_fix hit `ACP turn timed out` at
+      // 3600 s in three consecutive hp runs (01M4M6YP8H3Y55SKPK4CMG6VCG,
+      // 01M4MFNJAMDSCZKG13MD9QNDYN twice: 3600810 ms and 3600563 ms), each
+      // time still committing, and each time the engine's checkpoint commit
+      // then died with `git checkpoint commit failed for node 'review_fix'`.
+      // The arithmetic is what the implement ceiling already encodes: one
+      // hook-gated commit on that branch runs ~11 minutes, and every accepted
+      // finding owes a Red AND a Green commit, so a four-finding round cannot
+      // fit one hour. `fix` completed in 2769293 ms (77% of its old ceiling)
+      // in the same run. The Dispatcher derives its subprocess ceiling from
+      // these values, so no other setting moves with them.
       "node_timeouts": {
         "implement": 14400,
         "janitor": 3600,
-        "fix": 3600,
-        "review_fix": 3600
+        "fix": 7200,
+        "review_fix": 14400
       },
       // Factory agent policy: every current implement-work-item ACP node runs
       // through Codex by default. The maintainer requires factory Codex only.
