@@ -85,8 +85,9 @@ def test_both_installed_surfaces_delegate_target_provision_and_report_to_one_run
     assert capsys.readouterr().out.startswith('{"version":1,"status":"error"')
 
     monkeypatch.setattr(bootstrap.sys, "argv", ["llm-provider-manager", "--help"])
-    assert bootstrap.main() == 0
-    assert capsys.readouterr().out.startswith("usage: llm-provider-manager")
+    assert bootstrap.main() == 70
+    assert invoked[-1][-1] == "--help"
+    assert capsys.readouterr().out == f"{bootstrap.INTERNAL_BUG_LINE}\n"
 
 
 def test_role_companion_maps_only_explicitly_inheritable_descriptors(
