@@ -13,6 +13,7 @@ __all__: list[str] = [
     "predecessor",
     "predecessor_still_live",
     "process_record",
+    "replacement_still_owned",
     "retained_shell_is_idle",
 ]
 
@@ -79,6 +80,25 @@ def predecessor_still_live(
     return any(
         process.pid == recorded["pid"] and process.starttime == recorded["starttime"]
         for process in snapshot.processes
+    )
+
+
+def replacement_still_owned(
+    *, transaction: Mapping[str, object], snapshot: ReplacementSnapshot
+) -> bool:
+    """Reverify the exact predecessor, shell, and signal group together."""
+    predecessor_record = cast(dict[str, object], transaction["predecessor"])
+    shell_record = cast(dict[str, object], transaction["shell"])
+    server_record = cast(dict[str, object], transaction["server"])
+    process_group = cast(int, predecessor_record["process_group"])
+    return all(
+        (
+            predecessor_still_live(transaction=transaction, snapshot=snapshot),
+            process_record(process=snapshot.shell) == shell_record,
+            snapshot.foreground_group == process_group,
+            process_group != shell_record["pid"],
+            process_group != server_record["pid"],
+        )
     )
 
 

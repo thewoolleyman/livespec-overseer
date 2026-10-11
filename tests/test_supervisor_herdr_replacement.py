@@ -400,3 +400,48 @@ def test_public_tick_never_acts_on_an_unusable_bare_shell_transaction(
     assert counts == {"signal": 0, "launch": 0}
     assert input_calls == []
     assert expected_status in statuses
+
+
+@pytest.mark.parametrize(
+    ("hazard", "expected_signals", "condition"),
+    [
+        ("foreground-changed", 0, "herdr-replacement-refused"),
+        ("shell-exec-replaced", 0, "herdr-replacement-refused"),
+        ("predecessor-reused", 0, "herdr-replacement-refused"),
+        ("signal-failed", 1, "herdr-signal-failed"),
+    ],
+)
+def test_termination_reverifies_processes_and_surfaces_the_one_signal_failure(
+    *, tmp_path: Path, hazard: str, expected_signals: int, condition: str
+) -> None:
+    world, sup, track = _armed_world(tmp_path=tmp_path)
+    observations = [_running_snapshot(), _running_snapshot()]
+    if hazard == "foreground-changed":
+        observations[1].foreground_group = 300
+    elif hazard == "shell-exec-replaced":
+        observations[1].shell.executable = "/bin/zsh"
+    elif hazard == "predecessor-reused":
+        observations[1].processes[-1].starttime = "reused-start"
+    snapshot_count = 0
+    signal_count = 0
+
+    def snapshot(*, session: str) -> SimpleNamespace:
+        nonlocal snapshot_count
+        value = observations[min(snapshot_count, 1)]
+        snapshot_count += 1
+        return value
+
+    def terminate(*, session: str, process_group: int) -> SimpleNamespace:
+        nonlocal signal_count
+        signal_count += 1
+        if hazard == "signal-failed":
+            return SimpleNamespace(ok=False, error="SIGTERM refused")
+        return SimpleNamespace(ok=True, error="")
+
+    world.fake.herdr_replacement_snapshot = snapshot
+    world.fake.herdr_terminate = terminate
+
+    sup.evaluate(track=track, act=True)
+
+    assert signal_count == expected_signals
+    assert any(key[-1] == condition for key in sup.alerted)
