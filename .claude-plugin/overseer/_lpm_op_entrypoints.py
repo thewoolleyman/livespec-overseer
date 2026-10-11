@@ -59,6 +59,7 @@ __all__: list[str] = [
     "metadata_read_result",
     "metadata_write_result",
     "provisioning_result",
+    "role_vault_access",
 ]
 
 READER_GET_MODE: Final = "get"
@@ -120,7 +121,7 @@ def provisioning_result(
     write: TargetWrite,
 ) -> dict[str, object]:
     """Validate the target binding, then resolve one value and hand it straight to the target."""
-    access = _authorized(entry=entry)
+    access = role_vault_access(entry=entry)
     if access is None:
         return pre_exec_failure_object(role_name=entry.role_name)
     unbound = binding()
@@ -135,13 +136,13 @@ def provisioning_result(
 
 def _store(*, entry: RoleEntry) -> OnePasswordSecretStore | None:
     """This role's `SecretStore`, or None when the registry grants it no token at all."""
-    access = _authorized(entry=entry)
+    access = role_vault_access(entry=entry)
     if access is None:
         return None
     return OnePasswordSecretStore(access=access, namespace=entry.namespace)
 
 
-def _authorized(*, entry: RoleEntry) -> VaultAccess | None:
+def role_vault_access(*, entry: RoleEntry) -> VaultAccess | None:
     """This role's authorized vault access, or None when there is no such registered role.
 
     An unregistered name and the tokenless `target-status` are one answer here: neither has a

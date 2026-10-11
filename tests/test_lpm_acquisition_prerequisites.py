@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 from typing import Protocol
 
+from overseer._vendor.returns.result import Failure, Success
+
 __all__: list[str] = []
 
 _VAULT = "llm-provider-manager-acquisition"
@@ -167,3 +169,81 @@ def test_acquisition_prerequisite_role_closes_presence_and_ambiguity(
 
     op_fixture.seed(items=[_namespace(), _login(), _mailbox()], refuse=("item list",))
     assert _checked(checker=checker, op_fixture=op_fixture)["status"] == "unavailable"
+
+
+def test_installed_role_service_routes_only_closed_acquisition_requests(
+    monkeypatch,
+) -> None:
+    module_path = Path(__file__).parents[1] / "overseer" / "_lpm_role_acquisition_service.py"
+    assert module_path.is_file(), "the installed role needs an acquisition service boundary"
+    acquisition = importlib.import_module("_lpm_role_acquisition_service")
+    context_module = importlib.import_module("_lpm_role_context")
+    results = importlib.import_module("_lpm_results")
+    service = importlib.import_module("_lpm_role_service")
+    calls: list[dict[str, object]] = []
+    access = object()
+
+    def check(**request):
+        calls.append(request)
+        return {"version": 1, "status": "present"}
+
+    monkeypatch.setattr(acquisition, "acquisition_prerequisite_result", check)
+    monkeypatch.setattr(
+        acquisition,
+        "role_context",
+        lambda: Success(
+            context_module.RoleContext(
+                state_dir=Path(_STATE),
+                owner_uid=1000,
+                machine_id_sha256=_MACHINE,
+            )
+        ),
+    )
+    monkeypatch.setattr(acquisition, "role_vault_access", lambda **_kwargs: access)
+    request = {
+        "version": 1,
+        "provider": _PROVIDER,
+        "account_id": _ACCOUNT,
+        "kind": _KIND,
+        "op_executable": "/usr/bin/op",
+    }
+
+    assert service.role_result(
+        role_name="acquisition-prerequisite",
+        request=request,
+        environ={_VARIABLE: _TOKEN},
+        lock_descriptor=None,
+    ) == {"version": 1, "status": "present"}
+    assert calls[0]["provider"] == _PROVIDER
+    assert calls[0]["access"] is access
+
+    malformed = service.role_result(
+        role_name="acquisition-prerequisite",
+        request={**request, "extra": True},
+        environ={_VARIABLE: _TOKEN},
+        lock_descriptor=None,
+    )
+    assert malformed == {"version": 1, "status": "unavailable"}
+    assert len(calls) == 1
+
+    monkeypatch.setattr(acquisition, "role_vault_access", lambda **_kwargs: None)
+    unavailable = service.role_result(
+        role_name="acquisition-prerequisite",
+        request=request,
+        environ={_VARIABLE: _TOKEN},
+        lock_descriptor=None,
+    )
+    assert unavailable == {"version": 1, "status": "unavailable"}
+
+    monkeypatch.setattr(
+        acquisition,
+        "role_context",
+        lambda: Failure(results.store_unavailable(message="context unavailable")),
+    )
+    context_failure = service.role_result(
+        role_name="acquisition-prerequisite",
+        request=request,
+        environ={_VARIABLE: _TOKEN},
+        lock_descriptor=None,
+    )
+    assert context_failure == {"version": 1, "status": "unavailable"}
