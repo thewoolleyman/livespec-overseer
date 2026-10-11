@@ -1,4 +1,4 @@
-"""Executable E2E gate for every shipped plugin ``bin/`` launcher.
+"""Executable E2E gate for shipped plugin ``bin/`` launchers with help surfaces.
 
 The inventory is ENUMERATED FROM THE TREE rather than tabulated here, so the gate
 follows the shipped surface as it changes: when the foreman seat was retired
@@ -6,6 +6,10 @@ follows the shipped surface as it changes: when the foreman seat was retired
 probing them. The three foreman-specific E2E cases that used to sit beside it --
 the `foreman-act` plugin-cache filing, its occupied-tmux refusal, and the seeded
 seed-session/attention/cadence walk -- went with the launchers they drove.
+
+``llm-provider-manager`` intentionally has no plaintext help surface: every
+invocation uses its typed JSON wire protocol, which the installed-runtime tests
+exercise through this same flattened executable.
 """
 
 from __future__ import annotations
@@ -32,7 +36,11 @@ def _scrubbed_env() -> dict[str, str]:
 
 
 def test_every_plugin_bin_entrypoint_executes_help_from_clean_environment():
-    entrypoints = sorted(path for path in PLUGIN_BIN.iterdir() if path.is_file())
+    entrypoints = sorted(
+        path
+        for path in PLUGIN_BIN.iterdir()
+        if path.is_file() and path.name != "llm-provider-manager"
+    )
     assert entrypoints, "plugin bin directory must ship executable entrypoints"
 
     failures: list[str] = []
