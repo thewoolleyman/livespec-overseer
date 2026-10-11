@@ -1045,7 +1045,10 @@ def test_a_target_issue_effect_names_the_run_it_was_not_given(
     context_module = _module("_lpm_engine_context")
     inputs = context_module.EffectInputs(
         target=context_module.TargetInputs(
-            reference=_TARGET_REF, adapter="isolated-run", destination=str(tmp_path / "dest")
+            reference=_TARGET_REF,
+            adapter="isolated-run",
+            isolated_root=str(tmp_path),
+            destination=str(tmp_path / "dest"),
         )
     )
 

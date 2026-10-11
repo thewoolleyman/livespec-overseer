@@ -9,6 +9,7 @@ import os
 import sys
 from collections.abc import Mapping
 from pathlib import Path
+from types import ModuleType
 from typing import Protocol
 
 import pytest
@@ -80,10 +81,15 @@ def _seed_backend(*, op_fixture: _OpFixture, fields: dict[str, str]) -> None:
 
 
 def _write_issuance(*, state_dir: Path, destination: Path) -> None:
+    isolated_root = destination.parents[1]
+    destination.parent.mkdir(mode=0o700, parents=True)
+    isolated_root.chmod(0o700)
+    destination.parent.chmod(0o700)
     issuance = new_issuance(
         reference=_REFERENCE,
         consumer_run_id=_RUN,
         adapter="isolated-run",
+        isolated_root=str(isolated_root),
         destination=str(destination),
         now=_NOW,
     ).unwrap()
@@ -107,6 +113,44 @@ def _final_request(*, op_executable: str) -> dict[str, object]:
         "external_call_timeout_seconds": 30,
         "op_executable": op_executable,
     }
+
+
+def test_target_role_request_validation_covers_every_typed_relation() -> None:
+    request_module = importlib.import_module("_lpm_role_target_request")
+    status: dict[str, object] = {
+        "version": 1,
+        "target_ref": _REFERENCE,
+        "consumer_run_id": _RUN,
+        "value_generation": _GENERATION,
+    }
+    valid = request_module.valid_target_role_request
+    assert valid(role_name="target-status", members=status)
+    assert not valid(role_name="unknown", members=status)
+    for change in (
+        {"version": True},
+        {"version": 2},
+        {"target_ref": 7},
+        {"consumer_run_id": ""},
+        {"value_generation": "not-a-uuid"},
+    ):
+        assert not valid(role_name="target-status", members={**status, **change})
+
+    final = _final_request(op_executable="/bin/true")
+    assert valid(role_name="final-provisioning", members=final)
+    for change in (
+        {"record_id": 7},
+        {"record_id": "not-a-uuid"},
+        {"value_ref": 7},
+        {"value_ref": "op://wrong"},
+        {"lease_expires_at": 7},
+        {"lease_expires_at": "not-a-timestamp"},
+        {"external_call_timeout_seconds": True},
+        {"external_call_timeout_seconds": "30"},
+        {"external_call_timeout_seconds": 0},
+        {"op_executable": 7},
+        {"op_executable": ""},
+    ):
+        assert not valid(role_name="final-provisioning", members={**final, **change})
 
 
 def _run_clean_status_child(*, root: Path) -> None:
@@ -136,6 +180,25 @@ def _run_clean_status_child(*, root: Path) -> None:
     assert completed.exit_status == 0
     assert not completed.timed_out
     assert completed.stdout == b'{"status":"store-unavailable","version":1}\n'
+
+
+def _assert_malformed_issuance_refused(*, service: ModuleType, state_dir: Path) -> None:
+    issuance_path = local_record_path(
+        state_dir=state_dir, family="issuance", identity=(_REFERENCE,)
+    ).unwrap()
+    write_local_record(path=issuance_path, value={"version": 1}, owner_uid=os.getuid()).unwrap()
+    malformed = service.role_result(
+        role_name="target-status",
+        request={
+            "version": 1,
+            "target_ref": _REFERENCE,
+            "consumer_run_id": _RUN,
+            "value_generation": _GENERATION,
+        },
+        environ={"PATH": "/usr/bin:/bin"},
+        lock_descriptor=None,
+    )
+    assert malformed["status"] == "store-unavailable"
 
 
 def _exercise_companion_dispatch(
@@ -181,6 +244,30 @@ def _exercise_companion_dispatch(
         == 0
     )
     assert json.loads(capsys.readouterr().out)["status"] == "store-unavailable"
+
+
+def _exercise_installed_boundaries(
+    *,
+    service: ModuleType,
+    state_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = Path(__file__).parents[1]
+    status_request = json.dumps(
+        {
+            "version": 1,
+            "target_ref": _REFERENCE,
+            "consumer_run_id": _RUN,
+            "value_generation": _GENERATION,
+        },
+        separators=(",", ":"),
+    )
+    _exercise_companion_dispatch(
+        root=root, request=status_request, monkeypatch=monkeypatch, capsys=capsys
+    )
+    _run_clean_status_child(root=root)
+    _assert_malformed_issuance_refused(service=service, state_dir=state_dir)
 
 
 def test_installed_roles_execute_real_store_and_target_boundaries(
@@ -248,17 +335,9 @@ def test_installed_roles_execute_real_store_and_target_boundaries(
     assert committed["committed_at"] == status["committed_at"]
     assert destination.read_text(encoding="utf-8") == _SECRET
     assert _SECRET not in json.dumps((committed, status, op_fixture.calls()))
-    root = Path(__file__).parents[1]
-    status_request = json.dumps(
-        {
-            "version": 1,
-            "target_ref": _REFERENCE,
-            "consumer_run_id": _RUN,
-            "value_generation": _GENERATION,
-        },
-        separators=(",", ":"),
+    _exercise_installed_boundaries(
+        service=service,
+        state_dir=state_dir,
+        monkeypatch=monkeypatch,
+        capsys=capsys,
     )
-    _exercise_companion_dispatch(
-        root=root, request=status_request, monkeypatch=monkeypatch, capsys=capsys
-    )
-    _run_clean_status_child(root=root)

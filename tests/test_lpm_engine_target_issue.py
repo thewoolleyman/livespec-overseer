@@ -76,7 +76,10 @@ def _inputs(*, destination: str):
     context_module = _module("_lpm_engine_context")
     return context_module.EffectInputs(
         target=context_module.TargetInputs(
-            reference=_REFERENCE, adapter=_ADAPTER, destination=destination
+            reference=_REFERENCE,
+            adapter=_ADAPTER,
+            isolated_root=str(pathlib.Path(destination).parent),
+            destination=destination,
         )
     )
 
@@ -139,10 +142,11 @@ def test_target_issue_performs_both_positions_from_the_operations_own_accepted_a
     assert isinstance(stored_issuance, Success)
     assert stored_issuance.unwrap() == {
         "version": 1,
-        "reference": _REFERENCE,
+        "target_ref": _REFERENCE,
         "consumer_run_id": _RUN_ID,
         "adapter": _ADAPTER,
-        "destination": destination,
+        "isolated_root": str(pathlib.Path(destination).parent),
+        "target_path": destination,
         "issued_at": _ACCEPTED_AT,
         "expires_at": _EXPIRES_AT,
     }

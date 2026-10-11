@@ -15,8 +15,16 @@ from _lpm_op_values import ValueReference, commit_status_result
 from _lpm_paths import local_record_path
 from _lpm_results import ManagerError, store_unavailable
 from _lpm_role_context import RoleContext, role_context, role_entry
+from _lpm_role_target_request import valid_target_role_request
 from _lpm_runtime_base import target_lock_path
-from _lpm_target import CommitOutcome, TargetIssuance, issuance_from_object, resolve_issuance
+from _lpm_runtime_target_registration import validate_target_destination
+from _lpm_target import (
+    UNCOMMITTED,
+    CommitOutcome,
+    TargetIssuance,
+    issuance_from_object,
+    resolve_issuance,
+)
 from _lpm_target_evidence import (
     TargetEvidenceBinding,
     commit_with_evidence,
@@ -34,9 +42,17 @@ __all__: list[str] = [
 @dataclass(frozen=True, kw_only=True)
 class _TargetWrite:
     binding: TargetEvidenceBinding
+    isolated_root: str
     lease_expires_at: str
 
     def __call__(self, *, value: bytes) -> CommitOutcome:
+        validated = validate_target_destination(
+            isolated_root=self.isolated_root,
+            target_path=self.binding.destination,
+            owner_uid=self.binding.owner_uid,
+        )
+        if isinstance(validated, Failure) or validated.unwrap() != self.binding.destination:
+            return CommitOutcome(status=UNCOMMITTED, committed_at=None)
         return commit_with_evidence(
             binding=self.binding,
             value=value,
@@ -53,6 +69,8 @@ def target_role_result(
     lock_descriptor: int | None,
 ) -> dict[str, object]:
     """Execute final provisioning or status under the inherited reference lock."""
+    if not valid_target_role_request(role_name=role_name, members=members):
+        return _failure()
     return (
         role_context()
         .map(
@@ -81,17 +99,18 @@ def _target_result(
         members=members,
         lock_descriptor=lock_descriptor,
     )
-    if issuance is None:
+    if isinstance(issuance, Failure):
         return _failure()
+    locked_issuance = issuance.unwrap()
     if role_name == "final-provisioning":
         return _provision(
             context=context,
-            issuance=issuance,
+            issuance=locked_issuance,
             members=members,
             environ=environ,
         )
     status = target_status_with_evidence(
-        binding=_evidence_binding(context=context, issuance=issuance, members=members)
+        binding=_evidence_binding(context=context, issuance=locked_issuance, members=members)
     )
     return status.map(lambda outcome: commit_status_result(outcome=outcome)).value_or(_failure())
 
@@ -129,6 +148,7 @@ def _provision(
         binding=binding,
         write=_TargetWrite(
             binding=_evidence_binding(context=context, issuance=issuance, members=members),
+            isolated_root=issuance.isolated_root,
             lease_expires_at=cast("str", members["lease_expires_at"]),
         ),
     )
@@ -136,22 +156,21 @@ def _provision(
 
 def _locked_issuance(
     *, context: RoleContext, members: dict[str, object], lock_descriptor: int | None
-) -> TargetIssuance | None:
+) -> Result[TargetIssuance, ManagerError]:
     path = local_record_path(
         state_dir=context.state_dir,
         family="issuance",
         identity=(cast("str", members["target_ref"]),),
-    ).unwrap()
-    stored = read_local_record(path=path, owner_uid=context.owner_uid).unwrap()
-    return (
-        issuance_from_object(parsed=stored)
-        .map(
-            lambda issuance: _locked(
-                context=context, issuance=issuance, descriptor=lock_descriptor
-            ).value_or(None)
-        )
-        .value_or(None)
     )
+    if isinstance(path, Failure):
+        return Failure(path.failure())
+    stored = read_local_record(path=path.unwrap(), owner_uid=context.owner_uid)
+    if isinstance(stored, Failure):
+        return Failure(stored.failure())
+    parsed = issuance_from_object(parsed=stored.unwrap())
+    if isinstance(parsed, Failure):
+        return Failure(parsed.failure())
+    return _locked(context=context, issuance=parsed.unwrap(), descriptor=lock_descriptor)
 
 
 def _locked(

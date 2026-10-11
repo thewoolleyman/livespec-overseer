@@ -39,6 +39,6 @@ def run_manager_command(
     *, arguments: Sequence[str], runtime: ManagerRuntime[_Outcome_co]
 ) -> _Outcome_co:
     """Delegate an already shape-validated object command to the shared runtime."""
-    if not arguments:
+    if not arguments or (len(arguments) == 1 and arguments[0] == "attention"):
         return runtime.run(invocation=ManagerInvocation(command="attention", source=None))
     return runtime.run(invocation=ManagerInvocation(command=arguments[0], source=arguments[2]))

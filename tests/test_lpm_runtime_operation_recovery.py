@@ -165,7 +165,10 @@ def test_target_and_provision_runtime_recover_persisted_phases_and_typed_failure
     )
     target_inputs = EffectInputs(
         target=TargetInputs(
-            reference="ref-target", adapter="isolated-run", destination="/run/target"
+            reference="ref-target",
+            adapter="isolated-run",
+            isolated_root="/run",
+            destination="/run/target",
         )
     )
     recovered_target = recover_target_phase(

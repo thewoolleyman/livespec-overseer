@@ -123,7 +123,7 @@ def _failed_start(
     error: ManagerError,
     cleanup_failed: FailedStartCleanup,
 ) -> Result[dict[str, object], ManagerError]:
-    if error.error_type != PROVISIONING_FAILED:
+    if error.error_type != PROVISIONING_FAILED and not error.cleanup_safe:
         return Failure(error)
     cleaned = cleanup_failed(host=host, operation=operation, inputs=inputs)
     return Failure(cleaned.failure() if isinstance(cleaned, Failure) else error)

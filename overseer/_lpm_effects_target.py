@@ -62,6 +62,7 @@ def planned_issuance(*, context: EffectContext) -> Result[TargetIssuance, Manage
         reference=target.reference,
         consumer_run_id=run_id.unwrap(),
         adapter=target.adapter,
+        isolated_root=target.isolated_root,
         destination=target.destination,
         now=context.operation.accepted_at,
     )

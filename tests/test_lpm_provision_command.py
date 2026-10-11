@@ -91,6 +91,7 @@ def _context(tmp_path, *, record=None, reader=None, now=_NOW, destination=None):
             reference="tgt-0001",
             consumer_run_id="run-a",
             adapter="isolated-run",
+            isolated_root=str(tmp_path / "run-a"),
             destination=str(
                 tmp_path / "run-a" / "credential" if destination is None else destination
             ),

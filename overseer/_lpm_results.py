@@ -75,6 +75,7 @@ class ManagerError:
 
     error_type: str
     message: str
+    cleanup_safe: bool = False
 
 
 def exit_status_for(*, error_type: str) -> int:
@@ -138,9 +139,13 @@ def provisioning_failed(*, message: str) -> ManagerError:
     return ManagerError(error_type=PROVISIONING_FAILED, message=message)
 
 
-def store_unavailable(*, message: str) -> ManagerError:
+def store_unavailable(*, message: str, cleanup_safe: bool = False) -> ManagerError:
     """The fail-closed refusal for an unsafe local record or an unusable backend."""
-    return ManagerError(error_type=STORE_UNAVAILABLE, message=message)
+    return ManagerError(
+        error_type=STORE_UNAVAILABLE,
+        message=message,
+        cleanup_safe=cleanup_safe,
+    )
 
 
 def internal_bug(*, message: str) -> ManagerError:

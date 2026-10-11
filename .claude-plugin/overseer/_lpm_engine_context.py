@@ -105,6 +105,7 @@ class TargetInputs:
 
     reference: str
     adapter: str
+    isolated_root: str
     destination: str
     release_destination_lock: Callable[[], None] | None = None
 
