@@ -136,7 +136,7 @@ def _reconcile_transaction(
         return _row(track=track, note=f"durable Herdr replacement phase: {phase}")
     if phase == "stopped-awaiting-shell":
         return _recover_launch(sup=sup, track=track, target=target, transaction=transaction)
-    if phase in {"launch-attempted", "successor-observed"}:
+    if phase in {"launch-attempted", "successor-observed", "resume-attempted"}:
         return _recover_resume(sup=sup, track=track, target=target, transaction=transaction)
     return _row(track=track, note=f"durable Herdr replacement phase: {phase}")
 

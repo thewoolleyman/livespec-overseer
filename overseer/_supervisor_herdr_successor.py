@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from collections.abc import Callable
+from pathlib import Path
+from typing import TYPE_CHECKING, Protocol, cast
 
 import _herdr_replacement_process
 import _herdr_replacement_store
@@ -11,12 +13,23 @@ import _supervisor_observe
 import _supervisor_state
 import registry
 import signals
+from _supervisor_config import SUBMIT_MAX_ENTERS, SUBMIT_POLL
 from _supervisor_prompts import resume_for_track
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
 __all__: list[str] = ["resume_proven_successor"]
+
+
+class PendingEnterRetry(Protocol):
+    def __call__(
+        self,
+        *,
+        session: str,
+        text: str,
+        sleep: Callable[[float], None],
+    ) -> tuple[bool, bool]: ...
 
 
 def _ready_resume_text(
@@ -57,6 +70,14 @@ def _continue_verified_successor(
         )
         if successor is None:
             return "successor is not a fresh process generation in the retained shell"
+        if current.get("phase") == "resume-attempted":
+            return _retry_recorded_resume(
+                sup=sup,
+                target=target,
+                current=current,
+                successor=successor,
+                record_path=record_path,
+            )
         current["successor"] = _herdr_replacement_process.process_record(process=successor)
         current["phase"] = "successor-observed"
         _herdr_replacement_store.durable_write(path=record_path, value=current)
@@ -72,6 +93,57 @@ def _continue_verified_successor(
         current["phase"] = "completed"
         _herdr_replacement_store.durable_write(path=record_path, value=current)
     return None
+
+
+def _retry_recorded_resume(
+    *,
+    sup: Supervisor,
+    target: str,
+    current: dict[str, object],
+    successor: _herdr_replacement_process.ProcessObservation,
+    record_path: Path,
+) -> str | None:
+    recorded_successor = current.get("successor")
+    resume = current.get("resume")
+    attempts = current.get("resume_retry_attempts", 0)
+    capture = sup.tmux.capture_pane(session=target)
+    expected = resume.partition("\n")[0].strip() if isinstance(resume, str) else ""
+    exact_pending = signals.input_box_text(capture_text=capture) == expected
+    if recorded_successor != _herdr_replacement_process.process_record(process=successor):
+        return "pending resume successor no longer matches the durable process identity"
+    if signals.is_structured_gate(capture_text=capture) or not expected or not exact_pending:
+        return "pending resume text is absent, gated, or differs from the durable payload"
+    if not isinstance(attempts, int) or isinstance(attempts, bool) or attempts >= SUBMIT_MAX_ENTERS:
+        return "pending resume Enter retry budget is exhausted or malformed"
+    current["resume_retry_attempts"] = attempts + 1
+    _herdr_replacement_store.durable_write(path=record_path, value=current)
+    submitted, effect_unknown = _retry_enter(
+        sup=sup,
+        target=target,
+        resume=cast(str, resume),
+    )
+    if submitted:
+        current["phase"] = "completed"
+        _herdr_replacement_store.durable_write(path=record_path, value=current)
+        return None
+    return (
+        "pending resume Enter outcome is unknown"
+        if effect_unknown
+        else "pending resume Enter was not confirmed"
+    )
+
+
+def _retry_enter(*, sup: Supervisor, target: str, resume: str) -> tuple[bool, bool]:
+    native = cast(
+        PendingEnterRetry | None,
+        getattr(sup.tmux, "retry_prompt_enter_once", None),
+    )
+    if native is not None:
+        return native(session=target, text=resume, sleep=sup.sleep)
+    sent = sup.tmux.send_keys(session=target, keys="Enter")
+    sup.sleep(SUBMIT_POLL)
+    submitted = sent and signals.input_box_ready(capture_text=sup.tmux.capture_pane(session=target))
+    return submitted, sent and not submitted
 
 
 def resume_proven_successor(
