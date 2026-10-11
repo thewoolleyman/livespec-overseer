@@ -116,7 +116,11 @@ class RolePorts:
             )
         finally:
             release_lock(held=held)
-        return classify_role_outcome(outcome=outcome, operation="final provisioning")
+        return classify_role_outcome(
+            outcome=outcome,
+            operation="final provisioning",
+            cleanup_safe=True,
+        )
 
     def target_status(
         self, *, request: TargetStatusRequest, destination: str, lock: TargetLock
@@ -143,7 +147,11 @@ class RolePorts:
             )
         finally:
             release_lock(held=held)
-        return classify_role_outcome(outcome=outcome, operation="target status")
+        return classify_role_outcome(
+            outcome=outcome,
+            operation="target status",
+            cleanup_safe=False,
+        )
 
     def _store_role(self, *, role_name: str, request: dict[str, object]) -> dict[str, object]:
         return _with_prerequisites(

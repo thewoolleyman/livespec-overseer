@@ -199,3 +199,28 @@ def test_role_ports_distinguish_prewrite_refusal_from_ambiguous_target_outcomes(
         "store-unavailable",
         "retryable-exhaustion",
     )
+
+
+def test_target_status_refusals_retain_ambiguous_recovery_state(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    answers = (
+        _Completion(stdout=b"", started=False),
+        _Completion(stdout=b'{"version":1,"status":"store-unavailable"}'),
+    )
+    cleanup_safety: list[bool] = []
+    for index, answer in enumerate(answers):
+        port = _ports(
+            tmp_path=tmp_path / f"status-{index}",
+            monkeypatch=monkeypatch,
+            launch=answer,
+        )
+        result = port.target_status(
+            request=_status_request(),
+            destination=str(tmp_path / "ignored"),
+            lock=_lock(tmp_path=tmp_path / f"status-{index}"),
+        )
+        assert isinstance(result, Failure)
+        cleanup_safety.append(result.failure().cleanup_safe)
+
+    assert tuple(cleanup_safety) == (False, False)

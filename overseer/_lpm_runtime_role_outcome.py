@@ -16,7 +16,7 @@ __all__: list[str] = [
 
 
 def classify_role_outcome(
-    *, outcome: RoleOutcome, operation: str
+    *, outcome: RoleOutcome, operation: str, cleanup_safe: bool
 ) -> Result[CommitOutcome, ManagerError]:
     """Keep definite pre-write refusals distinct from ambiguous target outcomes."""
     if outcome.refusal_reason is not None:
@@ -24,7 +24,7 @@ def classify_role_outcome(
             return Failure(
                 store_unavailable(
                     message=f"{operation} was refused before launch",
-                    cleanup_safe=True,
+                    cleanup_safe=cleanup_safe,
                 )
             )
         return Failure(retryable_exhaustion(message=f"{operation} has an unknown target outcome"))
@@ -32,7 +32,7 @@ def classify_role_outcome(
         return Failure(
             store_unavailable(
                 message=f"{operation} was unavailable before write",
-                cleanup_safe=True,
+                cleanup_safe=cleanup_safe,
             )
         )
     if outcome.result_object["status"] == IN_PROGRESS:
