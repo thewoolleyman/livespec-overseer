@@ -15,12 +15,14 @@ classifier and one verified launcher rather than two that can drift.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol, cast
 
 import _supervisor_codex_recovery
 import _supervisor_launch
+import herdr_identity
 import registry
 import signals
+from _supervisor_cli_start_types import NativeMutation
 from _supervisor_dead_track import (
     AmbiguousRuntime,
     CodexRuntime,
@@ -47,6 +49,19 @@ __all__: list[str] = [
 class LaunchResult:
     launched: bool
     reason: str | None = None
+    effect_unknown: bool = False
+
+
+class NativeLauncher(Protocol):
+    def launch_initial_agent(
+        self,
+        *,
+        session: str,
+        cwd: str,
+        command: str,
+        env: object,
+        expected_process: str,
+    ) -> NativeMutation: ...
 
 
 def dead_track_launch_result(
@@ -163,39 +178,74 @@ def do_launch(*, sup: Supervisor, track: registry.Track, session: str, start: bo
     return do_launch_result(sup=sup, track=track, session=session, start=start).launched
 
 
+def _start_claude_process(
+    *, sup: Supervisor, track: registry.Track, target: str, launch: ClaudeLaunchPlan
+) -> tuple[bool, bool, LaunchResult]:
+    """Start one initial Claude process, distinguishing native input uncertainty."""
+    native = herdr_identity.decode_herdr_target(value=target) is not None
+    failure = LaunchResult(launched=False, reason="claude_launch_failed")
+    if native:
+        mutation = cast(NativeLauncher, sup.tmux).launch_initial_agent(
+            session=target,
+            cwd=track.repo,
+            command=launch.command,
+            env=launch.env,
+            expected_process="claude",
+        )
+        launched = mutation.ok
+    else:
+        launched = sup.tmux.respawn_pane(
+            session=target,
+            cwd=track.repo,
+            command=launch.command,
+            env=launch.env,
+        )
+    ready = launched and _supervisor_launch.await_pane(
+        sup=sup,
+        target=target,
+        is_ready=signals.pane_is_claude,
+    )
+    return ready, native, failure
+
+
 def do_launch_result(
     *, sup: Supervisor, track: registry.Track, session: str, start: bool = False
 ) -> LaunchResult:
     result = LaunchResult(launched=False, reason="claude_launch_failed")
     target = sup.tmux.pane_id(session=session)
-    if target is not None:
-        launch = _supervisor_launch.claude_launch_plan(track=track, start=start)
-        if not isinstance(launch, ClaudeLaunchPlan):
-            sup.surface(message=f"reboot-recovery: {launch.message}; skipping")
-            result = LaunchResult(launched=False, reason=launch.message)
-        elif sup.tmux.respawn_pane(
-            session=target,
-            cwd=track.repo,
-            command=launch.command,
-            env=launch.env,
-        ) and _supervisor_launch.await_pane(
-            sup=sup, target=target, is_ready=signals.pane_is_claude
-        ):
-            _ = _supervisor_launch.await_input_box(sup=sup, target=target)
-            if start:
-                registry.record_launch_statusline_baseline(
-                    repo=track.repo,
-                    topic=track.topic,
-                    model=rendered_statusline_model(capture=sup.tmux.capture_pane(session=target)),
-                    stamp_path=sup.stamp_path,
-                )
-            submitted = _supervisor_launch.submit_prompt_result(
-                sup=sup, target=target, text=launch_resume(track=track)
-            )
-            if submitted.submitted:
-                result = LaunchResult(launched=True)
-            elif submitted.paste_failed:
-                result = LaunchResult(launched=False, reason="resume_submit_failed")
-            else:
-                result = LaunchResult(launched=True, reason="resume_submit_unverified")
-    return result
+    if target is None:
+        return result
+    launch = _supervisor_launch.claude_launch_plan(track=track, start=start)
+    if not isinstance(launch, ClaudeLaunchPlan):
+        sup.surface(message=f"reboot-recovery: {launch.message}; skipping")
+        return LaunchResult(launched=False, reason=launch.message)
+    ready, native, failure = _start_claude_process(
+        sup=sup,
+        track=track,
+        target=target,
+        launch=launch,
+    )
+    if not ready:
+        return failure
+    _ = _supervisor_launch.await_input_box(sup=sup, target=target)
+    if start:
+        registry.record_launch_statusline_baseline(
+            repo=track.repo,
+            topic=track.topic,
+            model=rendered_statusline_model(capture=sup.tmux.capture_pane(session=target)),
+            stamp_path=sup.stamp_path,
+        )
+    if native:
+        submitted_ok = _supervisor_launch.submit_prompt(
+            sup=sup, target=target, text=launch_resume(track=track)
+        )
+        submitted = _supervisor_launch.SubmitResult(submitted=submitted_ok)
+    else:
+        submitted = _supervisor_launch.submit_prompt_result(
+            sup=sup, target=target, text=launch_resume(track=track)
+        )
+    if submitted.submitted:
+        return LaunchResult(launched=True)
+    if submitted.paste_failed:
+        return LaunchResult(launched=False, reason="resume_submit_failed")
+    return LaunchResult(launched=True, reason="resume_submit_unverified")

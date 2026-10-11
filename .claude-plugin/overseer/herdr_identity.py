@@ -59,6 +59,7 @@ __all__: list[str] = [
     "HerdrPaneTarget",
     "TargetDecoding",
     "TmuxPaneTarget",
+    "decode_herdr_target",
     "decode_target",
     "encode_herdr_target",
     "encode_tmux_target",
@@ -265,3 +266,8 @@ def decode_target(*, value: str) -> TargetDecoding:
         tmux=None,
         error="",
     )
+
+
+def decode_herdr_target(*, value: str) -> HerdrPaneTarget | None:
+    """The exact Herdr target carried by ``value``, or ``None`` when it is not one."""
+    return decode_target(value=value).herdr
