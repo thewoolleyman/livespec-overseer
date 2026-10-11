@@ -70,6 +70,7 @@ class ConcreteManagerRuntime:
     monotonic: Callable[[], float] = time.monotonic
     sleep: Callable[[float], None] = time.sleep
     target_status: TargetStatusPort | None = None
+    acquisition: Callable[..., Result[dict[str, object], ManagerError]] | None = None
 
     def run(self, *, invocation: ManagerInvocation) -> CommandOutcome:
         """Validate one invocation, then drive its concrete operation or attention query."""
@@ -101,6 +102,8 @@ class ConcreteManagerRuntime:
         )
 
     def _input_defect(self, *, command: str, parsed: object) -> ManagerError | None:
+        if command == "acquire":
+            return None
         if command == "target":
             defect = normalized_input_defect(command=command, normalized_input=parsed)
             if defect is not None:
@@ -116,6 +119,11 @@ class ConcreteManagerRuntime:
         return accepted_report.failure() if isinstance(accepted_report, Failure) else None
 
     def _run_object(self, *, command: str, parsed: object) -> CommandOutcome:
+        if command == "acquire":
+            acquire = cast(
+                "Callable[..., Result[dict[str, object], ManagerError]]", self.acquisition
+            )
+            return error_outcome(error=acquire(request=parsed).failure())
         bound = self.store is not None and (
             command != "provision" or self.provision_target is not None
         )
