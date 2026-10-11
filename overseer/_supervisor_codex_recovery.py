@@ -19,8 +19,10 @@ already uses (Codex has no ``❯`` box to watch clear).
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import _supervisor_initial_process
 import _supervisor_launch
 import registry
 import signals
@@ -38,7 +40,9 @@ __all__: list[str] = [
     "CODEX_PANE_UNRESOLVED",
     "CODEX_RESPAWN_FAILED",
     "CODEX_RESUME_PICKER",
+    "CodexLaunchResult",
     "codex_launch_reason",
+    "codex_launch_result",
 ]
 
 CODEX_PANE_UNRESOLVED = "codex_pane_unresolved"
@@ -47,6 +51,12 @@ CODEX_PANE_NOT_CODEX = "codex_pane_never_became_codex"
 CODEX_RESUME_PICKER = "codex_resume_picker"
 CODEX_LIVE_PROCESS_MISSING = "codex_live_process_missing"
 CODEX_KICK_UNCONFIRMED = "codex_resume_kick_unconfirmed"
+
+
+@dataclass(frozen=True, kw_only=True)
+class CodexLaunchResult:
+    reason: str | None
+    effect_unknown: bool = False
 
 
 def codex_launch_reason(
@@ -59,22 +69,64 @@ def codex_launch_reason(
     prefix-match a live sibling. The respawn cwd is ``track.repo``, which matches the
     Codex session's own recorded cwd, so the resume reattaches with no working-dir picker.
     """
+    return codex_launch_result(
+        sup=sup,
+        track=track,
+        session=session,
+        session_id=session_id,
+    ).reason
+
+
+def codex_launch_result(
+    *, sup: Supervisor, track: registry.Track, session: str, session_id: str
+) -> CodexLaunchResult:
+    """Resume and verify Codex while preserving native launch uncertainty."""
     target = sup.tmux.pane_id(session=session)
     if target is None:
-        return CODEX_PANE_UNRESOLVED
+        return CodexLaunchResult(reason=CODEX_PANE_UNRESOLVED)
     launch = _supervisor_launch.codex_launch_plan(
         track=track, session_id=session_id, resume=launch_resume(track=track)
     )
     if not isinstance(launch, CodexLaunchPlan):
-        return launch.message
-    if not sup.tmux.respawn_pane(
-        session=target, cwd=track.repo, command=launch.command, env=launch.env
-    ):
-        return CODEX_RESPAWN_FAILED
-    if not _supervisor_launch.await_pane(sup=sup, target=target, is_ready=signals.pane_is_codex):
-        return CODEX_PANE_NOT_CODEX
-    return _verified_resume(
-        sup=sup, track=track, target=target, session=session, session_id=session_id
+        return CodexLaunchResult(reason=launch.message)
+    attempt = _supervisor_initial_process.start_initial_process(
+        sup=sup,
+        track=track,
+        target=target,
+        launch=launch,
+        expected_process="codex",
+        failure_reason=CODEX_RESPAWN_FAILED,
+    )
+    ready = attempt.launched and _supervisor_launch.await_pane(
+        sup=sup,
+        target=target,
+        is_ready=signals.pane_is_codex,
+    )
+    finished = _supervisor_initial_process.finish_initial_process(
+        sup=sup,
+        track=track,
+        target=target,
+        attempt=attempt,
+        confirmed=ready,
+    )
+    if not attempt.launched:
+        return CodexLaunchResult(
+            reason=finished.reason,
+            effect_unknown=finished.effect_unknown,
+        )
+    if not ready:
+        return CodexLaunchResult(
+            reason=CODEX_PANE_NOT_CODEX,
+            effect_unknown=finished.effect_unknown,
+        )
+    return CodexLaunchResult(
+        reason=_verified_resume(
+            sup=sup,
+            track=track,
+            target=target,
+            session=session,
+            session_id=session_id,
+        )
     )
 
 

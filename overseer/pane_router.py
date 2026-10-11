@@ -12,6 +12,7 @@ from typing import cast
 import claude_sessions
 import herdr_adapter
 import herdr_identity
+import herdr_initial_start
 import herdr_write
 import pane_router_coordinates
 import pane_router_reads
@@ -60,6 +61,11 @@ class MixedPaneDriver:
     herdr: pane_router_reads.HerdrObserver = field(default_factory=herdr_adapter.HerdrAdapter)
     herdr_writer: pane_router_submit_signals.HerdrInput = field(
         default_factory=herdr_write.HerdrWriter
+    )
+    initial_start: herdr_initial_start.HerdrInitialStart = field(
+        default_factory=lambda: herdr_initial_start.HerdrInitialStart(
+            writer=herdr_write.HerdrWriter()
+        )
     )
     herdr_endpoints: Callable[[], Iterable[str]] = _default_herdr_endpoints
     tmux_run: tmux_process.TextProcessRun = tmux_process.TEXT_PROCESS_RUN
@@ -156,6 +162,40 @@ class MixedPaneDriver:
             expect_codex=expect_codex,
             sleep=sleep,
         )
+
+    def pending_initial_start(self, *, repo: str, topic: str, session: str) -> str:
+        return self.initial_start.pending_initial_start(repo=repo, topic=topic, session=session)
+
+    def create_initial_pane(self, *, source: str, name: str, cwd: str) -> object:
+        return self.initial_start.create_initial_pane(source=source, name=name, cwd=cwd)
+
+    def created_initial_pane_persisted(self, *, repo: str, topic: str, session: str) -> None:
+        self.initial_start.created_initial_pane_persisted(repo=repo, topic=topic, session=session)
+
+    def launch_initial_agent(
+        self,
+        *,
+        session: str,
+        cwd: str,
+        command: str,
+        env: object,
+        expected_process: str,
+    ) -> object:
+        return self.initial_start.launch_initial_agent(
+            session=session,
+            cwd=cwd,
+            command=command,
+            env=env,
+            expected_process=expected_process,
+        )
+
+    def finish_initial_agent(self, *, repo: str, session: str, unresolved: bool) -> None:
+        self.initial_start.finish_initial_agent(repo=repo, session=session, unresolved=unresolved)
+
+    def preserve_initial_pane(self, *, session: str) -> bool:
+        return self.initial_start.preserve_initial_pane(session=session)
+
+    cleanup_initial_pane = preserve_initial_pane
 
 
 def default_pane_driver() -> PaneDriver:

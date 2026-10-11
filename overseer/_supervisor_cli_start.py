@@ -8,6 +8,7 @@ from dataclasses import replace
 from typing import cast
 
 import _supervisor_assignment
+import _supervisor_cli_native_start
 import _supervisor_cli_start_failures
 import _supervisor_cli_update
 import herdr_identity
@@ -16,6 +17,7 @@ import registry
 import signals
 import streams
 from _supervisor_cli_start_types import (
+    NativeCreationCommitter,
     NativeCreator,
     StartContext,
     SupervisorFactory,
@@ -122,6 +124,12 @@ def _created_context(
             source=cast(str, context.native_source), name=topic, cwd=repo
         )
         if not creation.ok:
+            if creation.effect_unknown:
+                track = replace(context.track, tmux=creation.target)
+                _ = _supervisor_cli_update.upsert_track(
+                    track=track,
+                    allow_retarget=existing is not None,
+                )
             _supervisor_cli_start_failures.report_creation_failure(
                 creation=creation, repo=repo, topic=topic
             )
@@ -131,6 +139,12 @@ def _created_context(
             track=track,
             allow_retarget=existing is not None,
         )
+        if hasattr(context.io, "created_initial_pane_persisted"):
+            cast(NativeCreationCommitter, context.io).created_initial_pane_persisted(
+                repo=repo,
+                topic=topic,
+                session=creation.target,
+            )
         return replace(context, track=track, session=creation.target, created_session=True)
     if context.io.session_exists(session=context.session):
         return context
@@ -172,13 +186,17 @@ def start_command(
     repo = os.path.normpath(args.repo)
     topic = args.topic
     existing = _existing_start_track(repo=repo, topic=topic)
-    context = _start_context(
+    context = _supervisor_cli_native_start.admitted_start_context(
+        context=_start_context(
+            repo=repo,
+            topic=topic,
+            existing=existing,
+            derive_tmux_or_refuse=derive_tmux_or_refuse,
+            tmux_factory=tmux_factory,
+            supervisor_factory=supervisor_factory,
+        ),
         repo=repo,
         topic=topic,
-        existing=existing,
-        derive_tmux_or_refuse=derive_tmux_or_refuse,
-        tmux_factory=tmux_factory,
-        supervisor_factory=supervisor_factory,
     )
     if context is None:
         return 1
