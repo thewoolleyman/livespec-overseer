@@ -27,7 +27,11 @@ from _lpm_runtime_provision_effects import (
     finish_provision_cleanup,
     provision_effect_inputs,
 )
-from _lpm_runtime_selection import selected_for_request, selected_from_assignment
+from _lpm_runtime_selection import (
+    selected_for_recovery,
+    selected_for_request,
+    selected_from_assignment,
+)
 
 from overseer._vendor.returns.result import Failure, Result, Success
 
@@ -93,10 +97,11 @@ def resume_provision(
         return _resume_cleanup(
             host=host, request=request, operation=operation, assignment=assignment
         )
-    selected = (
-        selected_for_request(host=host, request=request, now=operation.accepted_at)
-        if assignment is None
-        else Success(selected_from_assignment(assignment=assignment))
+    selected = _recovered_selection(
+        host=host,
+        request=request,
+        operation=operation,
+        assignment=assignment,
     )
     if isinstance(selected, Failure):
         return Failure(selected.failure())
@@ -178,7 +183,7 @@ def _resume_cleanup(
     assignment: Assignment | None,
 ) -> Result[dict[str, object] | None, ManagerError]:
     selected = (
-        selected_for_request(host=host, request=request, now=host.capture_time())
+        selected_for_request(host=host, request=request, now=operation.accepted_at)
         if assignment is None
         else Success(selected_from_assignment(assignment=assignment))
     )
@@ -196,3 +201,17 @@ def _resume_cleanup(
     if isinstance(cleaned, Failure):
         return Failure(cleaned.failure())
     return Success(None)
+
+
+def _recovered_selection(
+    *,
+    host: ProvisionRuntimeHost,
+    request: ProvisionRequest,
+    operation: OperationRecord,
+    assignment: Assignment | None,
+) -> Result[SelectedCredential, ManagerError]:
+    if assignment is not None:
+        return Success(selected_from_assignment(assignment=assignment))
+    if operation.completed_step < 0:
+        return selected_for_request(host=host, request=request, now=operation.accepted_at)
+    return selected_for_recovery(host=host, request=request, lease_started_at=operation.accepted_at)

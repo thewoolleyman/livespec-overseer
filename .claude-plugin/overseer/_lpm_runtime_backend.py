@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TypeVar, cast
 
 from _lpm_config import ManagerConfig
-from _lpm_locks import release_lock, take_lock
+from _lpm_locks import release_lock, take_lock, try_lock
 from _lpm_prereq import RuntimePrerequisites, runtime_prerequisites
 from _lpm_results import ManagerError, retryable_exhaustion, store_unavailable
 from _lpm_role_child import ClosedRoleInput
@@ -122,16 +122,15 @@ class RolePorts:
     ) -> Result[CommitOutcome, ManagerError]:
         """Query authoritative evidence before any repeated credential read."""
         _ = destination
-        locked = take_lock(
+        locked = try_lock(
             path=lock.path,
             owner_uid=self.owner_uid,
-            timeout_seconds=lock.timeout_seconds,
-            monotonic=lock.monotonic,
-            sleep=lock.sleep,
         )
         if isinstance(locked, Failure):
             return Failure(locked.failure())
         held = locked.unwrap()
+        if held is None:
+            return Success(CommitOutcome(status=IN_PROGRESS, committed_at=None))
         try:
             outcome = run_target_status(
                 request=request,
