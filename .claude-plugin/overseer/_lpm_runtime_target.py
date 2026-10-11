@@ -15,7 +15,6 @@ from _lpm_runtime_base import (
     engine_for,
     new_operation,
     run_lock,
-    target_destination,
     write_new_operation,
 )
 from _lpm_runtime_issuance import (
@@ -23,6 +22,7 @@ from _lpm_runtime_issuance import (
     issuance_for_run,
     read_runtime_issuance,
 )
+from _lpm_runtime_target_registration import registered_destination
 
 from overseer._vendor.returns.result import Failure, Result, Success
 
@@ -70,7 +70,19 @@ def _recover(
 ) -> Result[dict[str, object], ManagerError]:
     if operation.normalized_input != normalized_input:
         return Failure(invalid_request(message="a different target request is pending"))
-    return _drive(host=host, operation=operation)
+    issued = read_runtime_issuance(host=host, reference=operation.operation_id)
+    if isinstance(issued, Failure):
+        return Failure(issued.failure())
+    issuance = issued.unwrap()
+    if issuance is not None:
+        return _drive(host=host, operation=operation, destination=issuance.destination)
+    destination = registered_destination(
+        host=host,
+        consumer_run_id=str(normalized_input["consumer_run_id"]),
+    )
+    if isinstance(destination, Failure):
+        return Failure(destination.failure())
+    return _drive(host=host, operation=operation, destination=destination.unwrap())
 
 
 def _fresh(
@@ -84,6 +96,12 @@ def _fresh(
         return existing_issuance_payload(
             host=host, issuance=issued, requested_adapter=str(normalized_input["adapter"])
         )
+    destination = registered_destination(
+        host=host,
+        consumer_run_id=str(normalized_input["consumer_run_id"]),
+    )
+    if isinstance(destination, Failure):
+        return Failure(destination.failure())
     created = new_operation(
         host=host,
         command="target",
@@ -96,11 +114,11 @@ def _fresh(
     written = write_new_operation(host=host, operation=created.unwrap())
     if isinstance(written, Failure):
         return Failure(written.failure())
-    return _drive(host=host, operation=written.unwrap())
+    return _drive(host=host, operation=written.unwrap(), destination=destination.unwrap())
 
 
 def _drive(
-    *, host: RuntimeHost, operation: OperationRecord
+    *, host: RuntimeHost, operation: OperationRecord, destination: str
 ) -> Result[dict[str, object], ManagerError]:
     reference = operation.operation_id
     driven = drive_operation(
@@ -110,7 +128,7 @@ def _drive(
             target=TargetInputs(
                 reference=reference,
                 adapter=str(operation.normalized_input["adapter"]),
-                destination=str(target_destination(state_dir=host.state_dir, reference=reference)),
+                destination=destination,
             )
         ),
         condition="every-effect-committed",
