@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import _supervisor_herdr_recovery
 import _supervisor_launch
 import _supervisor_observe
 import _supervisor_offer
@@ -27,7 +28,9 @@ class EvaluateTarget:
     pane: str
 
 
-def resolve_evaluate_target(*, sup: Supervisor, track: registry.Track) -> RowView | EvaluateTarget:
+def resolve_evaluate_target(
+    *, sup: Supervisor, track: registry.Track, act: bool
+) -> RowView | EvaluateTarget:
     if track.is_unassigned:
         return RowView(topic=track.topic, repo=track.repo, tmux=None, ctx=None, status="unassigned")
 
@@ -52,12 +55,21 @@ def resolve_evaluate_target(*, sup: Supervisor, track: registry.Track) -> RowVie
     if target is None:
         return _supervisor_offer.no_managed_pane_row(sup=sup, track=track, session=session)
 
+    recovery = _supervisor_herdr_recovery.reconcile_bare_shell(
+        sup=sup,
+        track=track,
+        target=target,
+        act=act,
+    )
+
     # Identity gate (B3): the mapped session exists, but before reading its pane
     # for any ACT we confirm it is really OUR Claude in OUR repo — never
     # keystroke into a shell / wrong session / human split-pane.
     if not _supervisor_observe.pane_is_managed(
         sup=sup, target=target, repo=repo, topic=topic, session=session
     ):
+        if recovery is not None:
+            return recovery
         # The gate stays exactly what it was — an ACT guard (never keystroke into a
         # pane not proven ours). What changed is that its answer is no longer a row
         # STATUS of its own. Whether the pane is a bare shell (our session exited) or
