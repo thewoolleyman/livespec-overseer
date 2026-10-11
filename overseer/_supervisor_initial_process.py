@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Protocol, cast
 
@@ -34,6 +35,16 @@ class NativeLauncher(Protocol):
 
 class NativeFinisher(Protocol):
     def finish_initial_agent(self, *, repo: str, session: str, unresolved: bool) -> None: ...
+
+
+def _observed_native_cwd(*, sup: Supervisor, target: str, expected: str) -> str:
+    reader = cast(
+        Callable[..., str | None] | None,
+        getattr(sup.tmux, "pane_current_path", None),
+    )
+    if reader is None:
+        return expected
+    return reader(session=target) or ""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -92,7 +103,14 @@ def finish_initial_process(
     confirmed: bool,
 ) -> InitialProcessAttempt:
     """Settle an intent only after the expected process is freshly observed."""
-    unresolved = attempt.effect_unknown or (attempt.native and attempt.launched and not confirmed)
+    fully_confirmed = confirmed and (
+        (not attempt.native)
+        or registry.norm(repo=_observed_native_cwd(sup=sup, target=target, expected=track.repo))
+        == registry.norm(repo=track.repo)
+    )
+    unresolved = attempt.effect_unknown or (
+        attempt.native and attempt.launched and not fully_confirmed
+    )
     if attempt.native and hasattr(sup.tmux, "finish_initial_agent"):
         cast(NativeFinisher, sup.tmux).finish_initial_agent(
             repo=track.repo,
@@ -104,4 +122,4 @@ def finish_initial_process(
         launched=False,
         effect_unknown=unresolved,
     )
-    return {True: attempt, False: unconfirmed}[confirmed]
+    return {True: attempt, False: unconfirmed}[fully_confirmed]

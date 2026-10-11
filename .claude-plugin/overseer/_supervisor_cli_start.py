@@ -135,10 +135,19 @@ def _created_context(
             )
             return None
         track = replace(context.track, tmux=creation.target)
-        _ = _supervisor_cli_update.upsert_track(
+        persisted = _supervisor_cli_update.upsert_track(
             track=track,
             allow_retarget=existing is not None,
         )
+        if not persisted:
+            streams.write_stderr(
+                text=(
+                    f"start FAILED to persist exact created Herdr target {creation.target} "
+                    f"for {repo}::{topic}; backend=herdr target={creation.target}; "
+                    "launch input was not sent and the creation remains unresolved\n"
+                )
+            )
+            return None
         if hasattr(context.io, "created_initial_pane_persisted"):
             cast(NativeCreationCommitter, context.io).created_initial_pane_persisted(
                 repo=repo,

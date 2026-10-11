@@ -194,7 +194,7 @@ def _start_claude_process(
         confirmed=ready,
     )
     return (
-        ready,
+        finished.launched,
         attempt.native,
         LaunchResult(
             launched=False,
