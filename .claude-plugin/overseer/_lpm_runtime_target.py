@@ -24,6 +24,7 @@ from _lpm_runtime_issuance import (
     issuance_for_run,
     read_runtime_issuance,
 )
+from _lpm_runtime_recovery import recover_target_phase
 from _lpm_runtime_target_registration import RegisteredDestination, registered_destination
 
 from overseer._vendor.returns.result import Failure, Result, Success
@@ -159,8 +160,9 @@ def _drive(
     release_destination_lock: Callable[[], None] | None = None,
 ) -> Result[dict[str, object], ManagerError]:
     reference = operation.operation_id
-    driven = drive_operation(
+    driven = recover_target_phase(
         engine=engine_for(host=host),
+        idempotency_key=operation.idempotency_key,
         operation=operation,
         inputs=EffectInputs(
             target=TargetInputs(
@@ -171,9 +173,7 @@ def _drive(
                 release_destination_lock=release_destination_lock,
             )
         ),
-        condition="every-effect-committed",
-        context=PlanContext(),
-        terminal_result=None,
+        drive=drive_operation,
     )
     if isinstance(driven, Failure):
         return Failure(driven.failure())
