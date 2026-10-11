@@ -11,8 +11,9 @@ from _lpm_engine_context import EffectInputs, OperationEngine
 from _lpm_operation import OperationRecord
 from _lpm_operation_plan import PlanContext
 from _lpm_provision_request import ProvisionRequest
-from _lpm_results import PROVISIONING_FAILED, ManagerError, store_unavailable
+from _lpm_results import ManagerError, store_unavailable
 from _lpm_runtime_base import ProvisionRuntimeHost, engine_for
+from _lpm_runtime_recovery import recover_provision_phase
 
 from overseer._vendor.returns.result import Failure, Result, Success
 
@@ -74,38 +75,22 @@ def drive_provision_phase(
     ports: ProvisionDrivePorts,
 ) -> Result[dict[str, object], ManagerError]:
     """Drive start and postcommit, returning the committed assignment receipt."""
-    current = operation
-    if current.phase == "start":
-        started = ports.drive(
-            engine=engine_for(host=host),
-            operation=current,
-            inputs=inputs,
-            condition="target-committed",
-            context=PlanContext(),
-            terminal_result=None,
-        )
-        if isinstance(started, Failure):
-            return _failed_start(
-                host=host,
-                operation=current,
-                inputs=inputs,
-                error=started.failure(),
-                cleanup_failed=ports.cleanup_failed,
-            )
-        following = started.unwrap()
-        if following is None:
-            return Failure(store_unavailable(message="provision start lost its postcommit phase"))
-        current = following
-    finished = ports.drive(
+
+    def cleanup_failed(
+        *, operation: OperationRecord, inputs: EffectInputs
+    ) -> Result[None, ManagerError]:
+        return ports.cleanup_failed(host=host, operation=operation, inputs=inputs)
+
+    recovered = recover_provision_phase(
         engine=engine_for(host=host),
-        operation=current,
+        idempotency_key=operation.idempotency_key,
+        operation=operation,
         inputs=inputs,
-        condition="every-effect-committed",
-        context=PlanContext(),
-        terminal_result=None,
+        drive=ports.drive,
+        cleanup_failed=cleanup_failed,
     )
-    if isinstance(finished, Failure):
-        return Failure(finished.failure())
+    if isinstance(recovered, Failure):
+        return Failure(recovered.failure())
     assigned = ports.read_assignment(host=host, consumer_run_id=request.consumer_run_id)
     if isinstance(assigned, Failure):
         return Failure(assigned.failure())
@@ -113,17 +98,3 @@ def drive_provision_phase(
     if assignment is None:
         return Failure(store_unavailable(message="provision committed without an assignment"))
     return Success({"operation": "provision", "receipt": dict(assignment.receipt)})
-
-
-def _failed_start(
-    *,
-    host: ProvisionRuntimeHost,
-    operation: OperationRecord,
-    inputs: EffectInputs,
-    error: ManagerError,
-    cleanup_failed: FailedStartCleanup,
-) -> Result[dict[str, object], ManagerError]:
-    if error.error_type != PROVISIONING_FAILED and not error.cleanup_safe:
-        return Failure(error)
-    cleaned = cleanup_failed(host=host, operation=operation, inputs=inputs)
-    return Failure(cleaned.failure() if isinstance(cleaned, Failure) else error)
