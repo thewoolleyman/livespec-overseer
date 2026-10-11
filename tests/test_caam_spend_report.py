@@ -1,9 +1,10 @@
 """Tests for the operator-facing surfaces of the extra-usage dollar meter.
 
 The incident this closes was SILENT: the fleet sat on a spend-capped account for
-hours while the printed table showed healthy percentages and nothing anywhere
-said a dollar had been spent. So the meter owes two surfaces -- a column in the
-table and an ALERT line -- and both are pinned here.
+hours while the printed table said nothing anywhere about the dollars spent.
+The meter therefore owes two surfaces -- a column in the table and an ALERT line
+-- and both are pinned here without conflating a persistent cap flag with
+exhausted included quota.
 """
 
 from __future__ import annotations
@@ -55,14 +56,21 @@ def meter(*, block: dict[str, object] | None) -> object:
     return module.extra_usage_from(body=body)
 
 
-def profile(*, name: str, block: dict[str, object] | None, source: str = "live") -> object:
+def profile(
+    *,
+    name: str,
+    block: dict[str, object] | None,
+    source: str = "live",
+    five_hour_remaining: float = 80.0,
+    seven_day_remaining: float = 70.0,
+) -> object:
     models = importlib.import_module("caam_decision_models")
     return models.ProfileUsage(
         name=name,
         source=source,
         usage=models.UsageRecord(
-            five_hour_remaining=80.0,
-            seven_day_remaining=70.0,
+            five_hour_remaining=five_hour_remaining,
+            seven_day_remaining=seven_day_remaining,
             five_hour_resets_at="2026-09-08T14:30:00Z",
             seven_day_resets_at="2026-09-10T15:12:00Z",
             fable_remaining=None,
@@ -141,13 +149,32 @@ def test_the_rendered_table_carries_the_extra_usage_columns() -> None:
 def test_a_capped_account_raises_an_alert_naming_the_spend_limit() -> None:
     module = spend_report_module()
 
-    lines = module.spend_alert_lines(profiles=(profile(name="anthropic-0", block=CAPPED_BLOCK),))
+    lines = module.spend_alert_lines(
+        profiles=(
+            profile(
+                name="anthropic-0",
+                block=CAPPED_BLOCK,
+                five_hour_remaining=0.0,
+            ),
+        )
+    )
 
     assert len(lines) == 1
     assert lines[0].startswith("ALERT: anthropic-0 ")
     assert "spend limit" in lines[0]
     assert "$107.37" in lines[0]
     assert "$100.00" in lines[0]
+
+
+def test_a_capped_account_with_included_headroom_has_no_unservable_claim() -> None:
+    module = spend_report_module()
+
+    lines = module.spend_alert_lines(profiles=(profile(name="anthropic-0", block=CAPPED_BLOCK),))
+
+    assert len(lines) == 1
+    assert "is spending pay-as-you-go dollars" in lines[0]
+    assert "can serve no request" not in lines[0]
+    assert "before it stops serving" not in lines[0]
 
 
 def test_an_account_actively_spending_dollars_raises_an_alert_naming_what_is_left() -> None:

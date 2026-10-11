@@ -1,20 +1,17 @@
-"""The 2026-09-08 pay-as-you-go spend-limit incident, reproduced through ``decide()``.
+"""The extra-usage spend-limit selection boundary, reproduced through ``decide()``.
 
 INCIDENT (work-item overseer-t04c). Every fleet session refused with "You've hit
 your monthly spend limit" while the account-rotation table showed healthy
 subscription percentages on the active account. The rotator was blind to the
 DOLLAR meter: `/api/oauth/usage` reports `extra_usage.spend_limit_reached`
 alongside the percentages, and the pass parsed the percentages and discarded the
-meter. So caam rotated the whole interactive fleet onto an account that had hit
-its OWN per-account dollar cap, and then could neither see it nor route around
-it -- while three accounts that had never enabled extra usage at all still had
-included quota to serve from.
+meter. The rule inferred from that incident treated the monthly cap as proof
+that the included quota was exhausted, and excluded the account indefinitely.
 
-An account at its extra-usage spend limit has exhausted its included quota AND
-the paid path that was standing in for it, so it cannot serve a request
-immediately -- which is the ratified selection clause this conformance sits
-under. It is therefore disqualified as a candidate, and triggers rotation when
-it is the account in use.
+The 2026-10-10 measurement showed that inference does not survive an included
+window reset: the cap flag remained set while the account had healthy included
+headroom and served requests. Selection therefore treats the cap as
+disqualifying only while either included window is exhausted.
 
 Every scenario here is written in the REMAINING direction the records store.
 """
@@ -153,30 +150,36 @@ def candidate(
 
 
 # ---------------------------------------------------------------------------
-# (a) A spend-capped account is not selected while an included-quota one exists.
+# (a) A capped account with an exhausted included window is not selected.
 # ---------------------------------------------------------------------------
 
 
-def test_a_spend_capped_candidate_is_never_selected_over_an_included_quota_account(
+def test_a_spend_capped_candidate_with_an_exhausted_window_is_never_selected(
     tmp_path: Path,
 ) -> None:
-    """The capped account WINS every ordinary test and must still lose.
+    """The capped account has no weekly allowance left and must still lose.
 
-    It has more short-window headroom and the sooner weekly reset, so both the
-    margin and the ranking point at it. It cannot serve a request, so it is out.
+    Its short-window headroom and sooner reset point at it, but an exhausted
+    included window leaves no request-serving path after the dollar cap.
     """
     outcome = run(
         tmp_path=tmp_path,
         active=usage(five_hour=5.0, seven_day=60.0),
         candidates=(
-            candidate(name="capped", five_hour=99.0, weekly_reset=_SOON, block=CAPPED_BLOCK),
+            candidate(
+                name="capped",
+                five_hour=99.0,
+                seven_day=0.0,
+                weekly_reset=_SOON,
+                block=CAPPED_BLOCK,
+            ),
             candidate(name="included", five_hour=70.0, weekly_reset=_LATER),
         ),
     )
 
     assert outcome.switched_to == "included", (
-        "a spend-capped account cannot serve a request and must never be selected "
-        f"while an included-quota account exists; switched_to={outcome.switched_to}"
+        "a capped account with an exhausted included window must never be selected; "
+        f"switched_to={outcome.switched_to}"
     )
 
 
@@ -186,50 +189,77 @@ def test_a_pass_whose_only_candidate_is_spend_capped_holds_rather_than_spilling(
     outcome = run(
         tmp_path=tmp_path,
         active=usage(five_hour=5.0, seven_day=60.0),
-        candidates=(candidate(name="capped", weekly_reset=_SOON, block=CAPPED_BLOCK),),
+        candidates=(
+            candidate(
+                name="capped",
+                five_hour=0.0,
+                weekly_reset=_SOON,
+                block=CAPPED_BLOCK,
+            ),
+        ),
     )
 
     assert outcome.held
 
 
 # ---------------------------------------------------------------------------
-# (b) A spend_limit_reached ACTIVE account triggers rotation to a clean one.
+# (b) A capped account with healthy included windows remains selectable.
 # ---------------------------------------------------------------------------
 
 
 def test_a_spend_capped_active_account_rotates_to_an_included_quota_account(
     tmp_path: Path,
 ) -> None:
-    """THE INCIDENT. Healthy percentages everywhere, and the account cannot serve.
+    """THE INCIDENT rule is narrowed by the 2026-10-10 live measurement.
 
-    The destination has LESS short-window headroom than the account being left,
-    so the ordinary relative-headroom margin would refuse the move. That margin
-    measures headroom the capped account is not permitted to spend, so it is
-    waived rather than measured -- otherwise the fleet stays stranded exactly
-    where it stranded.
+    `plan/caam-spend-cap-servability/research/001-measurements-and-decision.md`
+    records that a cap flag can survive an included-window reset while the
+    account serves normally. The rule now requires both the cap and an exhausted
+    included window, so this capped-but-healthy candidate can relieve an active
+    account below the weekly reserve.
     """
+    outcome = run(
+        tmp_path=tmp_path,
+        active=usage(five_hour=80.0, seven_day=8.0),
+        candidates=(
+            candidate(
+                name="capped",
+                five_hour=90.0,
+                seven_day=98.0,
+                block=CAPPED_BLOCK,
+            ),
+        ),
+    )
+
+    assert outcome.switched_to == "capped", (
+        "a capped account with healthy included windows remains selectable; "
+        f"held={outcome.held} lines={outcome.lines}"
+    )
+
+
+def test_a_healthy_active_account_does_not_rotate_only_because_its_cap_flag_is_set(
+    tmp_path: Path,
+) -> None:
     outcome = run(
         tmp_path=tmp_path,
         active=usage(five_hour=80.0, seven_day=83.0, block=CAPPED_BLOCK),
         candidates=(candidate(name="included", five_hour=40.0, seven_day=40.0),),
     )
 
-    assert outcome.switched_to == "included", (
-        "a spend_limit_reached ACTIVE account must trigger rotation; "
-        f"held={outcome.held} lines={outcome.lines}"
-    )
-    assert any("spend limit" in line for line in outcome.lines), outcome.lines
+    assert outcome.held
 
 
-def test_the_same_healthy_active_holds_when_its_meter_reports_no_cap(tmp_path: Path) -> None:
-    """The control for the scenario above: the CAP is what moved it, nothing else."""
+def test_a_capped_active_account_with_an_exhausted_window_still_rotates(
+    tmp_path: Path,
+) -> None:
     outcome = run(
         tmp_path=tmp_path,
-        active=usage(five_hour=80.0, seven_day=83.0, block=NEVER_ENABLED_BLOCK),
+        active=usage(five_hour=0.0, seven_day=83.0, block=CAPPED_BLOCK),
         candidates=(candidate(name="included", five_hour=40.0, seven_day=40.0),),
     )
 
-    assert outcome.held
+    assert outcome.switched_to == "included"
+    assert any("spend limit" in line for line in outcome.lines), outcome.lines
 
 
 # ---------------------------------------------------------------------------
