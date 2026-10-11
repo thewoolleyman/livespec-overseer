@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import os
+import stat
 from dataclasses import dataclass
+from fnmatch import filter as filter_names
 from pathlib import Path
 from typing import Final, cast
 
@@ -36,6 +39,7 @@ _ARTIFACT_MEMBERS: Final = (
     "raised_at",
     "deadline",
 )
+_ATTENTION_DIRECTORY_MODE: Final = 0o700
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -66,11 +70,11 @@ def attention_items(
     *, state_dir: Path, owner_uid: int
 ) -> Result[tuple[AttentionItem, ...], ManagerError]:
     """Read pending artifacts in absolute-path byte order."""
-    directory = state_dir / "attention"
-    if not directory.is_dir():
-        return Success(())
+    paths = _attention_paths(directory=state_dir / "attention", owner_uid=owner_uid)
+    if isinstance(paths, Failure):
+        return paths
     items: list[AttentionItem] = []
-    for path in sorted(directory.glob("*.json"), key=lambda candidate: str(candidate).encode()):
+    for path in paths.unwrap():
         reading = read_local_record(path=path, owner_uid=owner_uid)
         if isinstance(reading, Failure):
             return reading
@@ -82,6 +86,31 @@ def attention_items(
         if item is not None:
             items.append(item)
     return Success(tuple(items))
+
+
+def _attention_paths(*, directory: Path, owner_uid: int) -> Result[tuple[Path, ...], ManagerError]:
+    """List one validated owner-only directory without following a directory symlink."""
+    try:
+        descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            status = os.fstat(descriptor)
+            identity = (stat.S_IFMT(status.st_mode), status.st_uid, stat.S_IMODE(status.st_mode))
+            expected = (stat.S_IFDIR, owner_uid, _ATTENTION_DIRECTORY_MODE)
+            if identity != expected:
+                return Failure(store_unavailable(message="attention state is unsafe"))
+            names = tuple(filter_names(os.listdir(descriptor), "*.json"))
+        finally:
+            os.close(descriptor)
+    except OSError as failure:
+        return _attention_unavailable(failure=failure)
+    paths = (directory / name for name in names)
+    return Success(tuple(sorted(paths, key=lambda candidate: str(candidate).encode())))
+
+
+def _attention_unavailable(*, failure: OSError) -> Failure[ManagerError]:
+    return Failure(
+        store_unavailable(message=f"attention state is unavailable: {failure.__class__.__name__}")
+    )
 
 
 def _attention_item(*, path: Path, parsed: object) -> Result[AttentionItem | None, ManagerError]:
