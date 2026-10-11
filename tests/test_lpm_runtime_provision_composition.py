@@ -8,25 +8,36 @@ from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Protocol, cast
+from unittest.mock import Mock
 
 import pytest
 
 from overseer._lpm_canonical import canonical_json_text
 from overseer._lpm_config import ManagerConfig, default_config
 from overseer._lpm_engine_context import EffectInputs
+from overseer._lpm_localstate import write_local_record
 from overseer._lpm_onepassword import value_ref
 from overseer._lpm_operation import OperationRecord
+from overseer._lpm_paths import local_record_path
 from overseer._lpm_provision_request import ProvisionRequest
 from overseer._lpm_reports import FailureReport
 from overseer._lpm_results import ManagerError, internal_bug, store_unavailable
 from overseer._lpm_runtime_roles import FinalProvisioningRequest
 from overseer._lpm_store import ConditionalSet, InMemorySecretStore, SecretStore
-from overseer._lpm_target import COMMITTED, IN_PROGRESS, UNCOMMITTED, CommitOutcome, TargetLock
+from overseer._lpm_target import (
+    COMMITTED,
+    IN_PROGRESS,
+    UNCOMMITTED,
+    CommitOutcome,
+    TargetIssuance,
+    TargetLock,
+)
 from overseer._lpm_target_evidence import (
     TargetEvidenceBinding,
     commit_with_evidence,
     target_status_with_evidence,
 )
+from overseer._lpm_time import add_seconds
 from overseer._vendor.returns.result import Failure, Result, Success
 
 __all__: list[str] = []
@@ -216,10 +227,14 @@ def _record_object() -> dict[str, object]:
 
 
 def _host(
-    *, state_dir: Path, target: _ProvisionTarget, target_status: _TargetStatus | None = None
+    *,
+    state_dir: Path,
+    target: _ProvisionTarget,
+    target_status: _TargetStatus | None = None,
+    registered_runs: tuple[str, ...] = (),
 ) -> _Host:
     identifiers = iter(_OPERATION_IDS)
-    return _Host(
+    host = _Host(
         state_dir=state_dir,
         owner_uid=os.getuid(),
         config=default_config(),
@@ -232,11 +247,15 @@ def _host(
         monotonic=lambda: 0.0,
         sleep=lambda _seconds: None,
     )
+    for run_id in registered_runs:
+        _register_run(host=host, run_id=run_id)
+    return host
 
 
 def _issue(*, host: _Host, run_id: str) -> str:
     from overseer._lpm_runtime_target import run_target
 
+    _register_run(host=host, run_id=run_id)
     issued = run_target(
         host=host,
         normalized_input={
@@ -246,6 +265,34 @@ def _issue(*, host: _Host, run_id: str) -> str:
         },
     ).unwrap()
     return str(issued["target_ref"])
+
+
+def _register_run(*, host: _Host, run_id: str) -> None:
+    isolated_root = host.state_dir / "consumer-targets" / run_id
+    target = isolated_root / "credentials" / ".credentials.json"
+    target.parent.mkdir(mode=0o700, parents=True)
+    host.state_dir.chmod(0o700)
+    isolated_root.chmod(0o700)
+    target.parent.chmod(0o700)
+    expires_at = add_seconds(timestamp=_NOW, seconds=86400)
+    assert expires_at is not None
+    path = local_record_path(
+        state_dir=host.state_dir,
+        family="run-registration",
+        identity=(run_id,),
+    ).unwrap()
+    write_local_record(
+        path=path,
+        value={
+            "version": 1,
+            "consumer_run_id": run_id,
+            "isolated_root": str(isolated_root),
+            "target_path": str(target),
+            "created_at": _NOW,
+            "expires_at": expires_at,
+        },
+        owner_uid=host.owner_uid,
+    ).unwrap()
 
 
 def _request(*, run_id: str, target_ref: str) -> ProvisionRequest:
@@ -343,8 +390,12 @@ def _assert_runtime_dispatch(*, tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     from overseer._lpm_runtime import ConcreteManagerRuntime
 
     target = _ProvisionTarget(owner_uid=os.getuid())
-    host = _host(state_dir=tmp_path / "concrete-runtime", target=target)
     run_id = "run-concrete-runtime"
+    host = _host(
+        state_dir=tmp_path / "concrete-runtime",
+        target=target,
+        registered_runs=(run_id,),
+    )
     target_ref = _OPERATION_IDS[0]
     report_object = {
         "version": 1,
@@ -583,6 +634,81 @@ def test_concrete_runtime_drives_target_provision_and_report(
         monkeypatch=monkeypatch,
     )
     _assert_report_binding_refusals(tmp_path=tmp_path, monkeypatch=monkeypatch)
+
+
+def test_target_recovery_preserves_typed_registration_and_issuance_paths(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import overseer._lpm_runtime_target as target_runtime
+
+    normalized: dict[str, object] = {
+        "version": 1,
+        "consumer_run_id": "run-target-recovery",
+        "adapter": "isolated-run",
+    }
+    operation = OperationRecord(
+        operation_id=_OPERATION_IDS[0],
+        command="target",
+        phase="issue",
+        idempotency_key="a" * 64,
+        accepted_at=_NOW,
+        normalized_input=normalized,
+        terminal_result=None,
+        ordered_effects=("issuance-create", "registration-remove"),
+        completed_step=0,
+    )
+    host = _host(
+        state_dir=tmp_path / "target-recovery",
+        target=_ProvisionTarget(owner_uid=os.getuid()),
+    )
+    with monkeypatch.context() as context:
+        context.setattr(
+            target_runtime,
+            "pending_operation",
+            Mock(return_value=Success(operation)),
+        )
+        context.setattr(target_runtime, "read_runtime_issuance", _store_failure)
+        failed = target_runtime.run_target(host=host, normalized_input=normalized)
+        assert isinstance(failed, Failure)
+    issuance = TargetIssuance(
+        reference=operation.operation_id,
+        consumer_run_id="run-target-recovery",
+        adapter="isolated-run",
+        destination=str(tmp_path / "registered-target"),
+        issued_at=_NOW,
+        expires_at="2026-10-11T12:00:00Z",
+    )
+    drive = Mock(return_value=Success({"operation": "target"}))
+    with monkeypatch.context() as context:
+        context.setattr(
+            target_runtime,
+            "pending_operation",
+            Mock(return_value=Success(operation)),
+        )
+        context.setattr(
+            target_runtime,
+            "read_runtime_issuance",
+            Mock(return_value=Success(issuance)),
+        )
+        context.setattr(target_runtime, "_drive", drive)
+        assert target_runtime.run_target(host=host, normalized_input=normalized).unwrap() == {
+            "operation": "target"
+        }
+    drive.assert_called_once_with(
+        host=host,
+        operation=operation,
+        destination=issuance.destination,
+    )
+    with monkeypatch.context() as context:
+        context.setattr(
+            target_runtime,
+            "pending_operation",
+            Mock(return_value=Success(operation)),
+        )
+        context.setattr(target_runtime, "read_runtime_issuance", _success_none)
+        missing = target_runtime.run_target(host=host, normalized_input=normalized)
+    assert isinstance(missing, Failure)
+    assert missing.failure().error_type == "invalid-request"
 
 
 def test_provision_is_idempotent_and_selection_never_reads_a_raw_value(
