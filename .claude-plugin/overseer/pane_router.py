@@ -163,6 +163,19 @@ class MixedPaneDriver:
             sleep=sleep,
         )
 
+    def retry_prompt_enter_once(
+        self,
+        *,
+        session: str,
+        text: str,
+        sleep: Callable[[float], None],
+    ) -> tuple[bool, bool]:
+        return self._writes().retry_prompt_enter_once(
+            session=session,
+            text=text,
+            sleep=sleep,
+        )
+
     def pending_initial_start(self, *, repo: str, topic: str, session: str) -> str:
         return self.initial_start.pending_initial_start(repo=repo, topic=topic, session=session)
 

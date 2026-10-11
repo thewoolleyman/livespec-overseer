@@ -535,3 +535,36 @@ def test_recreated_tick_resumes_only_an_exact_fresh_successor(
         assert signals.read_state(repo=str(world.repo), topic=world.topic).token == "restarted"
     else:
         assert record["phase"] == "launch-attempted"
+
+
+def test_recreated_tick_retries_only_enter_for_the_exact_pending_resume(*, tmp_path: Path) -> None:
+    world, track, counts = _launched_unknown_world(tmp_path=tmp_path)
+    identity = _install_successor(world=world, successor_case="fresh-runtime-child")
+    original_send_keys = world.fake.send_keys
+
+    def leave_resume_pending(*, session: str, keys: str) -> bool:
+        world.fake.calls.append(("keys", session, keys))
+        return True
+
+    world.fake.send_keys = leave_resume_pending
+    first = make_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1003.0)
+    first.claude_identity_by_session[(world.target, world.topic)] = identity
+    first.claude_names_by_session[world.target] = {world.topic}
+    first.evaluate(track=track, act=True)
+    record_path = world.repo / "tmp" / "overseer" / world.topic / ".herdr-replacement.json"
+    pending = json.loads(record_path.read_text(encoding="utf-8"))
+    calls_before_recreation = len(world.fake.calls)
+    world.fake.send_keys = original_send_keys
+    recreated = make_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1004.0)
+    recreated.claude_identity_by_session[(world.target, world.topic)] = identity
+    recreated.claude_names_by_session[world.target] = {world.topic}
+
+    recreated.evaluate(track=track, act=True)
+
+    after = world.fake.calls[calls_before_recreation:]
+    final = json.loads(record_path.read_text(encoding="utf-8"))
+    assert pending["phase"] == "resume-attempted"
+    assert counts == {"signal": 1, "launch": 1}
+    assert [call for call in after if call[0] == "paste"] == []
+    assert [call for call in after if call[0] == "keys"] == [("keys", world.target, "Enter")]
+    assert final["phase"] == "completed"

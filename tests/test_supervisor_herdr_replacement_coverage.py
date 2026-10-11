@@ -11,7 +11,12 @@ import _herdr_replacement_store
 import _supervisor_herdr_recovery
 import _supervisor_herdr_replacement
 import _supervisor_herdr_successor
+import herdr_adapter
 import herdr_identity
+import herdr_write
+import pane_router
+import pane_router_reads
+import pane_router_submit_signals
 import pytest
 import registry
 import supervisor
@@ -238,6 +243,105 @@ def test_successor_continuation_edges_fail_closed(
         monkeypatch.setattr(_supervisor_herdr_successor, "resume_for_track", lambda *, track: None)
     elif case == "submit-failed":
         fake.paste_ok = False
+
+    reason = _supervisor_herdr_successor.resume_proven_successor(
+        sup=sup,
+        track=track,
+        target=target,
+        transaction=transaction,
+    )
+
+    assert reason is not None
+    assert message in reason
+
+
+@pytest.mark.parametrize(
+    ("case", "expected"),
+    [
+        ("submitted", (True, False)),
+        ("wrong-text", (False, False)),
+        ("known-enter-failure", (False, False)),
+        ("unknown-enter", (False, True)),
+        ("unrecognized-after-enter", (False, True)),
+    ],
+)
+def test_native_enter_retry_is_stateless_and_exact(
+    *, tmp_path: Path, case: str, expected: tuple[bool, bool]
+) -> None:
+    target = _target(tmp_path=tmp_path)
+    resume = "read the durable handoff"
+    pending = idle_capture(ctx=100).replace("\n❯ \n", f"\n❯ {resume}\n")
+    captures = [pending, idle_capture(ctx=100)]
+    if case == "wrong-text":
+        captures = [pending.replace(resume, "unrelated text")]
+    elif case == "unknown-enter":
+        captures = [pending, pending]
+    elif case == "unrecognized-after-enter":
+        captures = [pending, "redrawn without recognizable input"]
+    outcome = herdr_write.WriteOutcome(
+        ok=case not in {"known-enter-failure", "unknown-enter"},
+        error="fixture Enter outcome",
+        effect_unknown=case == "unknown-enter",
+    )
+    observer = SimpleNamespace(
+        capture_pane=lambda *, target, retain_ansi: herdr_adapter.PaneCapture(
+            ok=True,
+            text=captures.pop(0) if len(captures) > 1 else captures[0],
+            error="",
+        )
+    )
+    writer = SimpleNamespace(send_enter=lambda *, target: outcome)
+    driver = pane_router.MixedPaneDriver(
+        tmux=FakeTmux(),
+        herdr=cast(pane_router_reads.HerdrObserver, observer),
+        herdr_writer=cast(pane_router_submit_signals.HerdrInput, writer),
+    )
+
+    result = driver.retry_prompt_enter_once(
+        session=target,
+        text=resume,
+        sleep=lambda _seconds: None,
+    )
+
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    ("case", "message"),
+    [
+        ("successor-changed", "successor no longer matches"),
+        ("text-changed", "text is absent"),
+        ("budget-exhausted", "budget is exhausted"),
+        ("native-unknown", "outcome is unknown"),
+        ("native-failed", "was not confirmed"),
+    ],
+)
+def test_durable_resume_retry_refuses_every_unproven_edge(
+    *, tmp_path: Path, case: str, message: str
+) -> None:
+    sup, fake, track, target = _world(tmp_path=tmp_path)
+    runtime = _process(pid=301, starttime="runtime-new", executable="/usr/bin/node", pgrp=300)
+    resume = "read the durable handoff"
+    transaction = _transaction(target=target, phase="resume-attempted")
+    transaction["successor"] = _herdr_replacement_process.process_record(process=runtime)
+    transaction["resume"] = resume
+    if case == "successor-changed":
+        transaction["successor"] = {"pid": 999}
+    elif case == "budget-exhausted":
+        transaction["resume_retry_attempts"] = 8
+    _write(track=track, transaction=transaction)
+    fake.herdr_replacement_snapshot = lambda *, session: _snapshot()
+    fake.panes[target] = idle_capture(ctx=100).replace("\n❯ \n", f"\n❯ {resume}\n")
+    if case == "text-changed":
+        fake.panes[target] = fake.panes[target].replace(resume, "unrelated text")
+    if case in {"native-unknown", "native-failed"}:
+        fake.retry_prompt_enter_once = lambda **_kwargs: (
+            False,
+            case == "native-unknown",
+        )
+    sup.claude_identity_by_session[(target, track.topic)] = (
+        f"claude:{runtime.pid}:{runtime.starttime}:{track.topic}"
+    )
 
     reason = _supervisor_herdr_successor.resume_proven_successor(
         sup=sup,

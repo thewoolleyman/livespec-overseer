@@ -9,13 +9,12 @@ from typing import cast
 
 import herdr_identity
 import herdr_write
+import pane_router_observe
 import pane_router_reads
 import pane_router_submit_signals
 
 __all__: list[str] = ["PromptSubmitter"]
 
-_OBSERVE_ATTEMPTS = 3
-_OBSERVE_INTERVAL = 0.5
 _AWAIT_PASTE = "await-paste"
 _AWAIT_ENTER = "await-enter"
 _UNCERTAIN_PASTE = "uncertain-paste"
@@ -34,14 +33,12 @@ class PromptSubmitter:
         sleep: Callable[[float], None],
         accept: pane_router_submit_signals.CapturePredicate,
     ) -> str:
-        capture = ""
-        for attempt in range(_OBSERVE_ATTEMPTS):
-            capture = self.reads.capture_pane(session=session)
-            if accept(capture=capture):
-                break
-            if attempt + 1 < _OBSERVE_ATTEMPTS:
-                sleep(_OBSERVE_INTERVAL)
-        return capture
+        return pane_router_observe.observe_capture(
+            reads=self.reads,
+            session=session,
+            sleep=sleep,
+            accept=accept,
+        )
 
     def _observe_paste(
         self,

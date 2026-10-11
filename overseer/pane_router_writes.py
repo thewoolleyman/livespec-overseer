@@ -9,6 +9,7 @@ from functools import partial
 import herdr_identity
 import pane_router_reads
 import pane_router_submit
+import pane_router_submit_retry
 import pane_router_submit_signals
 
 __all__: list[str] = ["HerdrInput", "PaneRoutingWrites"]
@@ -134,5 +135,21 @@ class PaneRoutingWrites:
             session=session,
             text=text,
             expect_codex=expect_codex,
+            sleep=sleep,
+        )
+
+    def retry_prompt_enter_once(
+        self,
+        *,
+        session: str,
+        text: str,
+        sleep: Callable[[float], None],
+    ) -> tuple[bool, bool]:
+        """Retry only Enter for exact durable pending text in a Herdr pane."""
+        return pane_router_submit_retry.retry_enter_once(
+            reads=self.reads,
+            writer=self.herdr_writer,
+            session=session,
+            text=text,
             sleep=sleep,
         )
