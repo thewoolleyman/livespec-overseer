@@ -11,9 +11,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
+import _supervisor_herdr_replacement
 import _supervisor_launch
 import _supervisor_state
 import _supervisor_wrapup_injection
+import herdr_identity
 import registry
 import signals
 from _supervisor_claude_restart import claude_respawn_verified
@@ -93,6 +95,26 @@ def resume_prompt(*, track: registry.Track) -> str | None:
     return resume_for_track(track=track)
 
 
+def _record_failed_resume(
+    *, sup: Supervisor, track: registry.Track, target: str, session_identity: str | None
+) -> None:
+    """Keep the open round retryable without granting another replacement."""
+    registry.set_resume_pending(
+        repo=track.repo,
+        topic=track.topic,
+        session_identity=session_identity,
+        stamp_path=sup.stamp_path,
+    )
+    sup.alert(
+        repo=track.repo,
+        topic=track.topic,
+        session=_supervisor_launch.session_of(sup=sup, track=track),
+        pane=target,
+        message="resume line NOT submitted after restart — will retry the Enter (no respawn)",
+        condition="claude-resume-submit-failed",
+    )
+
+
 def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -> None:
     launch = _supervisor_launch.claude_launch_plan(track=track, daemon_restart=True)
     if not isinstance(launch, ClaudeLaunchPlan):
@@ -113,6 +135,14 @@ def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -
     ):
         return
     sup.log_claude_build(phase="respawn")
+    if herdr_identity.decode_target(value=target).herdr is not None:
+        _supervisor_herdr_replacement.begin_herdr_replacement(
+            sup=sup,
+            track=track,
+            target=target,
+            launch=launch,
+        )
+        return
     if not sup.tmux.respawn_pane(
         session=target,
         cwd=track.repo,
@@ -177,29 +207,21 @@ def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -
         _ = sup.inject.pop(track_key(repo=track.repo, topic=track.topic), None)
         sup.log(message=f"consumed ready declaration for {track.repo}::{track.topic}")
         sup.log(message=f"restarted {track.repo}::{track.topic} (pane {target})")
-        return
-    # The fresh Claude IS up, but the resume line did not submit (the fresh TUI
-    # dropped the Enter). Separate the two facts the old code conflated — "is the
-    # fresh Claude up?" (yes) and "did the resume submit?" (no) — and DO NOT give up:
-    # keep the `ready` marker + stamp, record a round-scoped `resume_pending`, and let
-    # the NEXT tick retry the SUBMIT ONLY (re-send Enter, never a re-respawn — a fresh
-    # `ready` is the sole respawn trigger, so the retry can never escalate to a kill).
-    # Never log a clean "restarted" here; the alert is edge-triggered and persists (the
-    # row stays NEEDS-YOU) until the resume actually submits.
-    registry.set_resume_pending(
-        repo=track.repo,
-        topic=track.topic,
-        session_identity=session_identity,
-        stamp_path=sup.stamp_path,
-    )
-    sup.alert(
-        repo=track.repo,
-        topic=track.topic,
-        session=_supervisor_launch.session_of(sup=sup, track=track),
-        pane=target,
-        message="resume line NOT submitted after restart — will retry the Enter (no respawn)",
-        condition="claude-resume-submit-failed",
-    )
+    else:
+        # The fresh Claude IS up, but the resume line did not submit (the fresh TUI
+        # dropped the Enter). Separate the two facts the old code conflated — "is the
+        # fresh Claude up?" (yes) and "did the resume submit?" (no) — and DO NOT give up:
+        # keep the `ready` marker + stamp, record a round-scoped `resume_pending`, and let
+        # the NEXT tick retry the SUBMIT ONLY (re-send Enter, never a re-respawn — a fresh
+        # `ready` is the sole respawn trigger, so the retry can never escalate to a kill).
+        # Never log a clean "restarted" here; the alert is edge-triggered and persists
+        # (the row stays NEEDS-YOU) until the resume actually submits.
+        _record_failed_resume(
+            sup=sup,
+            track=track,
+            target=target,
+            session_identity=session_identity,
+        )
 
 
 def do_restart(
