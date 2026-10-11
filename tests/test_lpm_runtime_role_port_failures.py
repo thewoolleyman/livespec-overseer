@@ -7,16 +7,20 @@ import sys
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from returns.primitives.exceptions import UnwrapFailedError
 
 import overseer._lpm_runtime_backend as backend
 from overseer._lpm_config import default_config
+from overseer._lpm_localstate import write_local_record
+from overseer._lpm_paths import local_record_path
 from overseer._lpm_prereq import RuntimePrerequisites
 from overseer._lpm_results import ManagerError, store_unavailable
 from overseer._lpm_role_runner import RoleCompletion
 from overseer._lpm_runtime_backend import RolePorts
+from overseer._lpm_runtime_issuance import read_runtime_issuance
 from overseer._lpm_runtime_roles import FinalProvisioningRequest, TargetStatusRequest
 from overseer._lpm_target import CommitOutcome, TargetLock
 from overseer._vendor.returns.result import Failure, Result, Success
@@ -224,3 +228,48 @@ def test_target_status_refusals_retain_ambiguous_recovery_state(
         cleanup_safety.append(result.failure().cleanup_safe)
 
     assert tuple(cleanup_safety) == (False, False)
+
+
+def test_final_provisioning_lock_refusal_is_definitively_cleanup_safe(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ports = _ports(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        launch=_Completion(stdout=b"not reached"),
+    )
+    unavailable_lock = _lock(tmp_path=tmp_path)
+    unavailable_lock.path.parent.mkdir(parents=True)
+    unavailable_lock.path.symlink_to("missing-lock-target")
+
+    result = ports(
+        request=_final_request(),
+        destination=str(tmp_path / "ignored"),
+        lock=unavailable_lock,
+    )
+
+    assert isinstance(result, Failure)
+    assert result.failure().error_type == "store-unavailable"
+    assert result.failure().cleanup_safe is True
+
+
+def test_malformed_manager_local_issuance_is_store_unavailable(tmp_path: Path) -> None:
+    state_dir = tmp_path / "state"
+    path = local_record_path(
+        state_dir=state_dir,
+        family="issuance",
+        identity=("target-a",),
+    ).unwrap()
+    write_local_record(
+        path=path,
+        value={"version": 1},
+        owner_uid=os.getuid(),
+    ).unwrap()
+
+    result = read_runtime_issuance(
+        host=SimpleNamespace(state_dir=state_dir, owner_uid=os.getuid()),
+        reference="target-a",
+    )
+
+    assert isinstance(result, Failure)
+    assert result.failure().error_type == "store-unavailable"

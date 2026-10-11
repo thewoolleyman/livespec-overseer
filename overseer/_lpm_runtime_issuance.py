@@ -58,7 +58,10 @@ def read_runtime_issuance(
         return Failure(stored.failure())
     if stored.unwrap() is None:
         return Success(None)
-    return issuance_from_object(parsed=stored.unwrap())
+    parsed = issuance_from_object(parsed=stored.unwrap())
+    if isinstance(parsed, Failure):
+        return Failure(store_unavailable(message="the retained issuance is malformed"))
+    return parsed
 
 
 def issuance_for_run(

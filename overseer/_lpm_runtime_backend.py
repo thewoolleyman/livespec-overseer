@@ -104,7 +104,7 @@ class RolePorts:
             sleep=lock.sleep,
         )
         if isinstance(locked, Failure):
-            return Failure(locked.failure())
+            return Failure(replace(locked.failure(), cleanup_safe=True))
         held = locked.unwrap()
         try:
             outcome = run_final_provisioning(
