@@ -28,6 +28,7 @@ from overseer.test_lpm_installed_recovery import (
     write_registered_target,
 )
 from overseer.test_lpm_installed_runtime import copy_installed_python, copy_shell_runtime
+from overseer.test_lpm_installed_taints import credential_environment, credential_taints
 
 __all__: list[str] = [
     "InstalledManagerSandbox",
@@ -118,6 +119,7 @@ class InstalledManagerSandbox:
                 "HOME": "/consumer-controlled-home-is-ignored",
                 "PATH": _PATH,
                 "LANG": "C.UTF-8",
+                **credential_environment(),
             },
         )
         lines = completed.stdout.splitlines()
@@ -183,6 +185,10 @@ class InstalledManagerSandbox:
     def write_attention(self, *, record_id: str) -> str:
         """Write one pending attention artifact inside the installed root."""
         return write_attention(root=self.root, record_id=record_id)
+
+    def credential_taints(self) -> tuple[str, ...]:
+        """Return fixture credential values forbidden from both output streams."""
+        return credential_taints()
 
     def _install_distribution(self) -> None:
         destination = self.root / "opt" / "lpm"
