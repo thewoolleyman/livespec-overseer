@@ -1,5 +1,21 @@
 # Changelog
 
+## [5.27.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.26.0...v5.27.0) (2026-10-12)
+
+
+### Features
+
+* **overseer:** fail closed on incomplete live evidence ([1518ba6](https://github.com/thewoolleyman/livespec-overseer/commit/1518ba60364dc31a6cf8f76b1e1df121b951249c))
+* **overseer:** isolate live backend exercises ([3bc5481](https://github.com/thewoolleyman/livespec-overseer/commit/3bc5481a6f9fb857465507234599d12759ea41fa))
+* **overseer:** qualify live terminal targets ([8a1d5e8](https://github.com/thewoolleyman/livespec-overseer/commit/8a1d5e8cd00f7011edc993966096015f1ddadcfb))
+* **overseer:** ship dual-backend operator contract ([810d691](https://github.com/thewoolleyman/livespec-overseer/commit/810d69159cb883501031708f596feb8cb823c65d))
+
+
+### Bug Fixes
+
+* **overseer:** fail closed in live exercise review ([7bbf9ec](https://github.com/thewoolleyman/livespec-overseer/commit/7bbf9ec9858d58a0b37f4f9b4a7774cefdb19799))
+* **overseer:** run evidence verifier from checkout ([3ff63dc](https://github.com/thewoolleyman/livespec-overseer/commit/3ff63dcf6252733c4b56fdd0290e99d6fc233821))
+
 ## [5.26.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.25.1...v5.26.0) (2026-10-12)
 
 
