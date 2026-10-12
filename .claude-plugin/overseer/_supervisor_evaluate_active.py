@@ -63,8 +63,22 @@ def _ready_declared(*, request: ActiveRequest) -> bool:
     return request.declared is not None and request.declared.token == signals.STATE_READY
 
 
+def _done_declared(*, request: ActiveRequest) -> bool:
+    return request.declared is not None and request.declared.token == signals.STATE_DONE
+
+
 def active_decision(*, request: ActiveRequest) -> ActiveDecision | None:
     active_conditions: set[str] = set()
+    if _done_declared(request=request) and not request.gate:
+        return ActiveDecision(
+            status=signals.STATE_DONE,
+            note=request.declared.detail if request.declared is not None else None,
+            ready=False,
+            blocked=None,
+            blocked_age=None,
+            blocked_age_label=None,
+            active_conditions=active_conditions,
+        )
     attention_request = _supervisor_attention.AttentionRequest(
         sup=request.sup,
         track=request.track,
