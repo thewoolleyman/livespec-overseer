@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.27.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.27.1...v5.27.2) (2026-10-12)
+
+
+### Bug Fixes
+
+* **overseer:** exec the herdr successor so the agent leads its pane ([3a45fe6](https://github.com/thewoolleyman/livespec-overseer/commit/3a45fe61ee2110fb3bf6bd5bc493e6174b8a249c))
+* **overseer:** read a wrapped Claude composer as one prompt ([6d6bb95](https://github.com/thewoolleyman/livespec-overseer/commit/6d6bb95c19806b5bdae59535b766ccb18087cce8))
+* **overseer:** wait for a new herdr pane's shell to exec before judging it ([776a418](https://github.com/thewoolleyman/livespec-overseer/commit/776a418c8eaa75849fbb8b4edb62631ecabf10b8))
+
 ## [5.27.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.27.0...v5.27.1) (2026-10-12)
 
 
