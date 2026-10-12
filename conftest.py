@@ -28,6 +28,7 @@ import _registry_stamps  # noqa: E402
 import _supervisor_runtime_rollback  # noqa: E402
 import _supervisor_snapshot  # noqa: E402
 import registry  # noqa: E402
+import terminal_probes  # noqa: E402
 
 _AMBIENT_OTEL_ENV = (
     "HONEYCOMB_INGEST_KEY_LIVESPEC",
@@ -67,6 +68,22 @@ _WRITE_BINDING_SITES = (
 def _clear_ambient_otel_export_config(*, monkeypatch: pytest.MonkeyPatch) -> None:
     for name in _AMBIENT_OTEL_ENV:
         monkeypatch.delenv(name, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_ambient_herdr(*, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A host running herdr must not lend its live default socket to a test.
+
+    Tests that exercise herdr discovery repoint the same seam themselves.
+    """
+    monkeypatch.delenv(terminal_probes.HERDR_SOCKET_ENV, raising=False)
+    isolated = str(tmp_path / "ambient-herdr" / "herdr.sock")
+    real = terminal_probes.default_herdr_socket
+    monkeypatch.setattr(
+        terminal_probes,
+        "default_herdr_socket",
+        lambda *, home=None: isolated if home is None else real(home=home),
+    )
 
 
 @dataclass(frozen=True, kw_only=True)
