@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from typing import IO
 
 import _supervisor_herdr_replacement
+import _supervisor_state
 import herdr_identity
 import pytest
 import registry
@@ -568,3 +569,43 @@ def test_recreated_tick_retries_only_enter_for_the_exact_pending_resume(*, tmp_p
     assert [call for call in after if call[0] == "paste"] == []
     assert [call for call in after if call[0] == "keys"] == [("keys", world.target, "Enter")]
     assert final["phase"] == "completed"
+
+
+def test_completed_replacement_fences_failed_cleanup_then_allows_a_fresh_round(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    world, track, counts = _launched_unknown_world(tmp_path=tmp_path)
+    identity = _install_successor(world=world, successor_case="fresh-runtime-child")
+    recreated = make_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1004.0)
+    recreated.claude_identity_by_session[(world.target, world.topic)] = identity
+    recreated.claude_names_by_session[world.target] = {world.topic}
+    real_write = _supervisor_state.write_state_diagnostic
+    monkeypatch.setattr(_supervisor_state, "write_state_diagnostic", lambda **_kwargs: False)
+
+    recreated.evaluate(track=track, act=True)
+    recreated.evaluate(track=track, act=True)
+
+    preserved = registry.read_round_record(
+        repo=str(world.repo), topic=world.topic, stamp_path=recreated.stamp_path
+    )
+    record_path = world.repo / "tmp" / "overseer" / world.topic / ".herdr-replacement.json"
+    assert preserved.at == 1000.0
+    assert counts == {"signal": 1, "launch": 1}
+    assert json.loads(record_path.read_text(encoding="utf-8"))["phase"] == "completed"
+
+    monkeypatch.setattr(_supervisor_state, "write_state_diagnostic", real_write)
+    recreated.evaluate(track=track, act=True)
+    registry.write_injection_stamp(
+        repo=str(world.repo),
+        topic=world.topic,
+        ts=1005.0,
+        session_identity=identity,
+        stamp_path=recreated.stamp_path,
+    )
+    _ = arm_ready_marker(repo=world.repo, topic=world.topic, mtime=1006.0)
+    recreated.evaluate(track=track, act=True)
+
+    fresh = json.loads(record_path.read_text(encoding="utf-8"))
+    assert counts == {"signal": 2, "launch": 2}
+    assert fresh["round"]["ready_mtime"] == 1006.0
+    assert fresh["predecessor"]["starttime"] == "runtime-new"

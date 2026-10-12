@@ -159,7 +159,7 @@ def test_direct_reentry_refuses_a_predecessor_that_survived_its_signal(*, tmp_pa
         ("shell-not-idle", "replacement-failed"),
         ("launch-observation-error", "replacement-failed"),
         ("resume-error", "replacement-failed"),
-        ("completed-old-ready", "replacement-failed"),
+        ("completed-old-ready-read-only", "replacement-failed"),
         ("completed-clean", None),
         ("before-stop", "replacement-pending"),
     ],
@@ -173,7 +173,7 @@ def test_recovery_edges_remain_diagnostic(
         "shell-not-idle": "stopped-awaiting-shell",
         "launch-observation-error": "stopped-awaiting-shell",
         "resume-error": "launch-attempted",
-        "completed-old-ready": "completed",
+        "completed-old-ready-read-only": "completed",
         "completed-clean": "completed",
     }.get(case, "before-stop")
     transaction = _transaction(target=target, phase=phase)
@@ -199,11 +199,11 @@ def test_recovery_edges_remain_diagnostic(
             "resume_proven_successor",
             lambda **_kwargs: (_ for _ in ()).throw(ValueError("fixture resume failure")),
         )
-    elif case == "completed-old-ready":
+    elif case == "completed-old-ready-read-only":
         _ = arm_ready_marker(repo=Path(track.repo), topic=track.topic, mtime=1001.0)
 
     row = _supervisor_herdr_recovery.reconcile_bare_shell(
-        sup=sup, track=track, target=target, act=True
+        sup=sup, track=track, target=target, act=case != "completed-old-ready-read-only"
     )
 
     assert (None if row is None else row.status) == expected

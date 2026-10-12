@@ -199,7 +199,7 @@ def _do_claude_restart(
         stamp_path=sup.stamp_path,
     )
     if _supervisor_launch.submit_prompt(sup=sup, target=target, text=resume):
-        _supervisor_state.clear_state(
+        _ = _supervisor_state.clear_state(
             sup=sup,
             track=track,
             diagnostic_token=signals.STATE_RESTARTED,

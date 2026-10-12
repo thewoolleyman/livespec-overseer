@@ -95,7 +95,7 @@ def _handle_uncertified_supervisor_binder(
             message=_supervisor_topic_archived_message(),
             condition="supervisor-topic-archived",
         )
-        _supervisor_state.clear_state(sup=sup, track=track)
+        _ = _supervisor_state.clear_state(sup=sup, track=track)
         return True
     sup.alert(
         repo=track.repo,

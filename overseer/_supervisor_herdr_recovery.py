@@ -115,6 +115,23 @@ def _recover_resume(
     return _row(track=track, note="durable Herdr replacement phase: completed")
 
 
+def _reconcile_completed(
+    *, sup: Supervisor, track: registry.Track, transaction: dict[str, object], act: bool
+) -> RowView | None:
+    if not _old_ready_still_present(track=track, transaction=transaction):
+        return None
+    if not act:
+        return _row(
+            track=track,
+            status="replacement-failed",
+            note="completed Herdr replacement still has its old ready declaration",
+        )
+    reason = _supervisor_herdr_successor.complete_replacement_round(sup=sup, track=track)
+    if reason is not None:
+        return _row(track=track, status="replacement-failed", note=reason)
+    return None
+
+
 def _reconcile_transaction(
     *,
     sup: Supervisor,
@@ -125,13 +142,7 @@ def _reconcile_transaction(
 ) -> RowView | None:
     phase = transaction.get("phase")
     if phase == "completed":
-        if _old_ready_still_present(track=track, transaction=transaction):
-            return _row(
-                track=track,
-                status="replacement-failed",
-                note="completed Herdr replacement still has its old ready declaration",
-            )
-        return None
+        return _reconcile_completed(sup=sup, track=track, transaction=transaction, act=act)
     if not act:
         return _row(track=track, note=f"durable Herdr replacement phase: {phase}")
     if phase == "stopped-awaiting-shell":

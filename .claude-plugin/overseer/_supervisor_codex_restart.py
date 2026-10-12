@@ -111,7 +111,7 @@ def do_codex_restart(*, sup: Supervisor, track: registry.Track, target: str) -> 
         resume=resume,
     ):
         return
-    _supervisor_state.clear_state(
+    _ = _supervisor_state.clear_state(
         sup=sup,
         track=track,
         diagnostic_token=signals.STATE_RESTARTED,

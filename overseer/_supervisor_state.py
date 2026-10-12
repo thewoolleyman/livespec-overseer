@@ -58,7 +58,8 @@ def clear_state(
     track: registry.Track,
     diagnostic_token: str | None = None,
     diagnostic_detail: str | None = None,
-) -> None:
+    preserve_round_on_failure: bool = False,
+) -> bool:
     """Clear a track's round and optionally replace its state with a diagnostic.
 
     Used after a successful restart. ``clear_injection_stamp`` deletes the sidecar key,
@@ -71,13 +72,16 @@ def clear_state(
     (adversarial code re-review 2026-07-13, blocker RB2).
     """
     if diagnostic_token is None or diagnostic_detail is None:
-        _ = delete_state_file(sup=sup, track=track)
+        persisted = delete_state_file(sup=sup, track=track)
     else:
-        _ = write_state_diagnostic(
+        persisted = write_state_diagnostic(
             sup=sup, track=track, token=diagnostic_token, detail=diagnostic_detail
         )
+    if not persisted and preserve_round_on_failure:
+        return False
     registry.clear_injection_stamp(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
     _ = sup.inject.pop(track_key(repo=track.repo, topic=track.topic), None)
+    return persisted
 
 
 def expire_aged_ready(
