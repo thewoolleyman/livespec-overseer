@@ -40,7 +40,7 @@ class PromptState:
 
 def prompt_visible(*, capture: str, text: str) -> bool:
     first_line = text.partition("\n")[0].strip()
-    claude_visible = signals.input_box_text(capture_text=capture) is not None
+    claude_visible = signals.input_box_text(capture_text=capture) == first_line
     codex_visible = bool(first_line) & (f"› {first_line}" in signals.strip_ansi(text=capture))
     return bool(claude_visible | codex_visible)
 

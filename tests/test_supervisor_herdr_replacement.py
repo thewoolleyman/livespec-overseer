@@ -7,11 +7,17 @@ import json
 from dataclasses import dataclass, replace
 from pathlib import Path
 from types import SimpleNamespace
-from typing import IO
+from typing import IO, cast
 
 import _supervisor_herdr_replacement
 import _supervisor_state
+import herdr_adapter
+import herdr_calls
 import herdr_identity
+import herdr_write
+import pane_router
+import pane_router_reads
+import pane_router_submit_signals
 import pytest
 import registry
 import signals
@@ -609,3 +615,91 @@ def test_completed_replacement_fences_failed_cleanup_then_allows_a_fresh_round(
     assert counts == {"signal": 2, "launch": 2}
     assert fresh["round"]["ready_mtime"] == 1006.0
     assert fresh["predecessor"]["starttime"] == "runtime-new"
+
+
+def test_tmux_pre_effect_failure_stays_retryable_and_native_herdr_is_explicit(
+    *, tmp_path: Path
+) -> None:
+    repo, topic = make_plan(tmp_path=tmp_path / "tmux")
+    tmux = FakeTmux()
+    tmux.serve(session="legacy", repo=repo, capture=idle_capture(ctx=10))
+    tmux.respawn_ok = False
+    sup = make_supervisor(tmp_path=tmp_path / "tmux", fake=tmux, now=lambda: 1002.0)
+    identity = f"claude:123:456:{topic}"
+    sup.claude_identity_by_session[("legacy", topic)] = identity
+    sup.claude_names_by_session["legacy"] = {topic}
+    registry.write_injection_stamp(
+        repo=str(repo),
+        topic=topic,
+        ts=1000.0,
+        session_identity=identity,
+        stamp_path=sup.stamp_path,
+    )
+    marker = arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
+
+    sup.evaluate(track=mapped_track(repo=repo, topic=topic, session="legacy"), act=True)
+
+    assert marker.exists()
+    assert (
+        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        == 1000.0
+    )
+    assert tmux.has(method="respawn")
+    assert hasattr(pane_router.MixedPaneDriver, "herdr_replacement_snapshot")
+    target = _target(tmp_path=tmp_path)
+    process = herdr_calls.ForegroundProcess(
+        pane_id="w1:p9",
+        shell_pid=100,
+        process_group_id=200,
+        name="node",
+        cmdline="node claude",
+        cwd=str(repo),
+    )
+    observer = SimpleNamespace(
+        foreground=lambda *, target: herdr_adapter.ForegroundReading(
+            ok=True, process=process, error=""
+        )
+    )
+    launches: list[dict[str, object]] = []
+    writer = SimpleNamespace(
+        launch=lambda **kwargs: launches.append(kwargs)
+        or herdr_write.WriteOutcome(ok=True, error="", effect_unknown=False)
+    )
+    processes = {
+        item.pid: item
+        for item in (
+            _process(pid=100, starttime="shell-start", executable="/bin/bash", pgrp=100),
+            _process(pid=200, starttime="leader-start", executable="/usr/bin/node", pgrp=200),
+            _process(pid=201, starttime="runtime-start", executable="/usr/bin/node", pgrp=200),
+        )
+    }
+    signals_sent: list[int] = []
+    driver = pane_router.MixedPaneDriver(
+        tmux=FakeTmux(),
+        herdr=cast(pane_router_reads.HerdrObserver, observer),
+        herdr_writer=cast(pane_router_submit_signals.HerdrInput, writer),
+        replacement_process_of=lambda *, pid: processes.get(pid),
+        replacement_process_ids=lambda: tuple(processes),
+        replacement_terminator=lambda *, process_group: signals_sent.append(process_group),
+    )
+
+    snapshot = driver.herdr_replacement_snapshot(session=target)
+    terminated = driver.herdr_terminate(session=target, process_group=200)
+    launched = driver.herdr_launch(
+        session=target,
+        cwd=str(repo),
+        command="claude --model opus",
+        env={"ANTHROPIC_MODEL": None},
+    )
+
+    assert [item.pid for item in snapshot.processes] == [100, 200, 201]
+    assert signals_sent == [200]
+    assert terminated.ok and launched.ok
+    assert launches == [
+        {
+            "target": herdr_identity.decode_target(value=target).herdr,
+            "cwd": str(repo),
+            "command": "claude --model opus",
+            "env": {"ANTHROPIC_MODEL": None},
+        }
+    ]

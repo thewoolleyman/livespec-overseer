@@ -10,7 +10,7 @@ import _herdr_replacement_authorization
 import _herdr_replacement_process
 import _herdr_replacement_store
 import registry
-from _supervisor_launch_profile import ClaudeLaunchPlan
+from _supervisor_launch_profile import ClaudeLaunchPlan, CodexLaunchPlan
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -98,7 +98,14 @@ def _stop_predecessor(
 
 
 def begin_herdr_replacement(
-    *, sup: Supervisor, track: registry.Track, target: str, launch: ClaudeLaunchPlan
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    target: str,
+    launch: ClaudeLaunchPlan | CodexLaunchPlan,
+    binding: _herdr_replacement_authorization.ReplacementBinding = (
+        _herdr_replacement_authorization.DEFAULT_BINDING
+    ),
 ) -> ReplacementFailure | None:
     """Fence the ready authorization durably, then make its one stop attempt."""
     pane = cast(_herdr_replacement_process.ReplacementPane, sup.tmux)
@@ -131,6 +138,7 @@ def begin_herdr_replacement(
                 target=target,
                 launch=launch,
                 snapshot=snapshot,
+                binding=binding,
             )
             if transaction is None:
                 return _refuse(sup=sup, track=track, target=target, reason=reason)
