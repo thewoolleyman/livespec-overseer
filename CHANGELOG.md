@@ -1,5 +1,26 @@
 # Changelog
 
+## [5.23.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.22.1...v5.23.0) (2026-10-12)
+
+
+### Features
+
+* **lpm:** bound acquisition attention authority ([323dfa7](https://github.com/thewoolleyman/livespec-overseer/commit/323dfa70bbb31c9505af91147cbb5bd4f6622a13))
+* **lpm:** bound private browser control ([aa8035d](https://github.com/thewoolleyman/livespec-overseer/commit/aa8035d3754dee348a838e4038f3293055fad7be))
+* **lpm:** gate acquired credential commits ([fc175a0](https://github.com/thewoolleyman/livespec-overseer/commit/fc175a012333df31de27d7447f37e4e607a9c59c))
+* **lpm:** sanitize acquisition observations ([5ef1ba7](https://github.com/thewoolleyman/livespec-overseer/commit/5ef1ba793db21d3bb6552dc793f3b6167f40c4aa))
+* **lpm:** secure account browser profiles ([4ddcefa](https://github.com/thewoolleyman/livespec-overseer/commit/4ddcefaa148496303db8cefd8e2ba9ad5ad717e8))
+
+
+### Bug Fixes
+
+* **lpm:** complete descriptor transfers before publish ([edd827d](https://github.com/thewoolleyman/livespec-overseer/commit/edd827d24cd452d58cb67b9ba3cd956fdddea4c5))
+* **lpm:** hold registered tokens that may still extend ([d43c154](https://github.com/thewoolleyman/livespec-overseer/commit/d43c154aae470d41710b9268fa505796767ffa62))
+* **lpm:** keep refusals outside repetition state ([f4352a8](https://github.com/thewoolleyman/livespec-overseer/commit/f4352a8a7f5bd32e86fa088b0cb7336950d3c09a))
+* **lpm:** make secret replacement overlap-safe ([ed9be9b](https://github.com/thewoolleyman/livespec-overseer/commit/ed9be9bad372102bc2bdef83426164583b045917))
+* **lpm:** reserve sanitizer marker grammar ([b7b13ef](https://github.com/thewoolleyman/livespec-overseer/commit/b7b13eff7a29773d596b57a0faf23a29242d6eca))
+* **lpm:** revoke terminal attention authority ([ea6e569](https://github.com/thewoolleyman/livespec-overseer/commit/ea6e569cf712f49e3add95a36c9d6dc9d452faed))
+
 ## [5.22.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.22.0...v5.22.1) (2026-10-11)
 
 
