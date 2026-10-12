@@ -18,8 +18,8 @@ tracks across tmux sessions, plus a thin interactive Claude bottom pane
 (`.claude-plugin/prose/overseer.md`). The daemon acts and renders a live table; it holds NO semantic
 judgment. Every "am I done / blocked?" decision is made by the tracked
 session's own LLM and expressed out-of-band on the filesystem — ONE state file
-(`<repo>/tmp/overseer/<topic>/.overseer-state`) holding one of three values
-(`ready` / `blocked: <reason>` / `winding-down`); the daemon only pattern-matches
+(`<repo>/tmp/overseer/<topic>/.overseer-state`) holding one of four values
+(`ready` / `blocked: <reason>` / `winding-down` / `done[: <summary>]`); the daemon only pattern-matches
 deterministic tmux signals and that file.
 
 ## Why it exists / history
@@ -173,7 +173,7 @@ outright rather than narrowed.
 `Supervisor.evaluate(track)` re-classifies each tracked session **from scratch
 every tick** into exactly one status. Its only inputs are the pane capture, the
 parsed `Ctx: N% left`, Claude's registry `status`, and the out-of-band
-`.overseer-state` file (`ready` / `blocked` / `winding-down`, all
+`.overseer-state` file (`ready` / `blocked` / `winding-down` / `done`, all
 **session-written**). It is a **precedence cascade** — the FIRST matching guard
 wins — not a persistent FSM: a session moves between statuses only by changing
 those inputs (its own work, its own declaration, its context dropping). The
@@ -215,6 +215,7 @@ stateDiagram-v2
     cGone --> session_gone: no live Claude
 
     state cBusy <<choice>>
+    cBusy --> done: 'done' and no live gate
     cBusy --> working: non-shell busy, or shell busy above threshold / with ready
     cBusy --> cGate: not busy, or shell-only eligible for low-context guard
 
@@ -247,13 +248,14 @@ stateDiagram-v2
     cBand --> danger: eff_ctx ≤ 20
     cBand --> warned: otherwise
 
-    working: working  ·  voids stale blocked (ready stays armed)
+    working: working  ·  voids stale blocked/done (ready stays armed)
     blocked_human: blocked:human  ·  alerts operator
     settling: settling  ·  wait, re-read next tick
     restarting: restarting  ·  _do_restart (ONLY path; runtime-dispatched claude/codex)
     warned: warned  ·  injects escalating wrap-up
     danger: danger  ·  alerts NOT RESPONDING, never restarts
     winding_down: winding-down  ·  ACK, stop re-warning
+    done: done  ·  terminal, quiet, never restart or nudge
     idle_ctx_left: idle-with-context-left  ·  one keep-going nudge
     live_outside_tmux: live-outside-tmux  ·  unmanaged, not an alarm
 
@@ -277,7 +279,11 @@ Every branch is a leaf: the tick ends there and the next tick re-enters
 `working → … → warned` (daemon injects the wrap-up) `→ winding-down` (session
 ACKs) `→ restarting` (session declares `ready`) `→` a fresh `working` after the
 respawn — each arrow driven by the SESSION's own declaration, never a daemon
-guess. `unassigned` / `session_gone` / `live_outside_tmux` are structural pre-checks
+guess. A session whose work is finished instead declares `done`, a quiet terminal
+leaf that holds the round and compaction latch untouched and never restarts, warns,
+nudges, or enters attention; an open structured picker still outranks it. Old `done`
+is voided only when non-peer-injected generation resumes, after which ordinary
+supervision resumes. `unassigned` / `session_gone` / `live_outside_tmux` are structural pre-checks
 (no live managed pane to read); `settling` is a one-tick "wait and re-read". The
 diagram is drawn Claude-first, but **a Codex track is a full citizen
 (maintainer-declared 2026-07-17)** and flows through the SAME branches with
@@ -744,10 +750,10 @@ for the marker's edge-triggered lifecycle.
      respawn failure, the singleton-lock refusal, the gitignore refusal).
 9. **ONE state file with a VALUE — never two presence-markers.** The declaration is
    `<repo>/tmp/overseer/<topic>/.overseer-state`, whose first non-empty line is
-   `<token>` or `<token>: <detail>`. There are **three SESSION-written tokens**
-   (`ready`, `blocked`, `winding-down` — `signals.STATE_TOKENS`) plus
+   `<token>` or `<token>: <detail>`. There are **four SESSION-written tokens**
+   (`ready`, `blocked`, `winding-down`, `done` — `signals.STATE_TOKENS`) plus
    **DAEMON-written tokens** (`idle-with-context-left` and diagnostic states in
-   `signals._DAEMON_TOKENS`); `signals.valid_token` accepts either set. The predecessor pair
+   `_signals_state._DAEMON_TOKENS`); `signals.valid_token` accepts either set. The predecessor pair
    `.overseer-ready` + `.overseer-blocked` is GONE: two presence-markers carried a
    built-in ambiguity — nothing stopped BOTH existing, and their precedence was
    incidental rather than designed. One file with a value makes that state
@@ -759,7 +765,7 @@ for the marker's edge-triggered lifecycle.
    **`idle-with-context-left` is the ONE token the daemon writes to itself, and it
    never authorizes a restart.** It is a marker, not a declaration: when a session
    goes idle while still ABOVE the wind-down threshold and is not waiting on a human
-   (and has made no `ready`/`blocked`/`winding-down` declaration of its own), the
+   (and has made no `ready`/`blocked`/`winding-down`/`done` declaration of its own), the
    daemon sends exactly ONE "keep going, don't stop with context left" nudge and
    stamps this token so it does not re-nudge every tick. **The nudge fires ONLY after
    the session has been CONTINUOUSLY idle for at least `IDLE_NUDGE_AFTER` (1 hour;
@@ -775,7 +781,7 @@ for the marker's edge-triggered lifecycle.
    session goes non-idle again (busy / gate / blocked branches call
    `_clear_idle_nudge_state`), re-arming a fresh nudge for a later episode. The
    clear only unlinks the file when it still holds `idle-with-context-left`, so it
-   can never clobber a session's own `ready`/`blocked`/`winding-down`. This is NOT a
+   can never clobber a session's own `ready`/`blocked`/`winding-down`/`done`. This is NOT a
    crack in the cardinal rule (invariant 7): the marker gates a text NUDGE, never a
    respawn — the sole restart trigger is still a session-written `ready`. The
    nudge's own text tells the session it may instead write `blocked: <reason>` if it
@@ -796,6 +802,17 @@ for the marker's edge-triggered lifecycle.
    would keystroke into a pane still carrying session-authored wind-down/restart
    intent, so the current fail-safe behavior is plain non-nudging until the session
    or a future ratified daemon rule clears the composition question.
+
+   **`done` is terminal but live gate evidence still outranks it.** It suppresses every
+   wrap-up, not-responding report, keep-going nudge, pair-stall nudge and restart, has no
+   age expiry, and renders as the quiet green `done` row for either a live or exited
+   session. The row never joins `ATTENTION_STATUSES`; only an open structured picker can
+   make the same track `blocked:human`. A standing `done` freezes the delivered round,
+   notified bands and compaction latch. `_supervisor_declaration_voiding` replaces it
+   with `done-voided` only after `MARKER_VOID_GRACE` when the session is observed
+   generating on input that was not peer-injected. Shell-busy background work, idle,
+   and age alone do not void it, and voiding raises no certification floor. The session
+   must clear its own `done` before accepting new work.
 10. **The DAEMON owns "what needs attention"; the bottom pane must never be a status
     display (maintainer-declared 2026-07-14).** Current state is rendered ONLY by the
     daemon — the table plus its `NEEDS YOU` block (`Supervisor._attention_lines`,
@@ -944,8 +961,8 @@ for the marker's edge-triggered lifecycle.
   badge; pinning is part of renaming, not an optional extra.
 - **Row color is a TTY-only, whole-LINE affordance (`row_color` / `_STATUS_COLOR`;
   2026-07-15).** `render` tints each DATA row by its raw status so the operator scans
-  the list by hue — green = actively working (`working`/`winding-down`/`restarting`/
-  `settling`), yellow = idle (`idle`/`idle-with-context-left`) / waiting on a human
+  the list by hue — green = healthy (`working`/`winding-down`/`restarting`/
+  `settling`/`done`), yellow = idle (`idle`/`idle-with-context-left`) / waiting on a human
   (`blocked:human`) / low on context (`warned`/`danger`), red = broken
   (`session-gone` — `not-claude` is DELETED, no longer a status), default (uncolored,
   terminal white/gray) = `unassigned`, `live-outside-tmux` (informational — alive but
@@ -1281,8 +1298,10 @@ for the marker's edge-triggered lifecycle.
   what to write), not a chore for the operator to work around. The fix is to make
   the session honour the protocol; it is NEVER to have the daemon guess on its
   behalf.
-- **State precedence** (`evaluate`, top to bottom). `working` and `blocked:human`
-  are evaluated FIRST, so an injection/keystroke is suppressed while a pane is
+- **State precedence** (`evaluate`, top to bottom). An open structured gate is
+  `blocked:human` even when `done` stands; absent that live gate, `done` returns its
+  quiet terminal row before any busy/idle, injection, nudge, or restart branch.
+  Otherwise `working` and `blocked:human` are evaluated first, so an injection/keystroke is suppressed while a pane is
   generating, sub-agent-busy, non-shell busy, carrying a `ready` while any busy
   evidence remains, or showing a structured gate (permission prompt / picker) —
   never keystroke into a gate. Shell-only evidence is the narrow exception to the
@@ -2248,7 +2267,7 @@ does not re-learn it. Append here — do NOT scatter these.
 - `SKILL.md` (beside this file) — **a 15-line compatibility POINTER, not a
   contract.** It says so itself: *"Do not add behavior or operator prose here."*
 - `marker-protocol.md` — the escalating wrap-up + the ONE-state-file declaration
-  contract (`ready` / `blocked: <reason>` / `winding-down`) and the restart
+  contract (`ready` / `blocked: <reason>` / `winding-down` / `done[: <summary>]`) and the restart
   interlock.
 
 > **Two pointers in this list were DEAD and are removed (2026-07-26).** Both

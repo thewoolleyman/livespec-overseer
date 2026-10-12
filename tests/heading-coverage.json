@@ -2792,88 +2792,77 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## The terminal declaration",
-    "test": "TODO",
-    "work_item": "overseer-gzdk",
-    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
+    "test": "tests.integration.test_done_terminal_declaration.test_scenario_a_done_declaration_is_valid_and_never_restarts_the_session",
+    "reason": "Integration-tier: a delivered round accepts the session-written done declaration, renders it as done through danger-level and long-idle observations, preserves its round, and never respawns."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A done declaration is valid and never restarts the session",
-    "test": "TODO",
-    "work_item": "overseer-gzdk",
-    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
+    "test": "tests.integration.test_done_terminal_declaration.test_scenario_a_done_declaration_is_valid_and_never_restarts_the_session",
+    "reason": "Integration-tier: holds done across danger context and prolonged idle, asserts the quiet status and preserved round, and proves no respawn or further paste occurs."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A done declaration suppresses every wrap-up",
-    "test": "TODO",
-    "work_item": "overseer-gzdk",
-    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
+    "test": "tests.integration.test_done_terminal_declaration.test_scenario_a_done_declaration_suppresses_every_wrapup",
+    "reason": "Integration-tier: opens a delivered round, latches an in-place compaction, then proves done suppresses due bands at 82, 30, and 10 percent while preserving the round, bands, and latch exactly."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A done declaration suppresses the keep-going nudge",
-    "test": "TODO",
-    "work_item": "overseer-gzdk",
-    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
+    "test": "tests.integration.test_done_terminal_declaration.test_scenario_a_done_declaration_is_valid_and_never_restarts_the_session",
+    "reason": "Integration-tier: advances a done track beyond the idle-nudge age twice and proves its status stays done with no additional paste or attention report."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A done session that resumes generating has its declaration voided",
-    "test": "TODO",
-    "work_item": "overseer-gzdk",
-    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
+    "test": "tests.integration.test_done_terminal_declaration.test_scenario_a_done_session_that_resumes_generating_has_its_declaration_voided",
+    "reason": "Integration-tier: old done plus resumed generation becomes the done-voided diagnostic and ordinary working supervision while the delivered round remains byte-for-byte unchanged."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A done declaration survives a background command",
-    "test": "TODO",
-    "work_item": "overseer-gzdk",
-    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
+    "test": "tests.integration.test_done_terminal_declaration.test_scenario_a_done_declaration_survives_a_background_command",
+    "reason": "Integration-tier: a shell-busy observation keeps the declaration and renders done rather than mistaking a background command for resumed model generation."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A done track renders as a quiet row whether running or exited",
-    "test": "TODO",
-    "work_item": "overseer-gzdk",
-    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
+    "test": "tests.integration.test_done_terminal_declaration.test_scenario_a_done_track_renders_as_a_quiet_row_whether_running_or_exited",
+    "reason": "Integration-tier: compares live and exited evaluations, asserting done status, green color, no attention membership, no tmux cell for the exit, and the explicit exited-session note."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Live gate evidence outranks a done declaration",
-    "test": "TODO",
-    "work_item": "overseer-gzdk",
-    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
+    "test": "tests.integration.test_done_terminal_declaration.test_scenario_live_gate_evidence_outranks_a_done_declaration",
+    "reason": "Integration-tier: places a structured picker in a done track and proves the live gate renders blocked:human and remains an attention member."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A done session handed new work clears its own declaration first",
-    "test": "TODO",
-    "work_item": "overseer-gzdk",
-    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
+    "test": "tests.integration.test_done_terminal_declaration.test_scenario_a_done_session_handed_new_work_clears_its_own_declaration_first",
+    "reason": "Integration-tier prompt contract: both worker and supervisor wrap-up variants explicitly require a session given new work after done to clear its own declaration first."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A done worker does not trigger the pair-stall nudge",
-    "test": "TODO",
-    "work_item": "overseer-gzdk",
-    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
+    "test": "tests.integration.test_done_terminal_declaration.test_scenario_a_done_worker_does_not_trigger_the_pair_stall_nudge",
+    "reason": "Integration-tier: advances a done worker and idle supervisor beyond the pair-stall floor and proves no nudge paste occurs and no stall episode opens."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The wrap-up names done as the finished-work declaration",
-    "test": "TODO",
-    "work_item": "overseer-gzdk",
-    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
+    "test": "tests.integration.test_done_terminal_declaration.test_scenario_the_wrapup_names_done_as_the_finished_work_declaration",
+    "reason": "Integration-tier prompt contract: worker and supervisor suggestion and insist variants each list all four writable values and name done as the finished-work declaration."
   }
 ]

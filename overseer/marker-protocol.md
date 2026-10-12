@@ -12,7 +12,7 @@ share, and the reference a tracked session's own plan state points at.
 
 (The file is still named `marker-protocol.md` for its existing cross-references.
 There is no longer a *marker* — a file whose mere presence is the signal. There
-is one **state file** carrying one **value**: one of three the tracked session
+is one **state file** carrying one **value**: one of four the tracked session
 writes to declare itself, plus one (`idle-with-context-left`) the daemon writes
 to ITSELF to remember it has already sent a keep-going nudge. See "Why ONE file
 with a value" below, and "The keep-going nudge" for the daemon-written one.)
@@ -131,7 +131,7 @@ statusline with no picker or generating marker, and the daemon re-reads the
 pane identity, runtime/busy evidence, capture, declaration/ACK/gate state, and
 input predicate immediately before opening the round. Any change, unknown
 status, malformed state, typed input, generating/sub-agent evidence, gate,
-human wait, `ready`, `blocked:`, or fresh `winding-down` cancels the paste for
+human wait, `ready`, `blocked:`, fresh `winding-down`, or `done` cancels the paste for
 that tick.
 
 **When that background-shell evidence is present, the wrap-up NAMES it.** Because
@@ -186,7 +186,7 @@ entries say, APPEND a fresh entry that corrects them; never withhold your declar
 drift.
 
 Declare your state by writing ONE line to the single state file
-{state_file} — one of exactly these three values:
+{state_file} — one of exactly these four values:
 
 Writing that line is the declaration. Pane text, final-response prose, or saying
 "Ready for restart" in this conversation is never a declaration channel.
@@ -194,6 +194,10 @@ Writing that line is the declaration. Pane text, final-response prose, or saying
     winding-down                  I got this message and am wrapping up now.
     ready                         I am at a clean stopping point — restart me.
     blocked: <one-line reason>    I need a human decision I cannot make myself.
+    done[: <one-line summary>]    I declare finished work — do not restart me.
+
+If you are given new work after declaring `done`, first clear your own `done`
+declaration by removing {state_file}; then resume work.
 
 ACKNOWLEDGE FIRST, right now, before anything else:
     mkdir -p {marker_dir} && echo winding-down > {state_file}
@@ -340,7 +344,7 @@ single **keep-going nudge**, the inverse of the wrap-up.
 
 When a tracked session is idle, still **above** its `ctx_threshold`, **not**
 waiting on a human (its Claude registry status is not `waiting`), has made
-**no** `ready` / `blocked` / `winding-down` declaration of its own, carries **no
+**no** `ready` / `blocked` / `winding-down` / `done` declaration of its own, carries **no
 latched context compaction** (see the section above — a latched track is above its
 threshold and still owes a wind-down, so nudging it to keep going would be the exact
 opposite instruction), **AND has been continuously idle for at least one hour**
@@ -377,6 +381,8 @@ If you are NOT free to continue — you are WAITING ON A HUMAN (you asked a ques
 decision you cannot make, and cannot raise a prompt, e.g. Codex in YOLO mode) — then say so
 out-of-band so the operator is alerted, INSTEAD of sitting idle:
     echo 'blocked: <one-line reason>' > {state_file}
+
+If your work is finished instead of waiting, declare `done` in that state file.
 ```
 
 `idle-with-context-left` is the ONE token the **daemon** writes; a tracked session
@@ -388,7 +394,7 @@ CLEARS it the moment the session goes non-idle again (the `busy` / `gate` /
 fresh nudge should the session idle-with-context-left again later. The clear only
 replaces the file with `idle-nudge-cleared: <detail>` when it still holds
 `idle-with-context-left`, so it can never clobber a `ready` / `blocked` /
-`winding-down` the session wrote in the meantime, and the daemon's state change
+`winding-down` / `done` the session wrote in the meantime, and the daemon's state change
 remains visible on disk.
 
 The nudge's escape hatch is the existing `blocked:` token: a session that is
@@ -439,7 +445,7 @@ it to a peer.
 
 The daemon now reports the silence itself. A track that stays on the
 `idle-with-context-left` leaf — idle, above its wind-down threshold, and having
-written no `ready` / `blocked` / `winding-down` — past `UNDECLARED_IDLE_AFTER`
+written no `ready` / `blocked` / `winding-down` / `done` — past `UNDECLARED_IDLE_AFTER`
 becomes the `undeclared-idle` status: an `ATTENTION_STATUSES` member, so it enters
 the `NEEDS YOU` block and the published snapshot row, with one edge-triggered
 alert.
@@ -468,8 +474,8 @@ declaration, and nothing in it makes `blocked: <reason>` optional.
 
 ONE file — `<repo>/tmp/overseer/<topic>/.overseer-state` (the repo's gitignored
 temp dir, NEVER under `plan/`). Its **first non-empty line** is `<token>` or
-`<token>: <detail>`, and there are exactly **three tokens a session writes**
-(a fourth, `idle-with-context-left`, is written only by the daemon — see "The
+`<token>: <detail>`, and there are exactly **four tokens a session writes**
+(`idle-with-context-left` is written only by the daemon — see "The
 keep-going nudge" above):
 
 - **`ready`** — "I am at a clean stopping point; restart me." **This is the SOLE
@@ -496,19 +502,32 @@ keep-going nudge" above):
   session acknowledged the wrap-up and is still wrapping up. `winding-down` +
   **NO live session** means the session finished, parked, do not restart; the
   daemon reports the quiet `wound-down` row instead of alarming as
-  `session-gone`. This is not a fourth session token and it is not restart
+  `session-gone`. `wound-down` is not a separate session token and it is not restart
   authorization. It permanently accepts the blind spot that a session which
   declared `winding-down` and then crashed is indistinguishable from one that
   finished cleanly.
+- **`done`** or **`done: <one-line summary>`** — the terminal declaration: "My
+  work is finished; I want nothing further; do not restart me." It never
+  authorizes a restart, never expires with age, suppresses every wrap-up and
+  keep-going nudge, and renders as the quiet `done` status whether its session is
+  live or has exited. A live structured picker still outranks it and renders
+  `blocked:human`. If the same session resumes generating on non-peer input after
+  `MARKER_VOID_GRACE`, the daemon replaces only the declaration with the
+  `done-voided` diagnostic; it raises no certification floor and leaves the open
+  round, notified bands, and compaction latch untouched. A background command at
+  the prompt, an idle observation, or age alone never voids it. A session handed
+  new work must remove its own `done` before resuming.
 
-The normal sequence is therefore **two writes**: `winding-down` the moment the
-wrap-up lands, then `ready` (or `blocked: …`) when the session actually stops.
+The normal restart-requesting sequence is therefore **two writes**: `winding-down`
+the moment the wrap-up lands, then `ready` (or `blocked: …`) when the session
+actually stops. Finished work instead ends with `done`, which parks the track and
+never requests a restart.
 The daemon watches the state directories while it waits between ticks, so a
 state-file write wakes the next real evaluation promptly instead of waiting for
 the fixed interval.
 
 **Declaring is MANDATORY — "nothing" is not a valid outcome.** A session chooses
-*which* value fits; it may not decline all three. Declining does not buy a
+*which* value fits; it may not decline all four. Declining does not buy a
 reprieve and does not buy a restart either: the track is reported to the human as
 NOT RESPONDING and then **sits there**, wedged, until a person intervenes. The
 session is not killed — it has simply broken its own track and handed a chore to
@@ -573,7 +592,8 @@ interlock.** The identity check above still fails closed for any session-declare
 is surfaced and cannot authorize a restart. That rule is about declarations. A
 different case is an open round whose pane has been replaced out of band and
 whose state file is absent or holds only a daemon-authored diagnostic such as
-`ready-expired`, `restarted`, `idle-nudge-cleared`, or `blocked-voided`. There is
+`ready-expired`, `restarted`, `idle-nudge-cleared`, `blocked-voided`, or
+`done-voided`. There is
 no session declaration to preserve in that case, and the persisted round belongs
 to a predecessor, so the daemon closes the round by clearing the stamp, notified
 bands, expiry floor, expiry-notice flag, and round-open identity, and logs both
@@ -602,7 +622,7 @@ a new wrap-up. An expiry observed under a live identity DIFFERING from the
 round-open identity surfaces the track and establishes NO certifiable floor.
 
 **The expiry-notice.** When a `ready` expires inside a DELIVERED round, the
-session is sent ONE expiry-notice: it names this state file, the three values you
+session is sent ONE expiry-notice: it names this state file, the four values you
 may write, and the fact that a restart requires a fresh `ready`. It is subject to
 the same guarded-paste predicate as a wrap-up, but its trigger is the expiry
 itself, so it may fire at any known context while the round remains open. It is
