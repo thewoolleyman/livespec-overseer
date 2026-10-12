@@ -40,7 +40,7 @@ from __future__ import annotations
 import itertools
 import os
 import subprocess
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TypeGuard
 
@@ -58,6 +58,7 @@ __all__: list[str] = [
     "SessionNameDriver",
     "TmuxIO",
     "WindowLayoutDriver",
+    "new_session_args",
 ]
 
 
@@ -75,6 +76,7 @@ __all__: list[str] = [
 # tmux is not answering, which is the fail-soft sentinel case, not a slow success.
 _TMUX_TIMEOUT_SECONDS = 10.0
 _INJECT_BUFFER_PREFIX = "overseer-inject"
+_AUTOMATION_SHELL_ENV = "LIVESPEC_AUTOMATION_SHELL=1"
 _buffer_counter = itertools.count()
 
 
@@ -85,6 +87,11 @@ def _next_inject_buffer() -> str:
 def _warn(*, message: str) -> None:
     """Fail-soft diagnostic to stderr (never crash the caller)."""
     streams.write_stderr(text=f"overseer.tmuxio: {message}\n")
+
+
+def new_session_args(*, args: Sequence[str]) -> list[str]:
+    """Build a tmux ``new-session`` argv that marks its shell as automation-owned."""
+    return ["new-session", "-e", _AUTOMATION_SHELL_ENV, *args]
 
 
 class TmuxIO:
@@ -360,8 +367,10 @@ class TmuxIO:
         )
 
     def new_session(self, *, name: str, cwd: str) -> bool:
-        """``tmux new-session -d -s <name> -c <cwd>`` — a detached session in ``cwd``."""
-        return self._ok(completed=self._call(args=["new-session", "-d", "-s", name, "-c", cwd]))
+        """Create an automation-marked detached tmux session in ``cwd``."""
+        return self._ok(
+            completed=self._call(args=new_session_args(args=["-d", "-s", name, "-c", cwd]))
+        )
 
     def kill_session(self, *, session: str) -> bool:
         """``tmux kill-session -t <session>`` — remove a failed just-created session."""
