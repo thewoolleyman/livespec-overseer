@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import threading
 from dataclasses import dataclass
 from typing import Protocol, cast
 
@@ -122,14 +123,40 @@ def _validation_result(
 
 def _write_through_pipe(*, capture: bytearray, acquisition_writer: AcquisitionWriter) -> object:
     read_descriptor, write_descriptor = os.pipe()
+    transferred = [0]
+    producer = threading.Thread(
+        target=_produce_capture,
+        kwargs={
+            "descriptor": write_descriptor,
+            "capture": capture,
+            "transferred": transferred,
+        },
+    )
+    producer.start()
     try:
-        _ = os.write(write_descriptor, capture)
-    finally:
-        os.close(write_descriptor)
-    try:
-        return acquisition_writer(descriptor=read_descriptor)
+        acknowledgement = acquisition_writer(descriptor=read_descriptor)
     finally:
         os.close(read_descriptor)
+        producer.join()
+    if transferred[0] != len(capture):
+        return None
+    return acknowledgement
+
+
+def _produce_capture(*, descriptor: int, capture: bytearray, transferred: list[int]) -> None:
+    view = memoryview(capture)
+    try:
+        while transferred[0] < len(view):
+            chunk = view[transferred[0] :]
+            try:
+                transferred[0] += os.write(descriptor, chunk)
+            finally:
+                chunk.release()
+    except OSError:
+        return
+    finally:
+        view.release()
+        os.close(descriptor)
 
 
 def _failure(*, reason: str, attempts: int) -> CaptureCommitOutcome:
