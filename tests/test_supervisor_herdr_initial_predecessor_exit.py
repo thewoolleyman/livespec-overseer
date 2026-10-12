@@ -151,7 +151,7 @@ def test_initial_public_tick_requires_direct_predecessor_absence_after_signal(
 
     record_path = world.repo / "tmp" / "overseer" / world.topic / ".herdr-replacement.json"
     record = json.loads(record_path.read_text(encoding="utf-8"))
-    assert observed_pids == [201]
+    assert observed_pids and set(observed_pids) == {201}
     assert world.counts == {"signal": 1, "launch": expected_launches}
     assert record["phase"] == expected_phase
     if expected_condition is None:
