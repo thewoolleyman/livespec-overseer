@@ -641,7 +641,12 @@ phases fence every irreversible effect: `before-stop`, `signal-attempted`,
 `completed`. The daemon revalidates the full process and server interlock before
 the single termination signal, never signals the shell or server, waits for the
 recorded predecessor to be gone and the same shell to be live and idle, then
-persists launch intent before submitting the preserved profile.
+persists launch intent before submitting the preserved profile. Recovery proves
+that absence with a direct, stable `/proc/<pid>/stat` generation read under the
+transaction lock; the pane's foreground-process snapshot is insufficient because
+a surviving predecessor may no longer be foreground. Live, reused, changing,
+malformed, or unreadable PID evidence retains the partial transaction and grants
+no launch authority.
 
 That record is also the only bare-shell recovery authority. A recreated daemon
 reconciles it before ordinary managed-runtime rejection and may continue a

@@ -10,6 +10,7 @@ import _herdr_replacement_store
 import _supervisor_herdr_completion
 import _supervisor_herdr_successor
 import herdr_identity
+import herdr_replacement_process
 import registry
 import signals
 from _supervisor_view import RowView
@@ -57,6 +58,14 @@ def _launch_recorded_successor(
             transaction=current_record, snapshot=snapshot
         ):
             return "original retained shell is absent or no longer idle"
+        predecessor = cast(dict[str, object], current_record["predecessor"])
+        predecessor_pid = cast(int, predecessor["pid"])
+        try:
+            observed_starttime = herdr_replacement_process.proc_starttime(pid=predecessor_pid)
+        except OSError as exc:
+            return f"recorded predecessor generation is unreadable: {exc}"
+        if observed_starttime is not None:
+            return "recorded predecessor PID is still occupied by a process generation"
         current_record["phase"] = "launch-attempted"
         _herdr_replacement_store.durable_write(
             path=scratch / _herdr_replacement_store.RECORD_NAME,

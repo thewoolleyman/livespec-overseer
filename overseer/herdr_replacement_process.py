@@ -8,6 +8,9 @@ from pathlib import Path
 from typing import Protocol
 
 _STARTTIME_INDEX = 19
+_PREDECESSOR_CHANGED = "predecessor process generation changed during observation"
+_PREDECESSOR_MALFORMED = "predecessor process generation has malformed /proc stat evidence"
+_PREDECESSOR_UNREADABLE = "predecessor process generation is unreadable"
 
 __all__: list[str] = [
     "ObservedProcess",
@@ -15,6 +18,7 @@ __all__: list[str] = [
     "ProcessReader",
     "proc_process",
     "proc_process_ids",
+    "proc_starttime",
 ]
 
 
@@ -56,6 +60,31 @@ def _stat_fields(*, pid: int) -> tuple[int, int, str] | None:
     if process_group <= 0 or session_id <= 0 or not starttime:
         return None
     return process_group, session_id, starttime
+
+
+def _direct_starttime(*, pid: int) -> str | None:
+    try:
+        raw = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
+    except (FileNotFoundError, ProcessLookupError):
+        return None
+    except OSError as exc:
+        raise OSError(_PREDECESSOR_UNREADABLE) from exc
+    _, separator, tail = raw.rpartition(")")
+    fields = tail.strip().split()
+    if not separator or len(fields) <= _STARTTIME_INDEX or not fields[_STARTTIME_INDEX]:
+        raise OSError(_PREDECESSOR_MALFORMED)
+    return fields[_STARTTIME_INDEX]
+
+
+def proc_starttime(*, pid: int) -> str | None:
+    """Return one stable process start time, absence, or raise on uncertainty."""
+    before = _direct_starttime(pid=pid)
+    after = _direct_starttime(pid=pid)
+    if before is None and after is None:
+        return None
+    if before is not None and before == after:
+        return before
+    raise OSError(_PREDECESSOR_CHANGED)
 
 
 def _executable(*, pid: int) -> str | None:

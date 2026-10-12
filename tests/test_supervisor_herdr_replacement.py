@@ -14,6 +14,7 @@ import _supervisor_state
 import herdr_adapter
 import herdr_calls
 import herdr_identity
+import herdr_replacement_process
 import herdr_write
 import pane_router
 import pane_router_reads
@@ -342,6 +343,53 @@ def test_recreated_supervisor_recovers_only_a_never_attempted_launch(
     assert counts == {"signal": 1, "launch": 1}
 
 
+class _ProcStatPath:
+    def __init__(self, samples: list[object]) -> None:
+        self.samples = samples
+
+    def read_text(self, *, encoding: str) -> str:
+        sample = self.samples.pop(0)
+        if isinstance(sample, BaseException):
+            raise sample
+        return cast(str, sample)
+
+
+def _proc_stat(*, starttime: str) -> str:
+    return "1 (agent) S 1 200 90 " + " ".join(["0"] * 15 + [starttime])
+
+
+@pytest.mark.parametrize(
+    ("samples", "expected", "error"),
+    [
+        ([_proc_stat(starttime="same"), _proc_stat(starttime="same")], "same", None),
+        ([FileNotFoundError(), FileNotFoundError()], None, None),
+        ([PermissionError("unreadable")], None, "unreadable"),
+        ([_proc_stat(starttime="one"), _proc_stat(starttime="two")], None, "changed"),
+        (["malformed"], None, "malformed"),
+    ],
+)
+def test_predecessor_generation_reader_requires_stable_direct_proc_evidence(
+    *,
+    monkeypatch: pytest.MonkeyPatch,
+    samples: list[object],
+    expected: str | None,
+    error: str | None,
+) -> None:
+    reader = getattr(herdr_replacement_process, "proc_starttime", None)
+    assert reader is not None, "recovery needs a direct stable predecessor-generation reader"
+    monkeypatch.setattr(
+        herdr_replacement_process,
+        "Path",
+        lambda _value: _ProcStatPath(samples),
+    )
+
+    if error is None:
+        assert reader(pid=201) == expected
+    else:
+        with pytest.raises(OSError, match=error):
+            reader(pid=201)
+
+
 def _stopped_transaction(*, tmp_path: Path) -> tuple[_World, registry.Track, dict[str, int], Path]:
     world, first, track = _armed_world(tmp_path=tmp_path)
     counts = {"signal": 0, "launch": 0}
@@ -362,6 +410,42 @@ def _stopped_transaction(*, tmp_path: Path) -> tuple[_World, registry.Track, dic
     first.evaluate(track=track, act=True)
     record_path = world.repo / "tmp" / "overseer" / world.topic / ".herdr-replacement.json"
     return world, track, counts, record_path
+
+
+@pytest.mark.parametrize("predecessor_observation", ["live", "unreadable"])
+def test_recreated_public_tick_refuses_a_live_or_unreadable_recorded_predecessor(
+    *,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    predecessor_observation: str,
+) -> None:
+    world, track, counts, record_path = _stopped_transaction(tmp_path=tmp_path)
+    world.snapshot["value"] = _idle_snapshot()
+    world.fake.cmds[world.target] = "bash"
+    world.fake.calls.clear()
+    recreated = make_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1003.0)
+    monkeypatch.setattr(recreated, "build_rows", lambda *, act: [track])
+
+    def observe_predecessor(*, pid: int) -> str | None:
+        assert pid == 201
+        if predecessor_observation == "unreadable":
+            raise OSError("fixture predecessor generation unreadable")
+        return "runtime-start"
+
+    monkeypatch.setattr(
+        herdr_replacement_process,
+        "proc_starttime",
+        observe_predecessor,
+        raising=False,
+    )
+
+    rows = recreated.tick(act=True)
+
+    record = json.loads(record_path.read_text(encoding="utf-8"))
+    assert counts == {"signal": 1, "launch": 0}
+    assert record["phase"] == "stopped-awaiting-shell"
+    assert [row.status for row in rows] == ["replacement-failed"]
+    assert "predecessor" in rows[0].note
 
 
 @pytest.mark.parametrize(
