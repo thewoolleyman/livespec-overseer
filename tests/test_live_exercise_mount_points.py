@@ -9,6 +9,7 @@ outright, so only a real host run could reach the defect.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -54,11 +55,19 @@ def _destinations(*, argv: list[str]) -> list[tuple[str, str]]:
     return mounts
 
 
-def test_every_mount_point_exists_or_lies_under_a_writable_bind(tmp_path: Path) -> None:
+def _host_supplied() -> set[str]:
+    # The only mount points the exercise may expect the operator host to provide.
+    # Fixed by contract rather than read from this machine's filesystem, so the
+    # verdict cannot depend on the host the test runs on.
+    return {"/", "/tmp", os.environ["HOME"], f"/run/user/{os.getuid()}", str(ROOT)}
+
+
+def test_every_mount_point_is_host_supplied_or_under_a_writable_bind(tmp_path: Path) -> None:
     argv = _namespace_argv(evidence=tmp_path / "evidence")
+    host_supplied = _host_supplied()
     writable: list[str] = []
     for option, destination in _destinations(argv=argv):
-        creatable = Path(destination).exists() or any(
+        creatable = destination in host_supplied or any(
             destination.startswith(f"{parent.rstrip('/')}/") for parent in writable
         )
         assert creatable, f"bwrap cannot create mount point {destination} on a read-only root"
