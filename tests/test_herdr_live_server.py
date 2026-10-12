@@ -486,3 +486,25 @@ def test_the_server_child_never_inherits_the_operator_socket_variable(
         stop_server(session=server.session)
         assert not any(entry.startswith(b"HERDR_SOCKET_PATH=") for entry in environ)
         assert server.session.startswith("ov-env-")
+
+
+def test_the_server_child_never_loads_the_operator_shell_startup(
+    *, fake_host: _FakeHost, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Measured 2026-10-12: a pre-push run failed a foreground read because the pane's
+    # zsh ran the operator's ~/.zshrc (atuin and mise prompt hooks), so a transient
+    # hook child briefly owned the foreground. Panes must start from an empty config.
+    del fake_host
+    monkeypatch.setenv("ZDOTDIR", str(Path.home()))
+    explicit = {**os.environ, "ZDOTDIR": str(Path.home())}
+
+    for env in (None, explicit):
+        server = start_server(scratch=tmp_path, label="rc", env=env)
+        environ = Path(f"/proc/{server.server_pid}/environ").read_bytes().split(b"\0")
+        stop_server(session=server.session)
+        zdotdirs = [entry for entry in environ if entry.startswith(b"ZDOTDIR=")]
+        assert len(zdotdirs) == 1
+        zdotdir = Path(zdotdirs[0].removeprefix(b"ZDOTDIR=").decode())
+        assert zdotdir.is_relative_to(tmp_path)
+        assert [path.name for path in zdotdir.iterdir()] == [".zshrc"]
+        assert (zdotdir / ".zshrc").read_bytes() == b""

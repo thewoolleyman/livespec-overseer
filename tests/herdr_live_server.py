@@ -267,10 +267,23 @@ def await_server_ready(
     )
 
 
-def _server_environment(*, env: Mapping[str, str] | None) -> dict[str, str]:
+def _server_environment(*, env: Mapping[str, str] | None, scratch: Path) -> dict[str, str]:
+    """The server's environment, minus the operator socket and the operator's shell rc.
+
+    Panes start the login shell, and on the operator host that zsh's ~/.zshrc runs
+    atuin and mise hooks around every prompt, so a transient hook child can own the
+    pane's foreground exactly when a test reads it. An empty ZDOTDIR keeps every
+    pane on a shell that loads no user startup file. The directory holds one EMPTY
+    ``.zshrc``: with none at all, zsh runs its interactive new-user wizard instead,
+    which swallows the first input a test sends.
+    """
     environment = dict(os.environ if env is None else env)
     for name in SCRUBBED_VARIABLES:
         _ = environment.pop(name, None)
+    zdotdir = scratch / "zdotdir"
+    zdotdir.mkdir(exist_ok=True)
+    (zdotdir / ".zshrc").touch()
+    environment["ZDOTDIR"] = str(zdotdir)
     return environment
 
 
@@ -301,7 +314,7 @@ def start_server(
             stdin=subprocess.DEVNULL,
             start_new_session=True,
             cwd=str(scratch),
-            env=_server_environment(env=env),
+            env=_server_environment(env=env, scratch=scratch),
         )
     try:
         readiness = await_server_ready(
