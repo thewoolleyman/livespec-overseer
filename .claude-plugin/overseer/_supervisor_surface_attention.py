@@ -37,6 +37,13 @@ def _table_reaches_tmux_pane(*, sup: Supervisor) -> bool:
     isatty = getattr(sup.out, "isatty", None)
     if not (callable(isatty) and bool(isatty())):
         return False
+    # A terminal stream inside the herdr pane herdr exported is the operator's view too.
+    # Measured 2026-10-12: a daemon drawing its table in a herdr top pane was reported
+    # headless every tick, because only a tmux pane was recognized. This is a display
+    # fact, never authority for a mutation, so herdr's own export is enough.
+    environ = sup.environ()
+    if environ.get("HERDR_SOCKET_PATH") and environ.get("HERDR_PANE_ID"):
+        return True
     pane = sup.own_pane
     if not pane:
         return False
