@@ -23,6 +23,7 @@ __all__: list[str] = [
     "clear_state",
     "delete_state_file",
     "expire_aged_ready",
+    "latest_input_was_peer_injected",
     "void_stale_blocked",
     "write_state_diagnostic",
 ]
@@ -215,9 +216,9 @@ def void_stale_blocked(
 
     Why it is needed: nothing else retires a ``blocked:``. ``_clear_state`` runs only
     on the daemon's own restart path, so a pane replaced OUT-OF-BAND (a hand-restarted
-    session, a `/clear`) inherits its predecessor's declaration — found live
-    2026-07-16, where a fresh session rendered `working (awaiting maintainer next-step
-    decision — Codex…)`, a reason written by a session that no longer existed. Left
+    session, a ``/clear``) inherits its predecessor's declaration — found live
+    2026-07-16, where a fresh session rendered ``working (awaiting maintainer next-step
+    decision — Codex…)``, a reason written by a session that no longer existed. Left
     alone, the dead reason also fires a false ``blocked:human`` alert the moment the
     session goes idle.
 
@@ -237,7 +238,7 @@ def void_stale_blocked(
     """
     if blocked is None or not generating:
         return blocked
-    if _latest_input_was_peer_injected(sup=sup, track=track):
+    if latest_input_was_peer_injected(sup=sup, track=track):
         return blocked
     state = signals.read_state(repo=track.repo, topic=track.topic)
     if state is None or state.token != signals.STATE_BLOCKED:
@@ -261,7 +262,7 @@ def void_stale_blocked(
     return f"voided: {reason}" if diagnostic_written else None
 
 
-def _latest_input_was_peer_injected(*, sup: Supervisor, track: registry.Track) -> bool:
+def latest_input_was_peer_injected(*, sup: Supervisor, track: registry.Track) -> bool:
     reader = getattr(sup.tmux, "input_provenance_status", None)
     if reader is None:
         return False
