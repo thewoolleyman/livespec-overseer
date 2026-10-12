@@ -5,6 +5,7 @@ backend="${OVERSEER_EXERCISE_BACKEND:?missing exercise backend}"
 instance="${OVERSEER_EXERCISE_INSTANCE:?missing exercise instance}"
 endpoint="${OVERSEER_EXERCISE_ENDPOINT:?missing exercise endpoint}"
 topic="${OVERSEER_EXERCISE_TOPIC:?missing exercise topic}"
+evidence="${OVERSEER_EXERCISE_EVIDENCE:?missing exercise evidence directory}"
 isolation_check="${OVERSEER_EXERCISE_ISOLATION_CHECK:-false}"
 backend_pid=""
 
@@ -20,10 +21,10 @@ cleanup_backend() {
   fi
   if ((cleanup_status == 0)); then
     printf 'format=livespec-overseer-live-exercise-v1\nbackend=%s\ninstance=%s\nstatus=passed\n' \
-      "$backend" "$instance" >"/evidence/backend-cleanup.env"
+      "$backend" "$instance" >"$evidence/backend-cleanup.env"
   else
     printf 'format=livespec-overseer-live-exercise-v1\nbackend=%s\ninstance=%s\nstatus=failed\n' \
-      "$backend" "$instance" >"/evidence/backend-cleanup.env"
+      "$backend" "$instance" >"$evidence/backend-cleanup.env"
   fi
   return "$cleanup_status"
 }
@@ -51,7 +52,7 @@ trap 'exit 143' TERM
 }
 
 if [[ "$backend" == herdr ]]; then
-  herdr --session "$instance" server >"/evidence/backend.log" 2>&1 &
+  herdr --session "$instance" server >"$evidence/backend.log" 2>&1 &
   backend_pid="$!"
   socket="$HOME/.config/herdr/sessions/$instance/herdr.sock"
   for _attempt in {1..200}; do
@@ -73,7 +74,7 @@ else
 fi
 
 printf 'format=livespec-overseer-live-exercise-v1\nbackend=%s\ninstance=%s\nendpoint=%s\npid=%s\nstatus=live\n' \
-  "$backend" "$instance" "$endpoint" "$backend_pid" >"/evidence/backend-runtime.env"
+  "$backend" "$instance" "$endpoint" "$backend_pid" >"$evidence/backend-runtime.env"
 
 if [[ "$isolation_check" == true ]]; then
   exit 0
