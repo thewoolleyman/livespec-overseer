@@ -28,6 +28,18 @@ class EvaluateTarget:
     pane: str
 
 
+def _unavailable_target(*, sup: Supervisor, track: registry.Track, session: str) -> RowView:
+    recovery = _supervisor_herdr_recovery.reconcile_bare_shell(
+        sup=sup,
+        track=track,
+        target=session,
+        act=False,
+    )
+    if recovery is not None:
+        return recovery
+    return _supervisor_offer.no_managed_pane_row(sup=sup, track=track, session=session)
+
+
 def resolve_evaluate_target(
     *, sup: Supervisor, track: registry.Track, act: bool
 ) -> RowView | EvaluateTarget:
@@ -43,7 +55,7 @@ def resolve_evaluate_target(
         # SSH shell), which the tmux-only daemon cannot capture, inject, or respawn.
         # Distinguish that live-but-unmanageable case from a genuinely gone track so
         # the operator is not falsely alarmed that finished-looking work was lost.
-        return _supervisor_offer.no_managed_pane_row(sup=sup, track=track, session=session)
+        return _unavailable_target(sup=sup, track=track, session=session)
 
     # Resolve the pane id ONCE and target every subsequent pane op by it (RB3).
     # A pane id is exact and never prefix/fnmatch-matched, so if the tracked
@@ -53,7 +65,7 @@ def resolve_evaluate_target(
     # `respawn-pane -k` killing it. Stable across respawn.
     target = sup.tmux.pane_id(session=session)
     if target is None:
-        return _supervisor_offer.no_managed_pane_row(sup=sup, track=track, session=session)
+        return _unavailable_target(sup=sup, track=track, session=session)
 
     recovery = _supervisor_herdr_recovery.reconcile_bare_shell(
         sup=sup,

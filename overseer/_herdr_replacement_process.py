@@ -108,9 +108,7 @@ def retained_shell_is_idle(
 ) -> bool:
     shell = cast(dict[str, object], transaction["shell"])
     return (
-        snapshot.shell.pid == shell["pid"]
-        and snapshot.shell.starttime == shell["starttime"]
-        and snapshot.shell.executable == shell["executable"]
+        process_record(process=snapshot.shell) == shell
         and snapshot.foreground_group == snapshot.shell.process_group
     )
 

@@ -197,7 +197,7 @@ def begin_herdr_replacement(
                 command=cast(str, launch_record["command"]),
                 env=cast(dict[str, str | None], launch_record["env"]),
             )
-    except OSError as exc:
+    except (OSError, TypeError, ValueError) as exc:
         reason = str(exc)
         return _refuse(sup=sup, track=track, target=target, reason=reason)
     return None

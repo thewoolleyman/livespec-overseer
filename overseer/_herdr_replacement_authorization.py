@@ -51,10 +51,20 @@ def bind_authorization(
         stamp_path=sup.stamp_path,
     )
     declared = signals.read_state(repo=track.repo, topic=track.topic)
-    identity = binding.predecessor_identity or cast(str, round_record.session_identity)
-    predecessor = _herdr_replacement_process.predecessor(snapshot=snapshot, identity=identity)
-    if declared is None:
+    round_identity = round_record.session_identity
+    if (
+        declared is None
+        or getattr(declared, "token", signals.STATE_READY) != signals.STATE_READY
+        or round_record.at is None
+        or getattr(round_record, "malformed_reason", None) is not None
+        or not isinstance(round_identity, str)
+        or not round_identity
+    ):
         return None, "ready declaration changed before durable binding"
+    predecessor_identity = binding.predecessor_identity or round_identity
+    predecessor = _herdr_replacement_process.predecessor(
+        snapshot=snapshot, identity=predecessor_identity
+    )
     if predecessor is None:
         return None, "predecessor process identity was reused or disappeared"
     if snapshot.shell.pid == predecessor.pid:
@@ -79,7 +89,7 @@ def bind_authorization(
         "round": {
             "ready_mtime": declared.mtime,
             "round_at": round_record.at,
-            "session_identity": identity,
+            "session_identity": round_identity,
         },
         "launch": {
             "command": launch.command,
@@ -104,12 +114,21 @@ def round_still_authorizes(
         topic=track.topic,
         stamp_path=sup.stamp_path,
     )
-    recorded = cast(dict[str, object], transaction["round"])
-    return all(
-        (
-            declared is not None,
-            None if declared is None else declared.mtime == recorded["ready_mtime"],
-            current.at == recorded["round_at"],
-            current.session_identity == recorded["session_identity"],
-        )
+    recorded_value = transaction.get("round")
+    if not isinstance(recorded_value, dict):
+        return False
+    recorded_round = cast(dict[str, object], recorded_value)
+    ready_mtime = recorded_round.get("ready_mtime")
+    round_at = recorded_round.get("round_at")
+    session_identity = recorded_round.get("session_identity")
+    return bool(
+        declared is not None
+        and declared.token == signals.STATE_READY
+        and declared.mtime == ready_mtime
+        and current.malformed_reason is None
+        and current.at is not None
+        and current.at == round_at
+        and isinstance(session_identity, str)
+        and bool(session_identity)
+        and current.session_identity == session_identity
     )

@@ -1301,14 +1301,18 @@ for the marker's edge-triggered lifecycle.
   `idle-with-context-left` and gets ONE keep-going nudge; anything else is plain
   `idle` (see invariant 9 for the marker lifecycle).
 - **Backend-specific replacement preserves the ready interlock.** Before the
-  ordinary managed-runtime target gate rejects a retained bare shell, evaluate
-  reconciles an exact Herdr transaction for that backend/pane. This seam is
-  transaction-only: no record, a malformed record, a changed server generation,
-  pane, shell, or foreign foreground process grants no launch or input authority,
-  and `act=False` reports without mutating or acting. The transaction is locked
-  and atomically persisted before effects, binding the server socket/generation,
-  pane, ready round/declaration, predecessor PID/start time/foreground group,
-  distinct retained shell executable/process identity, and exact launch profile.
+  ordinary session, pane, or managed-runtime target gate rejects a retained bare
+  shell, evaluate reconciles an exact Herdr transaction for that backend/pane.
+  This seam is transaction-only: no record, a scalar/partial/malformed record, a
+  changed server generation, pane, shell, or foreign foreground process grants no
+  launch or input authority, and `act=False` reports without mutating or acting.
+  An unavailable recorded server or pane still surfaces the partial transaction
+  through that read-only seam instead of collapsing it to `session-gone`. The
+  transaction is locked and atomically persisted before effects, binding the server
+  socket/generation, pane, ready round/declaration, predecessor PID/start
+  time/foreground group, distinct retained shell executable/process identity, and
+  exact launch profile. The complete versioned record shape is validated before a
+  phase is interpreted.
   Signal and launch intent are each durable before their effect. Revalidate the
   whole process/server interlock immediately before the one predecessor-group
   signal; never signal the retained shell or server. A surviving predecessor gets
