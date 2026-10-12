@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 import overseer._supervisor_restart as supervisor_restart
-from overseer import registry, signals, supervisor, tmuxio
+from overseer import _supervisor_prompts, registry, signals, supervisor, tmuxio
 from overseer.test_supervisor_builders import (
     busy_capture,
     declare,
@@ -474,8 +474,8 @@ def _legacy_wrapup_message(
         remaining=remaining, repo=repo, topic=topic, epic=epic, blocker=blocker
     )
     return current.replace(
-        "Declare done, and stop. The command that declares ready is your FINAL act:",
-        "Declare done, and stop:",
+        "Declare ready, and stop. The command that declares ready is your FINAL act:",
+        "Declare ready, and stop:",
     ).replace(
         "\n\nAfter `overseer-declare ready`, stop immediately.\n"
         "If this same conversation continues, no ordinary daemon restart happened.",
@@ -828,3 +828,26 @@ def test_ready_arm_max_age_expires_loudly_without_respawning(*, tmp_path: Path) 
         assert len(driver.respawns) == 0
     finally:
         _close_session(tmp_path=tmp_path)
+
+
+def test_the_wrapup_final_step_names_ready_not_the_done_token() -> None:
+    """Step 4 is the restart path, so it must say `ready`.
+
+    `done` is a real session-writable token meaning "do not restart me". A final step
+    reading "Declare done" invites a session to write that token and park forever
+    instead of restarting into a fresh context (found live, overseer-z3wl7e).
+    """
+    messages = [
+        builder(remaining=remaining, repo="/repo", topic="topic", epic="overseer-epic")
+        for builder in (
+            _supervisor_prompts.wrapup_message,
+            _supervisor_prompts.supervisor_wrapup_message,
+        )
+        for remaining in (40, 20)
+    ]
+
+    for message in messages:
+        assert "Declare done" not in message
+        assert (
+            "Declare ready, and stop. The command that declares ready is your FINAL act:" in message
+        )
