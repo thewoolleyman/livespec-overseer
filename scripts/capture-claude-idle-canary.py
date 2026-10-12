@@ -16,6 +16,7 @@ if str(_OVERSEER_DIR) not in sys.path:
     sys.path.insert(0, str(_OVERSEER_DIR))
 
 import signals  # noqa: E402
+from tmuxio import new_session_args  # noqa: E402
 
 __all__: list[str] = ["capture_is_ready", "main"]
 
@@ -65,14 +66,17 @@ def _start_canary_session(*, session: str) -> bool:
     completed = _run(
         argv=[
             "tmux",
-            "new-session",
-            "-d",
-            "-s",
-            session,
-            "claude",
-            "--dangerously-skip-permissions",
-            "-n",
-            _CANARY_TOPIC,
+            *new_session_args(
+                args=[
+                    "-d",
+                    "-s",
+                    session,
+                    "claude",
+                    "--dangerously-skip-permissions",
+                    "-n",
+                    _CANARY_TOPIC,
+                ]
+            ),
         ]
     )
     return completed.returncode == 0
