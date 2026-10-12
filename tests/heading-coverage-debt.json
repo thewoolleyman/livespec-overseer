@@ -156,6 +156,62 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A done declaration is valid and never restarts the session",
+    "work_item": "overseer-gzdk",
+    "first_seen": "2026-10-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A done declaration suppresses every wrap-up",
+    "work_item": "overseer-gzdk",
+    "first_seen": "2026-10-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A done declaration suppresses the keep-going nudge",
+    "work_item": "overseer-gzdk",
+    "first_seen": "2026-10-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A done declaration survives a background command",
+    "work_item": "overseer-gzdk",
+    "first_seen": "2026-10-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A done session handed new work clears its own declaration first",
+    "work_item": "overseer-gzdk",
+    "first_seen": "2026-10-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A done session that resumes generating has its declaration voided",
+    "work_item": "overseer-gzdk",
+    "first_seen": "2026-10-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A done track renders as a quiet row whether running or exited",
+    "work_item": "overseer-gzdk",
+    "first_seen": "2026-10-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A done worker does not trigger the pair-stall nudge",
+    "work_item": "overseer-gzdk",
+    "first_seen": "2026-10-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed store mutation leaves its attempted audit evidence",
     "work_item": "overseer-osb7as",
     "first_seen": "2026-09-12"
@@ -1045,6 +1101,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: Live gate evidence outranks a done declaration",
+    "work_item": "overseer-gzdk",
+    "first_seen": "2026-10-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: Malformed acquisition input starts no worker",
     "work_item": "overseer-psqcmg",
     "first_seen": "2026-09-12"
@@ -1535,6 +1598,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: The wrap-up names done as the finished-work declaration",
+    "work_item": "overseer-gzdk",
+    "first_seen": "2026-10-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: Tombstone-first close survives an assignment-removal crash",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
@@ -1594,5 +1664,12 @@
     "heading": "## LLM provider credential management",
     "work_item": "overseer-5tpc72",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## The terminal declaration",
+    "work_item": "overseer-gzdk",
+    "first_seen": "2026-10-12"
   }
 ]

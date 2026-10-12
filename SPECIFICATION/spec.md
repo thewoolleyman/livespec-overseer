@@ -64,8 +64,9 @@ prompt echo, cannot scroll off, and cannot line-wrap.
 The protocol uses ONE file holding ONE value — never a set of presence
 markers. Two presence-marker files carried a built-in ambiguity (nothing
 stopped both existing at once); a single file holding a single first line
-makes that state unrepresentable. There are exactly three values a session
-writes — `ready`, `blocked: <one-line reason>`, and `winding-down` — plus one
+makes that state unrepresentable. There are exactly four values a session
+writes — `ready`, `blocked: <one-line reason>`, `winding-down`, and `done`
+(optionally `done: <one-line summary>`, per §"The terminal declaration") — plus one
 value the daemon writes to itself (`idle-with-context-left`, per §"The
 keep-going nudge"). A malformed value is surfaced to the operator and treated
 as NO declaration at all — fail-closed, so a typo can never restart anything.
@@ -73,7 +74,7 @@ A session's one state file remains writable ONLY by that session and the
 daemon's single self-token.
 
 Declaring is mandatory once a wrap-up has been received: a session chooses
-WHICH value fits, but declining all three does not buy a reprieve — the track
+WHICH value fits, but declining all four does not buy a reprieve — the track
 is reported as not responding and sits untouched until a person intervenes.
 
 Pane text remains trusted ONLY for the busy / idle / gate signals. Ambiguous,
@@ -107,7 +108,7 @@ whose empty placeholder cannot be distinguished from typed text, requires its
 structural idle-input evidence — a live prompt and statusline with no generating
 marker or picker. The pane MUST NOT be generating, changing, sub-agent-busy,
 gated, runtime-reported as waiting on a human, or carrying `blocked:`, `ready`,
-or a fresh `winding-down`; a stale acknowledgement MAY resume escalation.
+`done`, or a fresh `winding-down`; a stale acknowledgement MAY resume escalation.
 Affirmatively recognized background-shell evidence alone does not prevent the
 round. The daemon re-checks every authorization input immediately before acting,
 records an injection stamp durably, then pastes the wrap-up while leaving the
@@ -165,7 +166,7 @@ identity — together, and MUST NOT touch any state file, MUST NOT keystroke
 the pane, and MUST NOT restart anything. The closure is guarded fail-closed
 against the round's own in-flight answer: it MUST NOT occur unless the
 track's state file is ABSENT — any session-written token (`ready`,
-`blocked`, `winding-down`), however stale, holds the round open, an
+`blocked`, `winding-down`, `done`), however stale, holds the round open, an
 unreadable or malformed state file holds the round open exactly as a
 declaration would, and only the daemon's own idle marker is treated as
 absence. It MUST NOT occur while the round's resume submission is pending,
@@ -180,7 +181,9 @@ certifies nothing, exactly as for a declaration on a track that was never in
 a round. One residual is accepted and surfaced rather than closed: a
 standing declaration that can neither certify nor expire holds its round
 open indefinitely, and such a track remains visible through the existing
-standing-declaration attention members.
+standing-declaration attention members — except a standing `done`, which
+holds its round open by design and renders the quiet `done` status rather
+than an attention member, per §"The terminal declaration".
 
 ## The escalating wrap-up
 
@@ -196,7 +199,9 @@ in one observation coalesce into a single message.
 Above 30% remaining the message is a suggestion to start wrapping up; at 30%
 and below it is an insistent demand to stop and wind down now. Every wrap-up
 MUST tell the session, concretely: its current remaining-context percentage;
-the exact state-file path and the three values it may write; that the plan's
+the exact state-file path and the four values it may write, naming `done` as
+the declaration to write when its work is finished and it wants nothing
+further; that the plan's
 ledger-held state is the successor session's durable read-first source, so
 drifted resume state belongs in an appended ledger entry, never withheld;
 and the truth that it will be restarted ONLY when it declares `ready`.
@@ -224,7 +229,7 @@ for a live one.
 When a `ready` declaration expires inside a DELIVERED round, the daemon MUST
 send the session one EXPIRY-NOTICE: a message stating that its ready
 declaration expired without a verified settled-idle observation, restating the
-exact state-file path and the three values it may write, and restating that a
+exact state-file path and the four values it may write, and restating that a
 restart requires a fresh ready. The expiry-notice is subject to the complete
 guarded-paste predicate that governs a wrap-up, with one difference: its
 trigger is the expiry itself, not the below-threshold context trigger, so it
@@ -496,7 +501,8 @@ in prose.
 One further nudge exists, and it is aimed at the PAIR. When a worker and its
 supervisor have BOTH shown no observable progress continuously past a
 bounded floor, and NEITHER presents a human wait — no structured gate, no
-runtime report of waiting on a human, no standing `blocked:` — and the
+runtime report of waiting on a human, no standing `blocked:`, and no standing
+`done` — and the
 supervisor has no open round and no fresh wind-down acknowledgement, the
 daemon MUST paste ONE nudge into the SUPERVISOR, because the supervisor owns
 direction for the pair. The message MUST name the stall and its duration,
@@ -513,7 +519,8 @@ suppresses detection.
 
 Keystroke-bearing informational pastes share one safety floor: a paste MUST
 remain suppressed while its target is generating, changing, gated,
-runtime-reported as waiting on a human, sub-agent-busy, blocked by declaration,
+runtime-reported as waiting on a human, sub-agent-busy, blocked or done by
+declaration,
 or missing the input evidence that act requires. Background-shell evidence
 alone does not suppress an otherwise qualified informational paste. Exactly
 five acts apply that rule: the low-context wrap-up for any supervised
@@ -572,7 +579,7 @@ one complete independent predicate:
   session. That identity gate holds upstream in the evaluation precedence
   rather than inside this act.
 - The daemon's DERIVED row status for the track is `blocked:human`. That is the
-  daemon's own classification, NOT one of the three values a session may write,
+  daemon's own classification, NOT one of the four values a session may write,
   per §"Out-of-band state declaration"; the daemon reaches it from several
   distinct kinds of evidence and this section does not enumerate them. In every
   state where THIS act can fire, the classification is reached from live gate
@@ -665,6 +672,71 @@ this rule clears has actually gone absent, and the two rules are
 neighbors, not the same rule: the recovered-round closure is what the
 daemon does once no declaration stands in the way, and this rule is what
 the SESSION itself must do while one still does.
+
+## The terminal declaration
+
+A session whose work is COMPLETE — its plan finished, archived, or otherwise
+ended, and nothing further wanted from it — MUST be able to say so honestly.
+It does so by writing `done` (optionally `done: <one-line summary>`) to its own
+state file. `done` means: my work is complete, I want nothing further, do not
+restart me. It is the terminal declaration, and the daemon MUST honour it as a
+valid session declaration, never as a malformed one. It exists because none of
+the other three values says this truthfully: `ready` authorizes a restart
+nobody wants, `blocked:` asks a human for something, and `winding-down` is an
+acknowledgement that goes stale.
+
+A standing `done` declaration MUST NOT authorize a restart under any
+circumstances: it is not `ready`, it can never certify against a round, and it
+never raises or lowers a certification floor. The daemon MUST NOT restart a
+track holding `done`, however low its remaining context falls and however long
+it stays idle.
+
+While `done` stands, the daemon MUST NOT paste a wrap-up to that track at any
+escalation band, whatever made that band due — MUST NOT
+send it the keep-going nudge, and MUST NOT report it as not responding. Unlike
+`winding-down`, `done` has no freshness window: it does not go stale with age,
+and no amount of time alone resumes the escalation.
+
+A track holding `done` MUST NOT be an attention member through any REPORT-ONLY
+member of §"Fail-soft posture" — the low-context shield, the busy-shield
+no-progress member, the stale-context-knowledge member, the standing
+declaration that cannot certify, and the declaration standing on a track never
+in a round — nor through the non-responding, escalation-exhausted, or gone
+session members: its inability to certify, and its silence, are its meaning,
+not a dead end. Every OTHER member still applies regardless of `done`: a
+malformed or path-aliased state value, a restart whose resume has not yet
+submitted, a wait-inventory mismatch, and live gate evidence. A path-aliased
+`done` is not a `done` declaration at all; it is treated as no declaration and
+surfaced, exactly as any other aliased value.
+
+`done` is voided by exactly the evidence that voids a `blocked:` declaration
+and by nothing else: the session observed actively GENERATING — not merely
+running a background command at its prompt — past the same two-minute grace
+measured from the declaration's own modification time, where the latest pane
+input was not injected by a peer. Generating is incompatible with having
+finished; it means the session was handed more work. The void clears the
+DECLARATION ONLY: the daemon MUST delete the state file, and MUST NOT raise a certification floor, delete the round's
+durable record, reset its notified bands, or otherwise close the round. After
+a void the track is supervised exactly as an undeclared track is, so a resumed
+session at or below its wind-down threshold receives the ordinary wrap-up.
+
+A session that is handed new work after declaring `done` MUST clear its own
+`done` declaration — by deleting or overwriting its own state file — BEFORE
+resuming that work, so no window exists in which it is working while still
+asserting it wants nothing. The daemon-side void is the backstop for a session
+that does not.
+
+Live gate evidence still outranks `done`: a session showing an open
+structured picker is waiting on a human whatever it declared, and MUST be
+surfaced as such.
+
+The operator surface MUST render a track holding `done` as a QUIET row — a
+distinct `done` status that is NOT an attention member, does not count toward
+the attention badge, and is never rendered as broken — both while its session
+is still running and after its session has exited. An exited session holding
+`done` MUST NOT be reported as a gone session; its row MUST say the session
+has exited. A `done` declaration standing on a track whose session has exited
+is an orderly ending.
 
 ## The watch-set declaration
 
