@@ -1,5 +1,30 @@
 # Changelog
 
+## [5.25.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.24.0...v5.25.0) (2026-10-12)
+
+
+### Features
+
+* bind herdr replacement before termination ([3e0a594](https://github.com/thewoolleyman/livespec-overseer/commit/3e0a594ea57af4bb210aa83ff0ea94d8dccb55c5))
+* expose native herdr replacement operations ([bef5bc1](https://github.com/thewoolleyman/livespec-overseer/commit/bef5bc1eb0e02eb2bf5f38b4a21e8da9740a87f1))
+* fence herdr successor launch ([5e339b4](https://github.com/thewoolleyman/livespec-overseer/commit/5e339b4cd07944b00275b0f015b84760f33817f1))
+* prove exact herdr successor before resume ([57ae2b4](https://github.com/thewoolleyman/livespec-overseer/commit/57ae2b492b4f90aee638984a5c446655874421a2))
+* recover never-attempted herdr launch ([b2d98d9](https://github.com/thewoolleyman/livespec-overseer/commit/b2d98d9dfae36797a311c2583b92f61de2bff919))
+
+
+### Bug Fixes
+
+* document fresh codex replacement route ([69ee990](https://github.com/thewoolleyman/livespec-overseer/commit/69ee990765fc1186ff0b5479fd79123a3f2da6ec))
+* fence completed herdr cleanup ([6512976](https://github.com/thewoolleyman/livespec-overseer/commit/65129764fa5f839c49a7526123450afe0656b436))
+* fence herdr termination to one signal ([45b0af4](https://github.com/thewoolleyman/livespec-overseer/commit/45b0af47188245b3dfdb7e6ccf5a28ad8f732068))
+* land overseer-fatiq3 review-fix round recovered from factory run 01M4PC5V6PQ3 ([7a023d4](https://github.com/thewoolleyman/livespec-overseer/commit/7a023d42f3a93e7dcfefb850b1826f549653dba3))
+* prove predecessor gone after initial herdr signal ([8a4d090](https://github.com/thewoolleyman/livespec-overseer/commit/8a4d090deb40546f6b45972d4d00f2754e600c91))
+* prove predecessor gone before herdr recovery launch ([ba62dc4](https://github.com/thewoolleyman/livespec-overseer/commit/ba62dc40c873b20f98a6b727654895c00cade855))
+* refuse unsafe herdr replacement prerequisites ([afbf661](https://github.com/thewoolleyman/livespec-overseer/commit/afbf661180fb162ddac942c01b9038c54b01e41c))
+* refuse unusable herdr transactions ([fcfb795](https://github.com/thewoolleyman/livespec-overseer/commit/fcfb79552ace2a4156d3422f4559c51025d064dc))
+* retry exact pending herdr resume ([e0ec715](https://github.com/thewoolleyman/livespec-overseer/commit/e0ec715707bab1cf9a1c37133f0e1d7c19d38bb5))
+* reverify herdr termination boundary ([aec09fe](https://github.com/thewoolleyman/livespec-overseer/commit/aec09fe6bbc8a0fa3bd689f3bc4a252965e082ad))
+
 ## [5.24.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.23.0...v5.24.0) (2026-10-12)
 
 
