@@ -165,8 +165,18 @@ def _refuse_operator_herdr(*, monkeypatch: pytest.MonkeyPatch) -> Iterator[list[
     monkeypatch.setattr(socket.socket, "connect", _connect)
     monkeypatch.setattr(subprocess.Popen, "__init__", _popen_init)
     yield violations
+    _fail_on_operator_herdr_touch(violations=violations)
+
+
+def _fail_on_operator_herdr_touch(*, violations: list[str]) -> None:
     if violations:
         pytest.fail("; ".join(violations), pytrace=False)
+
+
+@pytest.fixture(name="fail_on_operator_herdr_touch")
+def _fail_on_operator_herdr_touch_fixture() -> Callable[..., None]:
+    """The teardown verdict itself, so its failing branch can be pinned directly."""
+    return _fail_on_operator_herdr_touch
 
 
 @dataclass(frozen=True, kw_only=True)

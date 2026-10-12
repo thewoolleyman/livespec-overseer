@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 import socket
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -100,3 +101,13 @@ def test_unrelated_unix_sockets_still_connect(
 def test_ambient_herdr_selectors_are_scrubbed_inside_a_test() -> None:
     assert terminal_probes.HERDR_SOCKET_ENV not in os.environ
     assert terminal_probes.default_herdr_socket() != _operator_default_socket()
+
+
+def test_a_recorded_touch_fails_the_test_even_if_product_code_swallowed_it(
+    *, fail_on_operator_herdr_touch: Callable[..., None]
+) -> None:
+    with pytest.raises(pytest.fail.Exception, match="operator's live herdr socket"):
+        fail_on_operator_herdr_touch(
+            violations=["test tried to connect to the operator's live herdr socket 'x'"]
+        )
+    fail_on_operator_herdr_touch(violations=[])
