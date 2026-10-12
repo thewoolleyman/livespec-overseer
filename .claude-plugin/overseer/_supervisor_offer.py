@@ -363,6 +363,15 @@ def no_managed_pane_row(*, sup: Supervisor, track: registry.Track, session: str)
             note=note,
         )
     declared = signals.read_state(repo=repo, topic=topic)
+    if declared is not None and declared.token == signals.STATE_DONE:
+        return RowView(
+            topic=topic,
+            repo=repo,
+            tmux=None,
+            ctx=None,
+            status=signals.STATE_DONE,
+            note="declared done; its session has exited",
+        )
     if declared is not None and declared.token == signals.STATE_WINDING_DOWN:
         # `overseer-mkx`. The session ANNOUNCED it was wrapping up and is now gone —
         # an orderly teardown, not a loss. Reporting it as `session-gone` (the only

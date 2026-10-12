@@ -5,7 +5,8 @@ from __future__ import annotations
 import importlib
 import io as _io
 
-from overseer import _supervisor_config, registry, signals, supervisor
+from overseer import _supervisor_config, _supervisor_pair_stall, registry, signals, supervisor
+from overseer._supervisor_view import RowView, row_color
 from overseer.test_supervisor_builders import (
     FakeTmux,
     busy_capture,
@@ -14,6 +15,7 @@ from overseer.test_supervisor_builders import (
     make_plan,
     make_supervisor,
     mapped_track,
+    write_fresh_supervisor_state,
 )
 
 __all__: list[str] = []
@@ -176,3 +178,91 @@ def test_done_is_not_voided_by_age_idle_or_peer_injected_generation(*, tmp_path)
         assert view.status == "done"
         state = signals.read_state(repo=str(repo), topic=topic)
         assert state is not None and state.token == signals.STATE_DONE
+
+
+def test_scenario_a_done_track_renders_as_a_quiet_row_whether_running_or_exited(
+    *, tmp_path
+) -> None:
+    repo, topic = make_plan(tmp_path=tmp_path, repo_name="quiet-row")
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    live_tmux = FakeTmux()
+    live_tmux.serve(session=session, repo=repo, capture=idle_capture(ctx=72))
+    declare(repo=repo, topic=topic, value="done: release complete")
+
+    live = make_supervisor(tmp_path=tmp_path / "live", fake=live_tmux).evaluate(
+        track=mapped_track(repo=repo, topic=topic, session=session), act=True
+    )
+    exited = make_supervisor(tmp_path=tmp_path / "exited", fake=FakeTmux()).evaluate(
+        track=mapped_track(repo=repo, topic=topic, session=session), act=True
+    )
+
+    for row in (live, exited):
+        assert row.status == signals.STATE_DONE
+        assert supervisor.needs_attention(row=row) is False
+        assert row_color(status=row.status) == "\x1b[32m"
+    assert exited.tmux is None
+    assert exited.note is not None and "session has exited" in exited.note
+
+
+def test_scenario_live_gate_evidence_outranks_a_done_declaration(*, tmp_path) -> None:
+    repo, topic = make_plan(tmp_path=tmp_path, repo_name="done-gate")
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(
+        session=session,
+        repo=repo,
+        capture="Choose the next action\n❯ 1. Publish\n  2. Wait\n  Ctx: 72% left\n",
+    )
+    declare(repo=repo, topic=topic, value="done")
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+
+    row = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert row.status == "blocked:human"
+    assert supervisor.needs_attention(row=row) is True
+
+
+def test_scenario_a_done_worker_does_not_trigger_the_pair_stall_nudge(*, tmp_path) -> None:
+    repo, topic = make_plan(tmp_path=tmp_path, repo_name="done-pair")
+    worker_session = registry.tmux_id(repo=str(repo), topic=topic)
+    supervisor_session = signals.supervisor_entity_topic(topic=worker_session)
+    fake = FakeTmux()
+    fake.serve(session=supervisor_session, repo=repo, capture=idle_capture(ctx=77))
+    clock = {"t": 1000.0}
+    sup = make_supervisor(
+        tmp_path=tmp_path,
+        fake=fake,
+        watch_repos=[str(repo)],
+        now=lambda: clock["t"],
+    )
+    write_fresh_supervisor_state(repo=repo, topic=supervisor_session)
+    track = mapped_track(repo=repo, topic=topic, session=worker_session)
+    worker = RowView(
+        topic=topic,
+        repo=str(repo),
+        tmux=worker_session,
+        ctx=72,
+        status=signals.STATE_DONE,
+        runtime="claude",
+    )
+    pair_supervisor = RowView(
+        topic=supervisor_session,
+        repo=str(repo),
+        tmux=supervisor_session,
+        ctx=77,
+        status="idle",
+        runtime="claude",
+    )
+
+    for _ in range(2):
+        _supervisor_pair_stall.evaluate_pair_stall(
+            sup=sup,
+            track=track,
+            worker_view=worker,
+            supervisor_view=pair_supervisor,
+            act=True,
+        )
+        clock["t"] += _supervisor_config.PAIR_STALL_AFTER + 1
+
+    assert fake.paste_texts() == []
+    assert sup.pair_stalls[(registry.norm(repo=str(repo)), topic)].since is None

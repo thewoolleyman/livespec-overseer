@@ -78,6 +78,8 @@ def _new_pair_state() -> PairStallState:
 
 
 def _pair_stalled_now(*, worker_view: RowView, supervisor_view: RowView) -> bool:
+    if worker_view.status == signals.STATE_DONE:
+        return False
     return not (
         worker_view.progress_now
         or supervisor_view.progress_now
