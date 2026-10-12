@@ -137,11 +137,7 @@ class ObservationSanitizer:
 
     def _safe_end(self, *, text: str) -> int:
         known_values = frozenset(self.token_handles.values())
-        token_tails = (
-            match.group()
-            for match in _TOKEN_AT_END.finditer(text)
-            if match.group() not in known_values
-        )
+        token_tails = (match.group() for match in _TOKEN_AT_END.finditer(text))
         marker_tails = (match.group() for match in _REDACTED_TOKEN_MARKER_AT_END.finditer(text))
         protected_prefixes = (
             prefix
