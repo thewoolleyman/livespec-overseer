@@ -18,8 +18,13 @@ __all__: list[str] = [
 _ANTHROPIC_OAT_MARKER = "sk-ant-oat01-"
 _TOKEN = re.compile(r"sk-ant-oat01-[A-Za-z0-9_-]+")
 _TOKEN_AT_END = re.compile(r"sk-ant-oat01-[A-Za-z0-9_-]*\Z")
+_REDACTED_TOKEN_MARKER = re.compile(r"\[\[redacted-token:[^\[\]\r\n]+\]\]")
+_REDACTED_TOKEN_MARKER_AT_END = re.compile(r"\[\[redacted-token:[^\]\r\n]*\]?\Z")
 _TOKEN_PREFIXES = tuple(
     _ANTHROPIC_OAT_MARKER[:length] for length in range(1, len(_ANTHROPIC_OAT_MARKER) + 1)
+)
+_REDACTED_TOKEN_MARKER_PREFIXES = tuple(
+    "[[redacted-token:"[:length] for length in range(1, len("[[redacted-token:") + 1)
 )
 
 
@@ -137,6 +142,7 @@ class ObservationSanitizer:
             for match in _TOKEN_AT_END.finditer(text)
             if match.group() not in known_values
         )
+        marker_tails = (match.group() for match in _REDACTED_TOKEN_MARKER_AT_END.finditer(text))
         protected_prefixes = (
             prefix
             for value in (*known_values, *self.sensitive_values)
@@ -145,7 +151,13 @@ class ObservationSanitizer:
         )
         ambiguous_lengths = [
             len(suffix)
-            for suffix in (*_TOKEN_PREFIXES, *token_tails, *protected_prefixes)
+            for suffix in (
+                *_TOKEN_PREFIXES,
+                *_REDACTED_TOKEN_MARKER_PREFIXES,
+                *token_tails,
+                *marker_tails,
+                *protected_prefixes,
+            )
             if text.endswith(suffix)
         ]
         return len(text) - max(ambiguous_lengths, default=0)
@@ -164,6 +176,8 @@ class ObservationSanitizer:
             replacements[value] = f"[[redacted-token:{handle}]]"
         for value in self.sensitive_values:
             _ = replacements.setdefault(value, "[[redacted-sensitive]]")
+        for marker in frozenset(_REDACTED_TOKEN_MARKER.findall(text)):
+            replacements[marker] = "<redacted-untrusted-marker>"
         ordered_values = sorted(replacements, key=len, reverse=True)
         pattern = re.compile("|".join([*(re.escape(value) for value in ordered_values), r"(?!)"]))
         return pattern.sub(lambda match: replacements[match.group()], text)
