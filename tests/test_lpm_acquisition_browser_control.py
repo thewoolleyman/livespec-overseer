@@ -15,9 +15,42 @@ class _Performer:
         self.actions.append((tool, arguments))
         if tool == "observe-browser":
             return {"version": 1, "status": "ok", "state_fingerprint": "browser-2"}
-        if tool == "observe-terminal":
-            return {"version": 1, "status": "ok", "terminal_digest": "terminal-2"}
         return {"version": 1, "status": "ok"}
+
+
+class _RefusingPerformer:
+    def __init__(self, *, refused: bool) -> None:
+        self.refused = refused
+        self.actions: list[tuple[str, dict[str, object]]] = []
+
+    def __call__(self, *, tool: str, arguments: dict[str, object]) -> dict[str, object]:
+        self.actions.append((tool, arguments))
+        status = "refused" if self.refused else "ok"
+        return {"version": 1, "status": status}
+
+
+class _ObservationPerformer:
+    def __init__(self, *, observations: ModuleType) -> None:
+        self.observations = observations
+        self.sanitizer = observations.ObservationSanitizer(
+            token_handles={},
+            sensitive_values=frozenset(),
+            new_token_handle=lambda *, value: "terminal:123e4567-e89b-12d3-a456-426614174000",
+        )
+
+    def __call__(self, *, tool: str, arguments: dict[str, object]) -> object:
+        if tool == "observe-terminal":
+            return self.sanitizer.terminal_observation(
+                running=True,
+                exit_status=None,
+                stdout="terminal-state-one",
+                stderr="",
+            )
+        return self.observations.ObservationOutcome(
+            response={"version": 1, "status": "ok"},
+            fingerprint=None,
+            stop_reason=None,
+        )
 
 
 def _assert_malformed_frames(*, control: ModuleType, performed: _Performer) -> None:
@@ -120,11 +153,73 @@ def _assert_repetition_guard(*, control: ModuleType, performed: _Performer) -> N
     assert observed_change.response["state_fingerprint"] == "browser-2"
     reset = boundary.dispatch(frame=mutation)
     assert reset.response == {"version": 1, "status": "ok"}
-    terminal_change = boundary.dispatch(
-        frame=control.frame_for(tool="observe-terminal", arguments={})
+    assert boundary.consumed_steps == 7
+
+
+def _assert_action_refusals_do_not_change_repetition(*, control: ModuleType) -> None:
+    mutation = control.frame_for(
+        tool="navigate-browser", arguments={"url": "https://claude.com/settings"}
     )
-    assert terminal_change.response["terminal_digest"] == "terminal-2"
-    assert boundary.consumed_steps == 8
+    refused_then_allowed = _RefusingPerformer(refused=True)
+    boundary = control.BrowserControl(
+        step_limit=10,
+        allowed_origins=frozenset({"https://claude.com"}),
+        tainted_values=frozenset(),
+        perform=refused_then_allowed,
+    )
+    for _ in range(3):
+        refused = boundary.dispatch(frame=mutation)
+        assert refused.response == {"version": 1, "status": "refused"}
+        assert refused.stop_reason is None
+    refused_then_allowed.refused = False
+    assert boundary.dispatch(frame=mutation).response == {"version": 1, "status": "ok"}
+
+    allowed_then_refused = _RefusingPerformer(refused=False)
+    established = control.BrowserControl(
+        step_limit=10,
+        allowed_origins=frozenset({"https://claude.com"}),
+        tainted_values=frozenset(),
+        perform=allowed_then_refused,
+    )
+    for _ in range(3):
+        assert established.dispatch(frame=mutation).response == {"version": 1, "status": "ok"}
+    allowed_then_refused.refused = True
+    refused_other = established.dispatch(
+        frame=control.frame_for(tool="click-browser", arguments={"element_handle": "element:1"})
+    )
+    assert refused_other.response == {"version": 1, "status": "refused"}
+    allowed_then_refused.refused = False
+    still_repeated = established.dispatch(frame=mutation)
+    assert still_repeated.response == {"version": 1, "status": "refused"}
+    assert still_repeated.stop_reason == "step-limit"
+
+
+def _assert_private_terminal_fingerprint_resets_repetition(
+    *, control: ModuleType, observations: ModuleType
+) -> None:
+    mutation = control.frame_for(
+        tool="navigate-browser", arguments={"url": "https://claude.com/settings"}
+    )
+    boundary = control.BrowserControl(
+        step_limit=10,
+        allowed_origins=frozenset({"https://claude.com"}),
+        tainted_values=frozenset(),
+        perform=_ObservationPerformer(observations=observations),
+    )
+    for _ in range(3):
+        assert boundary.dispatch(frame=mutation).response == {"version": 1, "status": "ok"}
+
+    observed = boundary.dispatch(frame=control.frame_for(tool="observe-terminal", arguments={}))
+    assert set(observed.response) == {
+        "version",
+        "status",
+        "running",
+        "exit_status",
+        "stdout",
+        "stderr",
+    }
+    assert "terminal_digest" not in observed.response
+    assert boundary.dispatch(frame=mutation).response == {"version": 1, "status": "ok"}
 
 
 def _assert_cumulative_limit(*, control: ModuleType, performed: _Performer) -> None:
@@ -150,9 +245,14 @@ def test_browser_control_validates_before_action_and_enforces_every_bound() -> N
     module_path = Path(__file__).parents[1] / "overseer" / "_lpm_browser_control.py"
     assert module_path.is_file(), "the private browser-control boundary must be implemented"
     control = importlib.import_module("_lpm_browser_control")
+    observations = importlib.import_module("_lpm_observations")
     performed = _Performer()
 
     _assert_malformed_frames(control=control, performed=performed)
     _assert_semantic_refusals(control=control, performed=performed)
     _assert_repetition_guard(control=control, performed=performed)
+    _assert_action_refusals_do_not_change_repetition(control=control)
+    _assert_private_terminal_fingerprint_resets_repetition(
+        control=control, observations=observations
+    )
     _assert_cumulative_limit(control=control, performed=performed)

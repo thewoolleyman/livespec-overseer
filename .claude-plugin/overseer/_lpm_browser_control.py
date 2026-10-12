@@ -11,6 +11,7 @@ from _lpm_browser_requests import (
     frame_for,
 )
 from _lpm_canonical import canonical_json_text
+from _lpm_observations import ObservationOutcome
 
 __all__: list[str] = [
     "BrowserControl",
@@ -39,7 +40,9 @@ _MUTATIONS: Final = frozenset(
 
 
 class ActionPerformer(Protocol):
-    def __call__(self, *, tool: str, arguments: dict[str, object]) -> dict[str, object]:
+    def __call__(
+        self, *, tool: str, arguments: dict[str, object]
+    ) -> dict[str, object] | ObservationOutcome:
         """Perform one already-validated private action."""
         ...
 
@@ -63,7 +66,7 @@ class BrowserControl:
     perform: ActionPerformer
     consumed_steps: int = field(default=0, init=False)
     browser_fingerprint: str | None = field(default=None, init=False)
-    terminal_digest: str | None = field(default=None, init=False)
+    terminal_fingerprint: str | None = field(default=None, init=False)
     _repeat_key: tuple[str, str | None, str | None] | None = field(
         default=None, init=False, repr=False
     )
@@ -86,15 +89,27 @@ class BrowserControl:
         identity = canonical_json_text(
             value={"tool": request.tool, "arguments": request.arguments}
         ).unwrap()
-        candidate = (identity, self.browser_fingerprint, self.terminal_digest)
+        candidate = (identity, self.browser_fingerprint, self.terminal_fingerprint)
         next_count = self._repeat_count + 1 if candidate == self._repeat_key else 1
         if request.tool in _MUTATIONS and next_count > _MAX_REPETITION:
             return _stopped_refusal()
-        response = self.perform(tool=request.tool, arguments=request.arguments)
+        performed = self.perform(tool=request.tool, arguments=request.arguments)
+        if isinstance(performed, ObservationOutcome):
+            response = performed.response
+            observed_fingerprint = performed.fingerprint
+        else:
+            response = performed
+            observed_fingerprint = None
+        if response.get("status") == "refused":
+            return ControlOutcome(response=response, close_channel=False, stop_reason=None)
         if request.tool in _MUTATIONS:
             self._repeat_key = candidate
             self._repeat_count = next_count
-        self._accept_observed_state(tool=request.tool, response=response)
+        self._accept_observed_state(
+            tool=request.tool,
+            response=response,
+            observed_fingerprint=observed_fingerprint,
+        )
         return ControlOutcome(
             response=response,
             close_channel=False,
@@ -103,15 +118,16 @@ class BrowserControl:
             ),
         )
 
-    def _accept_observed_state(self, *, tool: str, response: dict[str, object]) -> None:
-        before = (self.browser_fingerprint, self.terminal_digest)
+    def _accept_observed_state(
+        self, *, tool: str, response: dict[str, object], observed_fingerprint: str | None
+    ) -> None:
+        before = (self.browser_fingerprint, self.terminal_fingerprint)
         browser = response.get("state_fingerprint")
-        terminal = response.get("terminal_digest")
         if tool == "observe-browser" and isinstance(browser, str) and browser:
             self.browser_fingerprint = browser
-        if tool == "observe-terminal" and isinstance(terminal, str) and terminal:
-            self.terminal_digest = terminal
-        if before != (self.browser_fingerprint, self.terminal_digest):
+        if tool == "observe-terminal" and observed_fingerprint:
+            self.terminal_fingerprint = observed_fingerprint
+        if before != (self.browser_fingerprint, self.terminal_fingerprint):
             self._repeat_key = None
             self._repeat_count = 0
 
