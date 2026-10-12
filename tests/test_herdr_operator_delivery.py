@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import Protocol, cast
 
@@ -134,3 +137,25 @@ def test_lifecycle_evidence_never_calls_an_incomplete_or_failed_run_successful(
     evidence.write_text("\n" + "\n".join(complete) + "\n", encoding="utf-8")
     assert verifier.main(argv=[str(evidence)]) == 0
     assert "COMPLETE lifecycle: all required stages passed" in capsys.readouterr().out
+
+
+def test_checked_in_evidence_verifier_runs_from_outside_the_checkout(tmp_path: Path) -> None:
+    evidence = tmp_path / "missing-lifecycle.jsonl"
+    child_env = {
+        key: value
+        for key, value in os.environ.items()
+        if key != "COVERAGE_PROCESS_START" and not key.startswith("COV_CORE_")
+    }
+
+    completed = subprocess.run(  # noqa: S603 -- fixed interpreter and repo-owned script.
+        [sys.executable, "-I", "-S", str(EVIDENCE_VERIFIER), str(evidence)],
+        cwd=tmp_path,
+        env=child_env,
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+
+    assert completed.returncode == 1
+    assert completed.stdout == ""
+    assert completed.stderr == f"INCOMPLETE lifecycle: evidence file is missing: {evidence}\n"
