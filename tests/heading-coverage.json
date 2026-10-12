@@ -2787,5 +2787,93 @@
     "test": "TODO",
     "reason": "A real integration-tier test is owed.",
     "work_item": "overseer-okf6bu"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## The terminal declaration",
+    "test": "TODO",
+    "work_item": "overseer-gzdk",
+    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A done declaration is valid and never restarts the session",
+    "test": "TODO",
+    "work_item": "overseer-gzdk",
+    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A done declaration suppresses every wrap-up",
+    "test": "TODO",
+    "work_item": "overseer-gzdk",
+    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A done declaration suppresses the keep-going nudge",
+    "test": "TODO",
+    "work_item": "overseer-gzdk",
+    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A done session that resumes generating has its declaration voided",
+    "test": "TODO",
+    "work_item": "overseer-gzdk",
+    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A done declaration survives a background command",
+    "test": "TODO",
+    "work_item": "overseer-gzdk",
+    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A done track renders as a quiet row whether running or exited",
+    "test": "TODO",
+    "work_item": "overseer-gzdk",
+    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Live gate evidence outranks a done declaration",
+    "test": "TODO",
+    "work_item": "overseer-gzdk",
+    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A done session handed new work clears its own declaration first",
+    "test": "TODO",
+    "work_item": "overseer-gzdk",
+    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A done worker does not trigger the pair-stall nudge",
+    "test": "TODO",
+    "work_item": "overseer-gzdk",
+    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The wrap-up names done as the finished-work declaration",
+    "test": "TODO",
+    "work_item": "overseer-gzdk",
+    "reason": "A real integration-tier test is owed for this heading; work-item overseer-gzdk (the terminal done token implementation) owns landing that test."
   }
 ]

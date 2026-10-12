@@ -19,7 +19,7 @@ Then it durably records an injection stamp before touching the pane
 
 And pastes the escalating wrap-up message as one atomic paste
 
-And the message names the state-file path, the three writable values, and the ledger-held plan state
+And the message names the state-file path, the four writable values, and the ledger-held plan state
 
 ## Scenario: A Claude background shell does not block a guarded wrap-up
 
@@ -83,7 +83,7 @@ Given a low-context pane whose only recognized busy evidence is a background she
 
 When it shows a gate or human wait
 
-Or carries blocked or ready or a fresh winding-down acknowledgement
+Or carries blocked or ready or done or a fresh winding-down acknowledgement
 
 Or has unknown or conflicting runtime evidence
 
@@ -146,6 +146,102 @@ When the daemon observes the track still below threshold
 Then the escalation resumes and the track is re-reported to the operator
 
 And the daemon still takes no action against the session
+
+## Scenario: A done declaration is valid and never restarts the session
+
+Given a session that wrote `done` to its state file, and whose remaining context is at or below the danger line
+
+When the daemon observes the track settled and idle for any length of time
+
+Then the declaration is not surfaced as malformed
+
+And the daemon never restarts the session
+
+## Scenario: A done declaration suppresses every wrap-up
+
+Given a track holding `done` whose remaining context has crossed its threshold and every lower band, or whose round has any band due for any reason
+
+When the daemon observes the track settled and idle
+
+Then no wrap-up is pasted
+
+And the track is not reported as not responding
+
+## Scenario: A done declaration suppresses the keep-going nudge
+
+Given a track holding `done` that has been idle above its threshold for longer than the nudge floor
+
+When the daemon observes the track
+
+Then no keep-going nudge is sent
+
+## Scenario: A done session that resumes generating has its declaration voided
+
+Given a track holding a `done` declaration older than the two-minute grace
+
+When the daemon observes the session actively generating on input that was not peer-injected
+
+Then the declaration is voided without raising a certification floor or closing the round
+
+And its state file is deleted
+
+And the track is thereafter supervised as an undeclared track
+
+## Scenario: A done declaration survives a background command
+
+Given a track holding a `done` declaration older than the two-minute grace
+
+When the daemon observes the session merely running a background command at its prompt
+
+Then the declaration stands
+
+## Scenario: A done track renders as a quiet row whether running or exited
+
+Given one track holding `done` whose session is running and another holding `done` whose session has exited
+
+When the daemon renders its table
+
+Then both render the quiet `done` status outside NEEDS YOU and the attention badge
+
+And neither is reported as a gone session
+
+And the exited track's row says its session has exited
+
+## Scenario: Live gate evidence outranks a done declaration
+
+Given a track holding `done` whose pane shows an open structured picker
+
+When the daemon renders its table
+
+Then the track is a blocked attention member
+
+And it is not rendered as the quiet `done` row
+
+## Scenario: A done session handed new work clears its own declaration first
+
+Given a session holding `done` in its own state file
+
+When it is handed new work
+
+Then it deletes or overwrites its own state file before doing any of that work
+
+## Scenario: A done worker does not trigger the pair-stall nudge
+
+Given a worker holding `done` and its supervisor, both showing no observable progress past the pair-stall floor
+
+When the daemon observes the pair
+
+Then no pair-stall nudge is pasted into the supervisor
+
+## Scenario: The wrap-up names done as the finished-work declaration
+
+Given a track that crosses its wind-down threshold with nothing declared
+
+When the daemon pastes the wrap-up
+
+Then the wrap-up lists all four session values
+
+And names `done` as the declaration to use when the work is finished and nothing further is wanted
 
 ## Scenario: A fresh ready declaration triggers the guarded restart
 

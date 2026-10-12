@@ -18,11 +18,14 @@ declaration, in the grammar `<token>` or `<token>: <detail>`.
 | `winding-down` | session | "I received the wrap-up and am wrapping up now." Written IMMEDIATELY on receipt, before anything else. |
 | `ready` | session | "I am at a clean stopping point — restart me." The SOLE restart authorization. |
 | `blocked: <one-line reason>` | session | "I need a human decision I cannot make myself." Surfaced with coordinates; never restarted, never keystroked. |
+| `done` (optionally `done: <one-line summary>`) | session | "My work is complete; I want nothing further; do not restart me." The terminal declaration (spec.md §"The terminal declaration"). Never a restart authorization; suppresses every wrap-up and the keep-going nudge while it stands. |
 | `idle-with-context-left` | daemon | The daemon's own once-per-episode nudge marker. Authorizes nothing. |
 | (per entity) | — | A supervisor pair member keeps its OWN state file at `<repo>/tmp/overseer/<topic>-supervisor/.overseer-state`, with the same grammar, the same writers, and the same rules as a worker's. |
 
 The normal sequence is two writes: `winding-down` the moment the wrap-up
-lands, then `ready` (or `blocked: …`) when the session actually stops.
+lands, then `ready` (or `blocked: …`) when the session actually stops. A
+session whose work is complete MAY instead end with `done`, and MUST then
+expect no restart.
 
 Contract rules:
 
@@ -83,6 +86,17 @@ Contract rules:
   certification floor: a `blocked:` token can never certify a restart under
   any circumstances, so a floor raised on its account would be a durable
   write with no authorization consequence.
+- `DONE` VOIDING, independent of the ready-side expiry and governed by the
+  same evidence as `blocked:`-side voiding. A `done` declaration MUST be
+  voided only when the session is observed actively GENERATING past the
+  two-minute grace measured from the declaration's own modification time,
+  where the latest pane input was not peer-injected, and MUST NOT be voided
+  on a background-command observation, an idle observation, or its age
+  alone. The void clears the DECLARATION ONLY: the daemon MUST delete the
+  state file and MUST NOT delete the round's sidecar key, MUST NOT reset its notified bands, MUST NOT otherwise
+  close the round, and MUST NOT raise the certification floor.
+- A `done` declaration has no freshness window. It MUST NOT be expired,
+  staled, or treated as absent on account of its age.
 - A fresh `winding-down` acknowledgement is honored for fifteen minutes;
   past that it is stale, escalation resumes, and the track is re-reported —
   but staleness never authorizes an act.
@@ -324,7 +338,7 @@ that entity's own key.
   guard. Both settle captures MUST retain the runtime-appropriate eligible input
   shape and be identical. The pane MUST NOT be generating, changing,
   sub-agent-busy, gated, runtime-reported as waiting on a human, carrying
-  `blocked:` or `ready`, or carrying a fresh `winding-down`; a stale
+  `blocked:`, `ready`, or `done`, or carrying a fresh `winding-down`; a stale
   acknowledgement MAY resume escalation. Shell-only eligibility MUST be
   affirmative — recognized Claude registry `status=shell`, or the Codex
   descendant-shell fallback — and any unknown, conflicting, malformed, or
@@ -356,12 +370,13 @@ that entity's own key.
   into one message. At 30% remaining and below the message switches from
   suggestion to insistent demand.
 - Message obligations: every wrap-up names the session's live
-  remaining-context percentage, the state-file path with the three writable
-  values, the ledger-held plan state as the successor's durable read-first
+  remaining-context percentage, the state-file path with the four writable
+  values (naming `done` as the declaration for finished work), the ledger-held plan state as the successor's durable read-first
   source, named by repository path and epic id (with the instruction to
   APPEND a ledger entry on drift, never withhold the declaration), and
   states truthfully that only a `ready` declaration restarts the session.
-- Re-warns stop while a fresh `winding-down` acknowledgement stands.
+- Re-warns stop while a fresh `winding-down` acknowledgement stands, and no
+  wrap-up at any band is pasted while a `done` declaration stands.
 - The message is delivered as ONE atomic paste followed by a verified
   submission — a payload is never typed key-by-key, and submission is
   confirmed by runtime-appropriate evidence, with a bounded number of
@@ -375,8 +390,10 @@ threshold; it is not waiting on a human; and it has made no declaration of
 its own. The daemon then pastes one keep-going message and writes its own
 `idle-with-context-left` marker so the episode is never re-nudged. The
 message points the session back at its ledger-held plan state, tells it not
-to stop above its threshold, and offers the `blocked: <reason>` escape for a
-session that is actually waiting on a human. The marker clears when the
+to stop above its threshold, offers the `blocked: <reason>` escape for a
+session that is actually waiting on a human, and names `done` as the
+declaration for a session whose work is finished. A track holding `done`
+MUST NOT be nudged. The marker clears when the
 session works again; the continuous-idle clock is in-memory, so a daemon
 restart only ever delays a nudge.
 
@@ -646,7 +663,17 @@ same coordinates and the same edge-triggering; the report-only members MUST NOT 
 supervisor pair member needs no membership entry of its own — as a
 supervised entity it enters attention through the same statuses as any
 other. Discovered-but-unassigned plans are deliberately NOT attention —
-startable is not stuck. The attention count is also badged onto the daemon's
+startable is not stuck. A track holding a `done` declaration, whether its
+session is running or has exited, is NOT a member as a non-responding track,
+a gone session, an escalation-exhausted track, or through any REPORT-ONLY
+member of spec.md §"Fail-soft posture" (the low-context shield, the
+busy-shield no-progress member, the stale-context-knowledge member, the
+standing declaration that cannot certify, and the declaration standing on a
+track never in a round); it renders the quiet `done` status instead. A
+malformed or path-aliased state value, a restart whose resume has not yet
+submitted, a wait-inventory mismatch, and live gate evidence (a blocked
+member) remain members regardless of `done`; a path-aliased `done` is not a
+`done` declaration. The attention count is also badged onto the daemon's
 window name, and the badge MUST clear when the count returns to zero — an
 indicator that can only be set is one more stale surface.
 
