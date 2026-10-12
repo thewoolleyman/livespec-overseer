@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import itertools
 import shlex
+import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from functools import partial
@@ -149,6 +150,7 @@ class HerdrInitialStart:
             evidence_of=self.shell_evidence_of,
             login_shells=self.login_shells,
             shell_aliases=self.shell_aliases,
+            settle=time.sleep,
         )
         first = _herdr_layout_proofs.retained_shell(
             requester=self.writer,

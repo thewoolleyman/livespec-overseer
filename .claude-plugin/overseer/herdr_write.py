@@ -198,6 +198,7 @@ class HerdrWriter:
                 evidence_of=self.shell_evidence_of,
                 login_shells=self.login_shells,
                 shell_aliases=self.shell_aliases,
+                settle=time.sleep,
             ),
             ratio=ratio,
         )
