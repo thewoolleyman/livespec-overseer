@@ -70,6 +70,7 @@ class ConcreteManagerRuntime:
     monotonic: Callable[[], float] = time.monotonic
     sleep: Callable[[float], None] = time.sleep
     target_status: TargetStatusPort | None = None
+    acquisition: Callable[..., Result[dict[str, object], ManagerError]] | None = None
 
     def run(self, *, invocation: ManagerInvocation) -> CommandOutcome:
         """Validate one invocation, then drive its concrete operation or attention query."""
@@ -101,6 +102,8 @@ class ConcreteManagerRuntime:
         )
 
     def _input_defect(self, *, command: str, parsed: object) -> ManagerError | None:
+        if command == "acquire":
+            return None
         if command == "target":
             defect = normalized_input_defect(command=command, normalized_input=parsed)
             if defect is not None:
@@ -116,14 +119,21 @@ class ConcreteManagerRuntime:
         return accepted_report.failure() if isinstance(accepted_report, Failure) else None
 
     def _run_object(self, *, command: str, parsed: object) -> CommandOutcome:
-        bound = self.store is not None and (
-            command != "provision" or self.provision_target is not None
+        bound = (
+            self.acquisition is not None
+            if command == "acquire"
+            else self.store is not None
+            and (command != "provision" or self.provision_target is not None)
         )
         if not bound:
             return error_outcome(
                 error=internal_bug(message="object command runtime ports are not bound")
             )
-        if command == "target":
+        if command == "acquire":
+            result = cast(
+                "Callable[..., Result[dict[str, object], ManagerError]]", self.acquisition
+            )(request=cast("dict[str, object]", parsed))
+        elif command == "target":
             result = run_target(
                 host=cast("RuntimeHost", self),
                 normalized_input=cast("dict[str, object]", parsed),
@@ -170,5 +180,6 @@ def runtime_for_host() -> Result[ConcreteManagerRuntime, ManagerError]:
             store=ports,
             provision_target=ports,
             target_status=ports.target_status,
+            acquisition=ports.acquire,
         )
     )
