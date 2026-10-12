@@ -253,6 +253,8 @@ def test_capture_script_starts_canary_session() -> None:
         assert argv == [
             "tmux",
             "new-session",
+            "-e",
+            "LIVESPEC_AUTOMATION_SHELL=1",
             "-d",
             "-s",
             "s",
