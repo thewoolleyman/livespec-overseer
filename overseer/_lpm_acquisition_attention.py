@@ -29,7 +29,7 @@ class FailureTransition(Protocol):
 class AttentionSession:
     """The only authority retained while a verification wall is pending."""
 
-    profile_ref: str
+    profile_ref: str | None
     remaining_steps: int
     deadline: float
     captures: list[bytearray] = field(repr=False)
@@ -89,5 +89,11 @@ def _terminal_failure(
 ) -> AttentionOutcome:
     for capture in session.captures:
         capture.clear()
+    session.profile_ref = None
+    session.remaining_steps = 0
     transition_failed(reason="flow-unavailable")
-    return AttentionOutcome(action="failed", profile_ref=None, remaining_steps=0)
+    return AttentionOutcome(
+        action="failed",
+        profile_ref=session.profile_ref,
+        remaining_steps=session.remaining_steps,
+    )
