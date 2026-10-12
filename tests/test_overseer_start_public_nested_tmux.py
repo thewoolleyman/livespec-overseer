@@ -30,6 +30,7 @@ from test_herdr_live_observations import (
 )
 
 from overseer import claude_sessions, runtime_prefix, terminal_ownership
+from overseer.tmuxio import new_session_args
 
 __all__: list[str] = []
 
@@ -350,7 +351,7 @@ def _native_case(*, tmp_path: Path) -> Iterator[NativeCase]:
         _wait_for(Path(tmux_socket).exists, description="the nested tmux socket")
         _ = _must_tmux(
             socket_path=tmux_socket,
-            args=["new-session", "-d", "-s", "inner", "-c", str(tmp_path)],
+            args=new_session_args(args=["-d", "-s", "inner", "-c", str(tmp_path)]),
         )
         before = _rows(socket_path=tmux_socket)
         assert len(before) == 1
