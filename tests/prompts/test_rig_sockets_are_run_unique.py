@@ -37,6 +37,7 @@ import test_emitted_commands_discriminate as emitted_commands
 import test_repo_containment_discriminates as repo_containment
 
 import conftest
+from overseer.tmuxio import new_session_args
 
 __all__: list[str] = []
 
@@ -160,14 +161,17 @@ def test_the_shared_tmux_fixture_unlinks_only_its_own_socket(*, tmp_path: Path) 
     control_socket = f"control-{os.getpid()}-{tmp_path.name}"
     before = _socket_count(name=rig_socket)
 
-    control = _tmux_call(socket=control_socket, args=("new-session", "-d", "-s", "control"))
+    control = _tmux_call(
+        socket=control_socket,
+        args=tuple(new_session_args(args=["-d", "-s", "control"])),
+    )
     try:
         assert control.returncode == 0, control.stderr
         assert _socket_count(name=control_socket) == 1
         wrapped = cast("object", conftest._tmux_fixture).__pytest_wrapped__.obj
         fixture = wrapped(tmp_path=tmp_path)
         tmux = next(fixture)
-        tmux("new-session", "-d", "-s", "rig")
+        tmux(*new_session_args(args=["-d", "-s", "rig"]))
         assert _socket_count(name=rig_socket) == before + 1
 
         with pytest.raises(StopIteration):
@@ -202,7 +206,7 @@ def test_the_repo_containment_rival_socket_is_unlinked(*, tmp_path: Path) -> Non
     before = _socket_count(name=socket)
 
     try:
-        repo_containment._tmux_on(socket, "new-session", "-d", "-s", "wk")
+        repo_containment._tmux_on(socket, *new_session_args(args=["-d", "-s", "wk"]))
         assert _socket_count(name=socket) == before + 1
     finally:
         repo_containment._tmux_on(socket, "kill-server")

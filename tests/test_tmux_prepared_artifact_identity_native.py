@@ -27,6 +27,7 @@ from overseer import (
     tmux_bootstrap,
     tmux_daemon_liveness,
 )
+from overseer.tmuxio import new_session_args
 
 __all__: list[str] = []
 
@@ -165,7 +166,7 @@ def _start_native_case(
     caller = _must_tmux(
         binary=binary,
         socket_path=socket_path,
-        args=["new-session", "-d", "-P", "-F", "#{pane_id}", "-s", "owned"],
+        args=new_session_args(args=["-d", "-P", "-F", "#{pane_id}", "-s", "owned"]),
     )
     candidate = _must_tmux(
         binary=binary,

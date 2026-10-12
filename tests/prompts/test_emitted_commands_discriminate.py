@@ -35,6 +35,8 @@ from pathlib import Path
 
 import pytest
 
+from overseer.tmuxio import new_session_args
+
 _WORKER = "rgw"
 _SUPERVISOR = "rgw-supervisor"
 # The one correct spelling: leading `=` for exact match, trailing colon
@@ -101,7 +103,20 @@ def _socket(*, tmp_path: Path) -> Iterator[str]:
     # live — a per-module socket scheme is a per-module copy of the bug.
     name = f"disc-{os.getpid()}-{tmp_path.name}"
     _tmux_call(
-        name, "new-session", "-d", "-s", _SUPERVISOR, "-x", "80", "-y", "20", "-c", str(tmp_path)
+        name,
+        *new_session_args(
+            args=[
+                "-d",
+                "-s",
+                _SUPERVISOR,
+                "-x",
+                "80",
+                "-y",
+                "20",
+                "-c",
+                str(tmp_path),
+            ]
+        ),
     )
     _settle(socket=name, target=_EXACT_SUPERVISOR)
     try:
@@ -238,7 +253,8 @@ def test_the_control_the_exact_form_still_drives_a_live_worker(
     contract module.
     """
     _tmux_call(
-        socket, "new-session", "-d", "-s", _WORKER, "-x", "80", "-y", "20", "-c", str(tmp_path)
+        socket,
+        *new_session_args(args=["-d", "-s", _WORKER, "-x", "80", "-y", "20", "-c", str(tmp_path)]),
     )
     _settle(socket=socket, target=_EXACT_WORKER)
     _tmux_call(socket, "send-keys", "-t", _EXACT_WORKER, "echo DELIVERY_CONTROL")

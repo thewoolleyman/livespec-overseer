@@ -33,6 +33,8 @@ from pathlib import Path
 
 import pytest
 
+from overseer.tmuxio import new_session_args
+
 _WORKER = "ejw"
 _SUPERVISOR = "ejw-supervisor"
 _EXACT_WORKER = f"={_WORKER}:"
@@ -93,7 +95,7 @@ def _rig(
         shell = f"sh -c 'echo {_SHELL_UP}; sleep 300'"
         for session, kind in ((_WORKER, worker), (_SUPERVISOR, supervisor)):
             command = str(agent) if kind == "agent" else shell
-            tmux("new-session", "-d", "-s", session, command)
+            tmux(*new_session_args(args=["-d", "-s", session, command]))
         for session, kind in ((_WORKER, worker), (_SUPERVISOR, supervisor)):
             wait_for(f"={session}:", _AGENT_UP if kind == "agent" else _SHELL_UP)
 

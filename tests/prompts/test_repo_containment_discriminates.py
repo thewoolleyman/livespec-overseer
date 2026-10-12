@@ -31,6 +31,8 @@ from typing import Protocol, cast
 
 import pytest
 
+from overseer.tmuxio import new_session_args
+
 __all__: list[str] = []
 
 _PASS = "PASS"
@@ -168,7 +170,7 @@ def test_the_pane_cwd_the_forms_receive_comes_from_a_real_tmux_pane(
     """
     repo = tmp_path / "repo"
     repo.mkdir()
-    tmux("new-session", "-d", "-s", "wk", "-x", "80", "-y", "20", "-c", str(repo))
+    tmux(*new_session_args(args=["-d", "-s", "wk", "-x", "80", "-y", "20", "-c", str(repo)]))
     live = _assert_pane_current_path(tmux=tmux, target="=wk:", expected=repo)
     assert containment_proposed(pane_cwd=live, repo=repo, cwd=repo) == _PASS
 
@@ -290,9 +292,12 @@ def test_the_rigs_socket_is_not_shared_with_a_concurrent_run(
     # Stand in for a concurrent run of this same test in another checkout: its
     # socket is whatever the rig derives from the test identity ALONE.
     rival = f"legs-{tmp_path.name}"  # rig-socket-rival
-    _tmux_on(rival, "new-session", "-d", "-s", "wk", "-x", "80", "-y", "20", "-c", str(theirs))
+    _tmux_on(
+        rival,
+        *new_session_args(args=["-d", "-s", "wk", "-x", "80", "-y", "20", "-c", str(theirs)]),
+    )
     try:
-        tmux("new-session", "-d", "-s", "wk", "-x", "80", "-y", "20", "-c", str(mine))
+        tmux(*new_session_args(args=["-d", "-s", "wk", "-x", "80", "-y", "20", "-c", str(mine)]))
         _assert_pane_current_path(tmux=tmux, target="=wk:", expected=mine)
     finally:
         _tmux_on(rival, "kill-server")

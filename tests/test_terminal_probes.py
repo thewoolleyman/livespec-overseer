@@ -49,6 +49,7 @@ from test_herdr_live_observations import (
 )
 
 from overseer import terminal_probes
+from overseer.tmuxio import new_session_args
 
 __all__: list[str] = []
 
@@ -486,7 +487,7 @@ def _live_tmux_socket(*, tmp_path: Path) -> Iterator[str]:
     socket_path = str(tmp_path / "tmux.sock")
     started = _tmux(
         socket_path=socket_path,
-        args=["new-session", "-d", "-s", "probe-native", "-c", PANE_CWD, "sleep 300"],
+        args=new_session_args(args=["-d", "-s", "probe-native", "-c", PANE_CWD, "sleep 300"]),
     )
     assert started.returncode == 0, started.stderr
     try:

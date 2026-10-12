@@ -29,6 +29,8 @@ from typing import Protocol
 
 import pytest
 
+from overseer.tmuxio import new_session_args
+
 __all__: list[str] = []
 
 _PICKER, _IDLE, _LOST, _BUSY = "PICKER", "IDLE", "LOST", "BUSY"
@@ -145,7 +147,7 @@ def pr_condition_watcher_proposed(*, pr: dict[str, str]) -> str:
 
 
 def _worker(*, tmux: Tmux, rows: str = "20") -> str:
-    tmux("new-session", "-d", "-s", "wk", "-x", "80", "-y", rows)
+    tmux(*new_session_args(args=["-d", "-s", "wk", "-x", "80", "-y", rows]))
     return "=wk:"
 
 
@@ -453,7 +455,7 @@ def test_d_the_shipped_watcher_reports_idle_for_a_session_that_does_not_exist(
     watcher inspects the SUPERVISOR's settled pane and calls it IDLE — a
     confident verdict about a worker that does not exist.
     """
-    tmux("new-session", "-d", "-s", "wk-supervisor", "-x", "80", "-y", "20")
+    tmux(*new_session_args(args=["-d", "-s", "wk-supervisor", "-x", "80", "-y", "20"]))
     # SETTLE the supervisor pane before measuring. Without this the pane is
     # still rendering its first prompt, consecutive captures differ, and the
     # shipped watcher returns BUSY instead of IDLE — which passed locally and
@@ -467,7 +469,7 @@ def test_d_the_shipped_watcher_reports_idle_for_a_session_that_does_not_exist(
 
 def test_d_the_proposed_watcher_reports_target_lost(*, tmux: Tmux) -> None:
     """REMEDY. RED: revert to `prev=""` -> reports IDLE for an absent session."""
-    tmux("new-session", "-d", "-s", "wk-supervisor", "-x", "80", "-y", "20")
+    tmux(*new_session_args(args=["-d", "-s", "wk-supervisor", "-x", "80", "-y", "20"]))
     assert watcher_proposed(tmux=tmux, target="=wk:") == _LOST
 
 
@@ -524,15 +526,18 @@ def test_both_forms_report_busy_while_a_pane_keeps_changing(
 def test_both_forms_report_idle_while_a_pane_stays_static(*, tmux: Tmux, settle: Settle) -> None:
     """CONTROL: the busy leg must still discriminate from a static pane."""
     created = tmux(
-        "new-session",
-        "-d",
-        "-s",
-        "wk",
-        "-x",
-        "80",
-        "-y",
-        "20",
-        "printf '%s\\n' STATIC; exec sleep 600",
+        *new_session_args(
+            args=[
+                "-d",
+                "-s",
+                "wk",
+                "-x",
+                "80",
+                "-y",
+                "20",
+                "printf '%s\\n' STATIC; exec sleep 600",
+            ]
+        )
     )
     assert created.returncode == 0, created.stderr
     settle("=wk:", "STATIC", fail_on_timeout=True)
