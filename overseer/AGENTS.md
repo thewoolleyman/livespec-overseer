@@ -741,8 +741,10 @@ for the marker's edge-triggered lifecycle.
      needs to be dismissed.
    - **Therefore every track-scoped alert MUST name WHERE to act.** Because the
      overseer never prompts on a track's behalf, the alert line is the operator's
-     ONLY handover, so it must be self-sufficient: plan topic, repo, tmux SESSION,
-     PANE, and a copy-pasteable `tmux switch-client -t <session>` jump command. That
+     ONLY handover, so it must be self-sufficient: plan topic, repo, terminal BACKEND,
+     exact INSTANCE and PANE, and a copy-pasteable backend-native jump command. Legacy
+     unqualified tmux retains `tmux switch-client -t <session>`; Herdr names the exact
+     socket/server generation/pane and scopes `herdr` to that target. That
      is what `Supervisor.alert` guarantees — route EVERY new track-scoped alert
      through it, never a bare `surface` with an f-string of `repo::topic` (which
      told the operator WHAT was stuck but not WHERE to go). `surface` remains for

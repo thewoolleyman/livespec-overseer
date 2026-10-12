@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import pane_router_coordinates
 from _supervisor_liveness_time import age_label
 from _supervisor_records import CTX_SOURCE_UNREADABLE
 
@@ -253,24 +254,23 @@ def needs_attention(*, row: RowView) -> bool:
 
 
 def tmux_cell(*, row: RowView) -> str:
-    """The ``tmux`` column value: the session name annotated with its RUNTIME.
+    """The terminal-target column value, annotated with its RUNTIME.
 
-    A row with a live managed pane renders ``<tmux> (<runtime>)`` — ``livespec (claude)``
-    / ``livespec1 (codex)`` — so the operator can tell at a glance which harness a track
-    is; a no-managed-pane row (``tmux=None``: ``unassigned`` / ``session-gone`` /
-    ``live-outside-tmux``) renders the bare ``—`` with no ``(...)``. The annotation is
-    part of the CELL, so the column width in :meth:`Supervisor.render` MUST be computed
-    from this string, not the bare name, or the column misaligns.
+    A legacy tmux row retains ``<session> (<runtime>)``. A Herdr row renders its
+    socket, server generation and exact pane rather than exposing the durable
+    coordinate as if it were a tmux session. A no-managed-pane row renders ``—``.
 
     Single-sourced here so the table (:meth:`Supervisor.render`) and the ``NEEDS YOU``
     block (:meth:`Supervisor._attention_lines`) — the operator's handover surface, where
     knowing the runtime before jumping into a Claude-vs-Codex pane has the same value —
-    format the tmux cell identically and cannot drift. The jump command itself still uses
-    the bare ``row.tmux`` (``tmux switch-client -t <session>``); only the DISPLAYED cell
-    is annotated.
+    format the target cell identically and cannot drift.
     """
     if row.tmux is None:
         return "—"
+    herdr = pane_router_coordinates.herdr_attention(coordinate=row.tmux)
+    if herdr is not None:
+        runtime = f" ({row.runtime})" if row.runtime is not None else ""
+        return f"herdr {herdr.display}{runtime}"
     if row.runtime is None:
         return row.tmux
     return f"{row.tmux} ({row.runtime})"

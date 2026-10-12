@@ -2,7 +2,7 @@
 
 A private collaborator of :mod:`supervisor`; see that module's header for the whole
 split. This module owns the two SURFACES the daemon paints each tick — the
-``Status · Topic · tmux · Ctx% · Repo`` table, and the ``NEEDS YOU`` block above it —
+``Status · Topic · Target · Ctx% · Repo`` table, and the ``NEEDS YOU`` block above it —
 plus the tmux window-name badge, which is the only overseer surface visible without
 looking at the overseer window.
 
@@ -63,7 +63,7 @@ def _herdr_attention_target(*, row: RowView) -> tuple[str, str] | None:
 def render_table(
     *, sup: Supervisor, rows: Iterable[RowView], surface_attention: SurfaceAttention | None = None
 ) -> None:
-    """Clear the screen and print the live ``Status · Topic · tmux · Ctx% · Repo`` table.
+    """Clear the screen and print the live ``Status · Topic · Target · Ctx% · Repo`` table.
 
     Re-rendered from live captures every tick, and stamped with the current
     wall-clock time, so a ``/clear``-orphaned pane can never freeze on a
@@ -88,10 +88,9 @@ def render_table(
             (
                 row.status if not note else f"{row.status} ({note})",
                 row.topic,
-                # The tmux cell is the session name annotated with its runtime
-                # (`livespec (claude)`); the column width is computed below from THIS
-                # already-annotated string (the `max(len(...))` over `table`), so the
-                # column stays aligned — never widen it from the bare name.
+                # The target cell is a legacy tmux name or a backend-qualified Herdr
+                # instance and pane, annotated with its runtime. The column width is
+                # computed from this already-rendered value.
                 tmux_cell(row=row),
                 # The Ctx% cell marks a RETAINED reading with its age (`62%~4h`), so the
                 # column width below must be computed from this already-marked string —
@@ -139,7 +138,7 @@ def attention_lines(
     actually wanted the operator. This filters to exactly those, and carries the same
     jump command `alert` does, so the block is a sufficient handover on its own.
 
-    Each row's coordinates are LABELED (`topic: … | tmux: … | repo: …`) so the operator
+    Each row's coordinates are LABELED (`topic: … | <backend>: … | repo: …`) so the operator
     never has to guess which unlabeled token is which — a bare `autonomous-mode
     (livespec)` said WHAT but the tmux session (WHERE to go) had to be inferred from the
     jump line (maintainer 2026-07-14).
