@@ -56,23 +56,21 @@ established rather than inherited from the shell the exercise happens to run
 under. `tests/test_herdr_live_observations.py` carries that framing in full.
 
 **Session isolation is herdr's own `--session` mechanism**: every session name
-carries this test process's pid, and teardown stops and deletes BY THAT EXACT
+carries this test process's pid plus a random suffix, and teardown stops and deletes BY THAT EXACT
 NAME, so no other session — including the operator's `default` — is touched.
 """
 
 from __future__ import annotations
 
 import importlib
-import json
 import os
-import shutil
-import socket
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import pytest
+from herdr_live_server import create_workspace, raw_request, require_herdr, unique_session
 from test_herdr_live_observations import (
     BoundedPoll,
     ForegroundReading,
@@ -96,7 +94,6 @@ PACKAGE_DIR = Path(__file__).resolve().parent.parent / "overseer"
 WRITE_CALLS_PATH = PACKAGE_DIR / "herdr_write_calls.py"
 WRITER_PATH = PACKAGE_DIR / "herdr_write.py"
 
-HERDR_BINARY = "herdr"
 LAUNCH_TIMEOUT = 15.0
 PANE_CWD = "/tmp"
 TOP_RATIO = 0.25
@@ -118,26 +115,9 @@ class LiveTab:
     transient: str
 
 
-def _raw_request(*, socket_path: str, method: str, params: dict[str, object]) -> dict[str, Any]:
-    """One raw socket round trip, used ONLY to set the tab up or read a control fact."""
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.settimeout(15.0)
-    sock.connect(socket_path)
-    sock.sendall(json.dumps({"id": "fixture", "method": method, "params": params}).encode() + b"\n")
-    buffered = b""
-    while b"\n" not in buffered:
-        chunk = sock.recv(65536)
-        if not chunk:
-            break
-        buffered += chunk
-    sock.close()
-    parsed: dict[str, Any] = json.loads(buffered.split(b"\n")[0])
-    return parsed
-
-
 def _geometry(*, live: LiveTab) -> tuple[dict[str, tuple[int, int]], str]:
     """Every pane's `(top, height)` on the tab, plus the focused pane id."""
-    reply = _raw_request(
+    reply = raw_request(
         socket_path=live.socket_path, method="pane.layout", params={"pane_id": live.original}
     )
     layout = reply["result"]["layout"]
@@ -228,16 +208,54 @@ def _stop_live_herdr(*, session: str) -> None:
     stop_owned_server(session=session)
 
 
-@pytest.fixture(name="live")
-def _live(*, tmp_path: Path) -> Iterator[LiveTab]:
-    if shutil.which(HERDR_BINARY) is None:
-        pytest.skip("herdr is not installed on this host")
-    session = f"overseer-test-{os.getpid()}-layout"
-    tab = _start_live_tab(session=session, scratch=tmp_path)
+@dataclass(frozen=True, kw_only=True)
+class _SharedLayoutServer:
+    """The module's one server, built by the delivered `_start_live_tab` entrypoint."""
+
+    session: str
+    tab: LiveTab
+
+
+@pytest.fixture(name="layout_server", scope="module")
+def _layout_server(*, tmp_path_factory: pytest.TempPathFactory) -> Iterator[_SharedLayoutServer]:
+    """ONE owned server for the module's layout exercises.
+
+    Each exercise splits only inside its OWN workspace (see `live`), and none stops
+    the server or changes server-wide state, so a server per exercise bought no
+    isolation. It is still built through `_start_live_tab`, the entrypoint the
+    declared-shell regression below drives.
+    """
+    require_herdr()
+    session = unique_session(label="layout")
+    tab = _start_live_tab(session=session, scratch=tmp_path_factory.mktemp("layout"))
     try:
-        yield tab
+        yield _SharedLayoutServer(session=session, tab=tab)
     finally:
         _stop_live_herdr(session=session)
+
+
+@pytest.fixture(name="live")
+def _live(*, layout_server: _SharedLayoutServer, tmp_path: Path) -> LiveTab:
+    """A FRESH workspace on the shared server holding an original and an unrelated pane.
+
+    Herdr pane ids, geometry and focus are all per workspace tab, so this exercise's
+    tab starts exactly as a fresh server's first tab did: the original focused, and
+    one sibling split to the RIGHT into its own column.
+    """
+    shared = layout_server.tab
+    original = create_workspace(
+        socket_path=shared.socket_path, label=layout_server.session, cwd=PANE_CWD
+    )
+    unrelated = split_pane(
+        socket_path=shared.socket_path, pane_id=original, direction="right", cwd=PANE_CWD
+    )
+    return LiveTab(
+        socket_path=shared.socket_path,
+        server_pid=shared.server_pid,
+        original=original,
+        unrelated=unrelated,
+        transient=startup_transient(scratch=tmp_path),
+    )
 
 
 def _modules() -> tuple[Any, Any]:
@@ -587,7 +605,7 @@ class _OwnedSetup:
 def _observe_setup(*, live: LiveTab) -> _OwnedSetup:
     """One pass of real readings about `live`'s original pane and its server child."""
     reading = _reading(live=live, pane_id=live.original)
-    reply = _raw_request(
+    reply = raw_request(
         socket_path=live.socket_path,
         method="pane.read",
         params={
@@ -656,8 +674,7 @@ def test_the_fixture_server_runs_a_declared_minimal_shell_despite_an_inherited_c
     fixture's: a server started with the ambient environment obeys whatever
     `HERDR_CONFIG_PATH` and `$SHELL` it inherits, and runs whatever `$ENV` names.
     """
-    if shutil.which(HERDR_BINARY) is None:
-        pytest.skip("herdr is not installed on this host")
+    require_herdr()
     registered = _registered_resolved_shells()
     minimal = _first_registered(candidates=MINIMAL_SHELL_CANDIDATES, registered=registered)
     rival = _first_registered(candidates=RIVAL_SHELL_CANDIDATES, registered=registered)
@@ -669,7 +686,7 @@ def test_the_fixture_server_runs_a_declared_minimal_shell_despite_an_inherited_c
     ran = _stage_conflicting_inherited_setup(scratch=tmp_path, monkeypatch=monkeypatch, rival=rival)
     inherited = dict(os.environ)
     own_umask = _umask_of(pid=os.getpid())
-    session = f"overseer-test-{os.getpid()}-declared-shell"
+    session = unique_session(label="declared-shell")
 
     live = _start_live_tab(session=session, scratch=tmp_path)
     try:
