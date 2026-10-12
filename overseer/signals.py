@@ -260,18 +260,30 @@ def input_box_ready(*, capture_text: str) -> bool:
     return _input_box_present(text=capture_text)
 
 
+_COMPOSER_MAX_ROWS = 50
+
+
 def input_box_text(*, capture_text: str) -> str | None:
-    """Return the Claude composer text when a non-empty ``❯`` box is visible."""
+    """Return the Claude composer text when a non-empty ``❯`` box is visible.
+
+    A long prompt wraps onto continuation rows between the ``❯`` row and the closing
+    border; those rows are part of the same text and are joined with single spaces
+    (measured 2026-10-12: a wrapped resume prompt read as no prompt at all, so the
+    daemon never pressed Enter on it).
+    """
     ne = [
         stripped for raw in capture_text.splitlines() if (stripped := strip_ansi(text=raw).strip())
     ]
     for i, line in enumerate(ne):
         if not line.startswith("❯") or not line[1:].strip():
             continue
-        above = i >= 1 and _is_border(line=ne[i - 1])
-        below = i + 1 < len(ne) and _is_border(line=ne[i + 1])
-        if above and below:
-            return line[1:].lstrip()
+        if not (i >= 1 and _is_border(line=ne[i - 1])):
+            continue
+        rows = [line[1:].strip()]
+        for following in ne[i + 1 : i + 1 + _COMPOSER_MAX_ROWS]:
+            if _is_border(line=following):
+                return " ".join(rows)
+            rows.append(following)
     return None
 
 
