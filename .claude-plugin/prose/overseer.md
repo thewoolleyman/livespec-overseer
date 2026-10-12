@@ -156,11 +156,14 @@ tmux signals and that file.
 
 The session declares itself by writing ONE line to ONE file
 (`<repo>/tmp/overseer/<topic>/.overseer-state`), valued `ready`,
-`blocked: <one-line reason>`, or `winding-down` (the "I heard you, wrapping up
-now" ACK). The terminal declaration command is `overseer-declare ready`; it writes
-`ready`, wakes the daemon's state-file fast path, and prints the contract that the
-declaring session must stop because further output can void or downgrade the
-restart. See `marker-protocol.md`.
+`blocked: <one-line reason>`, `winding-down` (the "I heard you, wrapping up
+now" ACK), or `done[: <one-line summary>]`. `ready` is the sole restart
+authorization. `done` is the terminal finished-work declaration: it requests
+nothing further, never restarts or attracts a nudge, and renders quietly whether
+the session is live or exited. A session given new work after `done` must first
+clear its own declaration. `overseer-declare ready` and `overseer-declare done`
+write those values and wake the daemon's state-file fast path. See
+`marker-protocol.md`.
 
 ---
 
@@ -585,7 +588,7 @@ are fixed by construction:
      daemon as broken. The same evidence rides the row's note and the status
      snapshot's `context_compaction` object.
    - **malformed state file** — the session wrote a value that is not one of
-     `ready` / `blocked` / `winding-down`. It is treated as **no declaration** and
+     `ready` / `blocked` / `winding-down` / `done`. It is treated as **no declaration** and
      reported; relay it the same way.
 
    **NOTIFY, NEVER BLOCK — this is a hard rule.** A question may only be asked by
@@ -770,8 +773,8 @@ under `$PLUGIN_ROOT` as a setup failure.
   how to exercise it live.
 - **`marker-protocol.md`** (beside this file) — the escalating wrap-up + the ONE
   state-file contract: the cardinal rule, what the daemon injects at each band,
-  the three values a tracked session may WRITE (`ready` / `blocked: <reason>` /
-  `winding-down`), and what the restart interlock validates.
+  the four values a tracked session may WRITE (`ready` / `blocked: <reason>` /
+  `winding-down` / `done[: <summary>]`), and what the restart interlock validates.
 
 ---
 
