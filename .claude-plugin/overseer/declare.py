@@ -61,8 +61,11 @@ def _write_ready(*, repo: Path, topic: str) -> None:
     registry.atomic_write(path=signals.state_path(repo=str(repo), topic=topic), body="ready\n")
 
 
-def _write_done(*, repo: Path, topic: str) -> None:
-    registry.atomic_write(path=signals.state_path(repo=str(repo), topic=topic), body="done\n")
+def _write_done(*, repo: Path, topic: str, summary: str) -> None:
+    detail = f": {summary}" if summary else ""
+    registry.atomic_write(
+        path=signals.state_path(repo=str(repo), topic=topic), body=f"done{detail}\n"
+    )
 
 
 def _has_iso_added_at(*, track: registry.Track) -> bool:
@@ -116,7 +119,12 @@ def _parser() -> argparse.ArgumentParser:
         default=None,
         help="plan topic (default: current tmux session)",
     )
-    done = sub.add_parser("done", help="declare that this session's work is complete")
+    done = sub.add_parser(
+        "done",
+        aliases=["done:"],
+        help="declare that this session's work is complete",
+    )
+    _ = done.add_argument("summary", nargs="*", help="optional one-line completion summary")
     _ = done.add_argument("--repo", default=".", help="repository root (default: cwd)")
     _ = done.add_argument(
         "--topic",
@@ -142,8 +150,8 @@ def main(
             )
         )
         return 2
-    if args.state == "done":
-        _write_done(repo=repo, topic=topic)
+    if args.state in {"done", "done:"}:
+        _write_done(repo=repo, topic=topic, summary=" ".join(args.summary))
         streams.write_stdout(text="done declaration written; no restart requested.\n")
         return 0
     _write_ready(repo=repo, topic=topic)
