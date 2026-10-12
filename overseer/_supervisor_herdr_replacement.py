@@ -47,6 +47,12 @@ def _refuse(
     return ReplacementFailure(reason=reason, condition=condition)
 
 
+# How long the one termination signal is given to take effect before the predecessor
+# is judged to have survived it: about 5 s, polled, never a second signal.
+_EXIT_WAIT_ATTEMPTS = 50
+_EXIT_WAIT_INTERVAL = 0.1
+
+
 def _stop_predecessor(
     *,
     sup: Supervisor,
@@ -85,11 +91,22 @@ def _stop_predecessor(
             condition="herdr-signal-failed",
         )
         return None, failure
-    stopped = pane.herdr_replacement_snapshot(session=target)
+    # ONE signal, then a bounded wait for the exit before any verdict. Measured
+    # 2026-10-12: Claude is still shutting down when read immediately, so every herdr
+    # restart first alerted "predecessor survived" and only completed a tick later.
     direct_refusal = herdr_replacement_process.predecessor_exit_refusal(
         pid=cast(int, predecessor["pid"]),
         starttime=cast(str, predecessor["starttime"]),
     )
+    for _ in range(_EXIT_WAIT_ATTEMPTS - 1):
+        if direct_refusal is None or direct_refusal[1] != "herdr-predecessor-survived":
+            break
+        sup.sleep(_EXIT_WAIT_INTERVAL)
+        direct_refusal = herdr_replacement_process.predecessor_exit_refusal(
+            pid=cast(int, predecessor["pid"]),
+            starttime=cast(str, predecessor["starttime"]),
+        )
+    stopped = pane.herdr_replacement_snapshot(session=target)
     if direct_refusal is None and _herdr_replacement_process.predecessor_still_live(
         transaction=transaction, snapshot=stopped
     ):
