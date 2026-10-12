@@ -9,7 +9,7 @@ The load-bearing correctness fact (see design.md, adversarial review): a pane's
 text stream cannot carry a trustworthy "the session asserts X now" signal —
 prompt-echo, model quotation, scroll, and line-wrap all corrupt it. So the
 session's self-declared *state* is out-of-band on the filesystem (the ONE
-``.overseer-state`` file: ``ready`` / ``blocked`` / ``winding-down``), and pane text is
+``.overseer-state`` file: ``ready`` / ``blocked`` / ``winding-down`` / ``done``), and pane text is
 trusted ONLY for the busy / idle / gate signals, which are not echo-forgeable
 in a harmful direction (a false "busy" merely suppresses action — the safe
 direction).
@@ -36,6 +36,7 @@ from _signals_topics import (
 __all__: list[str] = [
     "STATE_BLOCKED",
     "STATE_BLOCKED_VOIDED",
+    "STATE_DONE",
     "STATE_IDLE_NUDGE_CLEARED",
     "STATE_IDLE_WITH_CONTEXT_LEFT",
     "STATE_READY",
@@ -314,7 +315,7 @@ def marker_dir(*, repo: str, topic: str) -> Path:
 # carried a built-in ambiguity, because nothing stopped BOTH existing and their
 # precedence was incidental rather than designed (maintainer 2026-07-14).
 #
-# `STATE_TOKENS` are the three the SESSION declares (used verbatim in the session-facing
+# `STATE_TOKENS` are the four the SESSION declares (used verbatim in the session-facing
 # wrap-up + malformed-token messages). `STATE_IDLE_WITH_CONTEXT_LEFT` is the ONE token the
 # DAEMON writes itself — the "I nudged this idle-with-context-left session to keep going
 # this episode" marker (single-prompt edge-trigger). It is kept OUT of `STATE_TOKENS` so
@@ -323,12 +324,13 @@ def marker_dir(*, repo: str, topic: str) -> Path:
 STATE_READY = "ready"
 STATE_BLOCKED = "blocked"
 STATE_WINDING_DOWN = "winding-down"
+STATE_DONE = "done"
 STATE_IDLE_WITH_CONTEXT_LEFT = "idle-with-context-left"
 STATE_IDLE_NUDGE_CLEARED = "idle-nudge-cleared"
 STATE_BLOCKED_VOIDED = "blocked-voided"
 STATE_READY_EXPIRED = "ready-expired"
 STATE_RESTARTED = "restarted"
-STATE_TOKENS = (STATE_READY, STATE_BLOCKED, STATE_WINDING_DOWN)
+STATE_TOKENS = (STATE_READY, STATE_BLOCKED, STATE_WINDING_DOWN, STATE_DONE)
 _DAEMON_TOKENS = (
     STATE_IDLE_WITH_CONTEXT_LEFT,
     STATE_IDLE_NUDGE_CLEARED,
@@ -396,6 +398,7 @@ def read_state(*, repo: str, topic: str) -> TrackState | None:
         ready
         blocked: waiting on the schema call
         winding-down
+        done
 
     A file write cannot be forged by prompt-echo, cannot scroll off, and cannot
     line-wrap, so all the pane-text blockers dissolve here. The token is returned
