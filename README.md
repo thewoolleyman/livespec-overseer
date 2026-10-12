@@ -1,13 +1,13 @@
 # livespec-overseer
 
-The **Control-Plane operator tool** for the livespec fleet: a two-pane tmux
+The **Control-Plane operator tool** for the livespec fleet: a two-pane terminal
 supervisor that keeps multiple parallel sessions moving, plus a quota loop that
 keeps the accounts behind them usable.
 
-It ships exactly two operator surfaces:
+It ships exactly four operator surfaces:
 
 - **`overseer`** — the two-pane supervisor.
-  - **`overseerd`** — a deterministic daemon that watches every tracked tmux
+  - **`overseerd`** — a deterministic daemon that watches every tracked tmux or Herdr
     session's remaining context, injects an escalating wrap-up at threshold, and
     atomically restarts a session **only once that session has declared itself
     ready**.
@@ -16,6 +16,8 @@ It ships exactly two operator surfaces:
 - **`caam-anthropic-loop`** — watches caam-managed Claude Max account usage and
   rotates accounts safely, so a quota exhaustion surfaces as a rotation rather
   than as a fleet-wide stall.
+- **`drain-backlog`** — freezes and drains a repository's admitted backlog.
+- **`llm-provider-manager`** — manages the configured provider credentials.
 
 ## The cardinal rule
 
@@ -29,23 +31,25 @@ text.
 
 ## Requirements
 
-**Linux with tmux.** This is a declared requirement, not an aspiration: the
-supervisor reads `/proc/<pid>/stat` (macOS has no `/proc` at all), drives real
-tmux across every module, and reads the agent runtimes' own session files. The
-host boundary is deliberately **not** abstracted — that was considered and
-rejected as speculative generality. `overseerd` refuses to start on an
-unsupported host and names the failed precondition.
+**Linux with either tmux or Herdr.** This is a declared requirement, not an
+aspiration: the supervisor reads `/proc/<pid>/stat` (macOS has no `/proc` at
+all), drives the selected backend's native CLI, and reads the agent runtimes'
+own session files. `overseer-start` selects the nearest positively verified
+terminal owner from process ancestry; stale environment selectors are not
+authority. It refuses before mutation when no supported owner can be proved.
 
 Claude Code and/or OpenAI Codex as the supervised agent runtimes.
 
 ## Installation For An Adopter Family
 
-Install both shipped surfaces for the family that will run the overseer:
+Install the shipped surfaces for the family that will run the overseer:
 
 1. Install the `livespec-overseer` Claude Code plugin from this repository's
    plugin marketplace entry so the interactive commands
-   `/livespec-overseer:overseer` and `/livespec-overseer:caam-anthropic-loop`
-   are available. Those two are the whole shipped command surface.
+   `/livespec-overseer:overseer`, `/livespec-overseer:caam-anthropic-loop`,
+   `/livespec-overseer:drain-backlog` and
+   `/livespec-overseer:llm-provider-manager` are available. Those four are the
+   whole shipped command surface.
 2. Install the `livespec-overseer` Python package into the operator
    environment so the `overseerd` and `overseer-start` entry points are on
    `PATH`.
