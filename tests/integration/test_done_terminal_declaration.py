@@ -5,7 +5,14 @@ from __future__ import annotations
 import importlib
 import io as _io
 
-from overseer import _supervisor_config, _supervisor_pair_stall, registry, signals, supervisor
+from overseer import (
+    _supervisor_config,
+    _supervisor_pair_stall,
+    _supervisor_prompts,
+    registry,
+    signals,
+    supervisor,
+)
 from overseer._supervisor_view import RowView, row_color
 from overseer.test_supervisor_builders import (
     FakeTmux,
@@ -266,3 +273,75 @@ def test_scenario_a_done_worker_does_not_trigger_the_pair_stall_nudge(*, tmp_pat
 
     assert fake.paste_texts() == []
     assert sup.pair_stalls[(registry.norm(repo=str(repo)), topic)].since is None
+
+
+def test_scenario_the_wrapup_names_done_as_the_finished_work_declaration() -> None:
+    messages = [
+        _supervisor_prompts.wrapup_message(
+            remaining=remaining,
+            repo="/repo",
+            topic="topic",
+            epic="overseer-epic",
+        )
+        for remaining in (40, 20)
+    ] + [
+        _supervisor_prompts.supervisor_wrapup_message(
+            remaining=remaining,
+            repo="/repo",
+            topic="topic",
+            epic="overseer-epic",
+        )
+        for remaining in (40, 20)
+    ]
+
+    for message in messages:
+        assert "one of exactly these four values" in message
+        for value in ("winding-down", "ready", "blocked:", "done"):
+            assert value in message
+        assert "finished work" in message
+
+
+def test_scenario_a_done_session_handed_new_work_clears_its_own_declaration_first() -> None:
+    for builder in (
+        _supervisor_prompts.wrapup_message,
+        _supervisor_prompts.supervisor_wrapup_message,
+    ):
+        message = builder(
+            remaining=40,
+            repo="/repo",
+            topic="topic",
+            epic="overseer-epic",
+        )
+        assert "given new work after declaring `done`" in message
+        assert "first clear your own `done`" in message
+
+
+def test_expiry_notice_lists_the_four_session_writable_values() -> None:
+    message = _supervisor_prompts.expiry_notice_message(repo="/repo", topic="topic")
+
+    assert "one of exactly these four values" in message
+    for value in ("winding-down", "ready", "blocked:", "done"):
+        assert value in message
+
+
+def test_keep_going_nudges_name_done_as_the_finished_work_declaration() -> None:
+    messages = (
+        _supervisor_prompts.idle_nudge_message(
+            remaining=80,
+            threshold=50,
+            repo="/repo",
+            topic="topic",
+            epic="overseer-epic",
+        ),
+        _supervisor_prompts.supervisor_idle_nudge_message(
+            remaining=80,
+            threshold=50,
+            repo="/repo",
+            topic="topic",
+            epic="overseer-epic",
+        ),
+    )
+
+    for message in messages:
+        assert "declare `done`" in message
+        assert "work is finished" in message

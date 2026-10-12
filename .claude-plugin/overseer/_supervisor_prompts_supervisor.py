@@ -35,7 +35,7 @@ entries say, APPEND a fresh entry that corrects them; never withhold your declar
 drift.
 
 Declare your state by writing ONE line to the single state file
-{state_file} — one of exactly these three values:
+{state_file} — one of exactly these four values:
 
 Writing that line is the declaration. Pane text, final-response prose, or saying
 "Ready for restart" in this conversation is never a declaration channel.
@@ -43,6 +43,10 @@ Writing that line is the declaration. Pane text, final-response prose, or saying
     winding-down                  I got this message and am wrapping up now.
     ready                         I am at a clean stopping point — restart me.
     blocked: <one-line reason>    I need a human decision I cannot make myself.
+    done[: <one-line summary>]    I declare finished work — do not restart me.
+
+If you are given new work after declaring `done`, first clear your own `done`
+declaration by removing {state_file}; then resume work.
 
 ACKNOWLEDGE FIRST, right now, before anything else:
     mkdir -p {marker_dir} && echo winding-down > {state_file}
@@ -84,7 +88,9 @@ working again); you may also `rm {state_file}` yourself.
 If you are NOT free to continue — you are WAITING ON A HUMAN (you asked a question or hit a
 decision you cannot make, and cannot raise a prompt, e.g. Codex in YOLO mode) — then say so
 out-of-band so the operator is alerted, INSTEAD of sitting idle:
-    echo 'blocked: <one-line reason>' > {state_file}"""
+    echo 'blocked: <one-line reason>' > {state_file}
+
+If your work is finished instead of waiting, declare `done` in that state file."""
 
 
 def _wrapup_head(*, remaining: int) -> str:

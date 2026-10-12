@@ -43,7 +43,7 @@ Your ready declaration EXPIRED: it stood past its maximum age without a verified
 settled-idle observation, so it no longer authorizes a restart.
 
 Declare your state by writing ONE line to the single state file
-{state_file} — one of exactly these three values:
+{state_file} — one of exactly these four values:
 
 Writing that line is the declaration. Pane text, final-response prose, or saying
 "Ready for restart" in this conversation is never a declaration channel.
@@ -51,6 +51,7 @@ Writing that line is the declaration. Pane text, final-response prose, or saying
     winding-down                  I got the wind-down message and am wrapping up now.
     ready                         I am at a clean stopping point — restart me.
     blocked: <one-line reason>    I need a human decision I cannot make myself.
+    done[: <one-line summary>]    I declare finished work — do not restart me.
 
 A restart requires a fresh ready. The declaration that just expired will not restart
 this session; write `ready` again only after you are truly at a clean stopping
