@@ -772,10 +772,12 @@ pane**.
 
 Because the overseer never prompts on a track's behalf, the alert line is the
 operator's ONLY handover — so it is self-sufficient: every track-scoped alert
-(`Supervisor.alert`) names the plan **topic**, its **repo**, the tmux
-**session** and **pane** holding it, and a copy-pasteable jump command
-(`tmux switch-client -t <session>`). A bare `repo::topic` told the operator WHAT
-was stuck but not WHERE to go.
+(`Supervisor.alert`) names the plan **topic**, its **repo**, the terminal
+**backend**, exact **instance** and **pane** holding it, and a copy-pasteable
+backend-native jump command. Legacy unqualified tmux records retain
+`tmux switch-client -t <session>`; Herdr records name their socket and server
+generation and invoke `herdr` with that exact socket and pane. A bare
+`repo::topic` told the operator WHAT was stuck but not WHERE to go.
 
 This self-heals: the daemon re-derives `blocked:human` from the live pane each
 tick, so when the human answers in the tracked pane, the alert simply stops.

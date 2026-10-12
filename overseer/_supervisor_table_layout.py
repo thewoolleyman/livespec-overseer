@@ -8,11 +8,11 @@ from typing import IO
 __all__: list[str] = ["fit_line", "render_lines", "terminal_columns"]
 
 _DEFAULT_TTY_COLUMNS = 120
-_FULL_HEADERS = ("Status", "Topic", "tmux", "Ctx%", "Repo")
+_TMUX_HEADERS = ("Status", "Topic", "tmux", "Ctx%", "Repo")
+_TARGET_HEADERS = ("Status", "Topic", "Target", "Ctx%", "Repo")
 _COMPACT_HEADERS = ("S", "T", "M", "C", "R")
 _FULL_SEPARATOR = "  "
 _COMPACT_SEPARATOR = " "
-_FULL_MINIMUM = sum(map(len, _FULL_HEADERS)) + len(_FULL_SEPARATOR) * 4
 _SPACED_COMPACT_MINIMUM = len(_COMPACT_HEADERS) + len(_COMPACT_SEPARATOR) * 4
 
 
@@ -32,11 +32,15 @@ def fit_line(*, text: str, columns: int | None) -> str:
 
 def render_lines(*, rows: list[tuple[str, ...]], columns: int | None) -> list[str]:
     """Render table rows within ``columns``; ``None`` preserves list-mode output."""
+    full_headers = (
+        _TARGET_HEADERS if any(row[2].startswith("herdr ") for row in rows) else _TMUX_HEADERS
+    )
+    full_minimum = sum(map(len, full_headers)) + len(_FULL_SEPARATOR) * 4
     if columns is not None and columns < len(_COMPACT_HEADERS):
         return _ultra_compact(rows=rows, columns=columns)
 
-    if columns is None or columns >= _FULL_MINIMUM:
-        headers = _FULL_HEADERS
+    if columns is None or columns >= full_minimum:
+        headers = full_headers
         separator = _FULL_SEPARATOR
     elif columns >= _SPACED_COMPACT_MINIMUM:
         headers = _COMPACT_HEADERS
