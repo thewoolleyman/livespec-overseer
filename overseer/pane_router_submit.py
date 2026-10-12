@@ -192,15 +192,13 @@ class PromptSubmitter:
         if prepared is not None:
             return {True: (prepared, effect_unknown), False: (False, effect_unknown)}[same_request]
         entered = self.writer.send_enter(target=target)
-        resolved = partial(
-            pane_router_submit_signals.resolved,
-            prompt_visible=prompt_visible,
-            submitted=submitted,
-        )
+        # Only a running turn ends this wait. Right after Enter, Claude's composer has
+        # usually not redrawn yet and still shows the paste, so a visible prompt here is
+        # render lag, not a verdict; stopping on it misread delivered wrap-ups as failed.
         capture = self._observe(
             session=session,
             sleep=sleep,
-            accept=resolved,
+            accept=submitted,
         )
         result = self._finish_submit(
             session=session,
