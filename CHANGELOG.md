@@ -1,5 +1,22 @@
 # Changelog
 
+## [5.26.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.25.1...v5.26.0) (2026-10-12)
+
+
+### Features
+
+* accept terminal done declaration ([3da248c](https://github.com/thewoolleyman/livespec-overseer/commit/3da248c55f7566191a5e4f4a0c7f86514ddd6127))
+* accept terminal done summaries ([906772b](https://github.com/thewoolleyman/livespec-overseer/commit/906772b7a0af7ec3cf2904713efaa1728da2e6d1))
+* make done terminal to supervision ([a22c93d](https://github.com/thewoolleyman/livespec-overseer/commit/a22c93d7a228d50d90ec2138aed5ac4386ed59ae))
+* render terminal done tracks quietly ([e113917](https://github.com/thewoolleyman/livespec-overseer/commit/e1139171af5e795939bbc78860fc2f9b58af20b3))
+* teach sessions the terminal done declaration ([556b3a5](https://github.com/thewoolleyman/livespec-overseer/commit/556b3a5b68c8cb1ebfecf595333f7ba8c838e2a0))
+* void stale done on resumed generation ([4d7cdf6](https://github.com/thewoolleyman/livespec-overseer/commit/4d7cdf688dbfeefec3604fde0a3ab59bf39253ca))
+
+
+### Bug Fixes
+
+* freeze compaction latch while done ([db0d2f4](https://github.com/thewoolleyman/livespec-overseer/commit/db0d2f40bd163f9edbc25daa2a7dd10d5bc23329))
+
 ## [5.25.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.25.0...v5.25.1) (2026-10-12)
 
 
