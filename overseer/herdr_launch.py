@@ -20,5 +20,9 @@ def render_launch(*, cwd: str, command: str, env: Mapping[str, str | None]) -> s
         part for name, value in sorted(env.items()) if value is None for part in ("-u", name)
     ]
     assignments = [f"{name}={value}" for name, value in sorted(env.items()) if value is not None]
-    environment = shlex.join(["env", *removals, *assignments, "sh", "-c", command])
+    # `exec` makes the agent REPLACE the wrapper shell, so the pane's foreground group
+    # leader is the agent itself; a lingering `sh` parent hid the successor from the
+    # daemon's managed-agent check, and the continuation was never sent.
+    launched = f"exec {command}"
+    environment = shlex.join(["env", *removals, *assignments, "sh", "-c", launched])
     return f"cd -- {shlex.quote(cwd)} && {environment}"

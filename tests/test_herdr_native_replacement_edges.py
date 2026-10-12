@@ -123,7 +123,7 @@ def test_launch_renderer_preserves_removals_assignments_and_shell_quoting() -> N
 
     assert rendered == (
         "cd -- '/repo with space' && "
-        "env -u REMOVE_ME 'SET_ME=two words' sh -c 'codex --model '\"'\"'gpt 5'\"'\"''"
+        "env -u REMOVE_ME 'SET_ME=two words' sh -c 'exec codex --model '\"'\"'gpt 5'\"'\"''"
     )
     with pytest.raises(ValueError, match="invalid variable name"):
         herdr_launch.render_launch(cwd="/repo", command="codex", env={"NOT-AN-ENV": "x"})
@@ -158,7 +158,7 @@ def test_writer_launch_uses_one_atomic_run_request(
     assert outcome.ok
     assert calls[0]["params"] == {
         "pane_id": "w1:p9",
-        "text": "cd -- /repo && env -u ANTHROPIC_MODEL sh -c 'claude --model opus'",
+        "text": "cd -- /repo && env -u ANTHROPIC_MODEL sh -c 'exec claude --model opus'",
         "keys": ["Enter"],
     }
 
