@@ -211,7 +211,7 @@ Then:
     has no attribution, no timestamp, and the next session cannot see it at all. Do NOT
     write it into a file under plan/, and do NOT write to the ledger directly.
  3. Stop every background sub-agent and subprocess you started.
- 4. Declare done, and stop. The command that declares ready is your FINAL act:
+ 4. Declare ready, and stop. The command that declares ready is your FINAL act:
         overseer-declare ready
 
 After `overseer-declare ready`, stop immediately.
@@ -239,7 +239,7 @@ constants in sync if either changes.
 own word.** A tracked session once refused to declare anything, back when the
 resume line still pointed at a FILE: its real pending work had drifted away from
 what that file said (it had stashed the live handoff in a scratchpad), so it
-reasoned that declaring done would resume the next session from a stale document
+reasoned that declaring ready would resume the next session from a stale document
 — and it stopped, undeclared, wedging its track idle at 13%. The file-shaped
 pointer is gone, but the reasoning it invited is not, so the message still
 answers it. So the message says plainly that the plan state is
