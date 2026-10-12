@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import _supervisor_compaction
 import registry
+import signals
 from _supervisor_records import Observation
 
 if TYPE_CHECKING:
@@ -58,6 +59,12 @@ def record_tick_observations(*, request: RecordObservationRequest) -> None:
             session_identity=obs.session_identity,
             store_path=request.sup.store_path,
         )
+    # `done` freezes the delivered round exactly where the session finished it. In
+    # particular, later idle statusline readings must not lower a standing compaction
+    # latch's watermark or re-report one of its edges. If resumed generation voids the
+    # declaration, the next ordinary tick records observations again.
+    if obs.declared is not None and obs.declared.token == signals.STATE_DONE:
+        return
     _ = registry.record_context_compaction(
         repo=request.track.repo,
         topic=request.track.topic,

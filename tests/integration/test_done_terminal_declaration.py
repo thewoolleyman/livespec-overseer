@@ -24,6 +24,14 @@ from overseer.test_supervisor_builders import (
     mapped_track,
     write_fresh_supervisor_state,
 )
+from overseer.test_supervisor_compaction_builders import (
+    claude_busy,
+    claude_compaction_track,
+    claude_idle,
+    compaction_record,
+    show_pane,
+    stored_track,
+)
 
 __all__: list[str] = []
 
@@ -108,6 +116,48 @@ def test_scenario_a_done_declaration_is_valid_and_never_restarts_the_session(*, 
     assert len(fake.paste_texts()) == pastes_before_done
     assert not fake.has(method="respawn")
     assert supervisor.needs_attention(row=danger_view) is False
+    assert (
+        registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        == round_before_done
+    )
+
+
+def _prepare_latched_compaction(*, repo, topic, session, fake, sup):
+    show_pane(fake=fake, session=session, capture=claude_idle(ctx=45))
+    assert sup.evaluate(track=stored_track(sup=sup, repo=repo, topic=topic), act=True).status == (
+        "warned"
+    )
+    show_pane(fake=fake, session=session, capture=claude_busy(ctx=6))
+    assert sup.evaluate(track=stored_track(sup=sup, repo=repo, topic=topic), act=True).status == (
+        "working"
+    )
+    show_pane(fake=fake, session=session, capture=claude_busy(ctx=82))
+    assert sup.evaluate(track=stored_track(sup=sup, repo=repo, topic=topic), act=True).status == (
+        "working"
+    )
+    latched = compaction_record(sup=sup, repo=repo, topic=topic)
+    assert latched is not None and latched.restart_required is True
+    return (
+        latched,
+        registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path),
+        len(fake.paste_texts()),
+    )
+
+
+def test_scenario_a_done_declaration_suppresses_every_wrapup(*, tmp_path) -> None:
+    repo, topic, session, fake, sup = claude_compaction_track(tmp_path=tmp_path, ctx=45)
+    latched, round_before_done, pastes_before_done = _prepare_latched_compaction(
+        repo=repo, topic=topic, session=session, fake=fake, sup=sup
+    )
+
+    declare(repo=repo, topic=topic, value="done")
+    for remaining in (82, 30, 10):
+        show_pane(fake=fake, session=session, capture=claude_idle(ctx=remaining))
+        row = sup.evaluate(track=stored_track(sup=sup, repo=repo, topic=topic), act=True)
+        assert row.status == signals.STATE_DONE
+
+    assert len(fake.paste_texts()) == pastes_before_done
+    assert compaction_record(sup=sup, repo=repo, topic=topic) == latched
     assert (
         registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
         == round_before_done
