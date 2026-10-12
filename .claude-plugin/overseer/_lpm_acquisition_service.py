@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Protocol, cast
 
 from _lpm_browser_control import BrowserControl
+from _lpm_canonical import canonical_json_bytes
 from _lpm_observations import ObservationOutcome
 
 __all__: list[str] = [
@@ -23,8 +24,12 @@ class ActionPerformer(Protocol):
 
 
 class PrivateChannel(Protocol):
-    def receive(self, *, deadline: float) -> bytes:
+    def receive(self, *, deadline: float) -> bytes | None:
         """Receive one complete private-channel frame."""
+        ...
+
+    def send(self, *, frame: bytes, deadline: float) -> None:
+        """Send one complete private-channel frame."""
         ...
 
     def close(self) -> None:
@@ -64,7 +69,25 @@ class AcquisitionProxyService:
         return self._control.consumed_steps
 
     def run(self, *, channel: PrivateChannel, deadline: float) -> ServiceOutcome:
-        """Close a malformed private frame without emitting any result."""
-        outcome = self._control.dispatch(frame=channel.receive(deadline=deadline))
+        """Serve private frames until channel or browser-control termination."""
+        result = self._serve(channel=channel, deadline=deadline)
         channel.close()
-        return ServiceOutcome(status="failed", failure_reason=outcome.stop_reason)
+        return result
+
+    def _serve(self, *, channel: PrivateChannel, deadline: float) -> ServiceOutcome:
+        while True:
+            frame = channel.receive(deadline=deadline)
+            if frame is None:
+                return ServiceOutcome(status="stopped", failure_reason=None)
+            outcome = self._control.dispatch(frame=frame)
+            if outcome.close_channel:
+                return ServiceOutcome(status="failed", failure_reason=outcome.stop_reason)
+            response = cast("dict[str, object]", outcome.response)
+            channel.send(frame=_response_frame(response=response), deadline=deadline)
+            if outcome.stop_reason is not None:
+                return ServiceOutcome(status="failed", failure_reason=outcome.stop_reason)
+
+
+def _response_frame(*, response: dict[str, object]) -> bytes:
+    payload = canonical_json_bytes(value=response).unwrap()
+    return len(payload).to_bytes(4, "big") + payload
