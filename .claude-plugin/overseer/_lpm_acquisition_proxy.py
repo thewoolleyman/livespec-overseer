@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Final, Protocol
+from typing import Final, Protocol, cast
 
 from _lpm_canonical import canonical_json_text
 
@@ -55,7 +55,11 @@ def _tool_definition(*, name: str) -> dict[str, object]:
 
 
 def _refused(*, request_id: object) -> dict[str, object]:
-    result = {"version": 1, "status": "refused"}
+    result: dict[str, object] = {"version": 1, "status": "refused"}
+    return _tool_result(request_id=request_id, result=result)
+
+
+def _tool_result(*, request_id: object, result: dict[str, object]) -> dict[str, object]:
     return {
         "jsonrpc": "2.0",
         "id": request_id,
@@ -80,4 +84,10 @@ class AcquisitionProxy:
                 "id": message.get("id"),
                 "result": {"tools": [_tool_definition(name=name) for name in REGISTERED_TOOLS]},
             }
+        params = cast("dict[str, object]", message.get("params", {}))
+        name = cast("str", params.get("name", ""))
+        if message.get("method") == "tools/call" and name in REGISTERED_TOOLS:
+            arguments = cast("dict[str, object]", params.get("arguments", {}))
+            result = self.exchange(tool=name, arguments=arguments)
+            return _tool_result(request_id=message.get("id"), result=result)
         return _refused(request_id=message.get("id"))

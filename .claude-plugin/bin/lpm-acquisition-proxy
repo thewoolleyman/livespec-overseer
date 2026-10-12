@@ -1,12 +1,151 @@
-#!/usr/bin/env sh
-set -eu
+#!/usr/bin/env python3
+"""Private-stdio MCP proxy for one acquisition execution invocation."""
 
-SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-PLUGIN_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
+from __future__ import annotations
 
-if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-    echo "usage: lpm-acquisition-proxy"
-    exit 0
-fi
+import contextlib
+import json
+import os
+import socket
+import sys
+from collections.abc import Callable
+from pathlib import Path
+from typing import cast
 
-exec python3 "$PLUGIN_ROOT/overseer/_lpm_acquisition_proxy.py" "$@"
+_MAX_FRAME = 16_777_216
+_MANAGER_VARIABLES = frozenset(
+    {
+        "LPM_ACQUISITION_READER_OP_SERVICE_ACCOUNT_TOKEN",
+        "LPM_ACQUISITION_OP_SERVICE_ACCOUNT_TOKEN",
+        "LPM_METADATA_WRITER_OP_SERVICE_ACCOUNT_TOKEN",
+        "LPM_METADATA_READER_OP_SERVICE_ACCOUNT_TOKEN",
+        "LPM_PROVIDER_OBSERVER_OP_SERVICE_ACCOUNT_TOKEN",
+        "LPM_VALUE_READER_OP_SERVICE_ACCOUNT_TOKEN",
+    }
+)
+
+
+def _scrub_environment() -> bool:
+    refused = False
+    for name in tuple(os.environ):
+        upper = name.upper()
+        credential_override = (
+            upper == "CLAUDECODE"
+            or upper.startswith(("ANTHROPIC_", "CLAUDE_", "OP_"))
+            or upper in _MANAGER_VARIABLES
+        )
+        if credential_override:
+            refused = refused or upper.startswith("OP_") or upper in _MANAGER_VARIABLES
+            del os.environ[name]
+    return refused
+
+
+def _read_exact(*, channel: socket.socket, size: int) -> bytes:
+    received = bytearray()
+    while len(received) < size:
+        part = channel.recv(size - len(received))
+        if not part:
+            raise ConnectionError
+        received.extend(part)
+    return bytes(received)
+
+
+def _read_result(*, channel: socket.socket) -> dict[str, object]:
+    size = int.from_bytes(_read_exact(channel=channel, size=4), "big")
+    if not 1 <= size <= _MAX_FRAME:
+        raise ValueError
+    payload = _read_exact(channel=channel, size=size)
+    value = json.loads(payload.decode("utf-8"))
+    canonical = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    if type(value) is not dict or canonical != payload:
+        raise ValueError
+    return cast("dict[str, object]", value)
+
+
+class _ChannelExchange:
+    def __init__(
+        self,
+        *,
+        channel: socket.socket,
+        frame_for: Callable[..., bytes],
+    ) -> None:
+        self.channel = channel
+        self.frame_for = frame_for
+
+    def __call__(self, *, tool: str, arguments: dict[str, object]) -> dict[str, object]:
+        self.channel.sendall(self.frame_for(tool=tool, arguments=arguments))
+        return _read_result(channel=self.channel)
+
+
+def _open_channel() -> socket.socket:
+    channel = socket.socket(fileno=3)
+    if channel.family != socket.AF_UNIX or channel.type & socket.SOCK_STREAM == 0:
+        channel.close()
+        raise ValueError
+    _ = channel.getpeername()
+    return channel
+
+
+def _initialize_result(*, request: dict[str, object]) -> dict[str, object]:
+    params = cast("dict[str, object]", request.get("params", {}))
+    protocol = cast("str", params.get("protocolVersion", "2024-11-05"))
+    return {
+        "jsonrpc": "2.0",
+        "id": request.get("id"),
+        "result": {
+            "protocolVersion": protocol,
+            "capabilities": {"tools": {}},
+            "serverInfo": {"name": "lpm_acquisition", "version": "1"},
+        },
+    }
+
+
+def _write_message(*, message: dict[str, object]) -> None:
+    output = json.dumps(message, sort_keys=True, separators=(",", ":"))
+    _ = sys.stdout.write(f"{output}\n")
+    sys.stdout.flush()
+
+
+def main() -> int:
+    refused = _scrub_environment()
+    if refused:
+        with contextlib.suppress(OSError):
+            os.close(3)
+        return 1
+    if sys.argv[1:] in (["--help"], ["-h"]):
+        _ = sys.stdout.write("usage: lpm-acquisition-proxy\n")
+        return 0
+    if sys.argv[1:]:
+        return 2
+
+    plugin_root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(plugin_root / "overseer"))
+    from _lpm_acquisition_proxy import AcquisitionProxy
+    from _lpm_browser_control import frame_for
+
+    channel = _open_channel()
+    proxy = AcquisitionProxy(exchange=_ChannelExchange(channel=channel, frame_for=frame_for))
+    try:
+        for raw in sys.stdin.buffer:
+            message = json.loads(raw.decode("utf-8"))
+            if type(message) is not dict:
+                return 1
+            request = cast("dict[str, object]", message)
+            method = request.get("method")
+            if method == "notifications/initialized":
+                continue
+            response = (
+                _initialize_result(request=request)
+                if method == "initialize"
+                else proxy.handle(message=request)
+            )
+            _write_message(message=response)
+    except (ConnectionError, json.JSONDecodeError, OSError, UnicodeError, ValueError):
+        return 1
+    finally:
+        channel.close()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

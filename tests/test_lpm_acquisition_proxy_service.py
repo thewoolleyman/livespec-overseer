@@ -32,20 +32,40 @@ _TOOLS = (
 class _Exchange:
     def __init__(self) -> None:
         self.calls: list[tuple[str, dict[str, object]]] = []
+        self.running = False
+        self.stop_calls = 0
 
     def __call__(self, *, tool: str, arguments: dict[str, object]) -> dict[str, object]:
         self.calls.append((tool, arguments))
+        if tool == "start-terminal":
+            self.running = True
         return {"version": 1, "status": "ok"}
+
+    def stop(self) -> None:
+        self.running = False
+        self.stop_calls += 1
 
 
 class _RawPerformer:
     def __init__(self, *, result: dict[str, object]) -> None:
         self.result = result
         self.calls: list[tuple[str, dict[str, object]]] = []
+        self.stop_calls = 0
 
     def __call__(self, *, tool: str, arguments: dict[str, object]) -> dict[str, object]:
         self.calls.append((tool, arguments))
         return self.result
+
+    def stop(self) -> None:
+        self.stop_calls += 1
+
+
+class _Clock:
+    def __init__(self, *, value: float) -> None:
+        self.value = value
+
+    def __call__(self) -> float:
+        return self.value
 
 
 class _Channel:
@@ -55,11 +75,11 @@ class _Channel:
         self.closed = False
 
     def receive(self, *, deadline: float) -> bytes | None:
-        assert deadline == 100.0
+        assert deadline > 0
         return self.frames.pop(0)
 
     def send(self, *, frame: bytes, deadline: float) -> None:
-        assert deadline == 100.0
+        assert deadline > 0
         self.responses.append(frame)
 
     def close(self) -> None:
@@ -123,7 +143,7 @@ def test_malformed_private_frame_closes_without_result_action_or_step() -> None:
     )
     channel = _Channel(frames=[b"\x00\x00\x00\x00"])
 
-    outcome = service.run(channel=channel, deadline=100.0)
+    outcome = service.run(channel=channel, deadline=float("inf"))
 
     assert outcome == service_module.ServiceOutcome(
         status="failed", failure_reason="flow-unavailable"
@@ -155,7 +175,7 @@ def test_valid_out_of_bounds_requests_return_refused_without_performer_action() 
             None,
         ]
     )
-    assert semantic.run(channel=semantic_channel, deadline=100.0) == (
+    assert semantic.run(channel=semantic_channel, deadline=float("inf")) == (
         service_module.ServiceOutcome(status="stopped", failure_reason=None)
     )
     assert semantic_channel.responses == [refused_frame]
@@ -172,7 +192,7 @@ def test_valid_out_of_bounds_requests_return_refused_without_performer_action() 
     budget_channel = _Channel(
         frames=[control_module.frame_for(tool="wait-browser", arguments={"seconds": 1})]
     )
-    assert budget.run(channel=budget_channel, deadline=100.0) == (
+    assert budget.run(channel=budget_channel, deadline=float("inf")) == (
         service_module.ServiceOutcome(status="failed", failure_reason="step-limit")
     )
     assert budget_channel.responses == [refused_frame]
@@ -190,7 +210,7 @@ def test_valid_out_of_bounds_requests_return_refused_without_performer_action() 
         tool="navigate-browser", arguments={"url": "https://claude.com/setup"}
     )
     repeated_channel = _Channel(frames=[repeated_request] * 4)
-    assert repeated.run(channel=repeated_channel, deadline=100.0) == (
+    assert repeated.run(channel=repeated_channel, deadline=float("inf")) == (
         service_module.ServiceOutcome(status="failed", failure_reason="step-limit")
     )
     assert repeated_channel.responses == [ok_frame, ok_frame, ok_frame, refused_frame]
@@ -227,7 +247,7 @@ def test_performer_observations_are_sanitized_and_masking_failure_is_unavailable
     terminal_channel = _Channel(
         frames=[control_module.frame_for(tool="observe-terminal", arguments={}), None]
     )
-    assert terminal.run(channel=terminal_channel, deadline=100.0) == (
+    assert terminal.run(channel=terminal_channel, deadline=float("inf")) == (
         service_module.ServiceOutcome(status="stopped", failure_reason=None)
     )
     terminal_result = cast("dict[str, object]", json.loads(terminal_channel.responses[0][4:]))
@@ -252,7 +272,7 @@ def test_performer_observations_are_sanitized_and_masking_failure_is_unavailable
     browser_channel = _Channel(
         frames=[control_module.frame_for(tool="observe-browser", arguments={}), None]
     )
-    assert browser.run(channel=browser_channel, deadline=100.0) == (
+    assert browser.run(channel=browser_channel, deadline=float("inf")) == (
         service_module.ServiceOutcome(status="stopped", failure_reason=None)
     )
     browser_result = cast("dict[str, object]", json.loads(browser_channel.responses[0][4:]))
@@ -279,10 +299,63 @@ def test_performer_observations_are_sanitized_and_masking_failure_is_unavailable
     unmasked_channel = _Channel(
         frames=[control_module.frame_for(tool="observe-browser", arguments={})]
     )
-    assert unmasked.run(channel=unmasked_channel, deadline=100.0) == (
+    assert unmasked.run(channel=unmasked_channel, deadline=float("inf")) == (
         service_module.ServiceOutcome(status="failed", failure_reason="flow-unavailable")
     )
     unavailable_payload = b'{"status":"unavailable","version":1}'
     assert unmasked_channel.responses == [
         len(unavailable_payload).to_bytes(4, "big") + unavailable_payload
     ]
+
+
+def test_service_stops_at_channel_or_deadline_and_reaps_started_performer() -> None:
+    service_module = importlib.import_module("_lpm_acquisition_service")
+    control_module = importlib.import_module("_lpm_browser_control")
+
+    performer = _Exchange()
+    service = service_module.AcquisitionProxyService(
+        step_limit=5,
+        allowed_origins=frozenset({"https://claude.com"}),
+        tainted_values=frozenset(),
+        perform=performer,
+    )
+    channel = _Channel(frames=[control_module.frame_for(tool="start-terminal", arguments={}), None])
+    assert service.run(channel=channel, deadline=float("inf")) == (
+        service_module.ServiceOutcome(status="stopped", failure_reason=None)
+    )
+    assert performer.running is False
+    assert performer.stop_calls == 1
+    assert channel.closed is True
+
+    deadline_performer = _Exchange()
+    deadline_service = service_module.AcquisitionProxyService(
+        step_limit=5,
+        allowed_origins=frozenset({"https://claude.com"}),
+        tainted_values=frozenset(),
+        perform=deadline_performer,
+        now=_Clock(value=100.0),
+    )
+    deadline_channel = _Channel(frames=[None])
+    assert deadline_service.run(channel=deadline_channel, deadline=100.0) == (
+        service_module.ServiceOutcome(status="failed", failure_reason="flow-unavailable")
+    )
+    assert deadline_performer.calls == []
+    assert deadline_performer.stop_calls == 1
+    assert deadline_channel.closed is True
+
+    proxy_module = importlib.import_module("_lpm_acquisition_proxy")
+    proxy_exchange = _Exchange()
+    proxy = proxy_module.AcquisitionProxy(exchange=proxy_exchange)
+    forwarded = proxy.handle(
+        message={
+            "jsonrpc": "2.0",
+            "id": 9,
+            "method": "tools/call",
+            "params": {"name": "start-terminal", "arguments": {}},
+        }
+    )
+    assert forwarded["result"] == {
+        "content": [{"type": "text", "text": '{"status":"ok","version":1}'}],
+        "isError": False,
+    }
+    assert proxy_exchange.calls == [("start-terminal", {})]

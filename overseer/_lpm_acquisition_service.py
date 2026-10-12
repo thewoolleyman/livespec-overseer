@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Protocol, cast
@@ -19,6 +20,16 @@ __all__: list[str] = [
 class ActionPerformer(Protocol):
     def __call__(self, *, tool: str, arguments: dict[str, object]) -> dict[str, object]:
         """Perform one already-validated acquisition action."""
+        ...
+
+    def stop(self) -> None:
+        """Terminate and reap every performer process owned by this port."""
+        ...
+
+
+class Clock(Protocol):
+    def __call__(self) -> float:
+        """Return the current monotonic time."""
         ...
 
 
@@ -63,6 +74,7 @@ class AcquisitionProxyService:
     allowed_origins: frozenset[str]
     tainted_values: frozenset[str]
     perform: ActionPerformer
+    now: Clock = time.monotonic
     _control: BrowserControl = field(init=False, repr=False)
     _browser_sanitizer: ObservationSanitizer = field(init=False, repr=False)
     _terminal_sanitizer: ObservationSanitizer = field(init=False, repr=False)
@@ -93,12 +105,16 @@ class AcquisitionProxyService:
 
     def run(self, *, channel: PrivateChannel, deadline: float) -> ServiceOutcome:
         """Serve private frames until channel or browser-control termination."""
-        result = self._serve(channel=channel, deadline=deadline)
-        channel.close()
-        return result
+        try:
+            return self._serve(channel=channel, deadline=deadline)
+        finally:
+            channel.close()
+            self.perform.stop()
 
     def _serve(self, *, channel: PrivateChannel, deadline: float) -> ServiceOutcome:
         while True:
+            if self.now() >= deadline:
+                return ServiceOutcome(status="failed", failure_reason="flow-unavailable")
             frame = channel.receive(deadline=deadline)
             if frame is None:
                 return ServiceOutcome(status="stopped", failure_reason=None)
