@@ -126,8 +126,13 @@ _BUSY_ACTIVE_RE = re.compile(
     r"esc to interrupt"  # kept: older/other layouts may still show it
     r"|[↓↑]\s*[\d.]+\s*k?\s*tokens"  # streaming token counter (active only)
     r"|·\s*\d+\s*s\s*[·)]"  # `· 24s ·` / `· 24s)` dot-delimited elapsed
-    r"|\(\s*running\b[^)\n]*\bhooks?\b",  # `(running stop hooks…` phase
-    re.IGNORECASE,
+    r"|\(\s*running\b[^)\n]*\bhooks?\b"  # `(running stop hooks…` phase
+    # A turn's FIRST frames (measured 2026-10-12, Claude Code 2.1.296): for ~2 s the
+    # only activity line is a bare spinner, `✽ Hatching…`, then `(2s · thinking)`,
+    # before any token counter. The completed summary `✻ Baked for 17s` has no ellipsis.
+    r"|^\s*\S\s+[A-Za-z][\w-]*…"  # bare spinner: glyph, word, ellipsis
+    r"|\(\s*\d+\s*s\s*·",  # `(2s · thinking)` elapsed form
+    re.IGNORECASE | re.MULTILINE,
 )
 
 
