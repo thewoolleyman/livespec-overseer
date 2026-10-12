@@ -2,8 +2,8 @@
 name: overseer
 description: >-
   Keep multiple parallel livespec tracks moving via a TWO-PANE model: a
-  deterministic top-pane daemon (`overseerd`) that watches every tracked tmux
-  session's context %, injects an ESCALATING wrap-up at threshold, and
+  deterministic top-pane daemon (`overseerd`) that watches every tracked
+  terminal session's context %, injects an ESCALATING wrap-up at threshold, and
   atomically restarts a session ONLY once that session declares itself `ready`
   (exit + a launch-profile-aware relaunch: bare `claude
   --dangerously-skip-permissions -n <topic>` only when no profile is recorded,
@@ -14,9 +14,9 @@ description: >-
   whether it is safe to kill; one that declares nothing is REPORTED as not
   responding and left alone — and this THIN bottom pane, the interactive Claude
   overseer, which starts the daemon, manages the discovery-driven auto-managed
-  track list via a JSONL topic↔tmux mapping (`add`/`remove`/`unassign`/`start`),
-  and RELAYS the tracks the daemon reports as non-blocking text naming the tmux
-  session + pane to go to. NOTIFY, NEVER BLOCK: a question may only be asked by
+  track list via a JSONL topic↔terminal mapping (`add`/`remove`/`unassign`/`start`),
+  and RELAYS the tracks the daemon reports as non-blocking text naming the exact
+  backend instance + pane to go to. NOTIFY, NEVER BLOCK: a question may only be asked by
   the actor that OWNS the decision, so the overseer never raises a blocking
   prompt for a TRACK's decision (answer that in the track's own pane); it prompts
   only for decisions it owns (add/remove/unassign/start, threshold). The list is
@@ -35,7 +35,7 @@ description: >-
 
 You are the **bottom pane** of the overseer: the interactive Claude session that
 starts and supervises a deterministic daemon. You keep several other tracks
-moving in parallel, each in its own tmux session, but you do **no track work
+moving in parallel, each in its own tmux or Herdr session, but you do **no track work
 yourself** and you **never poll** the tracked sessions on a timer — that
 context-burning inline-worker pattern is exactly the historical failure this
 design defeats. The mechanical watching runs in the top-pane daemon (a dumb,
@@ -51,7 +51,7 @@ list, start the daemon, and relay what it surfaces.
 >   sandboxes, gated by `just check` + `/livespec:doctor`. No human in the loop
 >   per item.
 > - **The overseer (this skill)** — a **human-supervised** coordinator that keeps
->   several *interactive plan tracks* moving in parallel across tmux sessions,
+>   several *interactive plan tracks* moving in parallel across terminal sessions,
 >   automating only the context-% wrap-up + clean-restart mechanics while the
 >   human stays the driver of the work.
 >
@@ -61,30 +61,29 @@ list, start the daemon, and relay what it surfaces.
 
 ---
 
-## Requirements — Linux and tmux (a DECLARED requirement, not a soft preference)
+## Requirements — Linux with either tmux or Herdr
 
-The overseer runs on **Linux with tmux**, and that is a deliberate product
-decision rather than an unfinished portability story:
+The overseer runs on **Linux with either tmux or Herdr**. Linux is a declared
+requirement rather than an unfinished portability story:
 
 - **Linux**, because the session readers parse `/proc/<pid>/…` to join a live
-  Claude or Codex process to its tmux pane. **macOS has no `/proc` at all** —
+  Claude or Codex process to its terminal pane. **macOS has no `/proc` at all** —
   absent, not merely shaped differently — so there is nothing to read.
-- **tmux**, because every acting mechanic (capture, paste, respawn, split)
-  shells out to a real tmux.
+- **tmux or Herdr**, because capture, typed input, split and replacement use the
+  selected backend's native CLI. These are two explicit implementations, not a
+  generic terminal-multiplexer abstraction.
 
-The host boundary is deliberately **NOT abstracted**: no `psutil`, no per-OS
-shims, no terminal-multiplexer abstraction. That option was weighed and rejected
-as speculative generality. If you need macOS, that reopens the decision on its
-own evidence — it is not smuggled in as a seam.
+The host boundary is deliberately **NOT abstracted**: no `psutil` and no per-OS
+shim. If you need macOS, that reopens the decision on its own evidence — it is
+not smuggled in as a seam.
 
 **How it behaves on an unsupported host.** `overseerd` REFUSES to start and
 names exactly which precondition failed, rather than failing several ticks deep
 inside whichever reader touched the host first:
 
 ```
-overseer[SURFACE]: refusing to start: unsupported host — tmux is not on PATH —
-every acting mechanic drives a real tmux (the overseer declares Linux + tmux as
-a REQUIREMENT and deliberately does not abstract the host boundary)
+overseer[SURFACE]: refusing to start: unsupported host — neither a usable tmux
+nor Herdr backend is available
 ```
 
 The check runs BEFORE every other startup gate, so an unsupported host is
@@ -95,7 +94,7 @@ fix the wrong thing first.
 
 ## The two-pane model
 
-Two panes in the overseer's own tmux window:
+Two panes in the overseer's own terminal tab or window, owned by one backend:
 
 - **TOP pane = the daemon** (`overseerd`, which runs the `supervisor.py` daemon
   logic) — a stdlib Python process that both *acts* and *renders the table*. No
@@ -105,7 +104,7 @@ Two panes in the overseer's own tmux window:
   discovers plans, joins the JSONL mapping, reads each tracked session's live
   pane + its one state file, injects escalating wrap-ups, restarts the sessions
   that have declared themselves `ready`, reports the ones that have not, and
-  reprints the live `Status · Topic · tmux · Ctx% · Repo` table (re-rendered
+  reprints the live `Status · Topic · Target · Ctx% · Repo` table (re-rendered
   from live captures each tick, so it can never freeze on a stale snapshot) —
   followed by the **`NEEDS YOU` block** (below).
 - **BOTTOM pane = this interactive Claude overseer** (thin) — starts the daemon,
@@ -170,10 +169,11 @@ write those values and wake the daemon's state-file fast path. See
 ## Starting the daemon + adopting sessions (run the bootstrap FIRST)
 
 **The FIRST thing you do when `/overseer` starts is run the bootstrap** — do NOT
-hand-craft any tmux command, and do NOT target another session by name. This
+hand-craft a tmux or Herdr command, and do NOT target another session by name. This
 script is invoked BY the skill (you, via the shell tool), never typed by a human at
 a terminal: it splits the daemon pane beside the SAME Claude Code or Codex session
-that ran `/overseer` and that session resumes in the bottom pane — it does NOT
+that ran `/overseer` and that session resumes in the same original LLM pane at
+the bottom — it does NOT
 launch Claude or Codex, so running it from a bare shell would leave a bare-shell
 bottom pane. From your interactive (BOTTOM) pane — the agent session where
 `/overseer` is running — resolve and run the bootstrap:
@@ -199,7 +199,7 @@ fi
 ```
 
 That one command (a self-invokable `uv` script, or the installed console script)
-does everything deterministically:
+does everything deterministically. There is no operator-facing backend override:
 
 0. **Verifies it is running under Claude Code or Codex** by walking process
    ancestry. `$CLAUDECODE` alone is not sufficient because env markers are
@@ -208,22 +208,24 @@ does everything deterministically:
    a stray hand-run from a plain terminal fails loudly instead of leaving a daemon
    pane + bare-shell bottom pane. (This is why it is skill-invoked-only; it is not
    a standalone launcher.)
-1. **Detects your own pane** via `$TMUX_PANE`, which the agent session inherits.
-   If `$TMUX_PANE` is unset it prints `not inside a tmux pane` and exits non-zero —
-   only then is the session genuinely not in tmux; start it inside a tmux session
-   and re-run. (Do NOT improvise a tmux check — this is the ONE authority.)
-2. **Splits YOUR OWN window** to create the daemon **TOP pane** running
-   `overseerd`, keeping focus on your (bottom) pane. It targets `$TMUX_PANE` only,
-   so the daemon pane always lands in *this* window — never in a separate session.
-   It is idempotent (tags the pane `overseer-daemon`; re-running won't stack panes).
+1. **Selects the nearest positively verified terminal owner** by walking the
+   supported agent process's ancestry. `$TMUX_PANE`, `HERDR_SOCKET_PATH` and
+   `HERDR_PANE_ID` are candidates, never authority by themselves: a stale,
+   detached or ambiguous candidate is refused before any terminal mutation.
+   The result is one backend-qualified pane — a tmux socket/session/window/pane,
+   or a Herdr socket generation/server/pane — not an unqualified session name.
+2. **Splits YOUR OWN window** with that backend's native command to create the
+   daemon **TOP pane** running `overseerd`, keeping focus on the same original
+   LLM pane at the bottom. It is idempotent: running bootstrap again reuses the
+   verified daemon rather than stacking panes.
 3. **Adopts existing Claude Code and Codex sessions.** Claude Code sessions come
    from Claude's own registry (`~/.claude/sessions/<pid>.json`, which carries each
    live session's display `name` + `cwd`); Codex sessions come from the live
    codex process's held-open rollout filename joined through
    `~/.codex/session_index.jsonl`. Both paths emit the same `(tmux, name, cwd)`
-   shape, and the daemon auto-tracks any whose `cwd` is inside a fleet repo AND
+   backend-qualified shape, and the daemon auto-tracks any whose `cwd` is inside a fleet repo AND
    whose `name` is an active plan topic — mapping each to the tmux session holding
-   it. The match key is the session `name`, NOT the tmux session name and NOT the
+   it. The match key is the session `name`, NOT the terminal instance name and NOT the
    `#{pane_title}` terminal title (which drifts to a task summary), and NOT a
    screen-scrape (the old input-box border vanished whenever a prompt was up).
    This also runs **every daemon tick**, so a session that was mid-prompt, renamed,
