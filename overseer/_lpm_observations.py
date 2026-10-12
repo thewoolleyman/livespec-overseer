@@ -151,18 +151,22 @@ class ObservationSanitizer:
         return len(text) - max(ambiguous_lengths, default=0)
 
     def _sanitize(self, *, text: str) -> str:
-        sanitized = text
+        replacements: dict[str, str] = {}
         for handle, value in self.token_handles.items():
-            sanitized = sanitized.replace(value, f"[[redacted-token:{handle}]]")
-        for value in self.sensitive_values:
-            sanitized = sanitized.replace(value, "[[redacted-sensitive]]")
-        for value in frozenset(_TOKEN.findall(sanitized)):
+            replacements[value] = f"[[redacted-token:{handle}]]"
+        for value in frozenset(_TOKEN.findall(text)):
+            if value in replacements:
+                continue
             handle = self._dynamic_handles.get(value)
             if handle is None:
                 handle = self.new_token_handle(value=value)
                 self._dynamic_handles[value] = handle
-            sanitized = sanitized.replace(value, f"[[redacted-token:{handle}]]")
-        return sanitized
+            replacements[value] = f"[[redacted-token:{handle}]]"
+        for value in self.sensitive_values:
+            _ = replacements.setdefault(value, "[[redacted-sensitive]]")
+        ordered_values = sorted(replacements, key=len, reverse=True)
+        pattern = re.compile("|".join([*(re.escape(value) for value in ordered_values), r"(?!)"]))
+        return pattern.sub(lambda match: replacements[match.group()], text)
 
     def _unavailable(self) -> ObservationOutcome:
         return ObservationOutcome(

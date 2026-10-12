@@ -55,6 +55,31 @@ def _assert_browser_observations(*, observations: ModuleType) -> None:
     assert unavailable.stop_reason == "flow-unavailable"
 
 
+def _assert_overlapping_values_are_replaced_atomically(*, observations: ModuleType) -> None:
+    short_handle = "browser:11111111-1111-4111-8111-111111111111"
+    long_handle = "browser:22222222-2222-4222-8222-222222222222"
+    sanitizer = observations.ObservationSanitizer(
+        token_handles={
+            short_handle: "sk-ant-oat01-abc",
+            long_handle: "sk-ant-oat01-abcdef",
+        },
+        sensitive_values=frozenset({"sensitive-prefix", "sensitive-prefix-suffix"}),
+        new_token_handle=_Handles(),
+    )
+
+    visible = sanitizer.browser_observation(
+        url="https://claude.test",
+        title="sk-ant-oat01-abcdef",
+        dom_text="sensitive-prefix-suffix",
+        accessibility_tree="safe",
+        masked_screenshot_png=b"masked-pixels",
+        masking_established=True,
+    )
+
+    assert visible.response["title"] == f"[[redacted-token:{long_handle}]]"
+    assert visible.response["dom_text"] == "[[redacted-sensitive]]"
+
+
 def _assert_incremental_terminal_observations(*, observations: ModuleType) -> None:
     sanitizer = _sanitizer(observations=observations)
     first = sanitizer.terminal_observation(
@@ -104,4 +129,5 @@ def test_observation_sanitizers_never_expose_secret_tainted_fields() -> None:
     observations = importlib.import_module("_lpm_observations")
 
     _assert_browser_observations(observations=observations)
+    _assert_overlapping_values_are_replaced_atomically(observations=observations)
     _assert_incremental_terminal_observations(observations=observations)
