@@ -140,13 +140,21 @@ checkout=$checkout
 EOF
 
 # The namespace replaces the operator home with a scratch home, so a backend or agent
-# client installed under that home (for example ~/.local/bin/herdr) would vanish.
-# Bind each such executable read-only at its own path, beneath the scratch home bind.
+# client installed under that home (for example ~/.local/bin/herdr) would vanish, and
+# so would the `uv` that the shipped `overseer-start` shim runs under. Bind each such
+# executable read-only at its own path, beneath the scratch home bind. A mise shim is
+# `mise` itself and needs mise's hidden install tree, so bind the tool it resolves to.
 home_binaries=()
-for tool in "$backend" "$agent"; do
+for tool in "$backend" "$agent" uv; do
   tool_path="$(command -v "$tool" || true)"
   case "$tool_path" in
-    "$operator_home"/*) home_binaries+=(--ro-bind "$(realpath "$tool_path")" "$tool_path") ;;
+    "$operator_home"/*)
+      tool_source="$(realpath "$tool_path")"
+      if [[ "$(basename "$tool_source")" == mise ]]; then
+        tool_source="$(mise which "$tool")" || die "mise cannot resolve $tool"
+      fi
+      home_binaries+=(--ro-bind "$tool_source" "$tool_path")
+      ;;
   esac
 done
 
