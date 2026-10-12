@@ -622,13 +622,37 @@ weakening the cardinal rule.
 
 ## The restart mechanics (unchanged trigger, profile-preserving launch)
 
-Once, and only once, the session has declared `ready`, the daemon runs:
+Once, and only once, the session has declared `ready`, the daemon uses the
+backend-specific replacement path. The legacy tmux path remains:
 
     respawn-pane -k -c <repo> '<launch-profile-aware command>'
       → wait for the fresh Claude TUI (poll #{pane_current_command})
       → bracketed-paste + verify-submit:  resume plan epic <epic> in repository <repo>;
                                           read its ledger-held plan state
       → clear the round (state file + injection stamp + notified bands)
+
+The Herdr path preserves Herdr's retained shell, pane, and server instead of
+using tmux respawn. Before any signal, it acquires the per-track transaction
+lock and atomically records the exact server socket/generation, stable pane,
+certified ready round and declaration, predecessor PID/start time/foreground
+process group, distinct retained shell identity, and launch profile. Its durable
+phases fence every irreversible effect: `before-stop`, `signal-attempted`,
+`stopped-awaiting-shell`, `launch-attempted`, `successor-observed`, and
+`completed`. The daemon revalidates the full process and server interlock before
+the single termination signal, never signals the shell or server, waits for the
+recorded predecessor to be gone and the same shell to be live and idle, then
+persists launch intent before submitting the preserved profile.
+
+That record is also the only bare-shell recovery authority. A recreated daemon
+reconciles it before ordinary managed-runtime rejection and may continue a
+never-attempted launch, but never repeats a recorded signal or an attempted
+launch whose result is unknown. A read-only tick reports the partial transaction
+without signalling, launching, pasting, or submitting. Missing, malformed, or
+mismatched records grant no input permission. Success requires a different
+runtime process generation in the original server/pane/shell; Codex additionally
+requires a fresh rollout. Failures retain the transaction and its diagnostics,
+and ready is consumed only after the guarded continuation is confirmed and the
+anti-replay record closes successfully.
 
 The launch command is profile-aware, per SPECIFICATION v018's "The launch
 profile" clause. A mapping row with NO recorded `model_profile` keeps the old
@@ -675,21 +699,21 @@ unavailable, and treating absence as a mismatch would suppress legitimate
 restarts. And the statusline is never written back into the profile; it remains a
 verification signal, never a source.
 
-Note one CURRENT limitation rather than assuming symmetry: this check is wired to
-the Claude restart path only. A Codex track is still relaunched without it, which
-is tracked as `overseer-gaouiv`; every other stage of the profile chain — capture
-at adoption, re-check at wrap-up, and the parser itself — is already
-harness-neutral.
+The model-mismatch check is applied to both Claude and Codex ready-time
+replacement. As elsewhere in the profile chain, an unavailable rendered model
+is not invented and does not become a mismatch.
 
 `--dangerously-skip-permissions` is still required for the resumed session to run
 **autonomously**; without it the fresh session stalls on its first permission
-prompt. The abrupt `respawn-pane -k` is safe **precisely because of the
-declaration**: the session asserted it is at a clean stopping point. And
+prompt. On tmux, the abrupt `respawn-pane -k` remains safe **precisely because of
+the declaration**: the session asserted it is at a clean stopping point. And
 `respawn-pane -k` replaces the **process** — every file, worktree, branch, and
-commit on disk survives it. Every tmux step is a hard gate: if the respawn fails,
-the profile is stale/corrupt, or the pane never becomes a live Claude, the daemon
-surfaces the failure and **keeps** the `ready` declaration so the next tick
-retries, rather than silently destroying it.
+commit on disk survives it. Every tmux step is a hard gate: a native respawn that
+provably fails before replacement, a stale/corrupt profile, or a pane that never
+becomes a live Claude is surfaced without consuming `ready`; the proven
+pre-effect respawn failure may retry. Herdr does not infer that guarantee from a
+boolean result: its durable phase decides whether another signal or launch is
+forbidden.
 
 **The resume-submit is self-healing (R1, 2026-07-18).** A freshly-respawned TUI
 can DROP the resume line's Enter while still drawing its welcome screen, leaving
@@ -698,11 +722,13 @@ up: on a failed submit it keeps the round open (marker + stamp) and marks a
 round-scoped `resume_pending`, then on the next tick re-sends Enter — **the
 SUBMIT only, never a re-respawn** — until the box clears. Re-`respawn-pane -k`
 stays gated on a fresh `ready` alone, so the retry can never escalate to a kill;
-the stranded track is a NEEDS-YOU report until it resumes. (Codex reaches the same
-outcome differently: its restart names the fresh session with `/rename <topic>`,
-submit-verifies the resume line inline, and on failure keeps the `ready` declaration
-rather than opening a retry round — a fresh Codex session holds nothing worth
-preserving across a re-respawn, which is exactly why the Claude arm cannot do that.)
+the stranded track is a NEEDS-YOU report until it resumes. Herdr carries the same
+principle in its transaction: after successor proof it will neither signal nor
+launch again, and failed or unknown paste/submit evidence is retained. Codex
+persists `/rename <topic>` and resume progress; only exact pending resume text,
+the recorded successor identity, idle input, and remaining round retry budget can
+authorize an Enter-only retry. Empty or unrelated input never proves submission
+and never authorizes a duplicate paste or replacement.
 
 ## Notify, never block — the overseer relays, the tracked pane answers
 

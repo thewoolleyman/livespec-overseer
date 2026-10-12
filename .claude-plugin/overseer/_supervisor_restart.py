@@ -2,9 +2,9 @@
 
 A private collaborator of :mod:`supervisor`; see that module's header for the whole
 split. Reached ONLY from the cascade's `ready` and low-context legs, and
-RUNTIME-DISPATCHED: a Codex track routes to `codex resume <id>`, never the claude
-launch command, because aiming `claude -n <topic>` at a codex pane would replace
-the codex session with a claude one and destroy it.
+RUNTIME-DISPATCHED: ready-time Codex replacement launches a fresh session, while
+`codex resume <id>` remains confined to crash recovery. Both routes keep a Codex
+pane on Codex; neither can aim the Claude launch command at it.
 """
 
 from __future__ import annotations
