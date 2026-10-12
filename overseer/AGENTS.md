@@ -969,6 +969,15 @@ for the marker's edge-triggered lifecycle.
   edge-triggered `alert` daemon.log line (both `MAX_REASON_IN_ALERT`, 160 — a longer
   preview, since the FULL reason is in the tracked pane the line's jump command points
   at). Never render `row.note` raw onto any surface — route it through `elide`.
+- **Automation-shell marker (`LIVESPEC_AUTOMATION_SHELL=1`).** The marker means the
+  pane's shell is automation-owned: commands pasted or generated there are not human
+  shell-history events. The overseer and every tmux-creating test route `new-session`
+  through `tmuxio.new_session_args`, which passes `-e LIVESPEC_AUTOMATION_SHELL=1` on
+  every tmux session they create, including sessions on the default socket. The host shell rc
+  honours this contract by setting `HISTFILE=/dev/null` and detaching
+  Atuin's `preexec` and `precmd` hooks, disabling both shell and Atuin history recording. A
+  non-default-socket heuristic may provide a second net, but it does not replace the
+  explicit marker.
 - **`command tmux` semantics (`tmuxio.py`).** Every tmux call is
   `subprocess.run([...], shell=False)` with an argv LIST — no shell is spawned,
   so a user's zsh `tmux` function shim is bypassed (the `command tmux` effect).
@@ -1739,9 +1748,9 @@ Launch two throwaway tracks in the scratch tree — one cloud, one through the
 local wrapper — so both relaunch arms are covered:
 
 ```bash
-tmux new-session -d -s ex-cloud -c "$EX" \
+tmux new-session -e LIVESPEC_AUTOMATION_SHELL=1 -d -s ex-cloud -c "$EX" \
   'claude --model sonnet --dangerously-skip-permissions -n ex-cloud'
-tmux new-session -d -s ex-local -c "$EX" \
+tmux new-session -e LIVESPEC_AUTOMATION_SHELL=1 -d -s ex-local -c "$EX" \
   '/data/projects/local-llm/bin/claude-local-llm --dangerously-skip-permissions -n ex-local'
 ```
 
@@ -2104,7 +2113,8 @@ the registry, or is deliberately left waiting on the maintainer" is.
   be gone. The daemon earned its safety with a deliberate, tested design decision;
   this procedure never had one. Use `'=<name>:'` and it does.
 - **Fresh session vs. existing pane.** If the tmux session is GONE, recreate it
-  first (`command tmux new-session -d -s <name> -c <repo>`), then `respawn-pane -k …`
+  first (`command tmux new-session -e LIVESPEC_AUTOMATION_SHELL=1 -d -s <name>
+  -c <repo>`), then `respawn-pane -k …`
   — this mirrors the daemon's own `new_session` + `respawn_pane` split, so the shell
   / env behavior matches what works in production. If the pane already exists (e.g. a
   prior wrong-command attempt), `respawn-pane -k …` alone replaces it.
