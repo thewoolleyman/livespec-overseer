@@ -5,8 +5,13 @@ from __future__ import annotations
 import importlib
 import json
 import re
+import runpy
+import sys
+import types
 from pathlib import Path
-from typing import cast
+from typing import Protocol, cast
+
+import pytest
 
 _TOOLS = (
     "observe-browser",
@@ -84,6 +89,90 @@ class _Channel:
 
     def close(self) -> None:
         self.closed = True
+
+
+class _ExecutableExchange(Protocol):
+    def __call__(self, *, tool: str, arguments: dict[str, object]) -> dict[str, object]: ...
+
+
+class _ExecutableExchangeFactory(Protocol):
+    def __call__(self, *, channel: object, frame_for: object) -> _ExecutableExchange: ...
+
+
+class _ExecutableBoundaryChannel:
+    """Drive one executable exchange through the framed service synchronously."""
+
+    def __init__(self, *, service: object) -> None:
+        self.service = service
+        self.pending = bytearray()
+        self.service_channel: _Channel | None = None
+        self.outcome: object | None = None
+        self.closed = False
+
+    def sendall(self, frame: bytes) -> None:
+        service_channel = _Channel(frames=[frame, None])
+        self.service_channel = service_channel
+        self.outcome = self.service.run(channel=service_channel, deadline=float("inf"))
+        for response in service_channel.responses:
+            self.pending.extend(response)
+
+    def recv(self, size: int) -> bytes:
+        received = bytes(self.pending[:size])
+        del self.pending[:size]
+        return received
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _DescriptorChannel:
+    def __init__(self, *, family: int, channel_type: int) -> None:
+        self.family = family
+        self.type = channel_type
+        self.closed = False
+        self.peer_reads = 0
+
+    def getpeername(self) -> str:
+        self.peer_reads += 1
+        return "private-peer"
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _SocketModule:
+    AF_UNIX = 1
+    SOCK_STREAM = 1
+
+    def __init__(self, *, channel: _DescriptorChannel) -> None:
+        self.channel = channel
+
+    def socket(self, *, fileno: int) -> _DescriptorChannel:
+        assert fileno == 3
+        return self.channel
+
+
+class _FakeOS:
+    def __init__(self, *, environ: dict[str, str], close_fails: bool = False) -> None:
+        self.environ = environ
+        self.close_fails = close_fails
+        self.closed: list[int] = []
+
+    def close(self, descriptor: int) -> None:
+        self.closed.append(descriptor)
+        if self.close_fails:
+            raise OSError("already closed")
+
+
+class _Stdin:
+    def __init__(self, *, lines: list[bytes]) -> None:
+        self.buffer = lines
+
+
+class _CloseFailingChannel(_Channel):
+    def close(self) -> None:
+        super().close()
+        raise OSError("channel close failed")
 
 
 def _assert_redacted(*, result: dict[str, object], token: str, sensitive: str, source: str) -> None:
@@ -359,3 +448,317 @@ def test_service_stops_at_channel_or_deadline_and_reaps_started_performer() -> N
         "isError": False,
     }
     assert proxy_exchange.calls == [("start-terminal", {})]
+
+
+def test_executable_boundary_accepts_sanitized_canonical_text_and_closes_on_bad_result() -> None:
+    root = Path(__file__).parents[1]
+    executable = root / ".claude-plugin" / "bin" / "lpm-acquisition-proxy"
+    executable_members = runpy.run_path(str(executable), run_name="lpm_acquisition_proxy_test")
+    exchange_factory = cast("_ExecutableExchangeFactory", executable_members["_ChannelExchange"])
+    service_module = importlib.import_module("_lpm_acquisition_service")
+    control_module = importlib.import_module("_lpm_browser_control")
+    proxy_module = importlib.import_module("_lpm_acquisition_proxy")
+
+    observation_performer = _RawPerformer(
+        result={
+            "running": False,
+            "exit_status": 0,
+            "stdout": "line one\nDéjà vu",
+            "stderr": "",
+        }
+    )
+    observation_service = service_module.AcquisitionProxyService(
+        step_limit=1,
+        allowed_origins=frozenset({"https://claude.com"}),
+        tainted_values=frozenset(),
+        perform=observation_performer,
+    )
+    observation_channel = _ExecutableBoundaryChannel(service=observation_service)
+    observation_proxy = proxy_module.AcquisitionProxy(
+        exchange=exchange_factory(
+            channel=observation_channel,
+            frame_for=control_module.frame_for,
+        )
+    )
+
+    observed = observation_proxy.handle(
+        message={
+            "jsonrpc": "2.0",
+            "id": 10,
+            "method": "tools/call",
+            "params": {"name": "observe-terminal", "arguments": {}},
+        }
+    )
+    content = cast("list[dict[str, object]]", observed["result"]["content"])
+    assert json.loads(cast("str", content[0]["text"])) == {
+        "version": 1,
+        "status": "ok",
+        "running": False,
+        "exit_status": 0,
+        "stdout": "line one\nDéjà vu",
+        "stderr": "",
+    }
+    assert observation_performer.stop_calls == 1
+
+    secret = "must-not-cross-the-proxy"
+    malformed_performer = _RawPerformer(
+        result={"version": 1, "status": "ok", "leaked_token": secret}
+    )
+    malformed_service = service_module.AcquisitionProxyService(
+        step_limit=1,
+        allowed_origins=frozenset({"https://claude.com"}),
+        tainted_values=frozenset({secret}),
+        perform=malformed_performer,
+    )
+    malformed_channel = _ExecutableBoundaryChannel(service=malformed_service)
+    malformed_proxy = proxy_module.AcquisitionProxy(
+        exchange=exchange_factory(
+            channel=malformed_channel,
+            frame_for=control_module.frame_for,
+        )
+    )
+
+    with pytest.raises(ConnectionError):
+        malformed_proxy.handle(
+            message={
+                "jsonrpc": "2.0",
+                "id": 11,
+                "method": "tools/call",
+                "params": {"name": "start-terminal", "arguments": {}},
+            }
+        )
+    assert malformed_channel.service_channel is not None
+    assert malformed_channel.service_channel.responses == []
+    assert malformed_channel.outcome == service_module.ServiceOutcome(
+        status="failed", failure_reason="flow-unavailable"
+    )
+    assert secret not in repr(malformed_channel.service_channel.responses)
+    assert malformed_performer.stop_calls == 1
+
+
+def test_channel_close_failure_still_reaps_the_performer() -> None:
+    service_module = importlib.import_module("_lpm_acquisition_service")
+    control_module = importlib.import_module("_lpm_browser_control")
+    performer = _Exchange()
+    service = service_module.AcquisitionProxyService(
+        step_limit=1,
+        allowed_origins=frozenset({"https://claude.com"}),
+        tainted_values=frozenset(),
+        perform=performer,
+    )
+    channel = _CloseFailingChannel(
+        frames=[control_module.frame_for(tool="start-terminal", arguments={}), None]
+    )
+
+    with pytest.raises(OSError, match="channel close failed"):
+        service.run(channel=channel, deadline=float("inf"))
+
+    assert channel.closed is True
+    assert performer.running is False
+    assert performer.stop_calls == 1
+
+
+@pytest.mark.parametrize(
+    ("tool", "arguments", "result", "expected"),
+    [
+        ("start-terminal", {}, {"version": 2, "status": "ok"}, None),
+        ("start-terminal", {}, {"version": True, "status": "ok"}, None),
+        ("start-terminal", {}, {"version": 1, "status": 1}, None),
+        (
+            "start-terminal",
+            {},
+            {"version": 1, "status": "refused"},
+            {"version": 1, "status": "refused"},
+        ),
+        (
+            "start-terminal",
+            {},
+            {"version": 1, "status": "unavailable"},
+            {"version": 1, "status": "unavailable"},
+        ),
+        ("start-terminal", {}, {"version": 1, "status": "captured"}, None),
+        (
+            "apply-mailbox-verification",
+            {"element_handle": "element:1"},
+            {"version": 1, "status": "applied"},
+            {"version": 1, "status": "applied"},
+        ),
+        (
+            "apply-mailbox-verification",
+            {"element_handle": "element:1"},
+            {"version": 1, "status": "not-found"},
+            {"version": 1, "status": "not-found"},
+        ),
+        (
+            "apply-mailbox-verification",
+            {"element_handle": "element:1"},
+            {"version": 1, "status": "ok"},
+            None,
+        ),
+        (
+            "capture-token",
+            {"source_handle": "browser:123e4567-e89b-42d3-a456-426614174000"},
+            {"version": 1, "status": "captured", "capture_handle": "capture:opaque"},
+            {"version": 1, "status": "captured", "capture_handle": "capture:opaque"},
+        ),
+        (
+            "capture-token",
+            {"source_handle": "browser:123e4567-e89b-42d3-a456-426614174000"},
+            {"version": 1, "status": "captured", "capture_handle": ""},
+            None,
+        ),
+    ],
+)
+def test_non_observation_results_have_exact_per_tool_shapes(
+    *,
+    tool: str,
+    arguments: dict[str, object],
+    result: dict[str, object],
+    expected: dict[str, object] | None,
+) -> None:
+    service_module = importlib.import_module("_lpm_acquisition_service")
+    control_module = importlib.import_module("_lpm_browser_control")
+    performer = _RawPerformer(result=result)
+    service = service_module.AcquisitionProxyService(
+        step_limit=1,
+        allowed_origins=frozenset({"https://claude.com"}),
+        tainted_values=frozenset(),
+        perform=performer,
+    )
+    channel = _Channel(frames=[control_module.frame_for(tool=tool, arguments=arguments), None])
+
+    outcome = service.run(channel=channel, deadline=float("inf"))
+
+    if expected is None:
+        assert channel.responses == []
+        assert outcome == service_module.ServiceOutcome(
+            status="failed", failure_reason="flow-unavailable"
+        )
+    else:
+        assert json.loads(channel.responses[0][4:]) == expected
+    assert performer.calls == [(tool, arguments)]
+    assert performer.stop_calls == 1
+
+
+def _executable_function(*, name: str, run_name: str) -> types.FunctionType:
+    executable = Path(__file__).parents[1] / ".claude-plugin" / "bin" / "lpm-acquisition-proxy"
+    members = runpy.run_path(str(executable), run_name=run_name)
+    return cast(types.FunctionType, members[name])
+
+
+def test_executable_main_scrubs_startup_and_handles_cli_modes(
+    *, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    main = _executable_function(name="main", run_name="lpm_proxy_cli_test")
+    members = main.__globals__
+
+    inherited = {
+        "PATH": "/usr/bin",
+        "CLAUDECODE": "secret",
+        "anthropic_api_key": "secret",
+        "op_service_account_token": "secret",
+        "lpm_value_reader_op_service_account_token": "secret",
+    }
+    refused_os = _FakeOS(environ=inherited, close_fails=True)
+    members["os"] = refused_os
+    monkeypatch.setattr(sys, "argv", ["lpm-acquisition-proxy"])
+    assert main() == 1
+    assert inherited == {"PATH": "/usr/bin"}
+    assert refused_os.closed == [3]
+
+    members["os"] = _FakeOS(environ={})
+    monkeypatch.setattr(sys, "argv", ["lpm-acquisition-proxy", "--help"])
+    assert main() == 0
+    assert capsys.readouterr().out == "usage: lpm-acquisition-proxy\n"
+
+    monkeypatch.setattr(sys, "argv", ["lpm-acquisition-proxy", "unexpected"])
+    assert main() == 2
+
+
+def test_executable_main_serves_initialization_notification_and_tool_call(
+    *, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    main = _executable_function(name="main", run_name="lpm_proxy_serving_test")
+    members = main.__globals__
+    members["os"] = _FakeOS(environ={})
+    service_module = importlib.import_module("_lpm_acquisition_service")
+    performer = _RawPerformer(
+        result={
+            "running": False,
+            "exit_status": 0,
+            "stdout": "safe",
+            "stderr": "",
+        }
+    )
+    service = service_module.AcquisitionProxyService(
+        step_limit=1,
+        allowed_origins=frozenset({"https://claude.com"}),
+        tainted_values=frozenset(),
+        perform=performer,
+    )
+    channel = _ExecutableBoundaryChannel(service=service)
+    members["_open_channel"] = lambda: channel
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        _Stdin(
+            lines=[
+                b'{"jsonrpc":"2.0","id":1,"method":"initialize",'
+                b'"params":{"protocolVersion":"test-version"}}\n',
+                b'{"jsonrpc":"2.0","method":"notifications/initialized"}\n',
+                b'{"jsonrpc":"2.0","id":2,"method":"tools/call",'
+                b'"params":{"name":"observe-terminal","arguments":{}}}\n',
+            ]
+        ),
+    )
+    monkeypatch.setattr(sys, "argv", ["lpm-acquisition-proxy"])
+    monkeypatch.setattr(sys, "path", [*sys.path])
+    assert main() == 0
+    output = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert output[0]["result"]["protocolVersion"] == "test-version"
+    assert json.loads(output[1]["result"]["content"][0]["text"])["stdout"] == "safe"
+    assert channel.closed is True
+
+
+@pytest.mark.parametrize("line", [b"{\n", b"[]\n"])
+def test_executable_main_fails_closed_on_invalid_input(
+    *, line: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    main = _executable_function(name="main", run_name="lpm_proxy_invalid_input_test")
+    members = main.__globals__
+    members["os"] = _FakeOS(environ={})
+    malformed_channel = _Channel(frames=[])
+    members["_open_channel"] = lambda: malformed_channel
+    monkeypatch.setattr(sys, "stdin", _Stdin(lines=[line]))
+    monkeypatch.setattr(sys, "argv", ["lpm-acquisition-proxy"])
+    monkeypatch.setattr(sys, "path", [*sys.path])
+    assert main() == 1
+    assert malformed_channel.closed is True
+
+
+def test_executable_descriptor_and_frame_guards() -> None:
+    open_channel = _executable_function(name="_open_channel", run_name="lpm_proxy_guards_test")
+    read_result = cast(types.FunctionType, open_channel.__globals__["_read_result"])
+    members = open_channel.__globals__
+
+    valid = _DescriptorChannel(family=_SocketModule.AF_UNIX, channel_type=_SocketModule.SOCK_STREAM)
+    members["socket"] = _SocketModule(channel=valid)
+    assert open_channel() is valid
+    assert valid.peer_reads == 1
+
+    invalid = _DescriptorChannel(family=999, channel_type=_SocketModule.SOCK_STREAM)
+    members["socket"] = _SocketModule(channel=invalid)
+    with pytest.raises(ValueError, match="private channel"):
+        open_channel()
+    assert invalid.closed is True
+
+    invalid_frame = _ExecutableBoundaryChannel(service=object())
+    invalid_frame.pending.extend(b"\x00\x00\x00\x00")
+    with pytest.raises(ValueError, match="result frame"):
+        read_result(channel=invalid_frame)
+
+    noncanonical_payload = b'{"status":"ok", "version":1}'
+    noncanonical = _ExecutableBoundaryChannel(service=object())
+    noncanonical.pending.extend(len(noncanonical_payload).to_bytes(4, "big") + noncanonical_payload)
+    with pytest.raises(ValueError, match="result frame"):
+        read_result(channel=noncanonical)

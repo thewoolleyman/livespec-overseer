@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Protocol, cast
+from typing import Final, Protocol, cast
 
 from _lpm_browser_control import BrowserControl
 from _lpm_canonical import canonical_json_bytes
@@ -15,6 +15,28 @@ __all__: list[str] = [
     "AcquisitionProxyService",
     "ServiceOutcome",
 ]
+
+_PLAIN_OK_TOOLS: Final = frozenset(
+    {
+        "navigate-browser",
+        "click-browser",
+        "type-browser-text",
+        "select-browser",
+        "scroll-browser",
+        "wait-browser",
+        "start-terminal",
+        "send-terminal-line",
+        "send-terminal-handle",
+        "wait-terminal",
+        "terminate-terminal",
+        "type-login-material",
+        "discard-capture",
+    }
+)
+
+
+class _MalformedResultError(Exception):
+    """A local action returned no exact secret-free result shape."""
 
 
 class ActionPerformer(Protocol):
@@ -108,8 +130,10 @@ class AcquisitionProxyService:
         try:
             return self._serve(channel=channel, deadline=deadline)
         finally:
-            channel.close()
-            self.perform.stop()
+            try:
+                channel.close()
+            finally:
+                self.perform.stop()
 
     def _serve(self, *, channel: PrivateChannel, deadline: float) -> ServiceOutcome:
         while True:
@@ -118,7 +142,10 @@ class AcquisitionProxyService:
             frame = channel.receive(deadline=deadline)
             if frame is None:
                 return ServiceOutcome(status="stopped", failure_reason=None)
-            outcome = self._control.dispatch(frame=frame)
+            try:
+                outcome = self._control.dispatch(frame=frame)
+            except _MalformedResultError:
+                return ServiceOutcome(status="failed", failure_reason="flow-unavailable")
             if outcome.close_channel:
                 return ServiceOutcome(status="failed", failure_reason=outcome.stop_reason)
             response = cast("dict[str, object]", outcome.response)
@@ -146,9 +173,43 @@ class AcquisitionProxyService:
                 stdout=cast("str", result["stdout"]),
                 stderr=cast("str", result["stderr"]),
             )
-        return result
+        closed = _closed_non_observation_result(tool=tool, result=result)
+        if closed is None:
+            raise _MalformedResultError
+        return closed
 
 
 def _response_frame(*, response: dict[str, object]) -> bytes:
     payload = canonical_json_bytes(value=response).unwrap()
     return len(payload).to_bytes(4, "big") + payload
+
+
+def _closed_non_observation_result(
+    *, tool: str, result: dict[str, object]
+) -> dict[str, object] | None:
+    """Admit only the exact secret-free result shape declared for one tool."""
+    status = result.get("status")
+    if type(result.get("version")) is not int or result.get("version") != 1:
+        return None
+    if type(status) is not str:
+        return None
+    if status in {"refused", "unavailable"}:
+        return result if set(result) == {"version", "status"} else None
+    if tool in _PLAIN_OK_TOOLS:
+        valid = status == "ok" and set(result) == {"version", "status"}
+        return result if valid else None
+    if tool == "apply-mailbox-verification":
+        valid = status in {"applied", "not-found"} and set(result) == {
+            "version",
+            "status",
+        }
+        return result if valid else None
+    capture_handle = result.get("capture_handle")
+    valid_capture = (
+        tool == "capture-token"
+        and status == "captured"
+        and set(result) == {"version", "status", "capture_handle"}
+        and type(capture_handle) is str
+        and bool(capture_handle)
+    )
+    return result if valid_capture else None

@@ -25,6 +25,16 @@ _MANAGER_VARIABLES = frozenset(
 )
 
 
+class _InvalidResultFrameError(ValueError):
+    def __init__(self) -> None:
+        super().__init__("invalid result frame")
+
+
+class _InvalidPrivateChannelError(ValueError):
+    def __init__(self) -> None:
+        super().__init__("invalid private channel")
+
+
 def _scrub_environment() -> bool:
     refused = False
     for name in tuple(os.environ):
@@ -51,14 +61,16 @@ def _read_exact(*, channel: socket.socket, size: int) -> bytes:
 
 
 def _read_result(*, channel: socket.socket) -> dict[str, object]:
+    from _lpm_canonical import canonical_json_bytes, parse_canonical_json
+
     size = int.from_bytes(_read_exact(channel=channel, size=4), "big")
     if not 1 <= size <= _MAX_FRAME:
-        raise ValueError
+        raise _InvalidResultFrameError
     payload = _read_exact(channel=channel, size=size)
-    value = json.loads(payload.decode("utf-8"))
-    canonical = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    value = parse_canonical_json(text=payload.decode("utf-8")).value_or(None)
+    canonical = canonical_json_bytes(value=value).value_or(b"")
     if type(value) is not dict or canonical != payload:
-        raise ValueError
+        raise _InvalidResultFrameError
     return cast("dict[str, object]", value)
 
 
@@ -81,7 +93,7 @@ def _open_channel() -> socket.socket:
     channel = socket.socket(fileno=3)
     if channel.family != socket.AF_UNIX or channel.type & socket.SOCK_STREAM == 0:
         channel.close()
-        raise ValueError
+        raise _InvalidPrivateChannelError
     _ = channel.getpeername()
     return channel
 
