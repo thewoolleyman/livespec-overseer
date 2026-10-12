@@ -35,6 +35,25 @@ class _Exchange:
         return {"version": 1, "status": "ok"}
 
 
+class _Channel:
+    def __init__(self, *, frames: list[bytes | None]) -> None:
+        self.frames = frames
+        self.responses: list[bytes] = []
+        self.closed = False
+
+    def receive(self, *, deadline: float) -> bytes | None:
+        assert deadline == 100.0
+        return self.frames.pop(0)
+
+    def send(self, *, frame: bytes, deadline: float) -> bool:
+        assert deadline == 100.0
+        self.responses.append(frame)
+        return True
+
+    def close(self) -> None:
+        self.closed = True
+
+
 def test_private_proxy_executable_exposes_only_the_seventeen_registered_tools() -> None:
     root = Path(__file__).parents[1]
     module_path = root / "overseer" / "_lpm_acquisition_proxy.py"
@@ -68,3 +87,28 @@ def test_private_proxy_executable_exposes_only_the_seventeen_registered_tools() 
     assert exchange.calls == []
     assert executable.is_file()
     assert executable.stat().st_mode & 0o111
+
+
+def test_malformed_private_frame_closes_without_result_action_or_step() -> None:
+    root = Path(__file__).parents[1]
+    module_path = root / "overseer" / "_lpm_acquisition_service.py"
+    assert module_path.is_file(), "the private framed service loop must exist"
+    service_module = importlib.import_module("_lpm_acquisition_service")
+    performer = _Exchange()
+    service = service_module.AcquisitionProxyService(
+        step_limit=5,
+        allowed_origins=frozenset({"https://claude.com"}),
+        tainted_values=frozenset(),
+        perform=performer,
+    )
+    channel = _Channel(frames=[b"\x00\x00\x00\x00"])
+
+    outcome = service.run(channel=channel, deadline=100.0)
+
+    assert outcome == service_module.ServiceOutcome(
+        status="failed", failure_reason="flow-unavailable"
+    )
+    assert channel.responses == []
+    assert channel.closed is True
+    assert performer.calls == []
+    assert service.consumed_steps == 0
