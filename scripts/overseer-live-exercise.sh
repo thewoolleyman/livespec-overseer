@@ -6,9 +6,11 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-usage: overseer-live-exercise.sh run [--plan-only] --backend herdr|tmux
+usage: overseer-live-exercise.sh run [--plan-only | --isolation-check]
+       --backend herdr|tmux
        --agent claude|codex --topic TOPIC --checkout ABSOLUTE_PATH
-       --evidence ABSOLUTE_PATH [--credential ABSOLUTE_PATH] -- COMMAND [ARG...]
+       --evidence ABSOLUTE_PATH [--credential ABSOLUTE_PATH]
+       [-- COMMAND [ARG...]]
 EOF
 }
 
@@ -43,10 +45,15 @@ checkout=""
 evidence=""
 credential=""
 plan_only=false
+isolation_check=false
 while (($#)); do
   case "$1" in
     --plan-only)
       plan_only=true
+      shift
+      ;;
+    --isolation-check)
+      isolation_check=true
       shift
       ;;
     --backend | --agent | --topic | --checkout | --evidence | --credential)
@@ -76,7 +83,13 @@ done
 [[ "$topic" =~ ^[a-z0-9][a-z0-9-]*$ ]] || die "--topic must be a lowercase slug"
 [[ -d "$checkout" ]] || die "--checkout must name an existing directory"
 [[ -n "$evidence" ]] || die "--evidence is required"
-(($#)) || die "a controller COMMAND is required after --"
+[[ "$plan_only" != true || "$isolation_check" != true ]] || \
+  die "--plan-only and --isolation-check are mutually exclusive"
+if [[ "$isolation_check" == true ]]; then
+  (($# == 0)) || die "--isolation-check does not accept a controller COMMAND"
+else
+  (($#)) || die "a controller COMMAND is required after --"
+fi
 
 checkout="$(realpath "$checkout")"
 evidence="$(realpath -m "$evidence")"
@@ -84,6 +97,9 @@ case "$evidence" in
   "$checkout" | "$checkout"/*) die "--evidence must be outside the released checkout" ;;
 esac
 mkdir -p "$evidence"
+if find "$evidence" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
+  die "--evidence must name an empty directory"
+fi
 chmod 700 "$evidence"
 
 operator_home="${HOME:?HOME must name the operator home}"
@@ -153,11 +169,13 @@ namespace=(
   "OVERSEER_EXERCISE_INSTANCE=$backend_instance"
   "OVERSEER_EXERCISE_ENDPOINT=$backend_endpoint"
   "OVERSEER_EXERCISE_TOPIC=$topic"
+  "OVERSEER_EXERCISE_ISOLATION_CHECK=$isolation_check"
   /bin/bash
   "$checkout/scripts/overseer-live-exercise-inside.sh"
-  --
-  "$@"
 )
+if [[ "$isolation_check" == false ]]; then
+  namespace+=("$@")
+fi
 printf '%s\n' "${namespace[@]}" >"$evidence/namespace.argv"
 
 if [[ "$plan_only" == true ]]; then
@@ -182,7 +200,23 @@ fi
 namespace_status=0
 "${namespace[@]}" || namespace_status="$?"
 if ((namespace_status != 0)); then
+  if [[ "$isolation_check" == true ]]; then
+    echo "FAILED isolation: namespace/backend exited $namespace_status" >&2
+    exit "$namespace_status"
+  fi
   printf '{"stage":"bootstrap","status":"failed","detail":"namespace/controller exited %s"}\n' \
     "$namespace_status" >>"$evidence/lifecycle.jsonl"
+fi
+if [[ "$isolation_check" == true ]]; then
+  [[ -f "$evidence/backend-runtime.env" ]] || \
+    die "isolation check produced no native backend runtime record"
+  [[ -f "$evidence/backend-cleanup.env" ]] || \
+    die "isolation check produced no native backend cleanup record"
+  grep -qx 'status=live' "$evidence/backend-runtime.env" || \
+    die "isolation check did not prove a live native backend"
+  grep -qx 'status=passed' "$evidence/backend-cleanup.env" || \
+    die "isolation check did not prove native backend cleanup"
+  echo "COMPLETE isolation: native backend started and stopped inside namespace"
+  exit 0
 fi
 python3 "$checkout/scripts/overseer_live_exercise_evidence.py" "$evidence/lifecycle.jsonl"
