@@ -1304,12 +1304,12 @@ for the marker's edge-triggered lifecycle.
   whole process/server interlock immediately before the one predecessor-group
   signal; never signal the retained shell or server. A surviving predecessor gets
   no escalation. Launch only after proving that predecessor gone and that same
-  shell live and idle. Recovery must read the recorded PID's stable `/proc`
-  generation directly under the transaction lock; the pane snapshot alone omits a
-  surviving predecessor once it is no longer foreground. Live, reused, changing,
-  malformed, or unreadable evidence refuses launch. A recreated daemon may finish
-  a never-attempted launch, but never repeats a signal or an attempted launch with
-  an unknown outcome.
+  shell live and idle. Both the initial post-signal path and recovery must read the
+  recorded PID's stable `/proc` generation directly under the transaction lock;
+  the pane snapshot alone omits a surviving predecessor once it is no longer
+  foreground. Live, reused, changing, malformed, or unreadable evidence refuses
+  launch. A recreated daemon may finish a never-attempted launch, but never repeats
+  a signal or an attempted launch with an unknown outcome.
 - **The tmux path remains atomic `respawn-pane -k`, proven by
   `#{pane_current_command}`.** Tmux replacement replaces the pane's process in one
   step (`respawn-pane -k -c <repo>

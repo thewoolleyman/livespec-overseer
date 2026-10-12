@@ -16,6 +16,7 @@ __all__: list[str] = [
     "ObservedProcess",
     "ProcessIds",
     "ProcessReader",
+    "predecessor_exit_refusal",
     "proc_process",
     "proc_process_ids",
     "proc_starttime",
@@ -85,6 +86,28 @@ def proc_starttime(*, pid: int) -> str | None:
     if before is not None and before == after:
         return before
     raise OSError(_PREDECESSOR_CHANGED)
+
+
+def predecessor_exit_refusal(*, pid: int, starttime: str) -> tuple[str, str] | None:
+    """Return a surfaced refusal unless the recorded process generation is absent."""
+    try:
+        observed_starttime = proc_starttime(pid=pid)
+    except OSError as exc:
+        return (
+            f"recorded predecessor generation is unreadable: {exc}",
+            "herdr-predecessor-unreadable",
+        )
+    if observed_starttime is None:
+        return None
+    if observed_starttime == starttime:
+        return (
+            "predecessor survived the one termination attempt",
+            "herdr-predecessor-survived",
+        )
+    return (
+        "recorded predecessor PID was reused before its exit could be proven",
+        "herdr-predecessor-reused",
+    )
 
 
 def _executable(*, pid: int) -> str | None:

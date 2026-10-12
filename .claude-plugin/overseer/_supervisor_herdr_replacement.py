@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, cast
 import _herdr_replacement_authorization
 import _herdr_replacement_process
 import _herdr_replacement_store
+import herdr_replacement_process
 import registry
 from _supervisor_launch_profile import ClaudeLaunchPlan, CodexLaunchPlan
 
@@ -85,13 +86,25 @@ def _stop_predecessor(
         )
         return None, failure
     stopped = pane.herdr_replacement_snapshot(session=target)
-    if _herdr_replacement_process.predecessor_still_live(transaction=transaction, snapshot=stopped):
+    direct_refusal = herdr_replacement_process.predecessor_exit_refusal(
+        pid=cast(int, predecessor["pid"]),
+        starttime=cast(str, predecessor["starttime"]),
+    )
+    if direct_refusal is None and _herdr_replacement_process.predecessor_still_live(
+        transaction=transaction, snapshot=stopped
+    ):
+        direct_refusal = (
+            "predecessor survived the one termination attempt",
+            "herdr-predecessor-survived",
+        )
+    if direct_refusal is not None:
+        reason, condition = direct_refusal
         failure = _refuse(
             sup=sup,
             track=track,
             target=target,
-            reason="predecessor survived the one termination attempt",
-            condition="herdr-predecessor-survived",
+            reason=reason,
+            condition=condition,
         )
         return None, failure
     return stopped, None
