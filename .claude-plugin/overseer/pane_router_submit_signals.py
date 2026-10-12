@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -38,9 +39,21 @@ class PromptState:
     effect_unknown: bool
 
 
+# Claude collapses a multi-line bracketed paste in its composer to this placeholder
+# rather than rendering the payload's first line (measured live 2026-10-12: a wrap-up
+# paste showed as `[Pasted text #1 +41 lines]`, was judged not to have landed, and its
+# Enter was never sent). A single-line payload is never collapsed, so the placeholder
+# only stands in for a multi-line one.
+_CLAUDE_PASTE_PLACEHOLDER = re.compile(r"\[Pasted text #\d+(?: \+\d+ lines)?\]")
+
+
 def prompt_visible(*, capture: str, text: str) -> bool:
     first_line = text.partition("\n")[0].strip()
-    claude_visible = signals.input_box_text(capture_text=capture) == first_line
+    box = signals.input_box_text(capture_text=capture)
+    collapsed = ("\n" in text.strip()) & (
+        _CLAUDE_PASTE_PLACEHOLDER.fullmatch(box or "") is not None
+    )
+    claude_visible = (box == first_line) | collapsed
     codex_visible = bool(first_line) & (f"› {first_line}" in signals.strip_ansi(text=capture))
     return bool(claude_visible | codex_visible)
 
