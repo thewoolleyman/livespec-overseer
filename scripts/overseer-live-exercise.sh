@@ -139,6 +139,17 @@ mapping_store=$operator_home/.livespec-overseer.jsonl
 checkout=$checkout
 EOF
 
+# The namespace replaces the operator home with a scratch home, so a backend or agent
+# client installed under that home (for example ~/.local/bin/herdr) would vanish.
+# Bind each such executable read-only at its own path, beneath the scratch home bind.
+home_binaries=()
+for tool in "$backend" "$agent"; do
+  tool_path="$(command -v "$tool" || true)"
+  case "$tool_path" in
+    "$operator_home"/*) home_binaries+=(--ro-bind "$(realpath "$tool_path")" "$tool_path") ;;
+  esac
+done
+
 namespace=(
   bwrap
   --die-with-parent
@@ -151,7 +162,8 @@ namespace=(
   --bind "$scratch_tmp" /tmp
   --bind "$scratch_runtime" "/run/user/$operator_uid"
   --bind "$scratch_checkout" "$checkout"
-  --bind "$evidence" /evidence
+  --bind "$evidence" /tmp/livespec-overseer-exercise-evidence
+  "${home_binaries[@]}"
   --chdir "$checkout"
   /usr/bin/env
   -u TMUX
@@ -169,6 +181,7 @@ namespace=(
   "OVERSEER_EXERCISE_INSTANCE=$backend_instance"
   "OVERSEER_EXERCISE_ENDPOINT=$backend_endpoint"
   "OVERSEER_EXERCISE_TOPIC=$topic"
+  "OVERSEER_EXERCISE_EVIDENCE=/tmp/livespec-overseer-exercise-evidence"
   "OVERSEER_EXERCISE_ISOLATION_CHECK=$isolation_check"
   /bin/bash
   "$checkout/scripts/overseer-live-exercise-inside.sh"

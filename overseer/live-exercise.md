@@ -36,7 +36,10 @@ Claude run copies only `.claude/.credentials.json`; a Codex run copies only
 `.codex/auth.json`. The command is responsible for opening the named backend instance,
 starting the authenticated client in the scratch repository, asking that client to run
 the shipped `overseer-start`, and appending lifecycle evidence to
-`/evidence/lifecycle.jsonl`. Each line is a JSON object with `stage`, `status`
+`$OVERSEER_EXERCISE_EVIDENCE/lifecycle.jsonl`. That directory is
+`/tmp/livespec-overseer-exercise-evidence`, beneath the writable scratch `/tmp`, because
+the read-only host root cannot hold a new top-level mount point. Each line is a JSON
+object with `stage`, `status`
 (`passed` or `failed`) and an optional `detail`. The required stages are `bootstrap`,
 `adoption`, `wrap-up`, `declaration`, `replacement` and `continuation`. After the
 controller exits, the checked-in verifier reports a malformed record, failed stage or
