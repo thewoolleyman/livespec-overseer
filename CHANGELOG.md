@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.24.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.23.0...v5.24.0) (2026-10-12)
+
+
+### Features
+
+* mark canary tmux session as automation shell ([dabce9c](https://github.com/thewoolleyman/livespec-overseer/commit/dabce9c3c95dd8d3153509f63d1213a3639c57fb))
+* mark tmux sessions as automation shells ([66fa485](https://github.com/thewoolleyman/livespec-overseer/commit/66fa4854225dbb225680420c8bd93f5f332f1804))
+
 ## [5.23.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.22.1...v5.23.0) (2026-10-12)
 
 
