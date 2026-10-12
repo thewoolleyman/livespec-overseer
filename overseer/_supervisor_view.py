@@ -102,6 +102,7 @@ _ANSI_GREEN = "\x1b[32m"
 _ANSI_YELLOW = "\x1b[33m"
 _ANSI_RED = "\x1b[31m"
 _STATUS_COLOR = {
+    "done": _ANSI_GREEN,
     "working": _ANSI_GREEN,
     "winding-down": _ANSI_GREEN,
     "restarting": _ANSI_GREEN,
