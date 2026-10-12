@@ -26,7 +26,7 @@ from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
 
-PACKAGE = Path(__file__).resolve().parent.parent / "overseer"
+PACKAGE = Path(__file__).resolve().parents[2] / "overseer"
 ROUTER_PATH = PACKAGE / "pane_router.py"
 
 

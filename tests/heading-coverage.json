@@ -2680,56 +2680,56 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The nearest verified terminal owns the two-pane overseer",
-    "test": "TODO",
-    "reason": "Plan overseer-uzvcbn owns integration-tier herdr/tmux parity coverage for this new scenario; replace this placeholder with a real behavior test before plan completion.",
+    "test": "tests.integration.test_overseer_start_public_herdr.test_public_start_creates_and_reuses_one_verified_daemon",
+    "reason": "Native integration-tier public-entrypoint proof: installs the candidate non-editably, invokes the shipped overseer-start from a process in a real Herdr pane, proves the daemon occupies the one new pane while the invoking LLM pane, focus and unrelated sibling stay unchanged, then repeats bootstrap and proves no second split or daemon. Backend-selection ordering itself is pinned by the paired real ownership observations in tests.integration.test_terminal_ownership.",
     "work_item": "overseer-uzvcbn"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Stale environment cannot choose an overseer pane",
-    "test": "TODO",
-    "reason": "Plan overseer-uzvcbn owns integration-tier herdr/tmux parity coverage for this new scenario; replace this placeholder with a real behavior test before plan completion.",
+    "test": "tests.integration.test_terminal_ownership.test_a_stale_environment_selector_cannot_establish_ownership",
+    "reason": "Behavior test supplies inherited Herdr selectors whose claimed pane holds no process ancestor, then proves selection returns no claim and names the absence of a verified owning terminal. Adjacent cases prove focused-pane guessing, detached ancestry, foreign servers, unreadable ancestry and equal-distance ambiguity all refuse by the same public selector.",
     "work_item": "overseer-uzvcbn"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Backend-qualified coordinates preserve legacy tmux ownership",
-    "test": "TODO",
-    "reason": "Plan overseer-uzvcbn owns integration-tier herdr/tmux parity coverage for this new scenario; replace this placeholder with a real behavior test before plan completion.",
+    "test": "tests.integration.test_qualified_supervision_routing.test_mixed_daemon_routes_equal_pane_ids_to_their_recorded_generations",
+    "reason": "Integrated daemon-routing proof gives two live Herdr generations the same pane id plus a legacy tmux row, observes each exact server-qualified target independently, and proves the legacy unqualified value remains tmux. Paired adoption and policy-update cases prove no namesake repointing and preservation of legacy ownership.",
     "work_item": "overseer-uzvcbn"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Both backends retain supervision and acting guards",
-    "test": "TODO",
-    "reason": "Plan overseer-uzvcbn owns integration-tier herdr/tmux parity coverage for this new scenario; replace this placeholder with a real behavior test before plan completion.",
+    "test": "tests.integration.test_supervisor_herdr_replacement.test_tmux_pre_effect_failure_stays_retryable_and_native_herdr_is_explicit",
+    "reason": "One integrated supervisor test exercises both backend replacement implementations: a tmux pre-effect failure preserves the ready marker and round for retry, while the Herdr leg requires the explicit native snapshot/termination/launch contract. The routing suite's uncertain-paste, unobserved-composer and visible-prompt cases pin separate paste and submission guards.",
     "work_item": "overseer-uzvcbn"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A guarded herdr replacement survives daemon loss without a second kill",
-    "test": "TODO",
-    "reason": "Plan overseer-uzvcbn owns integration-tier herdr/tmux parity coverage for this new scenario; replace this placeholder with a real behavior test before plan completion.",
+    "test": "tests.integration.test_supervisor_herdr_replacement.test_recreated_supervisor_recovers_only_a_never_attempted_launch",
+    "reason": "Integrated crash-recovery test recreates the Supervisor from the durable replacement transaction after termination or an unknown launch. It proves signal count stays one, a never-attempted launch alone may continue, and an attempted launch is not repeated under the predecessor declaration.",
     "work_item": "overseer-uzvcbn"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A replacement prerequisite failure preserves every live session",
-    "test": "TODO",
-    "reason": "Plan overseer-uzvcbn owns integration-tier herdr/tmux parity coverage for this new scenario; replace this placeholder with a real behavior test before plan completion.",
+    "test": "tests.integration.test_supervisor_herdr_replacement.test_replacement_prerequisite_failure_never_signals",
+    "reason": "Parameterized integrated replacement proof injects lock failure, state-write failure, interlock change, process-generation reuse and an exec-replaced root shell. Every case observes zero termination signals and a surfaced refusal, so every live process is preserved.",
     "work_item": "overseer-uzvcbn"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed tmux native replacement preserves restart authorization",
-    "test": "TODO",
-    "reason": "Plan overseer-uzvcbn owns an integration-tier native tmux replacement failure test that preserves ready for retry, alongside existing tmux beside-test coverage.",
+    "test": "tests.integration.test_supervisor_herdr_replacement.test_tmux_pre_effect_failure_stays_retryable_and_native_herdr_is_explicit",
+    "reason": "Integrated tmux failure proof arms a fresh ready marker and round, makes native respawn fail before effect, then proves the marker still exists, the injection stamp is unchanged and the respawn was attempted. The same test distinguishes the explicit Herdr transaction path rather than silently routing the tmux authorization elsewhere.",
     "work_item": "overseer-uzvcbn"
   },
   {

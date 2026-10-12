@@ -1664,32 +1664,30 @@ for the marker's edge-triggered lifecycle.
 
 ## How to exercise it live
 
-The **beside-tests are the primary, complete gate** for the acting mechanics
-(inject → declare → restart, archive-GC, reboot recovery, and the RB1
-declaration / round timing) — they drive a FAKE tmux deterministically, so they
-own that coverage. Run them first (see "Build / toolchain facts"). Since the CLI
-no longer has a `--repos` / `--store` escape hatch, there is no scratch-repo
-sandbox: live exercise runs against the **real fleet** (maintainer decision
-2026-07-13). That is safe because the daemon is **surface-only** — nothing is
-restarted unless a real track crosses threshold AND declares `ready` AND is idle.
+**Isolation tip for exercising `overseerd` without touching real tracks.**
 
-For a change to the invocation / config surface (this file's usual subject), the
-end-to-end check is the discovery + render path, exercised safely read-only:
+The deterministic beside-tests remain the primary gate for acting mechanics, and
+the native Herdr/tmux tests prove the real backend transports. The released live
+lifecycle has a separate, reusable isolation entrypoint:
+`scripts/overseer-live-exercise.sh`; read `overseer/live-exercise.md` before using
+it. It retains the normal `HOME` pathname while mounting fresh contents over it in
+a private Bubblewrap PID/mount namespace, and isolates `/tmp`, `/run/user/<uid>`,
+the writable released checkout, watch set, stores, terminal instance and cleanup.
+Never exercise replacement against the real fleet.
 
-1. Run a **read-only render** against the real fleet:
-   `uv run --no-project python overseer/supervisor.py list` — it
-   calls `tick(act=False)`, so it discovers every declared repo's `plan/*/`,
-   joins the mapping, and prints the `Status · Topic · tmux · Ctx% · Repo` table
-   **without injecting or restarting anything**. This exercises the whole reshaped
-   surface (module invocation, fixed store path, fleet-only watch-set) with zero
-   mutation risk.
-2. Optionally observe a **brief live daemon** (`overseer/overseerd
-   2>> tmp/overseer/daemon.log`, stopped after a render or two) to confirm the loop
-   renders and refreshes. Surface-only means it will not act on any real session
-   unless that session is genuinely at threshold + certified + idle.
+For a change to the invocation or config surface, start with the isolated plan and
+then the matching real-backend leg:
 
-   **Isolation tip for exercising `overseerd` safely off the real fleet — this
-   got MUCH simpler, and the old recipe is obsolete.** The watch-set is now an
+1. Run `scripts/overseer-live-exercise.sh run --plan-only ...` and inspect the
+   recorded bind/selector plan before any namespace or terminal starts.
+2. Run the foreground controller in that namespace for `--backend herdr` or
+   `--backend tmux`. It must append the six required lifecycle records; the runner
+   fails closed on malformed, failed or missing stages. Authenticated Claude and
+   Codex legs remain host-captured release proof, never fixture claims.
+
+   **RETIRED historical recipe — do not execute it.** The scratch-`HOME` recipe
+   below predates backend instances and does not isolate process/socket identity.
+   It remains only to explain earlier measurements. The watch-set is an
    absolute `$HOME` path, so isolation is just a scratch `HOME` plus the real
    session registries:
 
@@ -1793,11 +1791,10 @@ Read the answer from `/proc/<pid>/cmdline` and `/proc/<pid>/environ` of the
 **fresh** process. Never from the statusline — that is a display-name surface and
 the spec already restricts it to verification only.
 
-**Use throwaway tracks and a scratch `HOME`, not the real fleet.** The isolation
-recipe above already redirects the watch-set, the mapping store and the stamp
-sidecar in one move, and it is the right base here — a scratch-`HOME` `overseerd`
-of your own cannot reach a real track even with the real session registries
-symlinked in, so the cardinal rule is protected structurally rather than by care.
+**Use the Bubblewrap exercise entrypoint, not a scratch `HOME` in the host
+namespace and never the real fleet.** The entrypoint isolates stores, watch roots,
+terminal servers, PIDs and cleanup together; redirecting only home-based files is
+not sufficient now that two native terminal backends exist.
 (Recorded because a 2026-08-19 exercise did it the hard way instead: it added a
 throwaway repo to the **real** watch-set and let the **fleet** daemon adopt it.
 Nothing was harmed and every artifact was torn down, but it put exercise rows in

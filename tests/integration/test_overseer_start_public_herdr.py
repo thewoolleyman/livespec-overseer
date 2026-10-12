@@ -46,7 +46,7 @@ from overseer import claude_sessions, runtime_prefix
 
 __all__: list[str] = []
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parents[2]
 WAIT_SECONDS = 180.0
 POLL_SECONDS = 0.2
 _counter = itertools.count(1)
