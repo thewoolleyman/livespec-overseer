@@ -106,17 +106,42 @@ def _start_server(*, name: str, session: str, scratch: Path) -> LiveServer:
         pane_id=create_workspace(socket_path=started.socket_path, label=session, cwd=PANE_CWD),
         marker=MARKERS[name],
     )
+    # The typed command must NOT contain the marker itself: the pane echoes typed input
+    # as soon as it arrives, which can be while zsh is still starting up (the system
+    # zshrc's compinit and Nix profile fork subshells). Measured 2026-10-12: a marker
+    # matched on that echo let a test read the foreground mid-startup and catch a
+    # forked subshell, failing as "unreadable payload" about 1 run in 15 under load.
+    head, tail = server.marker[:4], server.marker[4:]
     _ = raw_request(
         socket_path=server.socket_path,
         method="pane.send_input",
         params={
             "pane_id": server.pane_id,
-            "text": f"printf '{server.marker}\\n'",
+            "text": f"printf '%s%s\\n' {head} {tail}",
             "keys": ["Enter"],
         },
     )
     _await_marker(server=server)
+    _await_idle_shell(server=server)
     return server
+
+
+def _await_idle_shell(*, server: LiveServer) -> None:
+    """Wait until the pane's own shell holds its foreground, as every reader assumes."""
+    deadline = time.monotonic() + MARKER_TIMEOUT
+    info: dict[str, Any] = {}
+    while time.monotonic() < deadline:
+        reply = raw_request(
+            socket_path=server.socket_path,
+            method="pane.process_info",
+            params={"pane_id": server.pane_id},
+        )
+        info = dict(reply.get("result", {}).get("process_info") or {})
+        shell = info.get("shell_pid")
+        if shell is not None and info.get("foreground_process_group_id") == shell:
+            return
+        time.sleep(0.05)
+    pytest.fail(f"{server.name} pane never settled to its idle shell; last process info: {info!r}")
 
 
 @pytest.fixture(name="pair", scope="module")
