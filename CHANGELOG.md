@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.25.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.25.0...v5.25.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* send Enter after a herdr paste Claude collapses to a placeholder ([a24e2a6](https://github.com/thewoolleyman/livespec-overseer/commit/a24e2a6ffe29623e52482e4223ec96c5e84a8daf))
+
 ## [5.25.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.24.0...v5.25.0) (2026-10-12)
 
 
