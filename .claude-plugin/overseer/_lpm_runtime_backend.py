@@ -15,7 +15,7 @@ from _lpm_role_child import ClosedRoleInput
 from _lpm_role_results import CONDITIONAL_SET_MODE
 from _lpm_role_runner import RoleLaunch, run_credential_role
 from _lpm_roles import CredentialRole, PackagedCompanion, credential_role
-from _lpm_runtime_acquisition import acquisition_refusal
+from _lpm_runtime_acquisition import start_after_preflight
 from _lpm_runtime_role_outcome import classify_role_outcome
 from _lpm_runtime_roles import (
     FinalProvisioningRequest,
@@ -77,11 +77,14 @@ class RolePorts:
         )
 
     def acquire(self, *, request: dict[str, object]) -> Result[dict[str, object], ManagerError]:
-        """Refuse unless the isolated prerequisite role proves every input exists once."""
-        _ = self.start_acquisition
-        return acquisition_refusal(
+        """Preflight without mutation, then hand the accepted request to the worker owner."""
+        return start_after_preflight(
             request=request,
+            state_dir=self.state_dir,
+            owner_uid=self.owner_uid,
+            config=self.config,
             run_role=self._store_role,
+            start=self.start_acquisition,
         )
 
     def __call__(

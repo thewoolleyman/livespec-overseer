@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+PLUGIN_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
+
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+    echo "usage: lpm-acquisition-proxy"
+    exit 0
+fi
+
+exec python3 "$PLUGIN_ROOT/overseer/_lpm_acquisition_proxy.py" "$@"
