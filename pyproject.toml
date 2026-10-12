@@ -62,6 +62,10 @@ livespec-dev-tooling = { git = "https://github.com/thewoolleyman/livespec-dev-to
 livespec-runtime = { git = "https://github.com/thewoolleyman/livespec-runtime.git", tag = "v0.27.0" }
 
 [tool.livespec_dev_tooling]
+# This test alone needs a real Python child: it verifies the checked-in script's
+# import path from outside the checkout, which an in-process call cannot model.
+# The test passes a fixed argv and scrubs coverage instrumentation from the child.
+subprocess_spawn_allowlist = ["tests/test_herdr_operator_delivery.py"]
 # Role trees. This section must exist at all: without it the loader falls back to
 # defaults naming core's layout (`.claude-plugin/scripts/livespec`, `.../io`,
 # `.../commands`, `.../parse`, `dev-tooling`), none of which exist here, and

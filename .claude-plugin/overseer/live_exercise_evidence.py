@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 from typing import cast
 
-__all__: list[str] = ["main"]
+__all__: list[str] = ["main", "verify_evidence"]
 
 REQUIRED_STAGES = (
     "bootstrap",
@@ -21,7 +21,7 @@ REQUIRED_STAGES = (
 )
 
 
-def _verify_evidence(*, evidence: Path) -> tuple[int, str]:
+def verify_evidence(*, evidence: Path) -> tuple[int, str]:
     """Return a process code and an honest lifecycle verdict for ``evidence``."""
     if not evidence.is_file():
         return 1, f"INCOMPLETE lifecycle: evidence file is missing: {evidence}"
@@ -61,7 +61,7 @@ def main(*, argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     _ = parser.add_argument("evidence", type=Path)
     args = parser.parse_args(argv)
-    code, message = _verify_evidence(evidence=args.evidence)
+    code, message = verify_evidence(evidence=args.evidence)
     destination = sys.stdout if code == 0 else sys.stderr
     _ = destination.write(message + "\n")
     return code
