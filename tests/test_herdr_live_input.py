@@ -44,11 +44,6 @@ session — including the operator's `default` — is touched.
 from __future__ import annotations
 
 import importlib
-import json
-import os
-import shutil
-import socket
-import subprocess
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -56,6 +51,16 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from herdr_live_server import (
+    create_workspace,
+    live_session_names,
+    raw_request,
+    require_herdr,
+    session_socket,
+    start_server,
+    stop_server,
+    unique_session,
+)
 
 __all__: list[str] = []
 
@@ -63,8 +68,6 @@ PACKAGE_DIR = Path(__file__).resolve().parent.parent / "overseer"
 WRITE_CALLS_PATH = PACKAGE_DIR / "herdr_write_calls.py"
 WRITER_PATH = PACKAGE_DIR / "herdr_write.py"
 
-HERDR_BINARY = "herdr"
-SERVER_READY_TIMEOUT = 30.0
 READER_START_TIMEOUT = 20.0
 CHILD_READY_TIMEOUT = 20.0
 DELIVERY_TIMEOUT = 10.0
@@ -122,42 +125,11 @@ def _modules() -> tuple[Any, Any]:
 class LiveInputPane:
     """A live herdr server, its socket, and a pane running a byte-recording child."""
 
+    session: str
     socket_path: str
     server_pid: int
     pane_id: str
     received: Path
-
-
-def _socket_for(*, session: str) -> Path:
-    return Path.home() / ".config" / "herdr" / "sessions" / session / "herdr.sock"
-
-
-def _cli(*, args: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603 — the herdr CLI, not a Python child
-        [HERDR_BINARY, *args], capture_output=True, text=True, timeout=60, check=False
-    )
-
-
-def _raw_request(*, socket_path: str, method: str, params: dict[str, object]) -> dict[str, Any]:
-    """One raw socket round trip, used ONLY to set the pane up or read a control fact.
-
-    Deliberately not used for anything this file asserts about: every assertion
-    goes through the adapter. Setting the pane up through raw calls keeps the
-    fixture from depending on the surface under test.
-    """
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.settimeout(15.0)
-    sock.connect(socket_path)
-    sock.sendall(json.dumps({"id": "fixture", "method": method, "params": params}).encode() + b"\n")
-    buffered = b""
-    while b"\n" not in buffered:
-        chunk = sock.recv(65536)
-        if not chunk:
-            break
-        buffered += chunk
-    sock.close()
-    parsed: dict[str, Any] = json.loads(buffered.split(b"\n")[0])
-    return parsed
 
 
 def _await_bytes(*, path: Path, at_least: int, timeout: float) -> bytes:
@@ -178,7 +150,7 @@ def _await_reader_started(*, socket_path: str, pane_id: str, received: Path) -> 
     while time.monotonic() < deadline:
         if received.exists():
             return
-        last_reply = _raw_request(
+        last_reply = raw_request(
             socket_path=socket_path,
             method="pane.read",
             params={
@@ -203,7 +175,7 @@ def _await_reader_ready(*, socket_path: str, pane_id: str, marker: str, received
     last_text = ""
     last_reply: dict[str, Any] = {}
     while time.monotonic() < deadline:
-        last_reply = _raw_request(
+        last_reply = raw_request(
             socket_path=socket_path,
             method="pane.read",
             params={
@@ -225,58 +197,30 @@ def _await_reader_ready(*, socket_path: str, pane_id: str, marker: str, received
     )
 
 
-def _await_workspace(*, address: Path, session: str, scratch: Path) -> dict[str, Any]:
-    """Create the workspace only once the exact server accepts socket requests."""
-    deadline = time.monotonic() + SERVER_READY_TIMEOUT
-    last_reason = f"socket path {address} does not exist"
-    while time.monotonic() < deadline:
-        if address.exists():
-            try:
-                return _raw_request(
-                    socket_path=str(address),
-                    method="workspace.create",
-                    params={"cwd": PANE_CWD, "label": session, "focus": False},
-                )
-            except (ConnectionRefusedError, FileNotFoundError) as error:
-                last_reason = f"{type(error).__name__}: {error}"
-        time.sleep(0.1)
-    pytest.fail(
-        f"herdr session {session!r} did not accept a workspace request within "
-        f"{SERVER_READY_TIMEOUT}s ({last_reason}); "
-        f"server log: {(scratch / 'server.log').read_text(errors='replace')[:500]}"
-    )
-
-
 def _start_live_input_pane(*, session: str, scratch: Path) -> LiveInputPane:
-    """Spawn a detached herdr server, create one pane, and run the recorder in it."""
-    log = (scratch / "server.log").open("wb")
-    child = subprocess.Popen(  # noqa: S603 — the herdr CLI, not a Python child
-        [HERDR_BINARY, "--session", session, "server"],
-        stdout=log,
-        stderr=subprocess.STDOUT,
-        stdin=subprocess.DEVNULL,
-        start_new_session=True,
-        cwd=str(scratch),
-    )
+    """Spawn a request-proven herdr server, create one pane, and run the recorder in it.
+
+    The server comes from the shared helper, so it is used only after its OWN child
+    has answered a request — never on its socket path merely existing.
+    """
+    server = start_server(scratch=scratch, session=session, log_name="server.log")
     setup_ready = False
     try:
-        address = _socket_for(session=session)
-        created = _await_workspace(address=address, session=session, scratch=scratch)
-        assert "result" in created, f"workspace.create failed: {created}"
-        pane_id = str(created["result"]["root_pane"]["pane_id"])
+        address = server.socket_path
+        pane_id = create_workspace(socket_path=address, label=session, cwd=PANE_CWD)
 
         reader = scratch / "reader.py"
         reader.write_text(READER_SOURCE, encoding="utf-8")
         received = scratch / "received.bin"
         ready_token = scratch / "ready-token.txt"
-        ready_marker = f"OVERSEER_INPUT_READY_{child.pid}_{time.monotonic_ns()}"
+        ready_marker = f"OVERSEER_INPUT_READY_{server.server_pid}_{time.monotonic_ns()}"
         ready_token.write_text(ready_marker, encoding="utf-8")
         # Launching the recorder is FIXTURE SETUP, so it uses the atomic text+Enter
         # form deliberately — the separation of paste from Enter is what the tests
         # below assert about the adapter, and asserting it here too would prove
         # nothing about the shipped surface.
-        _ = _raw_request(
-            socket_path=str(address),
+        _ = raw_request(
+            socket_path=address,
             method="pane.send_input",
             params={
                 "pane_id": pane_id,
@@ -285,12 +229,12 @@ def _start_live_input_pane(*, session: str, scratch: Path) -> LiveInputPane:
             },
         )
         _await_reader_started(
-            socket_path=str(address),
+            socket_path=address,
             pane_id=pane_id,
             received=received,
         )
         _await_reader_ready(
-            socket_path=str(address),
+            socket_path=address,
             pane_id=pane_id,
             marker=ready_marker,
             received=received,
@@ -298,29 +242,34 @@ def _start_live_input_pane(*, session: str, scratch: Path) -> LiveInputPane:
         assert received.exists(), "the ready raw-mode recorder did not create its output file"
         setup_ready = True
         return LiveInputPane(
-            socket_path=str(address),
-            server_pid=child.pid,
+            session=session,
+            socket_path=address,
+            server_pid=server.server_pid,
             pane_id=pane_id,
             received=received,
         )
     finally:
-        log.close()
         if not setup_ready:
             _stop_live_herdr(session=session)
 
 
 def _stop_live_herdr(*, session: str) -> None:
-    """Stop and delete ONLY this session, by its exact name."""
-    _ = _cli(args=["--session", session, "server", "stop"])
-    _ = _cli(args=["session", "delete", session])
+    """Stop and delete ONLY this session, by its exact name, and verify it is gone."""
+    stop_server(session=session)
 
 
-@pytest.fixture(name="live")
-def _live(*, tmp_path: Path) -> Iterator[LiveInputPane]:
-    if shutil.which(HERDR_BINARY) is None:
-        pytest.skip("herdr is not installed on this host")
-    session = f"overseer-test-{os.getpid()}-input"
-    pane = _start_live_input_pane(session=session, scratch=tmp_path)
+@pytest.fixture(name="live", scope="module")
+def _live(*, tmp_path_factory: pytest.TempPathFactory) -> Iterator[LiveInputPane]:
+    """ONE recorder pane for the module's write exercises.
+
+    Each exercise below reads only the bytes it caused — it measures `before` and
+    grades the slice after it — and none stops the server or touches another pane,
+    so a fresh server per exercise bought no isolation. The setup and failure
+    exercises above still start (and stop) their own dedicated servers.
+    """
+    require_herdr()
+    session = unique_session(label="input")
+    pane = _start_live_input_pane(session=session, scratch=tmp_path_factory.mktemp("input"))
     try:
         yield pane
     finally:
@@ -338,13 +287,6 @@ def _target(*, identity: Any, live: LiveInputPane) -> Any:
         server_starttime=starttime,
         pane_id=live.pane_id,
     )
-
-
-def _live_session_names() -> set[str]:
-    """Names Herdr currently reports, through its real CLI."""
-    listed = _cli(args=["session", "list", "--json"])
-    assert listed.returncode == 0, listed.stderr
-    return {str(row["name"]) for row in json.loads(listed.stdout)["sessions"]}
 
 
 def _reader_with_delayed_start_and_withheld_raw_mode(*, delay_seconds: float) -> str:
@@ -371,10 +313,10 @@ def _assert_only_peer_remains_usable(
     *, peer: LiveInputPane, peer_session: str, removed_session: str
 ) -> None:
     """The owned failed session is absent while the unrelated peer still answers."""
-    session_names = _live_session_names()
+    session_names = live_session_names()
     assert removed_session not in session_names, "the failed setup left its session behind"
     assert peer_session in session_names, "cleanup crossed into the unrelated live session"
-    panes = _raw_request(socket_path=peer.socket_path, method="pane.list", params={})
+    panes = raw_request(socket_path=peer.socket_path, method="pane.list", params={})
     assert any(
         str(row["pane_id"]) == peer.pane_id for row in panes["result"]["panes"]
     ), "the unrelated live session no longer answers for its own pane"
@@ -392,8 +334,7 @@ def test_setup_waits_for_the_exact_native_reader_to_enter_input_mode(
     exact reader and pane are genuinely ready; otherwise the terminal strips the
     bracket delimiters and the bytes below expose the premature yield.
     """
-    if shutil.which(HERDR_BINARY) is None:
-        pytest.skip("herdr is not installed on this host")
+    require_herdr()
     delayed_source = READER_SOURCE.replace(
         "import sys, termios, tty, os",
         "import sys, termios, tty, os, time",
@@ -403,7 +344,7 @@ def test_setup_waits_for_the_exact_native_reader_to_enter_input_mode(
     )
     assert delayed_source != READER_SOURCE, "the control must delay the real mode transition"
     monkeypatch.setattr(f"{__name__}.READER_SOURCE", delayed_source)
-    session = f"overseer-test-{os.getpid()}-input-delayed"
+    session = unique_session(label="input-delayed")
 
     try:
         live = _start_live_input_pane(session=session, scratch=tmp_path)
@@ -424,18 +365,18 @@ def test_setup_waits_for_the_exact_native_reader_to_enter_input_mode(
 
 
 def test_never_ready_setup_cleans_only_its_owned_session(
-    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    *, live: LiveInputPane, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Delayed real startup precedes the bounded raw refusal and exact cleanup."""
-    if shutil.which(HERDR_BINARY) is None:
-        pytest.skip("herdr is not installed on this host")
-    peer_session = f"overseer-test-{os.getpid()}-input-ready-peer"
-    target_session = f"overseer-test-{os.getpid()}-input-never-ready"
-    peer_scratch = tmp_path / "peer"
+    """Delayed real startup precedes the bounded raw refusal and exact cleanup.
+
+    The unrelated PEER is the module's shared recorder pane: a live session this
+    exercise does not own, which the failed setup's cleanup must leave answering.
+    """
+    peer = live
+    peer_session = live.session
+    target_session = unique_session(label="input-never")
     target_scratch = tmp_path / "target"
-    peer_scratch.mkdir()
     target_scratch.mkdir()
-    peer = _start_live_input_pane(session=peer_session, scratch=peer_scratch)
     never_ready_source = _reader_with_delayed_start_and_withheld_raw_mode(
         delay_seconds=DELAYED_START_SECONDS
     )
@@ -455,7 +396,7 @@ def test_never_ready_setup_cleans_only_its_owned_session(
             "the controlled reader did not exhibit its delayed native startup before "
             "the separate raw-mode timeout"
         )
-        assert not _socket_for(
+        assert not session_socket(
             session=target_session
         ).exists(), "the never-ready setup left its exact owned server reachable"
         _assert_only_peer_remains_usable(
@@ -465,16 +406,14 @@ def test_never_ready_setup_cleans_only_its_owned_session(
         )
     finally:
         _stop_live_herdr(session=target_session)
-        _stop_live_herdr(session=peer_session)
 
 
 def test_missing_reader_start_is_bounded_and_cleans_its_exact_session(
     *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A recorder that never opens its output fails before raw readiness is graded."""
-    if shutil.which(HERDR_BINARY) is None:
-        pytest.skip("herdr is not installed on this host")
-    session = f"overseer-test-{os.getpid()}-input-never-started"
+    require_herdr()
+    session = unique_session(label="input-unstarted")
     source = READER_SOURCE.replace(
         "import sys, termios, tty, os",
         "import sys, termios, tty, os, time",
@@ -494,11 +433,11 @@ def test_missing_reader_start_is_bounded_and_cleans_its_exact_session(
         assert "did not create received.bin within 0.2s" in message, message
         assert "raw-mode readiness was not graded" in message, message
         assert not (tmp_path / "received.bin").exists()
-        assert not _socket_for(
+        assert not session_socket(
             session=session
         ).exists(), "the missing-start fixture left its exact owned server reachable"
         assert (
-            session not in _live_session_names()
+            session not in live_session_names()
         ), "the missing-start fixture left its exact owned session registered"
     finally:
         _stop_live_herdr(session=session)

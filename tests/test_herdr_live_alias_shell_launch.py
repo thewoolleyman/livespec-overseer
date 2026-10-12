@@ -122,7 +122,7 @@ import socket
 import subprocess
 import time
 from collections.abc import Callable, Iterator, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -145,6 +145,13 @@ from herdr_listener_readiness import (
     ListenerReadiness,
     await_owned_listener,
     owned_listener_peer_pid,
+)
+from herdr_live_server import (
+    SERVER_READY_TIMEOUT,
+    ReadyPoll,
+    await_server_ready,
+    session_socket,
+    stop_server,
 )
 from test_herdr_live_observations import (
     TRANSIENT_NAME,
@@ -170,7 +177,6 @@ from test_herdr_live_observations import (
 __all__: list[str] = []
 
 HERDR_BINARY = "herdr"
-SERVER_READY_TIMEOUT = 30.0
 LAUNCH_TIMEOUT = 20.0
 PANE_CWD = "/tmp"
 TOP_RATIO = 0.25
@@ -223,13 +229,9 @@ class LiveServer:
 
 
 def _socket_for(*, session: str) -> Path:
-    return herdr_api_socket_path(session=session)
-
-
-def _cli(*, args: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603 — the herdr CLI, not a Python child
-        [HERDR_BINARY, *args], capture_output=True, text=True, timeout=60, check=False
-    )
+    path = herdr_api_socket_path(session=session)
+    assert path == session_socket(session=session), "both helpers must name one socket"
+    return path
 
 
 def _reading(*, socket_path: str, pane_id: str) -> ForegroundReading:
@@ -444,6 +446,20 @@ def _pane_ids(*, socket_path: str) -> list[str]:
     return [str(pane["pane_id"]) for pane in reply["result"]["panes"]]
 
 
+def _root_identity(*, socket_path: str, root: str, poll: BoundedPoll | None) -> PaneIdentity:
+    """A workspace ROOT's coherent server/kernel shell identity, or a fixture failure."""
+    identity = await_coherent_identity(
+        read=lambda: process_info_reply(socket_path=socket_path, pane_id=root),
+        pane_id=root,
+        poll=poll or BoundedPoll(seconds=READY_SECONDS),
+        registered=registered_login_shells(),
+    )
+    assert (
+        identity.coherent is True
+    ), f"workspace root {root!r} readiness was not established: {identity.reason}"
+    return identity
+
+
 def _start_server(
     *,
     session: str,
@@ -503,6 +519,16 @@ def _start_server(
             f"{listener_failure}; server log: "
             f"{(scratch / log_name).read_text(errors='replace')[:500]}"
         ) from listener_failure
+    # The listener above is the owned child's; this proves it also ANSWERS. It goes
+    # through the shared helper's own connection, never through `raw_request`, so the
+    # ordered setup effects the controls below record are unchanged.
+    _ = await_server_ready(
+        socket_path=address,
+        session=session,
+        child=child,
+        log_path=scratch / log_name,
+        poll=ReadyPoll(seconds=SERVER_READY_TIMEOUT),
+    )
     created = raw_request(
         socket_path=str(address),
         method="workspace.create",
@@ -510,15 +536,7 @@ def _start_server(
     )
     assert "result" in created, f"workspace.create failed: {created}"
     root = str(created["result"]["root_pane"]["pane_id"])
-    identity = await_coherent_identity(
-        read=lambda: process_info_reply(socket_path=str(address), pane_id=root),
-        pane_id=root,
-        poll=root_poll or BoundedPoll(seconds=READY_SECONDS),
-        registered=registered_login_shells(),
-    )
-    assert (
-        identity.coherent is True
-    ), f"workspace root {root!r} readiness was not established: {identity.reason}"
+    identity = _root_identity(socket_path=str(address), root=root, poll=root_poll)
     return LiveServer(
         session=session,
         socket_path=str(address),
@@ -552,22 +570,61 @@ def _serve(
         )
         yield server
     finally:
-        _ = _cli(args=["--session", session, "server", "stop"])
-        _ = _cli(args=["session", "delete", session])
+        stop_server(session=session)
+
+
+def _fresh_workspace(*, server: LiveServer) -> LiveServer:
+    """`server` re-rooted at a NEW workspace, whose root identity is established afresh.
+
+    The module shares one server per shell selection; every exercise gets its own
+    workspace, so the panes it splits, closes and launches into are its own.
+    """
+    root = raw_request(
+        socket_path=server.socket_path,
+        method="workspace.create",
+        params={"cwd": PANE_CWD, "label": server.session, "focus": False},
+    )
+    assert "result" in root, f"workspace.create failed: {root}"
+    root_pane = str(root["result"]["root_pane"]["pane_id"])
+    identity = _root_identity(socket_path=server.socket_path, root=root_pane, poll=None)
+    return replace(
+        server,
+        root=root_pane,
+        reported_name=identity.reported,
+        kernel_executable=identity.executable,
+    )
+
+
+@pytest.fixture(name="shared_alias_server", scope="module")
+def _shared_alias_server(*, tmp_path_factory: pytest.TempPathFactory) -> Iterator[LiveServer]:
+    """ONE server with NO `$SHELL` for the module, so herdr roots its panes at `/bin/sh`."""
+    yield from _serve(
+        scratch=tmp_path_factory.mktemp("alias-sh"),
+        session=alias_session_name(label="sh"),
+        shell_path=None,
+    )
+
+
+@pytest.fixture(name="shared_exact_server", scope="module")
+def _shared_exact_server(*, tmp_path_factory: pytest.TempPathFactory) -> Iterator[LiveServer]:
+    """ONE server with `SHELL=/bin/bash` for the module, whose name needs no alias."""
+    yield from _serve(
+        scratch=tmp_path_factory.mktemp("alias-bash"),
+        session=alias_session_name(label="bash"),
+        shell_path="/bin/bash",
+    )
 
 
 @pytest.fixture(name="alias_server")
-def _alias_server(*, tmp_path: Path) -> Iterator[LiveServer]:
-    """A server with NO `$SHELL`, so herdr roots its panes at `/bin/sh`."""
-    yield from _serve(scratch=tmp_path, session=alias_session_name(label="sh"), shell_path=None)
+def _alias_server(*, shared_alias_server: LiveServer) -> LiveServer:
+    """A fresh workspace on the shared `/bin/sh` server."""
+    return _fresh_workspace(server=shared_alias_server)
 
 
 @pytest.fixture(name="exact_server")
-def _exact_server(*, tmp_path: Path) -> Iterator[LiveServer]:
-    """A server with `SHELL=/bin/bash`, whose reported name needs no alias."""
-    yield from _serve(
-        scratch=tmp_path, session=alias_session_name(label="bash"), shell_path="/bin/bash"
-    )
+def _exact_server(*, shared_exact_server: LiveServer) -> LiveServer:
+    """A fresh workspace on the shared `SHELL=/bin/bash` server."""
+    return _fresh_workspace(server=shared_exact_server)
 
 
 @dataclass(kw_only=True)

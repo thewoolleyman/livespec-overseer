@@ -66,12 +66,9 @@ operator's `default` — is touched.
 from __future__ import annotations
 
 import importlib
-import json
 import os
-import shutil
 import socket
 import struct
-import subprocess
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
@@ -79,6 +76,13 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from herdr_live_server import (
+    LiveHerdrServer,
+    create_workspace,
+    raw_request,
+    start_server,
+    stop_server,
+)
 from test_herdr_live_observations import BoundedPoll
 
 __all__: list[str] = []
@@ -87,8 +91,6 @@ PACKAGE_DIR = Path(__file__).resolve().parent.parent / "overseer"
 CALLS_PATH = PACKAGE_DIR / "herdr_calls.py"
 ADAPTER_PATH = PACKAGE_DIR / "herdr_adapter.py"
 
-HERDR_BINARY = "herdr"
-SERVER_READY_TIMEOUT = 30.0
 # The pane is created in /tmp and the sentinel child then moves to /usr, so a
 # reading that reports the SHELL's cwd and one that reports the FOREGROUND cwd
 # are distinguishable rather than coincidentally equal.
@@ -126,38 +128,6 @@ class LiveHerdr:
     pane_id: str
 
 
-def _socket_for(*, session: str) -> Path:
-    return Path.home() / ".config" / "herdr" / "sessions" / session / "herdr.sock"
-
-
-def _cli(*, args: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603 — the herdr CLI, not a Python child
-        [HERDR_BINARY, *args], capture_output=True, text=True, timeout=60, check=False
-    )
-
-
-def _raw_request(*, socket_path: str, method: str, params: dict[str, object]) -> dict[str, Any]:
-    """One raw socket round trip, used ONLY to set a pane up or read a control fact.
-
-    Deliberately not used for anything this file asserts about: the assertions go
-    through the adapter. Setting the pane up through raw calls keeps the fixture
-    from depending on the surface under test.
-    """
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.settimeout(15.0)
-    sock.connect(socket_path)
-    sock.sendall(json.dumps({"id": "fixture", "method": method, "params": params}).encode() + b"\n")
-    buffered = b""
-    while b"\n" not in buffered:
-        chunk = sock.recv(65536)
-        if not chunk:
-            break
-        buffered += chunk
-    sock.close()
-    parsed: dict[str, Any] = json.loads(buffered.split(b"\n")[0])
-    return parsed
-
-
 def _peer_pid_of(*, socket_path: str) -> int:
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(socket_path)
@@ -167,66 +137,47 @@ def _peer_pid_of(*, socket_path: str) -> int:
     return pid
 
 
-def _start_live_herdr(*, session: str, scratch: Path) -> LiveHerdr:
-    """Spawn a detached `herdr --session <session> server` and create one pane.
+@pytest.fixture(name="observed_server", scope="module")
+def _observed_server(*, tmp_path_factory: pytest.TempPathFactory) -> Iterator[LiveHerdrServer]:
+    """ONE request-proven server for the module; each exercise gets its own workspace.
+
+    Every exercise here either only reads, or runs a command in its OWN pane, so
+    none needs a server of its own: a fresh workspace per exercise isolates the pane
+    state, and nothing here stops the server or changes server-wide state.
 
     `herdr server` is a FOREGROUND persistent process with no detach flag
     (measured: it does not self-daemonize, and no client command auto-starts it),
-    so the test owns it as a child in its own process group and stops it by name
-    in teardown.
+    so the helper owns it as a child in its own process group and stops it by name.
     """
-    log = (scratch / "server.log").open("wb")
-    child = subprocess.Popen(  # noqa: S603 — the herdr CLI, not a Python child
-        [HERDR_BINARY, "--session", session, "server"],
-        stdout=log,
-        stderr=subprocess.STDOUT,
-        stdin=subprocess.DEVNULL,
-        start_new_session=True,
-        cwd=str(scratch),
-    )
-    address = _socket_for(session=session)
-    deadline = time.monotonic() + SERVER_READY_TIMEOUT
-    while time.monotonic() < deadline and not address.exists():
-        time.sleep(0.1)
-    log.close()
-    assert address.exists(), (
-        f"herdr session {session!r} never created {address}; "
-        f"server log: {(scratch / 'server.log').read_text(errors='replace')[:500]}"
-    )
-    created = _raw_request(
-        socket_path=str(address),
-        method="workspace.create",
-        params={"cwd": PANE_CWD, "label": session, "focus": False},
-    )
-    assert "result" in created, f"workspace.create failed: {created}"
-    return LiveHerdr(
-        session=session,
-        socket_path=str(address),
-        server_pid=child.pid,
-        pane_id=str(created["result"]["root_pane"]["pane_id"]),
-    )
-
-
-def _stop_live_herdr(*, session: str) -> None:
-    """Stop and delete ONLY this session, by its exact name."""
-    _ = _cli(args=["--session", session, "server", "stop"])
-    _ = _cli(args=["session", "delete", session])
-
-
-@pytest.fixture(name="live")
-def _live(*, tmp_path: Path) -> Iterator[LiveHerdr]:
-    if shutil.which(HERDR_BINARY) is None:
-        pytest.skip("herdr is not installed on this host")
-    session = f"overseer-test-{os.getpid()}-observe"
-    server = _start_live_herdr(session=session, scratch=tmp_path)
+    server = start_server(scratch=tmp_path_factory.mktemp("observe"), label="observe")
     try:
         yield server
     finally:
-        _stop_live_herdr(session=session)
+        stop_server(session=server.session)
+
+
+@pytest.fixture(name="live")
+def _live(*, observed_server: LiveHerdrServer) -> LiveHerdr:
+    """A FRESH workspace on the shared server, focused, whose root pane is this test's.
+
+    Created focused so its root is the server's focused pane, exactly as the only
+    pane of a fresh server's only workspace was.
+    """
+    return LiveHerdr(
+        session=observed_server.session,
+        socket_path=observed_server.socket_path,
+        server_pid=observed_server.server_pid,
+        pane_id=create_workspace(
+            socket_path=observed_server.socket_path,
+            label=observed_server.session,
+            cwd=PANE_CWD,
+            focus=True,
+        ),
+    )
 
 
 def _run_in_pane(*, live: LiveHerdr, command: str) -> None:
-    reply = _raw_request(
+    reply = raw_request(
         socket_path=live.socket_path,
         method="pane.send_input",
         params={"pane_id": live.pane_id, "text": command, "keys": ["Enter"]},

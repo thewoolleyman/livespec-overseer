@@ -24,11 +24,6 @@ every answer would look well-formed.
 from __future__ import annotations
 
 import importlib
-import json
-import os
-import shutil
-import socket
-import subprocess
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -37,11 +32,16 @@ from typing import Any
 
 import claude_sessions
 import pytest
+from herdr_live_server import (
+    create_workspace,
+    raw_request,
+    start_server,
+    stop_server,
+    unique_session,
+)
 
 __all__: list[str] = []
 
-HERDR_BINARY = "herdr"
-SERVER_READY_TIMEOUT = 30.0
 MARKER_TIMEOUT = 15.0
 PANE_CWD = "/tmp"
 
@@ -62,80 +62,51 @@ class LiveServer:
     marker: str
 
 
-def _socket_for(*, session: str) -> Path:
-    return Path.home() / ".config" / "herdr" / "sessions" / session / "herdr.sock"
-
-
-def _cli(*, args: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603 — the herdr CLI, not a Python child
-        [HERDR_BINARY, *args], capture_output=True, text=True, timeout=60, check=False
-    )
-
-
-def _raw_request(*, socket_path: str, method: str, params: dict[str, object]) -> dict[str, Any]:
-    """One raw socket round trip, used ONLY to set a pane up or read a control fact."""
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.settimeout(15.0)
-    sock.connect(socket_path)
-    sock.sendall(json.dumps({"id": "fixture", "method": method, "params": params}).encode() + b"\n")
-    buffered = b""
-    while b"\n" not in buffered:
-        chunk = sock.recv(65536)
-        if not chunk:
-            break
-        buffered += chunk
-    sock.close()
-    parsed: dict[str, Any] = json.loads(buffered.split(b"\n")[0])
-    return parsed
-
-
 def _await_marker(*, server: LiveServer) -> None:
-    """Wait until the pane's own marker is on screen, so a capture is meaningful."""
+    """Wait until the pane's own marker is on screen, so a capture is meaningful.
+
+    **This wait used to be a silent 15-second sleep per server.** Its `pane.read`
+    omitted the protocol's required `source` field, so herdr answered every poll
+    with "invalid_request: missing field source" (measured 2026-10-12, herdr
+    0.9.3), the marker was never seen, and the loop simply fell out at its bound and
+    returned — 2 x 15 s = the ~30.5 s of setup every test in this file paid. It now
+    asks a well-formed question and FAILS by name if the marker never appears.
+    """
     deadline = time.monotonic() + MARKER_TIMEOUT
+    reply: dict[str, Any] = {}
     while time.monotonic() < deadline:
-        reply = _raw_request(
+        reply = raw_request(
             socket_path=server.socket_path,
             method="pane.read",
-            params={"pane_id": server.pane_id, "format": "text", "strip_ansi": True},
+            params={
+                "pane_id": server.pane_id,
+                "source": "visible",
+                "format": "text",
+                "strip_ansi": True,
+            },
         )
         text = str(reply.get("result", {}).get("read", {}).get("text", ""))
         if server.marker in text:
             return
-        time.sleep(0.1)
+        time.sleep(0.05)
+    pytest.fail(
+        f"{server.name} pane {server.pane_id!r} never showed {server.marker!r} within "
+        f"{MARKER_TIMEOUT}s; last reply: {reply!r}"
+    )
 
 
 def _start_server(*, name: str, session: str, scratch: Path) -> LiveServer:
-    """Spawn one detached herdr server and print this server's marker in its pane."""
-    log = (scratch / f"{name}.log").open("wb")
-    child = subprocess.Popen(  # noqa: S603 — the herdr CLI, not a Python child
-        [HERDR_BINARY, "--session", session, "server"],
-        stdout=log,
-        stderr=subprocess.STDOUT,
-        stdin=subprocess.DEVNULL,
-        start_new_session=True,
-        cwd=str(scratch),
-    )
-    address = _socket_for(session=session)
-    deadline = time.monotonic() + SERVER_READY_TIMEOUT
-    while time.monotonic() < deadline and not address.exists():
-        time.sleep(0.1)
-    log.close()
-    assert address.exists(), f"herdr session {session!r} never created {address}"
-    created = _raw_request(
-        socket_path=str(address),
-        method="workspace.create",
-        params={"cwd": PANE_CWD, "label": session, "focus": False},
-    )
-    assert "result" in created, f"workspace.create failed: {created}"
+    """Spawn one request-proven herdr server and print this server's marker in its pane."""
+    started = start_server(scratch=scratch, session=session, log_name=f"{name}.log")
     server = LiveServer(
         name=name,
         session=session,
-        socket_path=str(address),
-        server_pid=child.pid,
-        pane_id=str(created["result"]["root_pane"]["pane_id"]),
+        socket_path=started.socket_path,
+        server_pid=started.server_pid,
+        pane_id=create_workspace(socket_path=started.socket_path, label=session, cwd=PANE_CWD),
         marker=MARKERS[name],
     )
-    _ = _raw_request(
+    _ = raw_request(
         socket_path=server.socket_path,
         method="pane.send_input",
         params={
@@ -148,18 +119,19 @@ def _start_server(*, name: str, session: str, scratch: Path) -> LiveServer:
     return server
 
 
-@pytest.fixture(name="pair")
-def _pair(*, tmp_path: Path) -> Iterator[tuple[LiveServer, LiveServer]]:
-    if shutil.which(HERDR_BINARY) is None:
-        pytest.skip("herdr is not installed on this host")
-    names = {
-        "alpha": f"overseer-test-{os.getpid()}-alpha",
-        "beta": f"overseer-test-{os.getpid()}-beta",
-    }
+@pytest.fixture(name="pair", scope="module")
+def _pair(*, tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[LiveServer, LiveServer]]:
+    """ONE pair of servers for the whole module: every test here only READS them.
+
+    Nothing below writes to a pane, stops a server or changes server-wide state, so
+    starting a fresh pair per test bought no isolation — only two more servers.
+    """
+    scratch = tmp_path_factory.mktemp("two-servers")
+    names = {name: unique_session(label=name) for name in MARKERS}
     started: list[LiveServer] = []
     try:
         for name, session in names.items():
-            started.append(_start_server(name=name, session=session, scratch=tmp_path))
+            started.append(_start_server(name=name, session=session, scratch=scratch))
         assert started[0].pane_id == started[1].pane_id, (
             "this test is only meaningful while both servers name their root pane "
             f"identically; got {started[0].pane_id} and {started[1].pane_id}"
@@ -167,8 +139,7 @@ def _pair(*, tmp_path: Path) -> Iterator[tuple[LiveServer, LiveServer]]:
         yield (started[0], started[1])
     finally:
         for session in names.values():
-            _ = _cli(args=["--session", session, "server", "stop"])
-            _ = _cli(args=["session", "delete", session])
+            stop_server(session=session)
 
 
 def _target(*, identity: Any, server: LiveServer) -> Any:

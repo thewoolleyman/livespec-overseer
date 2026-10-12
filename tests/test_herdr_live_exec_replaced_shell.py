@@ -61,7 +61,6 @@ import json
 import os
 import shutil
 import socket
-import subprocess
 import threading
 import time
 from collections.abc import Callable, Iterator, Mapping
@@ -70,6 +69,15 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from herdr_live_server import (
+    herdr_cli,
+    live_session_names,
+    require_herdr,
+    session_socket,
+    start_server,
+    stop_server,
+    unique_session,
+)
 from test_herdr_live_observations import (
     PaneReadiness,
     minimal_registered_shell,
@@ -82,8 +90,6 @@ from test_herdr_live_observations import (
 
 __all__: list[str] = []
 
-HERDR_BINARY = "herdr"
-SERVER_READY_TIMEOUT = 30.0
 REPLACE_TIMEOUT = 20.0
 INITIAL_READY_TIMEOUT = 20.0
 PANE_CWD = "/tmp"
@@ -139,16 +145,6 @@ class LiveProxiedTab:
     state: ProxyState
 
 
-def _socket_for(*, session: str) -> Path:
-    return Path.home() / ".config" / "herdr" / "sessions" / session / "herdr.sock"
-
-
-def _cli(*, args: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603 — the herdr CLI, not a Python child
-        [HERDR_BINARY, *args], capture_output=True, text=True, timeout=60, check=False
-    )
-
-
 def _read_frame(*, conn: socket.socket) -> bytes | None:
     buffered = b""
     while not buffered.endswith(b"\n"):
@@ -192,13 +188,6 @@ def _capture(*, socket_path: str, pane_id: str) -> str:
         params={"pane_id": pane_id, "source": "visible", "format": "text", "strip_ansi": True},
     )
     return str(reply["result"]["read"]["text"])
-
-
-def _live_session_names() -> set[str]:
-    """Names Herdr currently reports, through its real CLI."""
-    listed = _cli(args=["session", "list", "--json"])
-    assert listed.returncode == 0, listed.stderr
-    return {str(row["name"]) for row in json.loads(listed.stdout)["sessions"]}
 
 
 def _geometry(*, socket_path: str, pane_id: str) -> dict[str, int]:
@@ -273,30 +262,21 @@ def _serve_proxy(*, listener: socket.socket, real_socket: str, state: ProxyState
 
 
 def _start_server(*, session: str, scratch: Path) -> str:
-    """Own shell startup so only the disclosed transient precedes replacement."""
+    """Own shell startup so only the disclosed transient precedes replacement.
+
+    Started by the shared helper, so the server is used only once its OWN child has
+    answered a request — never on its socket path merely existing.
+    """
     shell = minimal_registered_shell()
     assert shell is not None, "the replacement exercise needs a registered minimal shell"
     config = owned_config(scratch=scratch, default_shell=shell.declared)
-    log = (scratch / f"{session}.log").open("wb")
-    _ = subprocess.Popen(  # noqa: S603 — the herdr CLI, not a Python child
-        [HERDR_BINARY, "--session", session, "server"],
-        stdout=log,
-        stderr=subprocess.STDOUT,
-        stdin=subprocess.DEVNULL,
-        start_new_session=True,
-        cwd=str(scratch),
+    started = start_server(
+        scratch=scratch,
+        session=session,
         env=owned_environment(config_path=config),
+        log_name=f"{session}.log",
     )
-    address = _socket_for(session=session)
-    deadline = time.monotonic() + SERVER_READY_TIMEOUT
-    while time.monotonic() < deadline and not address.exists():
-        time.sleep(0.1)
-    log.close()
-    assert address.exists(), (
-        f"herdr session {session!r} never created {address}; "
-        f"server log: {(scratch / f'{session}.log').read_text(errors='replace')[:500]}"
-    )
-    return str(address)
+    return started.socket_path
 
 
 def _build(
@@ -347,8 +327,7 @@ def _build(
 @pytest.fixture(name="proxied")
 def _proxied(*, tmp_path: Path) -> Iterator[Any]:
     """A factory: the two orderings differ only in where the replacement lands."""
-    if shutil.which(HERDR_BINARY) is None:
-        pytest.skip("herdr is not installed on this host")
+    require_herdr()
     proxy_dir = Path(os.environ.get("TMPDIR", "/tmp")) / f"hrdrx-{os.getpid()}"
     proxy_dir.mkdir(parents=True, exist_ok=True)
     sessions: list[str] = []
@@ -359,7 +338,7 @@ def _proxied(*, tmp_path: Path) -> Iterator[Any]:
         readiness_read: Callable[[], Mapping[str, Any]] | None = None,
         coherence_seconds: float = INITIAL_READY_TIMEOUT,
     ) -> LiveProxiedTab:
-        session = f"overseer-test-{os.getpid()}-{inject_at.replace('.', '-')}"
+        session = unique_session(label=inject_at.replace(".", "-"))
         sessions.append(session)
         return _build(
             session=session,
@@ -374,8 +353,7 @@ def _proxied(*, tmp_path: Path) -> Iterator[Any]:
         yield build
     finally:
         for session in sessions:
-            _ = _cli(args=["--session", session, "server", "stop"])
-            _ = _cli(args=["session", "delete", session])
+            stop_server(session=session)
         shutil.rmtree(proxy_dir, ignore_errors=True)
 
 
@@ -531,11 +509,11 @@ def test_an_expired_initial_shell_premise_is_diagnostic_and_never_injects(*, pro
     assert live.state.replaced is False, "replacement ran without its initial native premise"
     assert live.state.writes() == [], "the writer sent input after fixture readiness expired"
 
-    _ = _cli(args=["--session", live.session, "server", "stop"])
-    _ = _cli(args=["session", "delete", live.session])
-    assert not _socket_for(
+    _ = herdr_cli(args=["--session", live.session, "server", "stop"])
+    _ = herdr_cli(args=["session", "delete", live.session])
+    assert not session_socket(
         session=live.session
     ).exists(), "the expired fixture premise left its exact owned server reachable"
     assert (
-        live.session not in _live_session_names()
+        live.session not in live_session_names()
     ), "the expired fixture premise left its exact owned session registered"

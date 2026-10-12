@@ -61,11 +61,10 @@ NAME, so no other session — including the operator's `default` — is touched.
 
 from __future__ import annotations
 
-import os
 import shutil
 import time
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -73,6 +72,7 @@ import claude_sessions
 import herdr_identity
 import herdr_write
 import pytest
+from herdr_live_server import create_workspace, unique_session
 from test_herdr_live_observations import (
     TRANSIENT_NAME,
     BoundedPoll,
@@ -103,7 +103,6 @@ from test_herdr_live_observations import (
 __all__: list[str] = []
 
 HERDR_BINARY = "herdr"
-SERVER_READY_TIMEOUT = 30.0
 # A liveness floor, not a latency budget. Briefly raised to 120.0 on a diagnosis
 # that did not hold up: the flake it was meant to address was a wait-predicate
 # defect in a sibling file, and the wait below already looked for the intended
@@ -208,35 +207,64 @@ def _split(*, server: LiveServer, pane_id: str, direction: str) -> str:
     return split_pane(socket_path=server.socket_path, pane_id=pane_id, direction=direction)
 
 
-@pytest.fixture(name="pair")
-def _pair(*, tmp_path: Path) -> Iterator[ServerPair]:
-    """Two OWNED servers, each cleaned up by name whatever the setup does.
+@pytest.fixture(name="servers", scope="module")
+def _servers(
+    *, tmp_path_factory: pytest.TempPathFactory
+) -> Iterator[tuple[LiveServer, LiveServer]]:
+    """Two OWNED servers for the whole module, each cleaned up by name whatever happens.
 
-    The second server's panes are built AFTER the first exists, so a failure
-    anywhere in that build used to leave the first running. Both sessions are
-    registered before anything can fail and torn down in one `finally`.
+    Both sessions are named before anything can fail and torn down in one `finally`.
+    No exercise here stops a server or changes server-wide state — each works only
+    inside the workspaces `pair` creates for it — so one target and one decoy serve
+    the module instead of two fresh servers per exercise.
     """
-    sessions = (
-        f"overseer-test-{os.getpid()}-launch-target",
-        f"overseer-test-{os.getpid()}-launch-decoy",
-    )
+    scratch = tmp_path_factory.mktemp("launch")
+    sessions = (unique_session(label="launch-target"), unique_session(label="launch-decoy"))
     try:
-        target = _start_server(session=sessions[0], scratch=tmp_path, log_name="target.log")
-        unrelated = _split(server=target, pane_id=target.root, direction="right")
-        decoy = _start_server(session=sessions[1], scratch=tmp_path, log_name="decoy.log")
-        latest = decoy.root
-        for _ in range(DECOY_PANES - 1):
-            latest = _split(server=decoy, pane_id=latest, direction="right")
-        yield ServerPair(
-            target=target,
-            unrelated=unrelated,
-            decoy=decoy,
-            transient=startup_transient(scratch=tmp_path),
-            registered=registered_login_shells(),
-        )
+        target = _start_server(session=sessions[0], scratch=scratch, log_name="target.log")
+        decoy = _start_server(session=sessions[1], scratch=scratch, log_name="decoy.log")
+        yield target, decoy
     finally:
         for session in sessions:
             stop_owned_server(session=session)
+
+
+@pytest.fixture(name="pair")
+def _pair(*, servers: tuple[LiveServer, LiveServer], tmp_path: Path) -> ServerPair:
+    """A FRESH workspace on each shared server: target + unrelated sibling, and a decoy.
+
+    Herdr pane ids are `w<workspace>:p<pane>` and numbered per workspace, so creating
+    exactly one workspace on EACH server per exercise keeps their workspace numbers in
+    step — which is what lets the decoy hold the very pane ids the target uses.
+    """
+    shared_target, shared_decoy = servers
+    target = replace(
+        shared_target,
+        root=create_workspace(
+            socket_path=shared_target.socket_path, label=shared_target.session, cwd=PANE_CWD
+        ),
+    )
+    unrelated = _split(server=target, pane_id=target.root, direction="right")
+    decoy = replace(
+        shared_decoy,
+        root=create_workspace(
+            socket_path=shared_decoy.socket_path, label=shared_decoy.session, cwd=PANE_CWD
+        ),
+    )
+    latest = decoy.root
+    for _ in range(DECOY_PANES - 1):
+        latest = _split(server=decoy, pane_id=latest, direction="right")
+    assert target.root == decoy.root, (
+        "fixture precondition: both servers' fresh workspaces must share an id, so the decoy "
+        f"holds the target's pane ids; got {target.root!r} and {decoy.root!r}"
+    )
+    return ServerPair(
+        target=target,
+        unrelated=unrelated,
+        decoy=decoy,
+        transient=startup_transient(scratch=tmp_path),
+        registered=registered_login_shells(),
+    )
 
 
 def _split_top(*, pair: ServerPair, command: str) -> tuple[Any, PaneReadiness]:
@@ -637,11 +665,14 @@ def test_no_other_pane_on_either_server_receives_the_launch(*, pair: ServerPair)
 
 
 def test_an_absent_herdr_lets_this_fixtures_setup_skip_reach_the_runner(
-    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    *,
+    tmp_path: Path,
+    tmp_path_factory: pytest.TempPathFactory,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A host with no `herdr` must SKIP here, never error inside the fixture's cleanup.
 
-    `require_herdr` raises `Skipped` inside `_pair`'s `try`, which is the right
+    `require_herdr` raises `Skipped` inside `_servers`'s `try`, which is the right
     outcome on a host that cannot run the binary at all. The `finally` then stops
     both sessions by name — and `stop_owned_server` shells out to that same absent
     binary, so `subprocess.run` raised `FileNotFoundError` OUT OF THE CLEANUP and
@@ -674,7 +705,7 @@ def test_an_absent_herdr_lets_this_fixtures_setup_skip_reach_the_runner(
         "because both halves of this exercise depend on that one fact"
     )
 
-    setup = _pair.__wrapped__(tmp_path=tmp_path)
+    setup = _servers.__wrapped__(tmp_path_factory=tmp_path_factory)
     arrived: BaseException | None = None
     try:
         _ = next(setup)

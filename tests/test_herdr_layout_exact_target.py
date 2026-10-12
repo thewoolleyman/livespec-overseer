@@ -48,6 +48,7 @@ from typing import Any
 
 import claude_sessions
 import pytest
+from herdr_live_server import raw_request, unique_session
 from test_herdr_live_observations import (
     BoundedPoll,
     ForegroundReading,
@@ -82,7 +83,6 @@ def _shell_evidence(*, pid: int) -> Any:
     return identity.ShellIdentity(pid=pid, executable=SHELL_EXECUTABLE, starttime=SHELL_STARTTIME)
 
 
-HERDR_BINARY = "herdr"
 PANE_CWD = "/tmp"
 TOP_RATIO = 0.25
 LAUNCH_COMMAND = "sleep 120"
@@ -193,26 +193,9 @@ class UnfocusedTab:
     transient: str
 
 
-def _raw_request(*, socket_path: str, method: str, params: dict[str, object]) -> dict[str, Any]:
-    """One raw socket round trip, used ONLY to set the tab up or read a control fact."""
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.settimeout(15.0)
-    sock.connect(socket_path)
-    sock.sendall(json.dumps({"id": "fixture", "method": method, "params": params}).encode() + b"\n")
-    buffered = b""
-    while b"\n" not in buffered:
-        chunk = sock.recv(65536)
-        if not chunk:
-            break
-        buffered += chunk
-    sock.close()
-    parsed: dict[str, Any] = json.loads(buffered.split(b"\n")[0])
-    return parsed
-
-
 def _rects(*, tab: UnfocusedTab) -> tuple[dict[str, tuple[int, int, int, int]], str]:
     """Every pane's FULL rectangle, so a change in the wrong column is visible."""
-    reply = _raw_request(
+    reply = raw_request(
         socket_path=tab.socket_path, method="pane.layout", params={"pane_id": tab.supervised}
     )
     layout = reply["result"]["layout"]
@@ -251,7 +234,7 @@ def _start_unfocused_tab(*, session: str, scratch: Path) -> UnfocusedTab:
             direction="right",
             cwd=PANE_CWD,
         )
-        _ = _raw_request(
+        _ = raw_request(
             socket_path=owned.socket_path, method="pane.focus", params={"pane_id": other}
         )
     except BaseException:
@@ -300,7 +283,7 @@ def _assert_child_on_the_created_pane(*, tab: UnfocusedTab, pane_id: str) -> Non
 
 @pytest.fixture(name="tab")
 def _tab(*, tmp_path: Path) -> Iterator[UnfocusedTab]:
-    session = f"overseer-test-{os.getpid()}-exact"
+    session = unique_session(label="exact")
     built = _start_unfocused_tab(session=session, scratch=tmp_path)
     try:
         yield built

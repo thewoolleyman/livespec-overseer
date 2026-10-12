@@ -92,10 +92,8 @@ in `tests/test_herdr_layout_exact_target.py`.
 from __future__ import annotations
 
 import importlib
-import json
 import os
 import shutil
-import socket
 import subprocess
 import sys
 import time
@@ -109,6 +107,16 @@ import herdr_protocol
 import herdr_transport
 import herdr_write
 import pytest
+from herdr_live_server import (
+    create_workspace,
+    herdr_cli,
+    raw_request,
+    require_herdr,
+    session_socket,
+    start_server,
+    stop_server,
+    unique_session,
+)
 
 __all__: list[str] = [
     "BoundedPoll",
@@ -175,8 +183,6 @@ ExecutableReader = Callable[..., str | None]
 # `test_the_owned_server_runs_its_declared_minimal_shell_despite_an_inherited_config`
 # for the receipts.
 
-HERDR_BINARY = "herdr"
-SERVER_READY_TIMEOUT = 30.0
 PANE_CWD = "/tmp"
 # The host's OWN login-shell register — the same authority the adapter's
 # retained-shell proof consults, which is why a declared shell has to appear in it.
@@ -763,32 +769,8 @@ def await_idle_shell(
 # ------------------------------------------------------------- the raw socket
 
 
-def _read_frame(*, conn: socket.socket) -> bytes:
-    buffered = b""
-    while not buffered.endswith(b"\n"):
-        chunk = conn.recv(65536)
-        if not chunk:
-            break
-        buffered += chunk
-    return buffered
-
-
-def raw_request(*, socket_path: str, method: str, params: dict[str, object]) -> dict[str, Any]:
-    """One raw round trip to the REAL server, for setup and for control facts.
-
-    Control evidence must not come from the surface under test, or an exercise
-    would only prove the adapter is self-consistent.
-    """
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    sock.settimeout(15.0)
-    sock.connect(socket_path)
-    sock.sendall(json.dumps({"id": "fixture", "method": method, "params": params}).encode() + b"\n")
-    try:
-        answered = _read_frame(conn=sock)
-    finally:
-        sock.close()
-    parsed: dict[str, Any] = json.loads((answered or b"{}").split(b"\n")[0])
-    return parsed
+# `raw_request` is the shared helper's own round trip (`tests/herdr_live_server.py`),
+# re-exported here because a dozen sibling modules import it from this file.
 
 
 def process_info_reply(*, socket_path: str, pane_id: str) -> dict[str, Any]:
@@ -904,17 +886,9 @@ def child_umask(*, pid: int) -> str:
 # ------------------------------------------------------ the owned native server
 
 
-def require_herdr() -> None:
-    """Skip the calling exercise when this host has no herdr to drive."""
-    if shutil.which(HERDR_BINARY) is None:
-        pytest.skip("herdr is not installed on this host")
-
-
-def herdr_cli(*, args: list[str]) -> subprocess.CompletedProcess[str]:
-    """One bounded run of the herdr CLI, for session setup and teardown only."""
-    return subprocess.run(  # noqa: S603 — the herdr CLI, not a Python child
-        [HERDR_BINARY, *args], capture_output=True, text=True, timeout=60, check=False
-    )
+# `require_herdr` and `herdr_cli` are the shared helper's, re-exported for the
+# sibling modules that import them from here. The helper's CLI refuses any call
+# that would address the operator's default server.
 
 
 def registered_login_shells() -> tuple[RegisteredShell, ...]:
@@ -1009,6 +983,9 @@ def owned_environment(*, config_path: Path) -> dict[str, str]:
 def stop_owned_server(*, session: str) -> None:
     """Stop and delete EXACTLY `session`, touching no other herdr session.
 
+    Delegates to :func:`herdr_live_server.stop_server`, which also VERIFIES the
+    session is gone afterwards.
+
     **An absent binary means there is nothing of ours to stop, and saying so is
     not a swallowed error.** :func:`start_owned_server` calls
     :func:`require_herdr` before it spawns anything, so a session can only exist
@@ -1028,15 +1005,7 @@ def stop_owned_server(*, session: str) -> None:
     exception occurred". See
     `tests/test_herdr_live_retained_shell_launch.py::test_an_absent_herdr_lets_this_fixtures_setup_skip_reach_the_runner`.
     """
-    if shutil.which(HERDR_BINARY) is None:
-        return
-    _ = herdr_cli(args=["--session", session, "server", "stop"])
-    _ = herdr_cli(args=["session", "delete", session])
-
-
-def session_socket(*, session: str) -> Path:
-    """Where herdr puts `session`'s API socket."""
-    return Path.home() / ".config" / "herdr" / "sessions" / session / "herdr.sock"
+    stop_server(session=session)
 
 
 def start_owned_server(
@@ -1056,11 +1025,18 @@ def start_owned_server(
     shell; passing `""` leaves herdr's own `$SHELL`-then-`/bin/sh` selection in
     force, which is what an alias exercise needs.
 
-    **Server creation and the initial setup are enclosed in cleanup.** The socket
-    wait and the `workspace.create` are both fallible, and a failure in either
-    used to leave a live server child and a registered session behind. Anything
-    raised past the spawn now stops and deletes EXACTLY this session — its own
-    resource, named explicitly — and re-raises.
+    **The server is started by the shared helper**
+    (:func:`herdr_live_server.start_server`), so it is returned only after its OWN
+    child has answered a request on its socket — never on the socket path merely
+    existing, which a Unix socket does from `bind()`, before `listen()`. Pass a
+    name from :func:`herdr_live_server.unique_session`: a fixed name reused across
+    cases lets a previous case's leftover path stand in for this server.
+
+    **Server creation and the initial setup are enclosed in cleanup.** The
+    readiness wait and the `workspace.create` are both fallible, and a failure in
+    either used to leave a live server child and a registered session behind.
+    Anything raised past the spawn now stops and deletes EXACTLY this session — its
+    own resource, named explicitly — and re-raises.
     """
     require_herdr()
     declared = default_shell
@@ -1073,43 +1049,24 @@ def start_owned_server(
             )
         declared = minimal.declared
     config = owned_config(scratch=scratch / f"{session}-config", default_shell=declared)
-    log = (scratch / log_name).open("wb")
-    child = subprocess.Popen(  # noqa: S603 — the herdr CLI, not a Python child
-        [HERDR_BINARY, "--session", session, "server"],
-        stdout=log,
-        stderr=subprocess.STDOUT,
-        stdin=subprocess.DEVNULL,
-        start_new_session=True,
-        cwd=str(scratch),
+    server = start_server(
+        scratch=scratch,
+        session=session,
         env=owned_environment(config_path=config),
+        log_name=log_name,
     )
     try:
-        address = session_socket(session=session)
-        deadline = time.monotonic() + SERVER_READY_TIMEOUT
-        while time.monotonic() < deadline and not address.exists():
-            time.sleep(POLL_SECONDS)
-        log.close()
-        assert address.exists(), (
-            f"herdr session {session!r} never created {address}; "
-            f"server log: {(scratch / log_name).read_text(errors='replace')[:500]}"
-        )
-        created = raw_request(
-            socket_path=str(address),
-            method="workspace.create",
-            params={"cwd": cwd, "label": session, "focus": False},
-        )
-        assert "result" in created, f"workspace.create failed: {created}"
+        root = create_workspace(socket_path=server.socket_path, label=session, cwd=cwd)
     except BaseException:
-        log.close()
         stop_owned_server(session=session)
         raise
     return OwnedServer(
         session=session,
-        socket_path=str(address),
-        server_pid=child.pid,
+        socket_path=server.socket_path,
+        server_pid=server.server_pid,
         config_path=str(config),
         declared_shell=declared,
-        root=str(created["result"]["root_pane"]["pane_id"]),
+        root=root,
     )
 
 
@@ -2583,7 +2540,7 @@ def test_the_shared_readiness_establishes_the_exact_raw_split_pane(*, tmp_path: 
 
     The server is this exercise's own resource and is stopped by name.
     """
-    session = f"overseer-test-{os.getpid()}-raw-split-readiness"
+    session = unique_session(label="raw-split")
     server = start_owned_server(session=session, scratch=tmp_path, log_name="rawsplit.log")
     try:
         pane_id = split_pane(socket_path=server.socket_path, pane_id=server.root, direction="down")
@@ -2640,7 +2597,7 @@ def test_a_closed_exact_pane_is_a_bounded_fixture_refusal_with_its_server_cleane
     The cleanup half is asserted from OUTSIDE: after teardown the session's socket is
     gone, so the exercise left no live server behind for the next one to collide with.
     """
-    session = f"overseer-test-{os.getpid()}-closed-pane-readiness"
+    session = unique_session(label="closed-pane")
     server = start_owned_server(session=session, scratch=tmp_path, log_name="closed.log")
     try:
         pane_id = split_pane(socket_path=server.socket_path, pane_id=server.root, direction="down")
