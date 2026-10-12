@@ -163,20 +163,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A failed tmux native replacement preserves restart authorization",
-    "work_item": "overseer-uzvcbn",
-    "first_seen": "2026-10-04"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A guarded herdr replacement survives daemon loss without a second kill",
-    "work_item": "overseer-uzvcbn",
-    "first_seen": "2026-10-04"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: A health remainder equal to the configured floor stays eligible",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
@@ -285,13 +271,6 @@
     "heading": "## Scenario: A record invariant violation is refused or excluded",
     "work_item": "overseer-osb7as",
     "first_seen": "2026-09-12"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A replacement prerequisite failure preserves every live session",
-    "work_item": "overseer-uzvcbn",
-    "first_seen": "2026-10-04"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -625,23 +604,9 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: Backend-qualified coordinates preserve legacy tmux ownership",
-    "work_item": "overseer-uzvcbn",
-    "first_seen": "2026-10-04"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: Backward time between validation and publication is clamped",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: Both backends retain supervision and acting guards",
-    "work_item": "overseer-uzvcbn",
-    "first_seen": "2026-10-04"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -1409,13 +1374,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: Stale environment cannot choose an overseer pane",
-    "work_item": "overseer-uzvcbn",
-    "first_seen": "2026-10-04"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: Successful provisioning returns a secret-free receipt",
     "work_item": "overseer-dykjx4",
     "first_seen": "2026-09-12"
@@ -1510,13 +1468,6 @@
     "heading": "## Scenario: The lifecycle table determines every credential state transition",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The nearest verified terminal owns the two-pane overseer",
-    "work_item": "overseer-uzvcbn",
-    "first_seen": "2026-10-04"
   },
   {
     "spec_root": "SPECIFICATION",

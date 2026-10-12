@@ -21,7 +21,12 @@ For a real run, remove `--plan-only`, pass the normal client's auth file with
 Claude run copies only `.claude/.credentials.json`; a Codex run copies only
 `.codex/auth.json`. The command is responsible for opening the named backend instance,
 starting the authenticated client in the scratch repository, asking that client to run
-the shipped `overseer-start`, and capturing the lifecycle evidence. It receives:
+the shipped `overseer-start`, and appending lifecycle evidence to
+`/evidence/lifecycle.jsonl`. Each line is a JSON object with `stage`, `status`
+(`passed` or `failed`) and an optional `detail`. The required stages are `bootstrap`,
+`adoption`, `wrap-up`, `declaration`, `replacement` and `continuation`. After the
+controller exits, the checked-in verifier reports a malformed record, failed stage or
+missing stage as `FAILED` or `INCOMPLETE` with a non-zero status. It receives:
 
 - `OVERSEER_EXERCISE_BACKEND` (`herdr` or `tmux`)
 - `OVERSEER_EXERCISE_INSTANCE` (the unique instance name)

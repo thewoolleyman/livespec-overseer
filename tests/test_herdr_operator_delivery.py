@@ -2,17 +2,36 @@
 
 from __future__ import annotations
 
+import importlib.util
+import json
 from pathlib import Path
+from typing import Protocol, cast
 
 import _supervisor_table_layout
 import _supervisor_view
 import herdr_identity
+import pytest
 
 __all__: list[str] = []
 
 ROOT = Path(__file__).resolve().parent.parent
 OPERATOR_CONTRACT = ROOT / ".claude-plugin" / "prose" / "overseer.md"
 LIVE_EXERCISE = ROOT / "scripts" / "overseer-live-exercise.sh"
+EVIDENCE_VERIFIER = ROOT / "scripts" / "overseer_live_exercise_evidence.py"
+
+
+class EvidenceModule(Protocol):
+    def main(self, *, argv: list[str] | None = None) -> int: ...
+
+
+def _load_evidence_verifier() -> EvidenceModule:
+    assert EVIDENCE_VERIFIER.is_file()
+    spec = importlib.util.spec_from_file_location("exercise_evidence", EVIDENCE_VERIFIER)
+    assert spec is not None
+    assert spec.loader is not None
+    loaded = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(loaded)
+    return cast("EvidenceModule", loaded)
 
 
 def test_the_shipped_contract_bootstraps_the_nearest_verified_backend_without_an_override() -> None:
@@ -73,3 +92,45 @@ def test_the_live_exercise_plan_isolates_every_operator_resource() -> None:
     assert "-u TMUX_PANE" in source
     assert "-u HERDR_SOCKET_PATH" in source
     assert "HOME=" not in source
+
+
+def test_lifecycle_evidence_never_calls_an_incomplete_or_failed_run_successful(
+    *, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    verifier = _load_evidence_verifier()
+    evidence = tmp_path / "lifecycle.jsonl"
+
+    assert verifier.main(argv=[str(evidence)]) == 1
+    assert "INCOMPLETE lifecycle" in capsys.readouterr().err
+
+    evidence.write_text("not-json\n", encoding="utf-8")
+    assert verifier.main(argv=[str(evidence)]) == 1
+    assert "FAILED lifecycle: malformed record at line 1" in capsys.readouterr().err
+
+    evidence.write_text("[]\n", encoding="utf-8")
+    assert verifier.main(argv=[str(evidence)]) == 1
+    assert "FAILED lifecycle: record 1 is not an object" in capsys.readouterr().err
+
+    stages = ["bootstrap", "adoption", "wrap-up", "declaration", "replacement"]
+    records = [json.dumps({"stage": stage, "status": "passed"}) for stage in stages]
+    records.append(
+        json.dumps({"stage": "continuation", "status": "failed", "detail": "no fresh reply"})
+    )
+    evidence.write_text("\n".join(records) + "\n", encoding="utf-8")
+    assert verifier.main(argv=[str(evidence)]) == 1
+    failure = capsys.readouterr().err
+    assert "FAILED lifecycle at continuation: no fresh reply" in failure
+    assert "COMPLETE lifecycle" not in failure
+
+    evidence.write_text("\n".join(records[:-2]) + "\n", encoding="utf-8")
+    assert verifier.main(argv=[str(evidence)]) == 1
+    missing = capsys.readouterr().err
+    assert "INCOMPLETE lifecycle: missing stages: replacement, continuation" in missing
+
+    complete = [
+        json.dumps({"stage": stage, "status": "passed"}) for stage in [*stages, "continuation"]
+    ]
+    complete.append(json.dumps({"stage": "operator-note", "status": "passed"}))
+    evidence.write_text("\n" + "\n".join(complete) + "\n", encoding="utf-8")
+    assert verifier.main(argv=[str(evidence)]) == 0
+    assert "COMPLETE lifecycle: all required stages passed" in capsys.readouterr().out

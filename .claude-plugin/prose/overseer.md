@@ -777,6 +777,12 @@ under `$PLUGIN_ROOT` as a setup failure.
   state-file contract: the cardinal rule, what the daemon injects at each band,
   the four values a tracked session may WRITE (`ready` / `blocked: <reason>` /
   `winding-down` / `done[: <summary>]`), and what the restart interlock validates.
+- **`live-exercise.md`** (beside the package source) — the isolated released-code
+  Herdr/tmux runbook. Its runner retains the normal home pathname inside a private
+  namespace, owns unique backend instances, and refuses to call a lifecycle
+  successful unless bootstrap, adoption, wrap-up, declaration, replacement and
+  continuation are all recorded as passed. Authenticated Claude/Codex runs remain
+  host-captured release proof.
 
 ---
 

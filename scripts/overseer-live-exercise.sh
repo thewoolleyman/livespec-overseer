@@ -83,7 +83,8 @@ evidence="$(realpath -m "$evidence")"
 case "$evidence" in
   "$checkout" | "$checkout"/*) die "--evidence must be outside the released checkout" ;;
 esac
-mkdir -p -m 700 "$evidence"
+mkdir -p "$evidence"
+chmod 700 "$evidence"
 
 operator_home="${HOME:?HOME must name the operator home}"
 operator_uid="$(id -u)"
@@ -178,4 +179,10 @@ if [[ -n "$credential" ]]; then
   install -m 600 "$credential" "$credential_target"
 fi
 
-"${namespace[@]}"
+namespace_status=0
+"${namespace[@]}" || namespace_status="$?"
+if ((namespace_status != 0)); then
+  printf '{"stage":"bootstrap","status":"failed","detail":"namespace/controller exited %s"}\n' \
+    "$namespace_status" >>"$evidence/lifecycle.jsonl"
+fi
+python3 "$checkout/scripts/overseer_live_exercise_evidence.py" "$evidence/lifecycle.jsonl"

@@ -40,6 +40,11 @@ authority. It refuses before mutation when no supported owner can be proved.
 
 Claude Code and/or OpenAI Codex as the supervised agent runtimes.
 
+Released-code lifecycle exercises use
+[`overseer/live-exercise.md`](overseer/live-exercise.md). The harness gives each
+run private stores, watch roots, terminal instances and cleanup, and fails closed
+when any required lifecycle stage is missing or failed.
+
 ## Installation For An Adopter Family
 
 Install the shipped surfaces for the family that will run the overseer:
