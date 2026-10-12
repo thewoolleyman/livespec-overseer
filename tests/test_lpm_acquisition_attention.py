@@ -9,7 +9,7 @@ from types import ModuleType
 
 def _resolve(
     *, attention: ModuleType, status: str, now: float, removal_raises: bool = False
-) -> tuple[object, list[bytearray], list[object]]:
+) -> tuple[object, object, list[bytearray], list[object]]:
     captures = [bytearray(b"synthetic-capture")]
     events: list[object] = []
     session = attention.AttentionSession(
@@ -31,7 +31,7 @@ def _resolve(
         remove_artifact=remove_artifact,
         transition_failed=lambda reason: events.append(("failed", reason)),
     )
-    return outcome, captures, events
+    return outcome, session, captures, events
 
 
 def _assert_deadline_clamping(*, attention: ModuleType) -> None:
@@ -58,15 +58,19 @@ def _assert_timely_authority_is_preserved(*, attention: ModuleType) -> None:
     assert pending[0].action == "wait"
     assert pending[0].profile_ref == "profile:opaque"
     assert pending[0].remaining_steps == 11
-    assert pending[1][0] == bytearray(b"synthetic-capture")
-    assert pending[2] == []
+    assert pending[1].profile_ref == "profile:opaque"
+    assert pending[1].remaining_steps == 11
+    assert pending[2][0] == bytearray(b"synthetic-capture")
+    assert pending[3] == []
 
     resumed = _resolve(attention=attention, status="resolved", now=99.0)
     assert resumed[0].action == "resume"
     assert resumed[0].profile_ref == "profile:opaque"
     assert resumed[0].remaining_steps == 11
-    assert resumed[1][0] == bytearray(b"synthetic-capture")
-    assert resumed[2] == ["removed"]
+    assert resumed[1].profile_ref == "profile:opaque"
+    assert resumed[1].remaining_steps == 11
+    assert resumed[2][0] == bytearray(b"synthetic-capture")
+    assert resumed[3] == ["removed"]
 
 
 def _assert_terminal_attention_destroys_authority(*, attention: ModuleType) -> None:
@@ -85,8 +89,10 @@ def _assert_terminal_attention_destroys_authority(*, attention: ModuleType) -> N
         assert failed[0].action == "failed"
         assert failed[0].profile_ref is None
         assert failed[0].remaining_steps == 0
-        assert failed[1] == [bytearray()]
-        assert failed[2] == ["removed", ("failed", "flow-unavailable")]
+        assert failed[1].profile_ref is None
+        assert failed[1].remaining_steps == 0
+        assert failed[2] == [bytearray()]
+        assert failed[3] == ["removed", ("failed", "flow-unavailable")]
 
 
 def test_attention_authority_is_bounded_and_cleanup_survives_removal_errors() -> None:
