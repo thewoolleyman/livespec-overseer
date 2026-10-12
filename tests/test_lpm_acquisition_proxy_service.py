@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import importlib
+import json
+import re
 from pathlib import Path
+from typing import cast
 
 _TOOLS = (
     "observe-browser",
@@ -35,6 +38,16 @@ class _Exchange:
         return {"version": 1, "status": "ok"}
 
 
+class _RawPerformer:
+    def __init__(self, *, result: dict[str, object]) -> None:
+        self.result = result
+        self.calls: list[tuple[str, dict[str, object]]] = []
+
+    def __call__(self, *, tool: str, arguments: dict[str, object]) -> dict[str, object]:
+        self.calls.append((tool, arguments))
+        return self.result
+
+
 class _Channel:
     def __init__(self, *, frames: list[bytes | None]) -> None:
         self.frames = frames
@@ -51,6 +64,14 @@ class _Channel:
 
     def close(self) -> None:
         self.closed = True
+
+
+def _assert_redacted(*, result: dict[str, object], token: str, sensitive: str, source: str) -> None:
+    assert token not in repr(result)
+    assert sensitive not in repr(result)
+    assert result["status"] == "ok"
+    assert "[[redacted-sensitive]]" in repr(result)
+    assert re.search(rf"\[\[redacted-token:{source}:[0-9a-f-]{{36}}\]\]", repr(result))
 
 
 def test_private_proxy_executable_exposes_only_the_seventeen_registered_tools() -> None:
@@ -181,3 +202,87 @@ def test_valid_out_of_bounds_requests_return_refused_without_performer_action() 
         * 3
     )
     assert repeated.consumed_steps == 4
+
+
+def test_performer_observations_are_sanitized_and_masking_failure_is_unavailable() -> None:
+    service_module = importlib.import_module("_lpm_acquisition_service")
+    control_module = importlib.import_module("_lpm_browser_control")
+    token = "sk-ant-oat01-secret-token"
+    sensitive = "person@example.com"
+
+    terminal_performer = _RawPerformer(
+        result={
+            "running": False,
+            "exit_status": 0,
+            "stdout": f"captured {token}",
+            "stderr": sensitive,
+        }
+    )
+    terminal = service_module.AcquisitionProxyService(
+        step_limit=5,
+        allowed_origins=frozenset({"https://claude.com"}),
+        tainted_values=frozenset({sensitive}),
+        perform=terminal_performer,
+    )
+    terminal_channel = _Channel(
+        frames=[control_module.frame_for(tool="observe-terminal", arguments={}), None]
+    )
+    assert terminal.run(channel=terminal_channel, deadline=100.0) == (
+        service_module.ServiceOutcome(status="stopped", failure_reason=None)
+    )
+    terminal_result = cast("dict[str, object]", json.loads(terminal_channel.responses[0][4:]))
+    _assert_redacted(result=terminal_result, token=token, sensitive=sensitive, source="terminal")
+
+    browser_performer = _RawPerformer(
+        result={
+            "url": f"https://claude.com/{token}",
+            "title": sensitive,
+            "dom_text": f"token: {token}",
+            "accessibility_tree": f"account: {sensitive}",
+            "masked_screenshot_png": b"masked-png",
+            "masking_established": True,
+        }
+    )
+    browser = service_module.AcquisitionProxyService(
+        step_limit=5,
+        allowed_origins=frozenset({"https://claude.com"}),
+        tainted_values=frozenset({sensitive}),
+        perform=browser_performer,
+    )
+    browser_channel = _Channel(
+        frames=[control_module.frame_for(tool="observe-browser", arguments={}), None]
+    )
+    assert browser.run(channel=browser_channel, deadline=100.0) == (
+        service_module.ServiceOutcome(status="stopped", failure_reason=None)
+    )
+    browser_result = cast("dict[str, object]", json.loads(browser_channel.responses[0][4:]))
+    _assert_redacted(result=browser_result, token=token, sensitive=sensitive, source="browser")
+    assert browser_result["screenshot_png"] == "bWFza2VkLXBuZw=="
+    assert re.fullmatch(r"[0-9a-f]{64}", cast("str", browser_result["state_fingerprint"]))
+
+    unmasked_performer = _RawPerformer(
+        result={
+            "url": "https://claude.com",
+            "title": "Login",
+            "dom_text": "secret field",
+            "accessibility_tree": "secret field",
+            "masked_screenshot_png": b"untrusted",
+            "masking_established": False,
+        }
+    )
+    unmasked = service_module.AcquisitionProxyService(
+        step_limit=5,
+        allowed_origins=frozenset({"https://claude.com"}),
+        tainted_values=frozenset(),
+        perform=unmasked_performer,
+    )
+    unmasked_channel = _Channel(
+        frames=[control_module.frame_for(tool="observe-browser", arguments={})]
+    )
+    assert unmasked.run(channel=unmasked_channel, deadline=100.0) == (
+        service_module.ServiceOutcome(status="failed", failure_reason="flow-unavailable")
+    )
+    unavailable_payload = b'{"status":"unavailable","version":1}'
+    assert unmasked_channel.responses == [
+        len(unavailable_payload).to_bytes(4, "big") + unavailable_payload
+    ]
