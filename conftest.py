@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import os
+import socket
+import subprocess
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -84,6 +86,97 @@ def _isolate_ambient_herdr(*, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
         "default_herdr_socket",
         lambda *, home=None: isolated if home is None else real(home=home),
     )
+
+
+# The operator's live herdr endpoints, captured at IMPORT time — before
+# `_isolate_ambient_herdr` scrubs the environment and repoints the default — so the
+# guard below still knows which sockets are REAL. Measured 2026-10-12: tests that
+# mocked tmux reached the operator's live herdr through ownership-by-ancestry and
+# left 74 `topic`/`supervisor` workspaces in the session the suite was run from.
+# Repointing one discovery seam did not make that impossible; refusing the
+# endpoint itself does, whatever route a future code path takes to it.
+_OPERATOR_HERDR_SOCKETS: frozenset[str] = frozenset(
+    os.path.realpath(path)
+    for path in (
+        terminal_probes.default_herdr_socket(),
+        os.environ.get(terminal_probes.HERDR_SOCKET_ENV, ""),
+    )
+    if path
+)
+
+
+class OperatorTerminalAccessError(RuntimeError):
+    """A test reached the operator's live terminal backend.
+
+    Deliberately NOT an `OSError`: product code fails closed on `OSError` from a
+    socket, which would swallow the refusal and let the test pass quietly.
+    """
+
+
+def _herdr_argv_is_isolated(*, argv: list[str]) -> bool:
+    """A herdr CLI call is isolated when it names a session or manages sessions.
+
+    Without `--session` every herdr subcommand addresses the operator's DEFAULT
+    server, which is exactly the instance an ordinary test must never touch.
+    """
+    return "--session" in argv or argv[1:2] == ["session"]
+
+
+@pytest.fixture(name="operator_herdr_guard", autouse=True)
+def _refuse_operator_herdr(*, monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
+    """No test may connect to, or run the herdr CLI against, the operator's herdr.
+
+    Native integration tests are unaffected: they run their own
+    `herdr --session <unique>` server, whose socket is never one of these. Every
+    refusal is also RECORDED and failed at teardown, so product code that catches
+    broadly cannot turn a refused touch into a passing test.
+    """
+    violations: list[str] = []
+
+    def _refuse(*, message: str) -> OperatorTerminalAccessError:
+        violations.append(message)
+        return OperatorTerminalAccessError(message)
+
+    real_connect = socket.socket.connect
+
+    def _connect(self: socket.socket, address: object) -> None:
+        if (
+            self.family == socket.AF_UNIX
+            and isinstance(address, str | bytes | os.PathLike)
+            and os.path.realpath(os.fsdecode(address)) in _OPERATOR_HERDR_SOCKETS
+        ):
+            raise _refuse(
+                message=f"test tried to connect to the operator's live herdr socket {address!r}"
+            )
+        real_connect(self, address)
+
+    real_popen_init = subprocess.Popen.__init__
+
+    def _popen_init(
+        self: subprocess.Popen[object], args: object, *rest: object, **kw: object
+    ) -> None:
+        argv = [os.fsdecode(a) for a in args] if isinstance(args, list | tuple) else []
+        if argv and Path(argv[0]).name == "herdr" and not _herdr_argv_is_isolated(argv=argv):
+            raise _refuse(
+                message=f"test ran the herdr CLI against the operator's default server: {argv!r}"
+            )
+        real_popen_init(self, args, *rest, **kw)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(socket.socket, "connect", _connect)
+    monkeypatch.setattr(subprocess.Popen, "__init__", _popen_init)
+    yield violations
+    _fail_on_operator_herdr_touch(violations=violations)
+
+
+def _fail_on_operator_herdr_touch(*, violations: list[str]) -> None:
+    if violations:
+        pytest.fail("; ".join(violations), pytrace=False)
+
+
+@pytest.fixture(name="fail_on_operator_herdr_touch")
+def _fail_on_operator_herdr_touch_fixture() -> Callable[..., None]:
+    """The teardown verdict itself, so its failing branch can be pinned directly."""
+    return _fail_on_operator_herdr_touch
 
 
 @dataclass(frozen=True, kw_only=True)

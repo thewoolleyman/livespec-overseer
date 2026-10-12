@@ -133,6 +133,8 @@ def test_new_session_argv():
     assert fake.calls[0]["argv"] == [
         "tmux",
         "new-session",
+        "-e",
+        "LIVESPEC_AUTOMATION_SHELL=1",
         "-d",
         "-s",
         "livespec:t",

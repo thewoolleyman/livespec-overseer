@@ -223,7 +223,7 @@ def test_a_spend_capped_active_account_rotates_to_an_included_quota_account(
 ) -> None:
     """THE INCIDENT rule is narrowed by the 2026-10-10 live measurement.
 
-    `plan/caam-spend-cap-servability/research/001-measurements-and-decision.md`
+    `plan/archive/caam-spend-cap-servability/research/001-measurements-and-decision.md`
     records that a cap flag can survive an included-window reset while the
     account serves normally. The rule now requires both the cap and an exhausted
     included window, so this capped-but-healthy candidate can relieve an active

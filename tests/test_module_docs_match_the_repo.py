@@ -162,3 +162,17 @@ def test_overseer_isolation_tip_keeps_session_discovery_visible():
     assert "Adoption is bounded by the\n   watch-set, not by the registry" in section
     assert "all-`unassigned` render" in section
     assert "blinded session\n   discovery" in section
+
+
+def test_overseer_guide_documents_the_automation_shell_contract():
+    text = _OVERSEER_AGENTS.read_text(encoding="utf-8")
+    heading = "**Automation-shell marker (`LIVESPEC_AUTOMATION_SHELL=1`).**"
+
+    assert heading in text
+    section = text.split(heading, maxsplit=1)[1].split("\n**", maxsplit=1)[0]
+    assert "automation-owned" in section
+    assert "overseer and every tmux-creating test" in section
+    assert "every tmux session they create" in section
+    assert "host shell rc" in section
+    assert "`HISTFILE=/dev/null`" in section
+    assert "Atuin's `preexec` and `precmd` hooks" in section

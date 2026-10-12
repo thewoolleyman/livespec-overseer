@@ -25,6 +25,7 @@ from overseer import (
     tmux_bootstrap,
     tmux_daemon_liveness,
 )
+from overseer.tmuxio import new_session_args
 
 __all__: list[str] = []
 
@@ -144,17 +145,18 @@ def test_native_tmux_unowned_process_cannot_authorize_reuse(*, tmp_path: Path, c
         caller = _must_native_tmux(
             socket_path=socket_path,
             tmux_binary=tmux_binary,
-            args=[
-                "new-session",
-                "-d",
-                "-P",
-                "-F",
-                "#{pane_id}",
-                "-s",
-                "owned",
-                "-c",
-                str(tmp_path),
-            ],
+            args=new_session_args(
+                args=[
+                    "-d",
+                    "-P",
+                    "-F",
+                    "#{pane_id}",
+                    "-s",
+                    "owned",
+                    "-c",
+                    str(tmp_path),
+                ]
+            ),
         )
         candidate = _must_native_tmux(
             socket_path=socket_path,

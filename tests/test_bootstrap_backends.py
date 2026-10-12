@@ -37,6 +37,7 @@ from overseer import (
     tmux_bootstrap,
     tmux_daemon_liveness,
 )
+from overseer.tmuxio import new_session_args
 
 __all__: list[str] = []
 
@@ -944,7 +945,7 @@ def test_native_tmux_split_preserves_the_unrelated_sibling_allocation(
             assert completed.returncode == 0, completed.stderr
         return completed.stdout or ""
 
-    native("new-session", "-d", "-x", "120", "-y", "60", "-s", "probe", "sleep 30")
+    native(*new_session_args(args=["-d", "-x", "120", "-y", "60", "-s", "probe", "sleep 30"]))
     try:
         invoking = native("list-panes", "-t", "probe", "-F", "#{pane_id}").strip()
         sibling = native(
