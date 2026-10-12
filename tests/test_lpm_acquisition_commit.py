@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import importlib
 import os
+import threading
 from pathlib import Path
 from types import ModuleType
+from unittest.mock import patch
 
 
 def _run(
@@ -106,6 +108,75 @@ def _assert_descriptor_transfer_precedes_publication(*, commit: ModuleType) -> N
     assert "synthetic-provider-credential" not in repr(succeeded[0])
 
 
+def _assert_descriptor_transfer_is_complete_while_the_writer_drains(*, commit: ModuleType) -> None:
+    capture = bytearray(b"synthetic-provider-credential" * 16_384)
+    expected = bytes(capture)
+    writer_started = threading.Event()
+    transferred = bytearray()
+    published: list[int] = []
+    real_write = commit.os.write
+
+    def short_write(descriptor: int, data: bytes) -> int:
+        assert writer_started.wait(timeout=1), "the writer must drain before production blocks"
+        return real_write(descriptor, data[:4096])
+
+    def writer(*, descriptor: int) -> object:
+        writer_started.set()
+        while chunk := os.read(descriptor, 4096):
+            transferred.extend(chunk)
+        return "committed"
+
+    with patch.object(commit.os, "write", side_effect=short_write):
+        outcome = commit.commit_validated_capture(
+            capture=capture,
+            capture_handle="capture:opaque",
+            account_id="account-1",
+            value_generation=9,
+            inspect_identity=lambda *, account_id: "matched",
+            validate=lambda *, capture_handle: "success",
+            acquisition_writer=writer,
+            publish_metadata=lambda *, value_generation: published.append(value_generation),
+            sleep=lambda *, seconds: None,
+        )
+
+    assert transferred == expected
+    assert outcome.status == "success"
+    assert published == [9]
+    assert capture == bytearray()
+
+
+def _assert_incomplete_descriptor_transfer_never_publishes(*, commit: ModuleType) -> None:
+    capture = bytearray(b"synthetic-provider-credential")
+    writer_returned = threading.Event()
+    published: list[int] = []
+
+    def broken_write(descriptor: int, data: bytes) -> int:
+        assert writer_returned.wait(timeout=1), "the writer must run concurrently"
+        raise BrokenPipeError
+
+    def writer(*, descriptor: int) -> object:
+        writer_returned.set()
+        return "committed"
+
+    with patch.object(commit.os, "write", side_effect=broken_write):
+        outcome = commit.commit_validated_capture(
+            capture=capture,
+            capture_handle="capture:opaque",
+            account_id="account-1",
+            value_generation=9,
+            inspect_identity=lambda *, account_id: "matched",
+            validate=lambda *, capture_handle: "success",
+            acquisition_writer=writer,
+            publish_metadata=lambda *, value_generation: published.append(value_generation),
+            sleep=lambda *, seconds: None,
+        )
+
+    assert outcome.status == "failed"
+    assert outcome.failure_reason == "flow-unavailable"
+    assert published == []
+    assert capture == bytearray()
+
+
 def test_commit_gate_is_exact_bounded_and_descriptor_only() -> None:
     module_path = Path(__file__).parents[1] / "overseer" / "_lpm_acquisition_commit.py"
     assert module_path.is_file(), "the isolated capture commit boundary must be implemented"
@@ -114,3 +185,5 @@ def test_commit_gate_is_exact_bounded_and_descriptor_only() -> None:
     _assert_identity_is_exact(commit=commit)
     _assert_validation_is_closed_and_bounded(commit=commit)
     _assert_descriptor_transfer_precedes_publication(commit=commit)
+    _assert_descriptor_transfer_is_complete_while_the_writer_drains(commit=commit)
+    _assert_incomplete_descriptor_transfer_never_publishes(commit=commit)
