@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.27.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.27.0...v5.27.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* **overseer:** read a Claude turn as busy from its first spinner frame ([3046aa1](https://github.com/thewoolleyman/livespec-overseer/commit/3046aa14947e53a1679b488fecbefe89a1a35965))
+* **overseer:** wait past Claude's composer redraw before judging a herdr submit ([e46fa71](https://github.com/thewoolleyman/livespec-overseer/commit/e46fa7168abb80a96823492eec7bd68a0286386a))
+
 ## [5.27.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.26.0...v5.27.0) (2026-10-12)
 
 
