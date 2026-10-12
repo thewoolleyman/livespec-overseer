@@ -41,6 +41,7 @@ from typing import Protocol
 import _herdr_shell_identity
 import claude_sessions
 import herdr_identity
+import herdr_launch
 import herdr_layout
 import herdr_protocol
 import herdr_transport
@@ -154,6 +155,24 @@ class HerdrWriter:
         return self._write(
             target=target,
             params=herdr_write_calls.enter_params(pane_id=target.pane_id),
+        )
+
+    def launch(
+        self,
+        *,
+        target: herdr_identity.HerdrPaneTarget,
+        cwd: str,
+        command: str,
+        env: Mapping[str, str | None],
+    ) -> WriteOutcome:
+        """Launch the recorded profile in the retained shell as one atomic input."""
+        rendered = herdr_launch.render_launch(cwd=cwd, command=command, env=env)
+        return self._write(
+            target=target,
+            params=herdr_write_calls.launch_params(
+                pane_id=target.pane_id,
+                command=rendered,
+            ),
         )
 
     def split_window_top(

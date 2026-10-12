@@ -9,13 +9,17 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import cast
 
+import _herdr_shell_identity
 import claude_sessions
 import herdr_adapter
-import herdr_identity
 import herdr_initial_start
+import herdr_replacement
 import herdr_write
-import pane_router_coordinates
+import pane_router_initial_start
+import pane_router_ownership
+import pane_router_read_facade
 import pane_router_reads
+import pane_router_replacement
 import pane_router_submit_signals
 import pane_router_writes
 import terminal_ownership
@@ -48,18 +52,13 @@ sys.modules["pane_router"] = _THIS_MODULE
 sys.modules["overseer.pane_router"] = _THIS_MODULE
 
 
-def _default_herdr_endpoints() -> tuple[str, ...]:
-    """The standard default Herdr socket plus any explicitly selected instance."""
-    return terminal_probes.HerdrOwnershipProbe().endpoints(environ=os.environ)
-
-
 @dataclass(kw_only=True)
 class MixedPaneDriver:
     """Resolve every qualified pane on its recorded backend and generation."""
 
     tmux: PaneDriver = field(default_factory=tmuxio.TmuxIO)
     herdr: pane_router_reads.HerdrObserver = field(default_factory=herdr_adapter.HerdrAdapter)
-    herdr_writer: pane_router_submit_signals.HerdrInput = field(
+    herdr_writer: pane_router_replacement.ReplacementInput = field(
         default_factory=herdr_write.HerdrWriter
     )
     initial_start: herdr_initial_start.HerdrInitialStart = field(
@@ -67,56 +66,38 @@ class MixedPaneDriver:
             writer=herdr_write.HerdrWriter()
         )
     )
-    herdr_endpoints: Callable[[], Iterable[str]] = _default_herdr_endpoints
+    replacement_process_of: herdr_replacement.ProcessReader = herdr_replacement.proc_process
+    replacement_process_ids: herdr_replacement.ProcessIds = herdr_replacement.proc_process_ids
+    replacement_terminator: herdr_replacement.GroupTerminator = (
+        herdr_replacement.terminate_process_group
+    )
+    replacement_login_shells: frozenset[str] = field(
+        default_factory=_herdr_shell_identity.system_login_shells
+    )
+    replacement_snapshots: dict[str, herdr_replacement.ReplacementSnapshot] = field(
+        default_factory=dict
+    )
+    herdr_endpoints: Callable[[], Iterable[str]] = pane_router_ownership.default_herdr_endpoints
     tmux_run: tmux_process.TextProcessRun = tmux_process.TEXT_PROCESS_RUN
     coordinates: set[str] = field(default_factory=set)
     prompt_states: dict[str, pane_router_submit_signals.PromptState] = field(default_factory=dict)
 
-    def _reads(self) -> pane_router_reads.PaneRoutingReads:
-        return pane_router_reads.PaneRoutingReads(
-            tmux=self.tmux,
-            herdr=self.herdr,
-            herdr_endpoints=self.herdr_endpoints,
-            tmux_run=self.tmux_run,
-            coordinates=self.coordinates,
-        )
-
-    def register_coordinates(self, *, coordinates: Iterable[str]) -> None:
-        self.coordinates.update(coordinates)
+    register_coordinates = pane_router_read_facade.register_coordinates
+    capture_pane = pane_router_read_facade.capture_pane
+    pane_id = pane_router_read_facade.pane_id
+    pane_pid = pane_router_read_facade.pane_pid
+    pane_current_command = pane_router_read_facade.pane_current_command
+    pane_current_path = pane_router_read_facade.pane_current_path
+    session_exists = pane_router_read_facade.session_exists
+    pane_pid_sessions = pane_router_read_facade.pane_pid_sessions
+    pane_by_title = pane_router_read_facade.pane_by_title
 
     def _writes(self) -> pane_router_writes.PaneRoutingWrites:
         return pane_router_writes.PaneRoutingWrites(
-            reads=self._reads(),
+            reads=pane_router_read_facade.reads(driver=self),
             herdr_writer=self.herdr_writer,
             prompt_states=self.prompt_states,
         )
-
-    def capture_pane(self, *, session: str) -> str:
-        return self._reads().capture_pane(session=session)
-
-    def pane_id(self, *, session: str) -> str | None:
-        return self._reads().pane_id(session=session)
-
-    def pane_pid(self, *, session: str) -> int | None:
-        return self._reads().pane_pid(session=session)
-
-    def pane_current_command(self, *, session: str) -> str | None:
-        return self._reads().pane_current_command(session=session)
-
-    def pane_current_path(self, *, session: str) -> str | None:
-        return self._reads().pane_current_path(session=session)
-
-    def session_exists(self, *, session: str) -> bool:
-        return self._reads().session_exists(session=session)
-
-    def pane_pid_sessions(self) -> dict[int, str]:
-        return self._reads().pane_pid_sessions()
-
-    def pane_by_title(self, *, pane: str, title: str) -> str | None:
-        decoded = self._reads().decode(value=pane)
-        if decoded.herdr is not None or decoded.tmux is not None or decoded.error:
-            return None
-        return self.tmux.pane_by_title(pane=pane, title=title)
 
     def send_keys(self, *, session: str, keys: str) -> bool:
         return self._writes().send_keys(session=session, keys=keys)
@@ -134,6 +115,55 @@ class MixedPaneDriver:
     ) -> bool:
         return self._writes().respawn_pane(
             session=session,
+            cwd=cwd,
+            command=command,
+            env=env,
+        )
+
+    pending_initial_start = pane_router_initial_start.pending_initial_start
+    create_initial_pane = pane_router_initial_start.create_initial_pane
+    created_initial_pane_persisted = pane_router_initial_start.created_initial_pane_persisted
+    launch_initial_agent = pane_router_initial_start.launch_initial_agent
+    finish_initial_agent = pane_router_initial_start.finish_initial_agent
+    preserve_initial_pane = pane_router_initial_start.preserve_initial_pane
+    cleanup_initial_pane = pane_router_initial_start.preserve_initial_pane
+
+    def _replacement(self) -> herdr_replacement.ReplacementController:
+        return pane_router_replacement.controller(
+            observer=self.herdr,
+            writer=self.herdr_writer,
+            process_of=self.replacement_process_of,
+            process_ids=self.replacement_process_ids,
+            terminate_group=self.replacement_terminator,
+            login_shells=self.replacement_login_shells,
+        )
+
+    def herdr_replacement_snapshot(self, *, session: str) -> herdr_replacement.ReplacementSnapshot:
+        snapshot = self._replacement().snapshot(
+            target=pane_router_replacement.target(session=session)
+        )
+        self.replacement_snapshots[session] = snapshot
+        return snapshot
+
+    def herdr_terminate(
+        self, *, session: str, process_group: int
+    ) -> herdr_replacement.ReplacementOutcome:
+        return self._replacement().terminate(
+            target=pane_router_replacement.target(session=session),
+            process_group=process_group,
+            expected=self.replacement_snapshots.pop(session, None),
+        )
+
+    def herdr_launch(
+        self,
+        *,
+        session: str,
+        cwd: str,
+        command: str,
+        env: Mapping[str, str | None],
+    ) -> herdr_replacement.ReplacementOutcome:
+        return self._replacement().launch(
+            target=pane_router_replacement.target(session=session),
             cwd=cwd,
             command=command,
             env=env,
@@ -176,40 +206,6 @@ class MixedPaneDriver:
             sleep=sleep,
         )
 
-    def pending_initial_start(self, *, repo: str, topic: str, session: str) -> str:
-        return self.initial_start.pending_initial_start(repo=repo, topic=topic, session=session)
-
-    def create_initial_pane(self, *, source: str, name: str, cwd: str) -> object:
-        return self.initial_start.create_initial_pane(source=source, name=name, cwd=cwd)
-
-    def created_initial_pane_persisted(self, *, repo: str, topic: str, session: str) -> None:
-        self.initial_start.created_initial_pane_persisted(repo=repo, topic=topic, session=session)
-
-    def launch_initial_agent(
-        self,
-        *,
-        session: str,
-        cwd: str,
-        command: str,
-        env: object,
-        expected_process: str,
-    ) -> object:
-        return self.initial_start.launch_initial_agent(
-            session=session,
-            cwd=cwd,
-            command=command,
-            env=env,
-            expected_process=expected_process,
-        )
-
-    def finish_initial_agent(self, *, repo: str, session: str, unresolved: bool) -> None:
-        self.initial_start.finish_initial_agent(repo=repo, session=session, unresolved=unresolved)
-
-    def preserve_initial_pane(self, *, session: str) -> bool:
-        return self.initial_start.preserve_initial_pane(session=session)
-
-    cleanup_initial_pane = preserve_initial_pane
-
 
 def default_pane_driver() -> PaneDriver:
     return cast(PaneDriver, MixedPaneDriver())
@@ -222,19 +218,8 @@ def register_coordinates(*, driver: PaneDriver, coordinates: Iterable[str]) -> N
 
 def current_process_coordinate() -> str | None:
     """Exact qualified owner of this process, proven by live ancestry."""
-    selected = terminal_ownership.select_owner(
-        pid=PROCESS_PID(),
-        environ=dict(os.environ),
+    return pane_router_ownership.current_process_coordinate(
+        process_pid=PROCESS_PID,
+        process_ppid=PROCESS_PPID,
         probes=OWNERSHIP_PROBES(),
-        ppid_of=PROCESS_PPID,
     )
-    claim = selected.claim
-    renderers: dict[str, Callable[[], str | None]] = {
-        herdr_identity.HERDR_BACKEND: lambda: pane_router_coordinates.qualified_coordinate(
-            claim=cast(terminal_ownership.OwnershipClaim, claim)
-        ),
-        herdr_identity.TMUX_BACKEND: lambda: pane_router_coordinates.qualified_coordinate(
-            claim=cast(terminal_ownership.OwnershipClaim, claim)
-        ),
-    }
-    return renderers.get(getattr(claim, "backend", ""), lambda: None)()

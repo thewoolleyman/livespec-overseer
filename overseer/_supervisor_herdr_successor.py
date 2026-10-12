@@ -8,9 +8,10 @@ from typing import TYPE_CHECKING, Protocol, cast
 
 import _herdr_replacement_process
 import _herdr_replacement_store
+import _supervisor_herdr_codex_successor
+import _supervisor_herdr_completion
 import _supervisor_launch
 import _supervisor_observe
-import _supervisor_state
 import registry
 import signals
 from _supervisor_config import SUBMIT_MAX_ENTERS, SUBMIT_POLL
@@ -19,7 +20,7 @@ from _supervisor_prompts import resume_for_track
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
-__all__: list[str] = ["complete_replacement_round", "resume_proven_successor"]
+__all__: list[str] = ["resume_proven_successor"]
 
 
 class PendingEnterRetry(Protocol):
@@ -154,6 +155,13 @@ def resume_proven_successor(
     transaction: dict[str, object],
 ) -> str | None:
     """Prove a distinct successor and submit its continuation at most once."""
+    if transaction.get("runtime") == "codex":
+        return _supervisor_herdr_codex_successor.continue_codex_successor(
+            sup=sup,
+            track=track,
+            target=target,
+            transaction=transaction,
+        )
     managed = _supervisor_observe.pane_is_managed_claude(
         sup=sup,
         target=target,
@@ -177,20 +185,5 @@ def resume_proven_successor(
             identity=cast(str, identity),
         )
     if reason is None:
-        reason = complete_replacement_round(sup=sup, track=track)
+        reason = _supervisor_herdr_completion.complete_replacement_round(sup=sup, track=track)
     return reason
-
-
-def complete_replacement_round(*, sup: Supervisor, track: registry.Track) -> str | None:
-    """Close a proven replacement without discarding its anti-replay fence on failure."""
-    cleared = _supervisor_state.clear_state(
-        sup=sup,
-        track=track,
-        diagnostic_token=signals.STATE_RESTARTED,
-        diagnostic_detail="Herdr replacement completed; consumed ready declaration",
-        preserve_round_on_failure=True,
-    )
-    if not cleared:
-        return "verified successor is live, but ready declaration cleanup failed"
-    sup.log(message=f"completed Herdr replacement for {track.repo}::{track.topic}")
-    return None

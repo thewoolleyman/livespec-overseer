@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
+import _herdr_replacement_authorization
+import _supervisor_herdr_codex
 import _supervisor_herdr_replacement
 import _supervisor_launch
 import _supervisor_state
@@ -143,6 +145,9 @@ def _do_claude_restart(
             track=track,
             target=target,
             launch=launch,
+            binding=_herdr_replacement_authorization.ReplacementBinding(
+                resume=resume_prompt(track=track)
+            ),
         )
     if not sup.tmux.respawn_pane(
         session=target,
@@ -272,6 +277,10 @@ def do_restart(
     if handle_uncertified_restart_binder(sup=sup, track=track, target=target):
         return None
     if is_codex:
+        if herdr_identity.decode_target(value=target).herdr is not None:
+            return _supervisor_herdr_codex.begin_codex_replacement(
+                sup=sup, track=track, target=target
+            )
         do_codex_restart(sup=sup, track=track, target=target)
         return None
     return _do_claude_restart(sup=sup, track=track, target=target)

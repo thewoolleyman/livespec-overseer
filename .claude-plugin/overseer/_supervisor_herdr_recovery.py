@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, cast
 
 import _herdr_replacement_process
 import _herdr_replacement_store
+import _supervisor_herdr_completion
 import _supervisor_herdr_successor
 import herdr_identity
 import registry
@@ -126,7 +127,7 @@ def _reconcile_completed(
             status="replacement-failed",
             note="completed Herdr replacement still has its old ready declaration",
         )
-    reason = _supervisor_herdr_successor.complete_replacement_round(sup=sup, track=track)
+    reason = _supervisor_herdr_completion.complete_replacement_round(sup=sup, track=track)
     if reason is not None:
         return _row(track=track, status="replacement-failed", note=reason)
     return None

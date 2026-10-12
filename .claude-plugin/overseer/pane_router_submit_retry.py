@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from functools import partial
 from typing import cast
 
 import herdr_identity
 import pane_router_observe
 import pane_router_reads
 import pane_router_submit_signals
-import signals
 
 __all__: list[str] = ["retry_enter_once"]
 
@@ -26,7 +26,8 @@ def retry_enter_once(
     target = cast(herdr_identity.HerdrPaneTarget, reads.decode(value=session).herdr)
     expected = text.partition("\n")[0].strip()
     capture = reads.capture_pane(session=session)
-    if signals.input_box_text(capture_text=capture) != expected:
+    prompt_visible = partial(pane_router_submit_signals.prompt_visible, text=expected)
+    if not prompt_visible(capture=capture):
         return False, False
     entered = writer.send_enter(target=target)
     if not entered.ok and not entered.effect_unknown:
@@ -39,5 +40,5 @@ def retry_enter_once(
     )
     if pane_router_submit_signals.submitted(capture=observed):
         return True, False
-    still_pending = signals.input_box_text(capture_text=observed) == expected
+    still_pending = prompt_visible(capture=observed)
     return False, entered.effect_unknown or not still_pending
