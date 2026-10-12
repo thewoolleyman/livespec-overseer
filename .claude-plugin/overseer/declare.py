@@ -61,6 +61,10 @@ def _write_ready(*, repo: Path, topic: str) -> None:
     registry.atomic_write(path=signals.state_path(repo=str(repo), topic=topic), body="ready\n")
 
 
+def _write_done(*, repo: Path, topic: str) -> None:
+    registry.atomic_write(path=signals.state_path(repo=str(repo), topic=topic), body="done\n")
+
+
 def _has_iso_added_at(*, track: registry.Track) -> bool:
     added_at = track.added_at
     return (
@@ -112,6 +116,13 @@ def _parser() -> argparse.ArgumentParser:
         default=None,
         help="plan topic (default: current tmux session)",
     )
+    done = sub.add_parser("done", help="declare that this session's work is complete")
+    _ = done.add_argument("--repo", default=".", help="repository root (default: cwd)")
+    _ = done.add_argument(
+        "--topic",
+        default=None,
+        help="plan topic (default: current tmux session)",
+    )
     return parser
 
 
@@ -131,6 +142,10 @@ def main(
             )
         )
         return 2
+    if args.state == "done":
+        _write_done(repo=repo, topic=topic)
+        streams.write_stdout(text="done declaration written; no restart requested.\n")
+        return 0
     _write_ready(repo=repo, topic=topic)
     reason = _uncertifiable_reason(repo=repo, topic=topic)
     if reason is None:
