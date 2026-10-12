@@ -435,6 +435,18 @@ keyword flags. (`<cmd>` is one of `list` / `add` / `remove` / `unassign` /
   restart is skipped; the daemon never falls back to a default-model or
   default-wrapper launch.
 
+  Replacement mechanics follow the pane backend. Tmux retains its native
+  `respawn-pane -k` path and a proven pre-effect respawn failure keeps the ready
+  declaration retryable. Herdr preserves the retained shell, pane, and server.
+  Under a per-track lock it atomically records the certified ready round, exact
+  server generation, pane, predecessor process generation and foreground group,
+  retained shell process identity, and launch profile before any signal. It then
+  records signal intent before the single predecessor-group signal and launch
+  intent before submission. A recreated daemon may continue a launch that was
+  never attempted; it never repeats a signal or a launch with an unknown outcome.
+  Missing, malformed, or mismatched transaction evidence grants no permission to
+  type into a bare shell, and read-only observation performs no action.
+
   **Both runtimes restart into a FRESH session, and Codex is no longer the
   exception.** A wrap-up restart exists to give the successor a reset context
   window, so a Codex track respawns a brand-new `codex` session — NOT
@@ -447,19 +459,20 @@ keyword flags. (`<cmd>` is one of `list` / `add` / `remove` / `unassign` /
   <uuid>` remains correct — and unchanged — for `start` and dead-track recovery,
   where restoring the conversation a crash interrupted is the whole point.
 
-  **Each of those three steps is proved from evidence that exists in its own
-  phase**, which is the correction the arm's first live control forced
-  (2026-09-11). The NAME is confirmed from the durable `session_index` record the
-  rename appends — a record that outlives the process and needs nothing to be
-  running. Only then is the resume line submitted. The different-rollout proof is
-  taken LAST, from ordinary live discovery, while Codex is executing that resume
-  turn: discovery needs a live process holding the successor's rollout open, and
-  in the idle seconds right after a rename it can legitimately report nothing at
-  all. Gating the rename's confirmation on that join is what stranded the first
-  real restart — declaration kept, resume never submitted, successor left idle
-  with a fresh window and nothing to do. Each failure keeps the `ready`
-  declaration and names itself: `codex-fresh-session-unnamed`,
-  `codex-fresh-resume-unsubmitted`, `codex-fresh-session-unadopted`.
+  **Each phase is proved with evidence appropriate to that phase.** For Herdr,
+  launch completion alone is insufficient: the predecessor must be gone, the
+  original shell/server/pane must still match, and live process discovery must
+  prove a different Codex process generation and canonical rollout. The NAME is
+  then confirmed from the durable `session_index` record appended by `/rename` —
+  a record that outlives the process — before the resume continuation can finish.
+  Delayed discovery, a structured picker, or failed or unknown paste/submit leaves
+  the durable transaction visible and cannot authorize another signal, launch, or
+  duplicate paste. A later tick may retry Enter only when the exact pending resume
+  text, recorded successor identity, live runtime, idle input, and round retry
+  budget all agree. Empty or unrelated input is never treated as proof. Failures
+  name themselves, including `codex-fresh-session-unnamed`,
+  `codex-fresh-resume-unsubmitted`, and `codex-fresh-session-unadopted`, while the
+  old ready authorization remains fenced from reuse.
 
 ### Fixed paths + fleet-only watch-set (no CLI knobs)
 

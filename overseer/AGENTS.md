@@ -1291,8 +1291,24 @@ for the marker's edge-triggered lifecycle.
   carrying no session declaration (or already holding the marker) becomes
   `idle-with-context-left` and gets ONE keep-going nudge; anything else is plain
   `idle` (see invariant 9 for the marker lifecycle).
-- **Atomic restart via `respawn-pane -k`, proven by `#{pane_current_command}`.**
-  Restart replaces the pane's process in one step (`respawn-pane -k -c <repo>
+- **Backend-specific replacement preserves the ready interlock.** Before the
+  ordinary managed-runtime target gate rejects a retained bare shell, evaluate
+  reconciles an exact Herdr transaction for that backend/pane. This seam is
+  transaction-only: no record, a malformed record, a changed server generation,
+  pane, shell, or foreign foreground process grants no launch or input authority,
+  and `act=False` reports without mutating or acting. The transaction is locked
+  and atomically persisted before effects, binding the server socket/generation,
+  pane, ready round/declaration, predecessor PID/start time/foreground group,
+  distinct retained shell executable/process identity, and exact launch profile.
+  Signal and launch intent are each durable before their effect. Revalidate the
+  whole process/server interlock immediately before the one predecessor-group
+  signal; never signal the retained shell or server. A surviving predecessor gets
+  no escalation. Launch only after proving that predecessor gone and that same
+  shell live and idle. A recreated daemon may finish a never-attempted launch, but
+  never repeats a signal or an attempted launch with an unknown outcome.
+- **The tmux path remains atomic `respawn-pane -k`, proven by
+  `#{pane_current_command}`.** Tmux replacement replaces the pane's process in one
+  step (`respawn-pane -k -c <repo>
   '<launch-profile-aware command>'`) — NEVER `/exit` then screen-scrape a shell
   prompt. The command is bare only for rows with no recorded profile; recorded
   profiles re-assert the wrapper/model and stale/corrupt profiles surface and
@@ -1300,13 +1316,28 @@ for the marker's edge-triggered lifecycle.
   the zsh prompt, so a mis-timed "shell is back" could type `claude …` into the
   still-live session. Wait for the fresh TUI by polling
   `#{pane_current_command}` → `node`/`claude` (`signals.pane_is_claude`), never by
-  scraping `❯`. There is exactly ONE restart path and its abrupt kill is safe
-  because of the DECLARATION: the session itself asserted it is at a clean stopping
-  point, and the kill destroys only the PROCESS (files, worktrees, branches, and
-  commits on disk survive). Every tmux step is a hard gate: a failed respawn, or a
-  pane that never becomes a live Claude, SURFACES and returns WITHOUT clearing the
-  round — the `ready` declaration is preserved and the restart retried, never
-  silently destroyed.
+  scraping `❯`. Its abrupt kill is safe because of the DECLARATION: the session
+  itself asserted it is at a clean stopping point, and the kill destroys only the
+  PROCESS (files, worktrees, branches, and commits on disk survive). Every tmux
+  step is a hard gate: a native respawn that provably fails before replacement, or
+  a pane that never becomes a live Claude, SURFACES and returns WITHOUT clearing
+  the round — the `ready` declaration remains eligible for the existing guarded
+  retry. Do not project that boolean pre-effect contract onto Herdr; its durable
+  phase is the authority after an irreversible attempt.
+- **Herdr successor and continuation proof is exact and anti-replay.** The
+  predecessor PID/start time must be gone, the recorded shell/server/pane must
+  remain, and the successor must be a different correct-runtime process generation
+  in that same retained shell; a topic/cwd registry match alone is insufficient.
+  A runtime child may legitimately belong to its launcher's foreground group, so
+  runtime PID need not equal PGID. Codex also proves a different canonical rollout,
+  then durably advances `/rename` and the ledger-grounded continuation. Delayed
+  discovery, a picker, or failed/unknown paste or submit retains diagnostics and
+  cannot authorize another signal, launch, or paste. Only the exact recorded
+  pending resume text, matching successor identity, live runtime, idle input, and
+  remaining round budget authorize an Enter-only retry. Ready is consumed only
+  after verified continuation and successful close; a failed close retains the
+  anti-replay fence. A genuinely fresh declaration after completion opens a new
+  round without inheriting the old authorization.
 - **`claude --dangerously-skip-permissions -n <topic>`** is the launch command
   (`_launch_command`), and BOTH flags are load-bearing.
   `--dangerously-skip-permissions` makes the restarted session AUTONOMOUS — without
