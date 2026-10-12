@@ -181,6 +181,12 @@ def placement_refusal(
     return "", False
 
 
+# A just-split pane's shell is read again while it still carries the server's own
+# image name (see `_herdr_shell_identity.awaiting_exec`), for at most about 2 s.
+_EXEC_SETTLE_ATTEMPTS = 20
+_EXEC_SETTLE_INTERVAL = 0.1
+
+
 def retained_shell(
     *,
     requester: BoundedRequests,
@@ -204,12 +210,26 @@ def retained_shell(
     pane's shell — because `shell_pid` and its process group survive an `exec`
     that replaces the shell with something else entirely.
     """
-    reading = requester.request(
-        target=target,
-        method=herdr_protocol.METHOD_PANE_PROCESS_INFO,
-        params=herdr_calls.process_info_params(pane_id=created),
-        expect=herdr_calls.EXPECT_PROCESS_INFO,
-    )
+
+    def read() -> herdr_transport.RpcOutcome:
+        return requester.request(
+            target=target,
+            method=herdr_protocol.METHOD_PANE_PROCESS_INFO,
+            params=herdr_calls.process_info_params(pane_id=created),
+            expect=herdr_calls.EXPECT_PROCESS_INFO,
+        )
+
+    reading = read()
+    for _ in range(_EXEC_SETTLE_ATTEMPTS - 1):
+        settling = (
+            reading.ok
+            and expected is None
+            and _herdr_shell_identity.awaiting_exec(result=reading.result, pane_id=created)
+        )
+        if not settling:
+            break
+        proof.settle(_EXEC_SETTLE_INTERVAL)
+        reading = read()
     if not reading.ok:
         return _herdr_shell_identity.RetainedShell(
             identity=None,

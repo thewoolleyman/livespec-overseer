@@ -83,6 +83,7 @@ from __future__ import annotations
 
 import os
 import pwd
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -155,6 +156,7 @@ class ShellProof:
     evidence_of: ShellEvidence
     login_shells: frozenset[str]
     shell_aliases: frozenset[tuple[str, str]] = frozenset()
+    settle: Callable[[float], None] = lambda _seconds: None
 
 
 def proc_shell_identity(*, pid: int) -> ShellIdentity | None:
@@ -262,6 +264,21 @@ def _agrees_with_reported(
     if Path(identity.executable).name == name:
         return True
     return any(alias == name and resolved == identity.executable for alias, resolved in aliases)
+
+
+# The name herdr's own forked pane child carries until it execs the pane's shell.
+_SERVER_FORK_NAME = "herdr"
+
+
+def awaiting_exec(*, result: dict[str, object], pane_id: str) -> bool:
+    """Whether the server named the pane's shell after itself: a fork not yet exec'd.
+
+    Measured 2026-10-12: a just-split pane read under load reported its shell as
+    'herdr' while the kernel, a moment later, ran the real shell. That is a pane
+    still being born, not two sources disagreeing, so it is read again.
+    """
+    process, _ = _server_reading(result=result, pane_id=pane_id)
+    return process is not None and Path(process.name).name == _SERVER_FORK_NAME
 
 
 def _server_reading(
