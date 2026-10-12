@@ -21,11 +21,8 @@ REQUIRED_STAGES = (
 )
 
 
-def verify_evidence(*, evidence: Path) -> tuple[int, str]:
-    """Return a process code and an honest lifecycle verdict for ``evidence``."""
-    if not evidence.is_file():
-        return 1, f"INCOMPLETE lifecycle: evidence file is missing: {evidence}"
-
+def _read_observations(*, evidence: Path) -> tuple[dict[str, tuple[str, str]], str | None]:
+    """Read required-stage observations, rejecting malformed or repeated records."""
     observations: dict[str, tuple[str, str]] = {}
     for line_number, raw_line in enumerate(evidence.read_text(encoding="utf-8").splitlines(), 1):
         if not raw_line.strip():
@@ -33,16 +30,32 @@ def verify_evidence(*, evidence: Path) -> tuple[int, str]:
         try:
             raw_record = json.loads(raw_line)
         except json.JSONDecodeError:
-            return 1, f"FAILED lifecycle: malformed record at line {line_number}"
+            return {}, f"FAILED lifecycle: malformed record at line {line_number}"
         if not isinstance(raw_record, dict):
-            return 1, f"FAILED lifecycle: record {line_number} is not an object"
+            return {}, f"FAILED lifecycle: record {line_number} is not an object"
         record = cast("dict[str, object]", raw_record)
         stage = record.get("stage")
         if stage not in REQUIRED_STAGES:
             continue
+        stage_name = cast("str", stage)
+        if stage_name in observations:
+            return {}, (
+                f"FAILED lifecycle: duplicate required stage {stage_name} " f"at line {line_number}"
+            )
         status = record.get("status")
         detail = record.get("detail", "")
-        observations[cast("str", stage)] = (str(status), str(detail))
+        observations[stage_name] = (str(status), str(detail))
+    return observations, None
+
+
+def verify_evidence(*, evidence: Path) -> tuple[int, str]:
+    """Return a process code and an honest lifecycle verdict for ``evidence``."""
+    if not evidence.is_file():
+        return 1, f"INCOMPLETE lifecycle: evidence file is missing: {evidence}"
+
+    observations, read_error = _read_observations(evidence=evidence)
+    if read_error is not None:
+        return 1, read_error
 
     for stage in REQUIRED_STAGES:
         observation = observations.get(stage)

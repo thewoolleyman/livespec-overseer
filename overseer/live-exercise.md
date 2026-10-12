@@ -16,7 +16,21 @@ scripts/overseer-live-exercise.sh run --plan-only \
   --checkout "$PWD" --evidence /absolute/path/to/evidence -- /bin/true
 ```
 
-For a real run, remove `--plan-only`, pass the normal client's auth file with
+Plan inspection does not prove runtime confinement because it starts neither the
+namespace nor a terminal backend. Run the dedicated check with a new empty evidence
+directory to start and stop the selected native backend inside the namespace:
+
+```bash
+scripts/overseer-live-exercise.sh run --isolation-check \
+  --backend herdr --agent claude --topic overseer-proof \
+  --checkout "$PWD" --evidence /absolute/path/to/isolation-evidence
+```
+
+The check succeeds only when the native backend reached a live state and its scoped
+cleanup completed. Compare operator-store and terminal fingerprints around that real
+run when capturing confinement proof; `--plan-only` does not prove runtime confinement.
+
+For a real lifecycle run, remove both planning/check modes, pass the normal client's auth file with
 `--credential`, and replace `/bin/true` with the foreground controller command. A
 Claude run copies only `.claude/.credentials.json`; a Codex run copies only
 `.codex/auth.json`. The command is responsible for opening the named backend instance,
@@ -42,6 +56,11 @@ Herdr and OTLP selectors. It copies the released checkout to the private writabl
 all other host paths remain read-only. The scratch plan is intentionally not a real
 ledger thread, so a run that cannot read a coordinator-provided plan epic must record
 that limitation and must not claim end-to-end continuation.
+
+Every mode requires an empty evidence directory. Reusing a directory is refused before
+the runner writes anything, so an incomplete run cannot inherit passed lifecycle or
+backend records from an earlier attempt. Repeating a required lifecycle stage is also a
+failed record; a later `passed` observation can never overwrite an earlier failure.
 
 The current factory sandbox may expose `bwrap` while denying namespace creation. In
 that case `--plan-only` remains usable, but a real run must fail; do not fall back to an

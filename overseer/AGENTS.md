@@ -1679,11 +1679,18 @@ For a change to the invocation or config surface, start with the isolated plan a
 then the matching real-backend leg:
 
 1. Run `scripts/overseer-live-exercise.sh run --plan-only ...` and inspect the
-   recorded bind/selector plan before any namespace or terminal starts.
-2. Run the foreground controller in that namespace for `--backend herdr` or
+   recorded bind/selector plan before any namespace or terminal starts. This is
+   design inspection only and does not prove runtime confinement.
+2. Run `scripts/overseer-live-exercise.sh run --isolation-check ...` with a fresh,
+   empty evidence directory for each backend. It starts the real native backend in
+   the namespace and fails unless scoped backend cleanup completes. Fingerprint the
+   pre-existing operator stores and terminal inventory around this real run when
+   recording blast-radius evidence; never substitute `--plan-only` for that proof.
+3. Run the foreground controller in that namespace for `--backend herdr` or
    `--backend tmux`. It must append the six required lifecycle records; the runner
-   fails closed on malformed, failed or missing stages. Authenticated Claude and
-   Codex legs remain host-captured release proof, never fixture claims.
+   fails closed on malformed, duplicated, failed or missing stages, and refuses a
+   non-empty evidence directory before starting. Authenticated Claude and Codex legs
+   remain host-captured release proof, never fixture claims.
 
    **RETIRED historical recipe — do not execute it.** The scratch-`HOME` recipe
    below predates backend instances and does not isolate process/socket identity.
