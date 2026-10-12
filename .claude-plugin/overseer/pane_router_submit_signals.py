@@ -46,9 +46,8 @@ def prompt_visible(*, capture: str, text: str) -> bool:
 
 
 def submitted(*, capture: str) -> bool:
-    return bool(
-        signals.is_busy(capture_text=capture) | signals.input_box_ready(capture_text=capture)
-    )
+    """Return true only when runtime activity proves the submitted turn began."""
+    return signals.is_busy(capture_text=capture)
 
 
 def resolved(

@@ -650,15 +650,19 @@ reused, changing, malformed, or unreadable PID evidence retains the partial
 transaction and grants no launch authority.
 
 That record is also the only bare-shell recovery authority. A recreated daemon
-reconciles it before ordinary managed-runtime rejection and may continue a
-never-attempted launch, but never repeats a recorded signal or an attempted
-launch whose result is unknown. A read-only tick reports the partial transaction
-without signalling, launching, pasting, or submitting. Missing, malformed, or
-mismatched records grant no input permission. Success requires a different
-runtime process generation in the original server/pane/shell; Codex additionally
-requires a fresh rollout. Failures retain the transaction and its diagnostics,
-and ready is consumed only after the guarded continuation is confirmed and the
-anti-replay record closes successfully.
+reconciles it before ordinary session, pane, or managed-runtime rejection and may
+continue a never-attempted launch, but never repeats a recorded signal or an
+attempted launch whose result is unknown. The reader validates the complete
+versioned transaction shape before interpreting any phase; a scalar, partial, or
+ill-typed record is diagnostic evidence, never launch authority. A read-only tick
+reports the partial transaction — including when the recorded server or pane is no
+longer observable — without signalling, launching, pasting, or submitting. Missing,
+malformed, or mismatched records grant no input permission. Success requires a
+different runtime process generation in the original server/pane/shell; Codex
+additionally requires a fresh rollout. An empty successor composer alone never
+proves submission. Failures retain the transaction and its diagnostics, and ready
+is consumed only after the guarded continuation is confirmed and the anti-replay
+record closes successfully.
 
 The launch command is profile-aware, per SPECIFICATION v018's "The launch
 profile" clause. A mapping row with NO recorded `model_profile` keeps the old

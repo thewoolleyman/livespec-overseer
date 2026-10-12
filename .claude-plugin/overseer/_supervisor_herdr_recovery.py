@@ -8,9 +8,10 @@ from typing import TYPE_CHECKING, cast
 import _herdr_replacement_process
 import _herdr_replacement_store
 import _supervisor_herdr_completion
+import _supervisor_herdr_launch_recovery
+import _supervisor_herdr_signal_recovery
 import _supervisor_herdr_successor
 import herdr_identity
-import herdr_replacement_process
 import registry
 import signals
 from _supervisor_view import RowView
@@ -32,55 +33,6 @@ def _row(*, track: registry.Track, note: str, status: str = "replacement-pending
     )
 
 
-def _launch_recorded_successor(
-    *,
-    sup: Supervisor,
-    track: registry.Track,
-    target: str,
-    transaction: dict[str, object],
-) -> str | None:
-    pane = cast(_herdr_replacement_process.ReplacementPane, sup.tmux)
-    scratch = _herdr_replacement_store.scratch_path(track=track)
-    with _herdr_replacement_store.transaction_lock(
-        path=scratch / _herdr_replacement_store.LOCK_NAME
-    ):
-        current_record = _herdr_replacement_store.read_transaction(
-            path=scratch / _herdr_replacement_store.RECORD_NAME
-        )
-        if (
-            current_record is None
-            or current_record != transaction
-            or current_record.get("phase") != "stopped-awaiting-shell"
-        ):
-            return "durable replacement changed before successor launch"
-        snapshot = pane.herdr_replacement_snapshot(session=target)
-        if not _herdr_replacement_process.retained_shell_is_idle(
-            transaction=current_record, snapshot=snapshot
-        ):
-            return "original retained shell is absent or no longer idle"
-        predecessor = cast(dict[str, object], current_record["predecessor"])
-        predecessor_pid = cast(int, predecessor["pid"])
-        try:
-            observed_starttime = herdr_replacement_process.proc_starttime(pid=predecessor_pid)
-        except OSError as exc:
-            return f"recorded predecessor generation is unreadable: {exc}"
-        if observed_starttime is not None:
-            return "recorded predecessor PID is still occupied by a process generation"
-        current_record["phase"] = "launch-attempted"
-        _herdr_replacement_store.durable_write(
-            path=scratch / _herdr_replacement_store.RECORD_NAME,
-            value=current_record,
-        )
-        launch = cast(dict[str, object], current_record["launch"])
-        _ = pane.herdr_launch(
-            session=target,
-            cwd=cast(str, launch["cwd"]),
-            command=cast(str, launch["command"]),
-            env=cast(dict[str, str | None], launch["env"]),
-        )
-    return None
-
-
 def _old_ready_still_present(*, track: registry.Track, transaction: Mapping[str, object]) -> bool:
     state = signals.read_state(repo=track.repo, topic=track.topic)
     recorded_round = cast(dict[str, object], transaction["round"])
@@ -95,7 +47,7 @@ def _recover_launch(
     *, sup: Supervisor, track: registry.Track, target: str, transaction: dict[str, object]
 ) -> RowView:
     try:
-        reason = _launch_recorded_successor(
+        reason = _supervisor_herdr_launch_recovery.launch_recorded_successor(
             sup=sup,
             track=track,
             target=target,
@@ -106,6 +58,20 @@ def _recover_launch(
     if reason is not None:
         return _row(track=track, status="replacement-failed", note=reason)
     return _row(track=track, note="durable Herdr replacement phase: launch-attempted")
+
+
+def _recover_signal_attempt(
+    *, sup: Supervisor, track: registry.Track, target: str, transaction: dict[str, object]
+) -> RowView:
+    current, reason = _supervisor_herdr_signal_recovery.recover_signal_attempt(
+        sup=sup,
+        track=track,
+        target=target,
+        transaction=transaction,
+    )
+    if reason is not None or current is None:
+        return _row(track=track, status="replacement-failed", note=reason or "invalid record")
+    return _recover_launch(sup=sup, track=track, target=target, transaction=current)
 
 
 def _recover_resume(
@@ -142,6 +108,56 @@ def _reconcile_completed(
     return None
 
 
+def _reconcile_read_only(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    target: str,
+    transaction: dict[str, object],
+) -> RowView:
+    phase = transaction.get("phase")
+    if phase == "signal-attempted":
+        try:
+            pane = cast(_herdr_replacement_process.ReplacementPane, sup.tmux)
+            snapshot = pane.herdr_replacement_snapshot(session=target)
+            reason = _supervisor_herdr_signal_recovery.signal_attempt_refusal(
+                transaction=transaction,
+                snapshot=snapshot,
+            )
+        except (AttributeError, KeyError, OSError, TypeError, ValueError) as exc:
+            reason = str(exc)
+        if reason is not None:
+            return _row(track=track, status="replacement-failed", note=reason)
+    return _row(track=track, note=f"durable Herdr replacement phase: {phase}")
+
+
+def _reconcile_active(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    target: str,
+    transaction: dict[str, object],
+) -> RowView:
+    phase = transaction.get("phase")
+    if phase == "signal-attempted":
+        return _recover_signal_attempt(
+            sup=sup,
+            track=track,
+            target=target,
+            transaction=transaction,
+        )
+    if phase == "stopped-awaiting-shell":
+        return _recover_launch(sup=sup, track=track, target=target, transaction=transaction)
+    if phase in {
+        "launch-attempted",
+        "rename-attempted",
+        "successor-observed",
+        "resume-attempted",
+    }:
+        return _recover_resume(sup=sup, track=track, target=target, transaction=transaction)
+    return _row(track=track, note=f"durable Herdr replacement phase: {phase}")
+
+
 def _reconcile_transaction(
     *,
     sup: Supervisor,
@@ -154,12 +170,18 @@ def _reconcile_transaction(
     if phase == "completed":
         return _reconcile_completed(sup=sup, track=track, transaction=transaction, act=act)
     if not act:
-        return _row(track=track, note=f"durable Herdr replacement phase: {phase}")
-    if phase == "stopped-awaiting-shell":
-        return _recover_launch(sup=sup, track=track, target=target, transaction=transaction)
-    if phase in {"launch-attempted", "successor-observed", "resume-attempted"}:
-        return _recover_resume(sup=sup, track=track, target=target, transaction=transaction)
-    return _row(track=track, note=f"durable Herdr replacement phase: {phase}")
+        return _reconcile_read_only(
+            sup=sup,
+            track=track,
+            target=target,
+            transaction=transaction,
+        )
+    return _reconcile_active(
+        sup=sup,
+        track=track,
+        target=target,
+        transaction=transaction,
+    )
 
 
 def reconcile_bare_shell(
