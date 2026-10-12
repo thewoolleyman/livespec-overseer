@@ -425,7 +425,7 @@ class Supervisor:
 
     def _clear_state(self, *, track: registry.Track) -> None:
         """See :func:`_supervisor_state.clear_state`."""
-        _supervisor_state.clear_state(sup=self, track=track)
+        _ = _supervisor_state.clear_state(sup=self, track=track)
 
     def _expire_aged_ready(self, *, track: registry.Track) -> bool:
         """See :func:`_supervisor_state.expire_aged_ready`."""

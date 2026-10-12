@@ -187,7 +187,7 @@ def resume_retry(
             stamp_path=sup.stamp_path,
         )
     if resolved:
-        _supervisor_state.clear_state(
+        _ = _supervisor_state.clear_state(
             sup=sup,
             track=track,
             diagnostic_token=signals.STATE_RESTARTED,

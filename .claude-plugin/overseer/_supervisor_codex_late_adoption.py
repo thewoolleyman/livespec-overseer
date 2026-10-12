@@ -157,7 +157,7 @@ def reconcile_late_codex_successor(
     # record with it) and pops the in-memory inject state, so the successor's idle
     # episode and wrap-up bookkeeping start clean rather than inheriting its
     # predecessor's.
-    _supervisor_state.clear_state(
+    _ = _supervisor_state.clear_state(
         sup=sup,
         track=track,
         diagnostic_token=signals.STATE_RESTARTED,
