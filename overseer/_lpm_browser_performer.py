@@ -12,6 +12,7 @@ from typing import Final
 
 from _lpm_browser_preferences import prepare_browser_preferences
 from _lpm_browser_profile import account_profile, chrome_arguments
+from _lpm_chrome_identity import is_google_chrome
 from _lpm_env import scrubbed_environment
 from _lpm_results import ManagerError, store_unavailable
 
@@ -62,7 +63,6 @@ def resolve_installed_google_chrome(
     *, search_path: Sequence[Path], environ: Mapping[str, str], timeout_seconds: float
 ) -> Result[InstalledChrome, ManagerError]:
     """Resolve only the installed Google Chrome names and verify their product identity."""
-    _ = (environ, timeout_seconds)
     candidate = next(
         (
             directory / name
@@ -75,6 +75,12 @@ def resolve_installed_google_chrome(
     if candidate is None:
         return _chrome_unavailable()
     target = candidate.resolve(strict=True)
+    if not is_google_chrome(
+        executable=target,
+        environ=scrubbed_environment(environ=environ),
+        timeout_seconds=timeout_seconds,
+    ):
+        return _chrome_unavailable()
     status = target.stat()
     return Success(InstalledChrome(path=str(target), device=status.st_dev, inode=status.st_ino))
 
