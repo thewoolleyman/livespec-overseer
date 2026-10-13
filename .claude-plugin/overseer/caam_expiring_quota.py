@@ -2,11 +2,22 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from math import inf
 from typing import Final, cast
 
-from caam_decision import ActiveAccount, ProfileUsage, UsageRecord, rank_profiles, resets_at
+from caam_decision import (
+    ActiveAccount,
+    ProfileUsage,
+    UsageRecord,
+    five_hour_remaining_floor,
+    min_headroom_gain,
+    rank_profiles,
+    resets_at,
+    weekly_reserve,
+)
+from caam_decision_protection import protection_floor_for
 from caam_rendering import until
 
 __all__: list[str] = [
@@ -24,6 +35,7 @@ def drain_target(
     *,
     profiles: tuple[ProfileUsage, ...],
     active: ActiveAccount,
+    protection_floors: Mapping[str, float],
 ) -> ProfileUsage | None:
     """The soonest-resetting account whose weekly reset precedes the active one."""
     active_reset = resets_at(timestamp=active.usage.seven_day_resets_at)
@@ -34,6 +46,13 @@ def drain_target(
         for profile in profiles
         if profile.name != active.name
         and profile.usage is not None
+        and profile.usage.seven_day_remaining
+        >= max(
+            weekly_reserve(),
+            protection_floor_for(name=profile.name, protection_floors=protection_floors),
+        )
+        + min_headroom_gain()
+        and profile.usage.five_hour_remaining >= five_hour_remaining_floor() + min_headroom_gain()
         and resets_at(timestamp=profile.usage.seven_day_resets_at)
         <= active_reset - _RESET_TOLERANCE_S
     )
