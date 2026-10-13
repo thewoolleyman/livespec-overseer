@@ -14,12 +14,11 @@ from caam_decision import (
     UsageRecord,
     five_hour_remaining_floor,
     min_headroom_gain,
-    rank_profiles,
     resets_at,
     scoped_reserve,
     weekly_reserve,
 )
-from caam_decision_protection import protection_floor_for
+from caam_decision_protection import is_protected, protection_floor_for
 from caam_rendering import until
 
 __all__: list[str] = [
@@ -74,11 +73,18 @@ def drain_target(
     active_reset = resets_at(timestamp=active.usage.seven_day_resets_at)
     if active_reset == inf:
         return None
+    active_protected = (
+        protection_floor_for(name=active.name, protection_floors=protection_floors) > 0.0
+    )
     candidates = tuple(
         profile
         for profile in profiles
         if profile.name != active.name
         and profile.usage is not None
+        and (
+            active_protected
+            or not is_protected(profile=profile, protection_floors=protection_floors)
+        )
         and profile.usage.seven_day_remaining
         >= max(
             weekly_reserve(),
@@ -97,7 +103,15 @@ def drain_target(
         <= active_reset - _RESET_TOLERANCE_S
         and _short_window_departure_allows(profile=profile, state=state, now=now)
     )
-    ranked = rank_profiles(profiles=candidates, scoped_pin=active.scoped_pin)
+    ranked = tuple(
+        sorted(
+            candidates,
+            key=lambda profile: (
+                is_protected(profile=profile, protection_floors=protection_floors),
+                resets_at(timestamp=cast(UsageRecord, profile.usage).seven_day_resets_at),
+            ),
+        )
+    )
     return None if not ranked else ranked[0]
 
 
