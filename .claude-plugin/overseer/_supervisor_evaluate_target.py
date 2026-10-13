@@ -73,26 +73,30 @@ def resolve_evaluate_target(
 
     if not sup.tmux.session_exists(session=session):
         current = _renumbered_herdr_coordinate(sup=sup, track=track, session=session)
-        if current is not None and registry.repoint_tmux(
-            repo=repo,
-            topic=topic,
-            new_tmux=current,
-            store_path=sup.store_path,
+        if current is not None and (
+            not act
+            or registry.repoint_tmux(
+                repo=repo,
+                topic=topic,
+                new_tmux=current,
+                store_path=sup.store_path,
+            )
         ):
-            old_pane = cast(
-                herdr_identity.HerdrPaneTarget,
-                herdr_identity.decode_target(value=session).herdr,
-            )
-            new_pane = cast(
-                herdr_identity.HerdrPaneTarget,
-                herdr_identity.decode_target(value=current).herdr,
-            )
-            sup.log(
-                message=(
-                    "re-keyed renumbered herdr pane "
-                    f"{old_pane.pane_id} -> {new_pane.pane_id} for {repo}::{topic}"
+            if act:
+                old_pane = cast(
+                    herdr_identity.HerdrPaneTarget,
+                    herdr_identity.decode_target(value=session).herdr,
                 )
-            )
+                new_pane = cast(
+                    herdr_identity.HerdrPaneTarget,
+                    herdr_identity.decode_target(value=current).herdr,
+                )
+                sup.log(
+                    message=(
+                        "re-keyed renumbered herdr pane "
+                        f"{old_pane.pane_id} -> {new_pane.pane_id} for {repo}::{topic}"
+                    )
+                )
             track = replace(track, tmux=current)
             session = current
             target = current
