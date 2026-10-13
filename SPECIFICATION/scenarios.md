@@ -4314,3 +4314,217 @@ Feature: Consumer telemetry failure cannot suppress local recovery
       | queue overflowing |
       | unconfigured |
 ```
+
+## Scenario: A scheduled pass drains weekly quota that resets sooner
+
+Given the active account is unprotected, no operator pin names the scoped model, and the active account is clear of every rotation threshold
+
+And a live-verified, unprotected candidate's weekly window resets sooner than the active account's
+
+And that candidate is at least the eligibility margin clear of the weekly reserve and of the short-window rotation threshold
+
+When a scheduled pass runs
+
+Then the operation switches onto that candidate
+
+And the switch line names expiring weekly quota as the reason, with the candidate's remaining weekly percentage and its time to reset
+
+## Scenario: A scheduled pass holds when no candidate's weekly window resets sooner
+
+Given the active account is clear of every rotation threshold
+
+And every live-verified candidate's weekly window resets later than the active account's
+
+When a scheduled pass runs
+
+Then the operation holds on the active account
+
+## Scenario: A drain rotation does not reverse on the next pass
+
+Given a scheduled pass has just switched onto an account under the drain trigger
+
+And that account remains clear of every rotation threshold
+
+And no other candidate's weekly window resets sooner than that account's
+
+When the next scheduled pass runs
+
+Then the operation holds on that account
+
+## Scenario: Two accounts sharing a nominal weekly reset do not drain onto each other
+
+Given two accounts report the same nominal weekly reset with readings that differ by less than a minute, including readings on either side of a minute boundary
+
+And the active account is one of them and is clear of every rotation threshold
+
+When scheduled passes run repeatedly
+
+Then the operation does not switch between those two accounts under the drain trigger
+
+## Scenario: A candidate within the margin of the weekly reserve does not attract a drain
+
+Given the active account is clear of every rotation threshold
+
+And the only candidate whose weekly window resets sooner holds weekly remaining less than the eligibility margin above the weekly reserve
+
+When a scheduled pass runs
+
+Then the operation holds on the active account
+
+## Scenario: A candidate within the margin of the short-window threshold does not attract a drain
+
+Given the active account is clear of every rotation threshold
+
+And the only candidate whose weekly window resets sooner holds a short-window allowance less than the eligibility margin clear of the short-window rotation threshold
+
+When a scheduled pass runs
+
+Then the operation holds on the active account
+
+## Scenario: An account left on its short window is not drained back before that window resets
+
+Given a short-window trigger moved the operation off an account whose weekly window resets sooner than the new active account's
+
+And the provider reported a short-window reset time for that account at the moment of the move
+
+And that reset time has not yet passed
+
+When a scheduled pass runs
+
+Then the operation does not switch back onto that account
+
+## Scenario: Without a reported reset, an account left on its short window waits for full replenishment
+
+Given a short-window trigger moved the operation off an account whose weekly window resets sooner than the new active account's
+
+And the provider reported no short-window reset time for that account
+
+And that account's short window is not fully replenished
+
+When a scheduled pass runs
+
+Then the operation does not switch back onto that account
+
+## Scenario: A drain does not move from an unprotected account onto a protected one
+
+Given the active account is unprotected and clear of every rotation threshold
+
+And the only candidate whose weekly window resets sooner is protected
+
+When a scheduled pass runs
+
+Then the operation holds on the active account
+
+## Scenario: A protected drain destination keeps a margin above its own floor
+
+Given the active account is protected and clear of every rotation threshold
+
+And the only candidate whose weekly window resets sooner is protected and holds weekly remaining less than the eligibility margin above its own protection floor
+
+When a scheduled pass runs
+
+Then the operation holds on the active account
+
+## Scenario: A drain keeps a satisfiable scoped pin satisfiable
+
+Given an operator pin names the scoped model and the active account is above the scoped-model reserve
+
+And the only candidate whose weekly window resets sooner holds the scoped allowance less than the eligibility margin above that reserve
+
+When a scheduled pass runs
+
+Then the operation holds on the active account
+
+## Scenario: An unreadable active weekly reset prevents a drain
+
+Given the active account is clear of every rotation threshold
+
+And the active account's weekly reset cannot be read
+
+And a candidate otherwise qualifies as a drain candidate
+
+When a scheduled pass runs
+
+Then the operation holds on the active account
+
+## Scenario: A protected active account drains onto an unprotected candidate before a protected one
+
+Given the active account is protected and clear of every rotation threshold
+
+And two drain candidates reset sooner, one protected with the sooner reset and one unprotected
+
+When a scheduled pass runs
+
+Then the operation switches onto the unprotected candidate
+
+## Scenario: A candidate whose weekly reset cannot be read does not attract a drain
+
+Given the active account is clear of every rotation threshold
+
+And the only other candidate's weekly reset cannot be read
+
+When a scheduled pass runs
+
+Then the operation holds on the active account
+
+## Scenario: A candidate that is not live-verified does not attract a drain
+
+Given the active account is clear of every rotation threshold
+
+And the only candidate whose weekly window resets sooner could not be live-verified during this pass
+
+When a scheduled pass runs
+
+Then the operation holds on the active account
+
+## Scenario: A candidate with no weekly allowance remaining does not attract a drain
+
+Given the active account is clear of every rotation threshold
+
+And the only candidate whose weekly window resets sooner has no weekly allowance remaining
+
+When a scheduled pass runs
+
+Then the operation holds on the active account
+
+## Scenario: A move on several triggers including the short window counts as a short-window move
+
+Given a pass moved the operation off an account on which both the short-window threshold and another trigger fired
+
+And the short-window reset time reported for that account at the move has not yet passed
+
+When a scheduled pass runs
+
+Then the operation does not drain back onto that account
+
+## Scenario: Another trigger on the same pass governs instead of the drain
+
+Given the active account has crossed its short-window rotation threshold
+
+And a candidate's weekly window resets sooner than the active account's
+
+When a scheduled pass runs
+
+Then the candidates are compared on the short-window dimension under the eligibility margin
+
+And the switch line does not name expiring weekly quota as the reason
+
+## Scenario: Ranking ignores plan capacity
+
+Given two eligible candidates on plans of different capacity
+
+And the smaller-capacity candidate's weekly window resets sooner
+
+When the operation ranks them
+
+Then the smaller-capacity candidate ranks first
+
+## Scenario: An invocation without the scheduled marker does not drain
+
+Given the active account is clear of every rotation threshold
+
+And a drain candidate exists
+
+When the operation is invoked without the scheduled marker
+
+Then any switch it makes is the explicit rotate-now request and not a drain
