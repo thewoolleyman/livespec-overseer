@@ -52,14 +52,43 @@ soonest-weekly-reset with no plan-capacity weight.
   maintainer had agreed to a schedule-interval projection; this session dropped it on
   finding the rate-limit hazard and reports it as a deviation.
 
+## What the independent ratification reviews added
+
+Four review rounds (all opus, read-only, none involved in authoring) found blockers that
+reshaped the rule without adding any setting:
+
+- **Reset-time jitter.** The operation's own state file shows one nominal weekly reset
+  read with sub-second jitter, sometimes on either side of a minute boundary
+  (`23:59:59.874` vs `00:00:00.146`). "Sooner" now means **at least one minute sooner**,
+  and readings under a minute apart are the same reset. A reverse move would then need the
+  departed account to reset a minute sooner than the destination, which can't happen
+  until a weekly window actually resets. A drain-memory condition tried in between was
+  removed: it was stated inconsistently and could block a legitimate drain.
+- **Gradually replenishing short windows.** A margin-clear test alone would let the loop
+  return after every margin's worth of ageing-out — several times per window. Condition
+  (f): after a short-window trigger moves off an account, the drain may not return until
+  the short-window reset time the provider reported at that move has passed, or, if none
+  was reported, until the window is fully replenished. That's at most one return per
+  window for any provider shape. The operation remembers those moves in its durable store,
+  and the contract's Durable store clause now allows one premature return if a concurrent
+  overwrite loses that memory.
+- **Protection ordering.** A drain never moves from an unprotected account onto a
+  protected one; a protected active account prefers unprotected drain candidates; a
+  protected destination needs the margin above its own floor.
+- **Scoped pins.** Under a pin, a drain candidate needs the scoped allowance a margin
+  above the scoped-model reserve, so the scoped trigger can't immediately undo it.
+- **Existing sentences.** "The one exception" to the margin and "exactly the three ways"
+  the scoped allowance influences selection were amended to include the drain.
+
 ## Why it can't flap
 
-- **Strict reset order:** a drain can't move back until a weekly window resets.
-- **Weekly buffer:** a drain can't land on an account the weekly reserve would move off at
-  the next pass.
-- **Short-window buffer:** after a short-window trigger moves the operation off a drained
-  account, that account stays ineligible until its window is a full margin clear of the
-  threshold — at the reset for a fixed-reset provider, and well below the line for one
-  that replenishes gradually. So the drain makes at most one return per short-window
-  cycle, whatever that cycle's length.
+- **Strict reset order with a one-minute tolerance:** a drain can't move back until a
+  weekly window resets, and jittered readings of one reset can't order two accounts.
+- **Threshold buffers:** a drain can't land on an account the weekly reserve, its own
+  protection floor, the short-window threshold or the scoped-model reserve would move it
+  off at the next pass.
+- **Short-window return wait (f):** after a short-window trigger moves the operation off
+  a drained account, the drain can't return until that window has reset (reported reset
+  time, or full replenishment). So it makes at most one return per short-window cycle,
+  whatever that cycle's length or shape.
 - **The loop ends** when the account falls under the weekly buffer or its reset passes.
