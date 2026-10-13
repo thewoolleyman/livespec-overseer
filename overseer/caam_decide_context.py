@@ -93,6 +93,7 @@ class DecisionSeams:
     fetcher: UsageFetcher
     save_state: SaveState
     switch_account: SwitchAccount
+    scheduled: bool = False
     after_switch: AfterSwitch | None = None
     # Absent for every caller with nothing riding on the lock. A `decide` caller
     # that publishes nothing has nothing to forfeit when another caller is

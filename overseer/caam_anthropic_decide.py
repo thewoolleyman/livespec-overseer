@@ -36,6 +36,12 @@ from caam_decision import (
     scoped_reserve,
     triggered,
 )
+from caam_expiring_quota import (
+    DRAIN_TRIGGER,
+    drain_switch_line,
+    drain_target,
+    drain_trigger_line,
+)
 from caam_profile_state import caam_vault
 from caam_profiles import active_profile
 from caam_scoped_model import scoped_model_pinned
@@ -67,92 +73,107 @@ def decide(
         active_name=active_name,
         protection_floors=protection_floors,
     )
-    if not context.flags.force and not triggered(
+    threshold_triggered = triggered(
         usage=current,
         active_name=active_name,
         protection_floors=protection_floors,
         scoped_pin=scoped_pin,
-    ):
-        return hold_allowed(
-            context=context,
-            save_state=seams.save_state,
+    )
+    normal_rotation = context.flags.force or threshold_triggered
+    if not normal_rotation:
+        target = None
+        if seams.scheduled:
+            target = drain_target(
+                profiles=profiles,
+                active=ActiveAccount(name=active_name, usage=current, scoped_pin=scoped_pin),
+            )
+        if target is None:
+            return hold_allowed(
+                context=context,
+                save_state=seams.save_state,
+                label=label,
+                remaining=remaining,
+                current=current,
+            )
+        decision_line = drain_trigger_line(target=target, now=context.now)
+        switch_trigger_name = DRAIN_TRIGGER
+    else:
+        # Provenance, not just capability: the hold below is licensed only where
+        # the pin is the WHOLE reason this pass is leaving. A forced pass is
+        # leaving because the operator said so, which is a reason of its own.
+        scoped_alone = not context.flags.force and scoped_alone_trigger(
+            usage=current,
+            active_name=active_name,
+            protection_floors=protection_floors,
+            scoped_pin=scoped_pin,
+        )
+        decision_line = trigger_line(
+            flags=context.flags,
             label=label,
             remaining=remaining,
             current=current,
+            dimension=dimension,
         )
-    # Provenance, not just capability: the hold below is licensed only where the
-    # pin is the WHOLE reason this pass is leaving. A forced pass is leaving
-    # because the operator said so, which is a reason of its own.
-    scoped_alone = not context.flags.force and scoped_alone_trigger(
-        usage=current,
-        active_name=active_name,
-        protection_floors=protection_floors,
-        scoped_pin=scoped_pin,
-    )
-    decision_line = trigger_line(
-        flags=context.flags,
-        label=label,
-        remaining=remaining,
-        current=current,
-        dimension=dimension,
-    )
-    eligible = eligible_profiles(
-        profiles=profiles,
-        active=ActiveAccount(name=active_name, usage=current, scoped_pin=scoped_pin),
-        force=context.flags.force,
-        dimension=dimension,
-        protection_floors=protection_floors,
-    )
-    ranked = rank_profiles(profiles=eligible.profiles, scoped_pin=scoped_pin)
-    pin_unsatisfiable = scoped_alone and none_holds_scoped_above_reserve(
-        profiles=ranked, reserve=scoped_reserve()
-    )
-    reasons = hold_reasons(
-        active_name=active_name,
-        current=current,
-        protection_floors=protection_floors,
-        note=eligible.note,
-        pin_unsatisfiable=pin_unsatisfiable,
-    )
-    if not ranked:
-        return hold_no_candidate(
-            context=context,
-            save_state=seams.save_state,
-            decision_line=decision_line,
-            population=CandidatePopulation(
-                profiles=profiles,
-                active_name=active_name,
-                dimension=dimension,
-                protection_floors=protection_floors,
-            ),
-            reasons=reasons,
+        eligible = eligible_profiles(
+            profiles=profiles,
+            active=ActiveAccount(name=active_name, usage=current, scoped_pin=scoped_pin),
+            force=context.flags.force,
+            dimension=dimension,
+            protection_floors=protection_floors,
         )
-    if pin_unsatisfiable:
-        return hold_unsatisfiable_pin(
-            context=context,
-            save_state=seams.save_state,
-            decision_line=decision_line,
+        ranked = rank_profiles(profiles=eligible.profiles, scoped_pin=scoped_pin)
+        pin_unsatisfiable = scoped_alone and none_holds_scoped_above_reserve(
+            profiles=ranked, reserve=scoped_reserve()
+        )
+        reasons = hold_reasons(
             active_name=active_name,
-            reasons=reasons,
+            current=current,
+            protection_floors=protection_floors,
+            note=eligible.note,
+            pin_unsatisfiable=pin_unsatisfiable,
         )
+        if not ranked:
+            return hold_no_candidate(
+                context=context,
+                save_state=seams.save_state,
+                decision_line=decision_line,
+                population=CandidatePopulation(
+                    profiles=profiles,
+                    active_name=active_name,
+                    dimension=dimension,
+                    protection_floors=protection_floors,
+                ),
+                reasons=reasons,
+            )
+        if pin_unsatisfiable:
+            return hold_unsatisfiable_pin(
+                context=context,
+                save_state=seams.save_state,
+                decision_line=decision_line,
+                active_name=active_name,
+                reasons=reasons,
+            )
+        target = ranked[0]
+        decision_line = with_note(line=decision_line, note=eligible.note)
+        switch_trigger_name = switch_trigger(force=context.flags.force, dimension=dimension)
     if context.flags.dry_run:
         return dry_run(
             context=context,
             save_state=seams.save_state,
-            decision_line=with_note(line=decision_line, note=eligible.note),
+            decision_line=decision_line,
             active_name=active_name,
-            target=ranked[0],
+            target=target,
         )
     return _switch_decision(
         context=context,
         plan=_SwitchPlan(
             active_name=active_name,
             current=current,
-            target=ranked[0],
-            decision_line=with_note(line=decision_line, note=eligible.note),
+            target=target,
+            decision_line=decision_line,
             # The dimension that BOUND is what made this pass leave, and it is
             # known only here -- the switch itself never sees why it was asked.
-            trigger=switch_trigger(force=context.flags.force, dimension=dimension),
+            trigger=switch_trigger_name,
         ),
         seams=seams,
     )
@@ -200,7 +221,12 @@ def _switch_decision(
     # successful hold.
     if seams.lock_contended is not None and result.reason == REASON_HOLD_LOCK_HELD:
         seams.lock_contended()
-    for line in (plan.decision_line, *result.lines):
+    result_lines = (
+        (drain_switch_line(active_name=plan.active_name, target=plan.target, now=context.now),)
+        if result.switched and plan.trigger == DRAIN_TRIGGER
+        else result.lines
+    )
+    for line in (plan.decision_line, *result_lines):
         context.stdout(line)
     # Emitted for a HOLD as well as a move: `switched` is the attribute that
     # separates them, and a record only on the moving path would leave the two

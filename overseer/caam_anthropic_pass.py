@@ -14,7 +14,7 @@ from _caam_rotation_span import rotation_sink
 from _caam_span_seam import emitter_from_env
 from caam_anthropic_decide import DecisionSeams, SwitchAccount, UsageFetcher, decide
 from caam_anthropic_finish import LineWriter, SaveState, finish
-from caam_anthropic_flags import Flags
+from caam_anthropic_flags import Flags, scheduled_pass
 from caam_anthropic_revive import revive_pass_profiles
 from caam_anthropic_status import EnforceModels, write_status
 from caam_decision import ProfileUsage
@@ -286,6 +286,7 @@ def _pass_with_active(
             fetcher=seams.fetcher,
             save_state=seams.save_state,
             switch_account=seams.switch_account,
+            scheduled=scheduled_pass(flags=context.flags),
             after_switch=_after_switch,
             lock_contended=publication.suppress,
             emit_rotation=rotation_sink(span=context.span, at=context.now),
