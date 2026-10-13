@@ -90,6 +90,7 @@ class MixedPaneDriver:
     pane_current_path = pane_router_read_facade.pane_current_path
     session_exists = pane_router_read_facade.session_exists
     pane_pid_sessions = pane_router_read_facade.pane_pid_sessions
+    renumbered_herdr_coordinate = pane_router_read_facade.renumbered_herdr_coordinate
     pane_by_title = pane_router_read_facade.pane_by_title
 
     def _writes(self) -> pane_router_writes.PaneRoutingWrites:

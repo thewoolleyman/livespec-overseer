@@ -20,6 +20,7 @@ __all__: list[str] = [
     "pane_pid_sessions",
     "reads",
     "register_coordinates",
+    "renumbered_herdr_coordinate",
     "session_exists",
 ]
 
@@ -68,6 +69,20 @@ def pane_current_path(self: ReadRouteHost, *, session: str) -> str | None:
 
 def session_exists(self: ReadRouteHost, *, session: str) -> bool:
     return reads(driver=self).session_exists(session=session)
+
+
+def renumbered_herdr_coordinate(
+    self: ReadRouteHost,
+    *,
+    session: str,
+    observed_session_identity: str | None,
+    starttime_of: Callable[..., str | None],
+) -> str | None:
+    return reads(driver=self).renumbered_herdr_coordinate(
+        session=session,
+        observed_session_identity=observed_session_identity,
+        starttime_of=starttime_of,
+    )
 
 
 def pane_pid_sessions(self: ReadRouteHost) -> dict[int, str]:
