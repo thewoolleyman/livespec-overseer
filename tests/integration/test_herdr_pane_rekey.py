@@ -128,7 +128,9 @@ class Scenario:
     current_coordinate: str
 
 
-def make_scenario(*, tmp_path: Path) -> Scenario:
+def make_scenario(
+    *, tmp_path: Path, observed_session_identity: str | None = "matching"
+) -> Scenario:
     repo = tmp_path / "repo"
     repo.mkdir()
     recorded = herdr_identity.HerdrPaneTarget(
@@ -169,19 +171,22 @@ def make_scenario(*, tmp_path: Path) -> Scenario:
             pane_id=native.current_pane_id,
         )
     )
-    identity = f"claude:{process.pid}:{process.starttime}:renumbered"
+    actual_identity = f"claude:{process.pid}:{process.starttime}:renumbered"
+    recorded_identity = (
+        actual_identity if observed_session_identity == "matching" else observed_session_identity
+    )
     track = registry.PlanTrack(
         topic="renumbered",
         repo=str(repo),
         tmux=old_coordinate,
         epic="overseer-uzvcbn",
-        observed_session_identity=identity,
+        observed_session_identity=recorded_identity,
     )
     registry.append_mapping(track=track, store_path=sup.store_path)
     for coordinate in (old_coordinate, current_coordinate):
         sup.claude_names_by_session[coordinate] = {track.topic}
         sup.claude_status_by_session[coordinate] = "idle"
-        sup.claude_identity_by_session[(coordinate, track.topic)] = identity
+        sup.claude_identity_by_session[(coordinate, track.topic)] = actual_identity
     return Scenario(
         sup=sup,
         track=track,
@@ -231,3 +236,26 @@ def test_rekeyed_track_alerts_jump_to_the_current_pane(
     assert row.status == "blocked:human"
     assert any("HERDR_PANE_ID=w5:p6 herdr" in message for message in alerts)
     assert all("HERDR_PANE_ID=w1:p7 herdr" not in message for message in alerts)
+
+
+def test_renumbered_pane_with_mismatched_process_identity_stays_unmanaged(
+    *, tmp_path: Path
+) -> None:
+    mismatches = {
+        "pid": "claude:999999:session-start:renumbered",
+        "starttime": "claude:2616353:different-start:renumbered",
+    }
+    for name, identity in mismatches.items():
+        case_path = tmp_path / name
+        case_path.mkdir()
+        scenario = make_scenario(
+            tmp_path=case_path,
+            observed_session_identity=identity,
+        )
+
+        row = scenario.sup.evaluate(track=scenario.track, act=True)
+
+        stored = registry.read_valid_mapping(store_path=scenario.sup.store_path)[0]
+        assert stored.tmux == scenario.old_coordinate
+        assert row.status == "session-gone"
+        assert row.tmux is None

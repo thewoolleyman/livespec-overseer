@@ -136,14 +136,27 @@ class PaneRoutingReads:
         starttime_of: Callable[..., str | None],
     ) -> str | None:
         """Locate the current positional id of one recorded Herdr pane."""
-        del observed_session_identity, starttime_of
         target = cast(herdr_identity.HerdrPaneTarget, self.decode(value=session).herdr)
-        pane = next(iter(self.herdr.list_panes(target=target).panes), None)
-        return (
-            None
-            if pane is None
-            else herdr_identity.encode_herdr_target(target=replace(target, pane_id=pane.pane_id))
-        )
+        identity = observed_session_identity or "unknown:0::"
+        _, pid_text, recorded_starttime, _ = identity.split(":", 3)
+        recorded_identity = (int(pid_text), recorded_starttime)
+        matches: list[herdr_identity.HerdrPaneTarget] = []
+        for pane in self.herdr.list_panes(target=target).panes:
+            candidate = replace(target, pane_id=pane.pane_id)
+            reading = self.herdr.foreground(target=candidate)
+            for process in filter(None, (reading.process,)):
+                actual_identity = (
+                    process.process_group_id,
+                    starttime_of(pid=process.process_group_id),
+                )
+                expected_identity = {
+                    True: recorded_identity,
+                    False: actual_identity,
+                }[observed_session_identity is not None]
+                if actual_identity == expected_identity:
+                    matches.append(candidate)
+        pane = matches[0] if len(matches) == 1 else None
+        return None if pane is None else herdr_identity.encode_herdr_target(target=pane)
 
     def _tmux_pid_coordinates(self) -> dict[int, str]:
         """Exact coordinates for panes on the tmux socket named by the environment."""
