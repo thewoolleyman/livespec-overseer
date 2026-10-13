@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.27.7](https://github.com/thewoolleyman/livespec-overseer/compare/v5.27.6...v5.27.7) (2026-10-13)
+
+
+### Bug Fixes
+
+* **caam:** drain sooner weekly quota ([7453bf0](https://github.com/thewoolleyman/livespec-overseer/commit/7453bf028d32fc7f360a280fd02c2e1092c874a6))
+* **caam:** enforce drain destination margins ([1ef8fcb](https://github.com/thewoolleyman/livespec-overseer/commit/1ef8fcb6cfffa2ab63ac4ce0dd8362b95df996a2))
+* **caam:** preserve scoped allowance on drain ([d17d585](https://github.com/thewoolleyman/livespec-overseer/commit/d17d5850939533b1fbfdf50396319774442d8c6d))
+* **caam:** remember short-window departures ([b0129a0](https://github.com/thewoolleyman/livespec-overseer/commit/b0129a00e2698846b8a0b521de1aab21833d3808))
+* **caam:** require live drain candidates ([933a80c](https://github.com/thewoolleyman/livespec-overseer/commit/933a80c54171bd353ae2d55e59db491fb90330bc))
+* **caam:** respect drain account protection ([6466a39](https://github.com/thewoolleyman/livespec-overseer/commit/6466a39510d13c63f56fdeb55a644f4d8db3706d))
+
 ## [5.27.6](https://github.com/thewoolleyman/livespec-overseer/compare/v5.27.5...v5.27.6) (2026-10-13)
 
 
