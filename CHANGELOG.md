@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.27.4](https://github.com/thewoolleyman/livespec-overseer/compare/v5.27.3...v5.27.4) (2026-10-13)
+
+
+### Bug Fixes
+
+* **overseer:** read Claude's dim prompt suggestion as an idle composer ([439a161](https://github.com/thewoolleyman/livespec-overseer/commit/439a161cc109c8ca857ea82345311aa8fa4cdc90))
+* **overseer:** stop calling a herdr-hosted daemon table headless ([0c3bc2a](https://github.com/thewoolleyman/livespec-overseer/commit/0c3bc2a3f1de082c88e6427fd43ad9b203fda3cf))
+* **overseer:** wait for the herdr predecessor to exit before calling it survived ([15d4ba4](https://github.com/thewoolleyman/livespec-overseer/commit/15d4ba40d286e429e7a03880e453d5c140e0fecc))
+
 ## [5.27.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.27.2...v5.27.3) (2026-10-13)
 
 
