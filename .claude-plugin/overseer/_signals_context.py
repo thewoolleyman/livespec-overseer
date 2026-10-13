@@ -17,8 +17,11 @@ _ANSI_RE = re.compile(
 )
 
 _ANSI_SGR = r"(?:\x1b\[[0-9;]*m)*"
+# Claude's generated composer text is rendered DIM: the ``Try "..."`` placeholder and,
+# after a turn, a prompt suggestion such as ``continue`` (measured 2026-10-13 on Claude
+# Code 2.1.296). Only an entirely dim remainder counts; any undimmed character is typed.
 _DIM_TRY_PLACEHOLDER_RE = re.compile(
-    rf'^{_ANSI_SGR}❯[ \xa0]+{_ANSI_SGR}\x1b\[2mTry "[^"\r\n]+"\x1b\[0m{_ANSI_SGR}$'
+    rf"^{_ANSI_SGR}❯[ \xa0]+{_ANSI_SGR}\x1b\[2m[^\x1b\r\n]+\x1b\[0m{_ANSI_SGR}$"
 )
 
 
