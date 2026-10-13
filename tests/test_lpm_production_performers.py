@@ -51,6 +51,60 @@ def _profile_root(*, state_dir: Path) -> Path:
     return root
 
 
+def _write_version_candidate(
+    *, path: Path, output: bytes, exit_status: int = 0, delay_seconds: float = 0.0
+) -> None:
+    path.write_text(
+        "#!/usr/bin/env python3\n"
+        "import os\n"
+        "import time\n"
+        f"time.sleep({delay_seconds!r})\n"
+        f"os.write(1, {output!r})\n"
+        f"raise SystemExit({exit_status})\n",
+        encoding="utf-8",
+    )
+    path.chmod(0o755)
+
+
+def _assert_named_non_google_binaries_refuse(*, module: ModuleType, tmp_path: Path) -> None:
+    cases = (
+        ("chromium-product", b"Chromium 999.0\n", 0, 1.0),
+        ("failed-version", b"Google Chrome 999.0\n", 3, 1.0),
+        ("invalid-version", b"\xff\n", 0, 1.0),
+        ("version-timeout", b"Google Chrome 999.0\n", 0, 0.01),
+    )
+    for name, output, exit_status, timeout_seconds in cases:
+        candidate_dir = tmp_path / name
+        candidate_dir.mkdir()
+        candidate = candidate_dir / "google-chrome"
+        _write_version_candidate(
+            path=candidate,
+            output=output,
+            exit_status=exit_status,
+            delay_seconds=1.0 if name == "version-timeout" else 0.0,
+        )
+        resolved = module.resolve_installed_google_chrome(
+            search_path=(candidate_dir,),
+            environ={"PATH": os.environ["PATH"]},
+            timeout_seconds=timeout_seconds,
+        )
+        assert isinstance(resolved, Failure), name
+
+    unspawnable_dir = tmp_path / "unspawnable-version"
+    unspawnable_dir.mkdir()
+    unspawnable = unspawnable_dir / "google-chrome"
+    unspawnable.write_text("not an executable format", encoding="utf-8")
+    unspawnable.chmod(0o755)
+    assert isinstance(
+        module.resolve_installed_google_chrome(
+            search_path=(unspawnable_dir,),
+            environ={"PATH": os.environ["PATH"]},
+            timeout_seconds=1.0,
+        ),
+        Failure,
+    )
+
+
 def _assert_non_chrome_routes_refuse(*, module: ModuleType, tmp_path: Path) -> None:
     extension_only = tmp_path / "extension-only"
     extension_only.mkdir()
@@ -323,6 +377,7 @@ def test_browser_performer_launches_only_installed_headed_chrome_over_private_pi
     import overseer._lpm_browser_performer as module
 
     _assert_non_chrome_routes_refuse(module=module, tmp_path=tmp_path)
+    _assert_named_non_google_binaries_refuse(module=module, tmp_path=tmp_path)
     _assert_private_headed_launch(module=module, tmp_path=tmp_path)
 
 
