@@ -15,7 +15,7 @@ import pane_router
 import pytest
 import registry
 import supervisor
-from test_supervisor_builders import idle_capture
+from test_supervisor_builders import declare, idle_capture
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
@@ -212,3 +212,22 @@ def test_rekeyed_tick_supervises_the_live_current_pane(*, tmp_path: Path) -> Non
     assert row.status != "session-gone"
     assert row.ctx == 70
     assert ("capture", "w5:p6") in scenario.native.calls
+
+
+def test_rekeyed_track_alerts_jump_to_the_current_pane(
+    *, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    scenario = make_scenario(tmp_path=tmp_path)
+    declare(
+        repo=Path(scenario.track.repo),
+        topic=scenario.track.topic,
+        value="blocked: operator decision needed",
+    )
+
+    row = scenario.sup.evaluate(track=scenario.track, act=True)
+
+    messages = [json.loads(line)["message"] for line in capsys.readouterr().err.splitlines()]
+    alerts = [message for message in messages if "jump:" in message]
+    assert row.status == "blocked:human"
+    assert any("HERDR_PANE_ID=w5:p6 herdr" in message for message in alerts)
+    assert all("HERDR_PANE_ID=w1:p7 herdr" not in message for message in alerts)
