@@ -18,6 +18,8 @@ from tmuxio_protocols import PaneDriver
 
 __all__: list[str] = ["HerdrObserver", "PaneRoutingReads"]
 
+_CLAUDE_IDENTITY_PARTS = 4
+
 
 class HerdrObserver(Protocol):
     def identify(self, *, socket_path: str) -> herdr_adapter.InstanceIdentification: ...
@@ -33,6 +35,19 @@ class HerdrObserver(Protocol):
     def foreground(
         self, *, target: herdr_identity.HerdrPaneTarget
     ) -> herdr_adapter.ForegroundReading: ...
+
+
+def _recorded_claude_process_identity(*, value: str | None) -> tuple[int, str] | None:
+    """Return the PID generation carried by a canonical Claude identity."""
+    parts = (value or "").split(":", 3)
+    if len(parts) != _CLAUDE_IDENTITY_PARTS or parts[0] != "claude":
+        return None
+    _, pid_text, starttime, _ = parts
+    try:
+        pid = int(pid_text)
+    except ValueError:
+        return None
+    return pid, starttime
 
 
 @dataclass(kw_only=True)
@@ -144,10 +159,9 @@ class PaneRoutingReads:
         )
         if answering_generation != (target.server_pid, target.server_starttime):
             return None
-        if observed_session_identity is None:
+        recorded_identity = _recorded_claude_process_identity(value=observed_session_identity)
+        if recorded_identity is None:
             return None
-        _, pid_text, recorded_starttime, _ = observed_session_identity.split(":", 3)
-        recorded_identity = (int(pid_text), recorded_starttime)
         matches: list[herdr_identity.HerdrPaneTarget] = []
         for pane in self.herdr.list_panes(target=target).panes:
             candidate = replace(target, pane_id=pane.pane_id)

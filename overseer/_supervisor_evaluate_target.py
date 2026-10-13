@@ -61,6 +61,45 @@ def _renumbered_herdr_coordinate(
     )
 
 
+def _resolve_herdr_target(
+    *, sup: Supervisor, track: registry.Track, session: str, act: bool
+) -> tuple[registry.Track, str, str | None, bool]:
+    """Resolve an identity-bound Herdr target before trusting its positional id."""
+    current = _renumbered_herdr_coordinate(sup=sup, track=track, session=session)
+    refuses_recorded_target = (
+        session.startswith(herdr_identity.HERDR_SCHEME)
+        and track.observed_session_identity is not None
+    )
+    if current is None:
+        return track, session, None, refuses_recorded_target
+    if current == session:
+        return track, session, session, False
+    if act and not registry.repoint_tmux(
+        repo=track.repo,
+        topic=track.topic,
+        new_tmux=current,
+        store_path=sup.store_path,
+    ):
+        return track, session, None, True
+    if act:
+        old_pane = cast(
+            herdr_identity.HerdrPaneTarget,
+            herdr_identity.decode_target(value=session).herdr,
+        )
+        new_pane = cast(
+            herdr_identity.HerdrPaneTarget,
+            herdr_identity.decode_target(value=current).herdr,
+        )
+        sup.log(
+            message=(
+                "re-keyed renumbered herdr pane "
+                f"{old_pane.pane_id} -> {new_pane.pane_id} "
+                f"for {track.repo}::{track.topic}"
+            )
+        )
+    return replace(track, tmux=current), current, current, False
+
+
 def resolve_evaluate_target(
     *, sup: Supervisor, track: registry.Track, act: bool
 ) -> RowView | EvaluateTarget:
@@ -69,44 +108,25 @@ def resolve_evaluate_target(
 
     repo, topic = track.repo, track.topic
     session = _supervisor_launch.session_of(sup=sup, track=track)
-    target: str | None = None
+    track, session, target, refuses_recorded_target = _resolve_herdr_target(
+        sup=sup,
+        track=track,
+        session=session,
+        act=act,
+    )
 
-    if not sup.tmux.session_exists(session=session):
-        current = _renumbered_herdr_coordinate(sup=sup, track=track, session=session)
-        if current is not None and (
-            not act
-            or registry.repoint_tmux(
-                repo=repo,
-                topic=topic,
-                new_tmux=current,
-                store_path=sup.store_path,
-            )
-        ):
-            if act:
-                old_pane = cast(
-                    herdr_identity.HerdrPaneTarget,
-                    herdr_identity.decode_target(value=session).herdr,
-                )
-                new_pane = cast(
-                    herdr_identity.HerdrPaneTarget,
-                    herdr_identity.decode_target(value=current).herdr,
-                )
-                sup.log(
-                    message=(
-                        "re-keyed renumbered herdr pane "
-                        f"{old_pane.pane_id} -> {new_pane.pane_id} for {repo}::{topic}"
-                    )
-                )
-            track = replace(track, tmux=current)
-            session = current
-            target = current
-        if target is None:
-            # The mapped TMUX session is gone — but the work may not be. A Claude
-            # session for the same plan can keep running in a NON-tmux terminal (a bare
-            # SSH shell), which the tmux-only daemon cannot capture, inject, or respawn.
-            # Distinguish that live-but-unmanageable case from a genuinely gone track so
-            # the operator is not falsely alarmed that finished-looking work was lost.
-            return _unavailable_target(sup=sup, track=track, session=session)
+    # A recorded process generation is authoritative for Herdr. Positional pane ids
+    # can be reused, so existence of the old id cannot prove that it still names this
+    # track. If the generation scan found no unique match, refuse the pane even when
+    # the old id remains present. Rows without an observed identity retain the legacy
+    # existence path because there is no process generation available to validate.
+    if target is None and (refuses_recorded_target or not sup.tmux.session_exists(session=session)):
+        # The mapped TMUX session is gone — but the work may not be. A Claude
+        # session for the same plan can keep running in a NON-tmux terminal (a bare
+        # SSH shell), which the tmux-only daemon cannot capture, inject, or respawn.
+        # Distinguish that live-but-unmanageable case from a genuinely gone track so
+        # the operator is not falsely alarmed that finished-looking work was lost.
+        return _unavailable_target(sup=sup, track=track, session=session)
 
     # Resolve the pane id ONCE and target every subsequent pane op by it (RB3).
     # A pane id is exact and never prefix/fnmatch-matched, so if the tracked

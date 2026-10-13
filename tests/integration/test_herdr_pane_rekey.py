@@ -219,6 +219,51 @@ def test_rekeyed_tick_supervises_the_live_current_pane(*, tmp_path: Path) -> Non
     assert ("capture", "w5:p6") in scenario.native.calls
 
 
+def test_rekey_finds_the_matching_session_when_the_old_pane_id_was_reused(
+    *, tmp_path: Path
+) -> None:
+    scenario = make_scenario(tmp_path=tmp_path)
+    scenario.native.processes["w1:p7"] = PaneProcess(
+        pid=909090,
+        starttime="replacement-session-start",
+    )
+
+    row = scenario.sup.evaluate(track=scenario.track, act=True)
+
+    stored = registry.read_valid_mapping(store_path=scenario.sup.store_path)[0]
+    assert stored.tmux == scenario.current_coordinate
+    assert row.tmux == scenario.current_coordinate
+    assert ("capture", "w5:p6") in scenario.native.calls
+    assert ("capture", "w1:p7") not in scenario.native.calls
+
+
+def test_matching_session_at_the_recorded_pane_id_remains_managed(*, tmp_path: Path) -> None:
+    scenario = make_scenario(tmp_path=tmp_path)
+    process = scenario.native.processes.pop("w5:p6")
+    scenario.native.processes["w1:p7"] = process
+
+    row = scenario.sup.evaluate(track=scenario.track, act=True)
+
+    stored = registry.read_valid_mapping(store_path=scenario.sup.store_path)[0]
+    assert stored.tmux == scenario.old_coordinate
+    assert row.tmux == scenario.old_coordinate
+    assert row.ctx == 70
+    assert ("capture", "w1:p7") in scenario.native.calls
+
+
+def test_rekey_refuses_the_current_pane_when_the_mapping_cannot_be_persisted(
+    *, tmp_path: Path
+) -> None:
+    scenario = make_scenario(tmp_path=tmp_path)
+    scenario.sup.store_path.unlink()
+
+    row = scenario.sup.evaluate(track=scenario.track, act=True)
+
+    assert not scenario.sup.store_path.exists()
+    assert row.status == "session-gone"
+    assert row.tmux is None
+
+
 def test_rekeyed_track_alerts_jump_to_the_current_pane(
     *, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -278,6 +323,30 @@ def test_renumbered_pane_without_recorded_session_identity_stays_unmanaged(
     *, tmp_path: Path
 ) -> None:
     scenario = make_scenario(tmp_path=tmp_path, observed_session_identity=None)
+
+    row = scenario.sup.evaluate(track=scenario.track, act=True)
+
+    stored = registry.read_valid_mapping(store_path=scenario.sup.store_path)[0]
+    assert stored.tmux == scenario.old_coordinate
+    assert row.status == "session-gone"
+    assert row.tmux is None
+
+
+@pytest.mark.parametrize(
+    "recorded_identity",
+    [
+        "codex:0199a767-c521-7af0-a31d-a65b6486c9cf",
+        "claude:not-a-pid:session-start:renumbered",
+        "legacy-identity",
+    ],
+)
+def test_unusable_recorded_identity_refuses_rekey_without_raising(
+    *, tmp_path: Path, recorded_identity: str
+) -> None:
+    scenario = make_scenario(
+        tmp_path=tmp_path,
+        observed_session_identity=recorded_identity,
+    )
 
     row = scenario.sup.evaluate(track=scenario.track, act=True)
 
