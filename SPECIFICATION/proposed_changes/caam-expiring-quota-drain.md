@@ -81,7 +81,7 @@ When a scheduled pass runs
 
 Then the operation holds on the active account
 
-Co-edit tests/heading-coverage.json (outside the spec target) with one entry per new scenario heading, each carrying `"test": "TODO"`, `"work_item": "overseer-pk5itu"` and a reason naming the integration-tier test that work item owns over the shipped rotation pass.
+Co-edit tests/heading-coverage.json (outside the spec target) with one entry per new scenario heading, each carrying `"test": "TODO"`, `"work_item": "overseer-pk5itu"` and a reason stating that an integration-tier test over the shipped rotation pass is owed and that work item owns landing it over the shipped rotation pass.
 
 ## Proposal: A candidate's near-reset short window is judged on its replenished balance
 
@@ -120,4 +120,4 @@ Then the candidate is measured at a fully replenished short window
 
 And the operation MAY switch onto it
 
-Co-edit tests/heading-coverage.json (outside the spec target) with one entry for this scenario heading carrying `"test": "TODO"`, `"work_item": "overseer-pk5itu"` and a reason naming the integration-tier test that work item owns.
+Co-edit tests/heading-coverage.json (outside the spec target) with one entry for this scenario heading carrying `"test": "TODO"`, `"work_item": "overseer-pk5itu"` and a reason stating that an integration-tier test over the shipped rotation pass is owed and that work item owns landing it.
