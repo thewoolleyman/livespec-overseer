@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.27.6](https://github.com/thewoolleyman/livespec-overseer/compare/v5.27.5...v5.27.6) (2026-10-13)
+
+
+### Bug Fixes
+
+* **dispatch:** the acceptance guard ignores spec headings cited on a References line ([ae1a492](https://github.com/thewoolleyman/livespec-overseer/commit/ae1a4924921f22c8a1491d8f87bb1ba7632371ab))
+
 ## [5.27.5](https://github.com/thewoolleyman/livespec-overseer/compare/v5.27.4...v5.27.5) (2026-10-13)
 
 
