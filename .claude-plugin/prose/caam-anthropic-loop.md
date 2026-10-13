@@ -169,6 +169,33 @@ it never selects a protected account below its floor. `CAAM_ROTATE_FABLE_REMAINI
 restores the earlier behaviour exactly: rotate only when the active account's Fable
 is fully spent.
 
+### Expiring Weekly Quota Drain
+
+A scheduled pass that has no forced or threshold-triggered rotation drains quota
+whose weekly window expires sooner. The active account must have a readable weekly
+reset, and a destination is eligible only when its stored credential was exercised
+successfully on this pass, it has weekly allowance remaining, and its readable
+weekly reset is at least one minute sooner than the active account's. The destination
+must also clear `CAAM_ROTATE_WEEKLY_RESERVE`, its own protection floor, and the
+observed `CAAM_ROTATE_FIVE_HOUR_REMAINING` balance by at least
+`CAAM_ROTATE_MIN_HEADROOM_GAIN`. This comparison uses the observed short-window
+balance; it does not project a future five-hour balance. While a Fable pin applies,
+the destination must clear `CAAM_ROTATE_FABLE_REMAINING` by that same margin.
+
+An unprotected active account never drains onto a protected destination. From a
+protected active account, unprotected destinations rank before protected ones; each
+group ranks by soonest weekly reset, without plan-capacity weighting. A successful
+move caused by a short-window trigger records the reset reported for the account it
+left, even when another trigger fired too. Scheduled drains cannot return to that
+account until the recorded reset passes. If no reset was reported, its observed
+short-window balance must reach 100 percent before it can receive a drain.
+
+This is the lowest-precedence rotation path: any force or ordinary quota trigger
+governs instead, and an invocation without the scheduled marker does not drain. Its
+trigger and successful switch lines name `expiring weekly quota`; the switch line
+also reports the destination's weekly percent remaining and time to weekly reset.
+The drain adds no configuration knobs.
+
 ## Running The Program
 
 Run the shipped account-rotation program from the resolved plugin root for this
