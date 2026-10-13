@@ -100,6 +100,28 @@ def _resolve_herdr_target(
     return replace(track, tmux=current), current, current, False
 
 
+def _unproven_herdr_target(
+    *, sup: Supervisor, track: registry.Track, session: str, target: str
+) -> bool:
+    """Whether a Herdr row with no recorded identity fails to name its topic in the pane.
+
+    Positional Herdr ids are reused, and the shared topic-name check passes an empty
+    name set so a transient registry miss cannot flap a tmux track. With no recorded
+    process generation to validate, that pass would let a reused id route this track
+    to a foreign pane, so a Herdr row must instead show a live Claude named for its
+    topic, or be a live Codex track, in that exact pane.
+    """
+    if not session.startswith(herdr_identity.HERDR_SCHEME):
+        return False
+    if track.observed_session_identity is not None:
+        return False
+    if track.topic in sup.claude_names_by_session.get(session, set()):
+        return False
+    return not _supervisor_observe.is_codex_track(
+        sup=sup, session=session, repo=track.repo, topic=track.topic, target=target
+    )
+
+
 def resolve_evaluate_target(
     *, sup: Supervisor, track: registry.Track, act: bool
 ) -> RowView | EvaluateTarget:
@@ -151,8 +173,10 @@ def resolve_evaluate_target(
     # Identity gate (B3): the mapped session exists, but before reading its pane
     # for any ACT we confirm it is really OUR Claude in OUR repo — never
     # keystroke into a shell / wrong session / human split-pane.
-    if not _supervisor_observe.pane_is_managed(
-        sup=sup, target=target, repo=repo, topic=topic, session=session
+    if _unproven_herdr_target(sup=sup, track=track, session=session, target=target) or not (
+        _supervisor_observe.pane_is_managed(
+            sup=sup, target=target, repo=repo, topic=topic, session=session
+        )
     ):
         # The gate stays exactly what it was — an ACT guard (never keystroke into a
         # pane not proven ours). What changed is that its answer is no longer a row
