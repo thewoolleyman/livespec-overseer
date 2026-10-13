@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.27.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.27.2...v5.27.3) (2026-10-13)
+
+
+### Bug Fixes
+
+* name ready, not done, in the wrap-up's final step ([38578a7](https://github.com/thewoolleyman/livespec-overseer/commit/38578a7ed6683b8397a5aa38aa7430d367539e10))
+
 ## [5.27.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.27.1...v5.27.2) (2026-10-12)
 
 
