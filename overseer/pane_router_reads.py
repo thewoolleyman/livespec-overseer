@@ -151,7 +151,9 @@ class PaneRoutingReads:
         starttime_of: Callable[..., str | None],
     ) -> str | None:
         """Locate the current positional id of one recorded Herdr pane."""
-        target = cast(herdr_identity.HerdrPaneTarget, self.decode(value=session).herdr)
+        target = self.decode(value=session).herdr
+        if target is None:
+            return None
         peer = self.herdr.identify(socket_path=target.socket_path).peer
         answering_generation = (
             cast(int | None, getattr(peer, "pid", None)),
