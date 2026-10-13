@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.27.5](https://github.com/thewoolleyman/livespec-overseer/compare/v5.27.4...v5.27.5) (2026-10-13)
+
+
+### Bug Fixes
+
+* **caam-anthropic-loop:** bound the report to what this pass printed ([bf8d8d3](https://github.com/thewoolleyman/livespec-overseer/commit/bf8d8d36af17a4ad93898ff080a1b9702fa8f0d0))
+
 ## [5.27.4](https://github.com/thewoolleyman/livespec-overseer/compare/v5.27.3...v5.27.4) (2026-10-13)
 
 
