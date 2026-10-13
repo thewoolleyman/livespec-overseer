@@ -8,10 +8,13 @@ import time
 from collections.abc import Mapping
 from contextlib import suppress
 from pathlib import Path
+from typing import Final
 
 __all__: list[str] = [
     "is_google_chrome",
 ]
+
+_MAX_VERSION_BYTES: Final = 4096
 
 
 def is_google_chrome(
@@ -43,15 +46,15 @@ def is_google_chrome(
         os.set_blocking(version_read, False)
         output, deadline = bytearray(), time.monotonic() + timeout_seconds
         while True:
-            _drain(descriptor=version_read, output=output)
             waited, status = os.waitpid(pid, os.WNOHANG)
+            if not _drain(descriptor=version_read, output=output):
+                return False
             if waited != 0:
                 pid = None
                 break
             if time.monotonic() >= deadline:
                 return False
             time.sleep(min(0.001, max(0.0, deadline - time.monotonic())))
-        _drain(descriptor=version_read, output=output)
         product = output.decode("utf-8", errors="replace").strip()
         return os.waitstatus_to_exitcode(status) == 0 and product.startswith("Google Chrome ")
     except OSError:
@@ -62,14 +65,16 @@ def is_google_chrome(
             _terminate_and_reap(pid=pid)
 
 
-def _drain(*, descriptor: int, output: bytearray) -> None:
+def _drain(*, descriptor: int, output: bytearray) -> bool:
     while True:
         try:
             chunk = os.read(descriptor, 4096)
         except BlockingIOError:
-            return
+            return True
         if not chunk:
-            return
+            return True
+        if len(output) + len(chunk) > _MAX_VERSION_BYTES:
+            return False
         output.extend(chunk)
 
 
@@ -86,6 +91,6 @@ def _close_descriptors(*, descriptors: list[int]) -> None:
 
 def _terminate_and_reap(*, pid: int) -> None:
     with suppress(OSError):
-        os.kill(pid, signal.SIGKILL)
+        os.killpg(pid, signal.SIGKILL)
     with suppress(OSError):
         _ = os.waitpid(pid, 0)

@@ -78,17 +78,18 @@ def resolve_installed_google_chrome(
         target = candidate.resolve(strict=True)
     except OSError:
         return _chrome_unavailable()
+    chrome = _installed_identity(path=target)
+    if chrome is None:
+        return _chrome_unavailable()
     if not is_google_chrome(
         executable=target,
         environ=scrubbed_environment(environ=environ),
         timeout_seconds=timeout_seconds,
     ):
         return _chrome_unavailable()
-    try:
-        status = target.stat()
-    except OSError:
+    if not _reference_is_current(chrome=chrome):
         return _chrome_unavailable()
-    return Success(InstalledChrome(path=str(target), device=status.st_dev, inode=status.st_ino))
+    return Success(chrome)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -145,6 +146,14 @@ def _reference_is_current(*, chrome: InstalledChrome) -> bool:
         and status.st_ino == chrome.inode
         and os.access(chrome.path, os.X_OK)
     )
+
+
+def _installed_identity(*, path: Path) -> InstalledChrome | None:
+    try:
+        status = path.stat(follow_symlinks=False)
+    except OSError:
+        return None
+    return InstalledChrome(path=str(path), device=status.st_dev, inode=status.st_ino)
 
 
 def _spawn_chrome(
