@@ -524,6 +524,69 @@ def test_guard_still_refuses_live_exercise_wording_beside_a_file_path(
     assert "live-exercise" in stderr
 
 
+def test_guard_passes_item_whose_only_match_is_a_references_heading(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A spec heading NAMED in a References line is a citation, not a criterion.
+
+    The spec's account-rotation clauses use "live-verified" as vocabulary for a
+    candidate whose stored credential was exercised during the pass, and a
+    Definition of Done must name every governing scenario heading verbatim, so a
+    heading such as "A candidate that is not live-verified does not attract a
+    drain" can only be cited as written.
+    """
+    stub = _stub_bd(
+        root=tmp_path,
+        item={
+            "id": "overseer-fake7",
+            "title": "drain expiring weekly quota",
+            "description": (
+                "## Definition of Done\n\n"
+                "- A scheduled pass does not drain onto a candidate whose stored credential"
+                " could not be exercised during the pass.\n\n"
+                "References: ## Scenario: A candidate that is not live-verified does not"
+                " attract a drain, ## Scenario: Ranking ignores plan capacity\n"
+            ),
+            "acceptance_criteria": "See the Definition of Done.",
+            "labels": ["intake:triaged"],
+        },
+    )
+
+    rc, stdout, stderr = _run_guard(
+        stub=stub, item_id="overseer-fake7", monkeypatch=monkeypatch, capsys=capsys
+    )
+
+    assert rc == 0, stderr
+    assert "dispatch acceptance guard: overseer-fake7 ok" in stdout
+
+
+def test_guard_still_refuses_live_exercise_wording_beside_a_references_line(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Ignoring References lines must not hide a genuine criterion in a bullet."""
+    stub = _stub_bd(
+        root=tmp_path,
+        item={
+            "id": "overseer-fake8",
+            "title": "ship the operator skill",
+            "description": (
+                "## Definition of Done\n\n"
+                "- Closure requires live verification in a real operator session.\n\n"
+                "References: ## Scenario: Ranking ignores plan capacity\n"
+            ),
+            "acceptance_criteria": "Observed in a real operator session.",
+            "labels": ["intake:triaged"],
+        },
+    )
+
+    rc, _stdout, stderr = _run_guard(
+        stub=stub, item_id="overseer-fake8", monkeypatch=monkeypatch, capsys=capsys
+    )
+
+    assert rc == 1, stderr
+    assert "live-exercise" in stderr
+
+
 def test_guard_accepts_bare_dict_payload(
     *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

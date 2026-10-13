@@ -28,6 +28,12 @@ _LIVE_EXERCISE = re.compile(r"live[\s-]exercis|live[\s-]verif", re.IGNORECASE)
 # research note `003-live-verification-plan.md` in a reading list. Naming that
 # file states no live-exercise criterion, so path tokens are dropped first.
 _PATH_TOKEN = re.compile(r"\S*/\S*|\S+\.[A-Za-z0-9]{1,8}\b")
+# A Definition of Done's `References:` line CITES spec headings verbatim, and a
+# heading can carry spec vocabulary such as "live-verified" (a candidate whose
+# stored credential was exercised during the pass) without stating any
+# live-exercise criterion. Citing it is no more a criterion than naming a file,
+# so the whole line is dropped before matching; bullets beside it still match.
+_REFERENCES_LINE = re.compile(r"^\s*References:.*$", re.MULTILINE)
 _PARKING_LABELS = frozenset({"acceptance:ai-then-human", "acceptance:human-only"})
 _DISPATCH_TIER_PREFIX = "dispatch-tier:"
 _HOST_TIER_LABEL = "dispatch-tier:host"
@@ -71,7 +77,7 @@ def _missing_acceptance_bar(*, item: dict[str, object]) -> bool:
 
 def _needs_parking_label(*, item: dict[str, object]) -> bool:
     text = "\n".join(value for key in _TEXT_KEYS if isinstance(value := item.get(key), str))
-    if _LIVE_EXERCISE.search(_PATH_TOKEN.sub(" ", text)) is None:
+    if _LIVE_EXERCISE.search(_PATH_TOKEN.sub(" ", _REFERENCES_LINE.sub(" ", text))) is None:
         return False
     labels = item.get("labels")
     if not isinstance(labels, list):
