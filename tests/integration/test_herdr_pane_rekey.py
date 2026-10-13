@@ -259,3 +259,16 @@ def test_renumbered_pane_with_mismatched_process_identity_stays_unmanaged(
         assert stored.tmux == scenario.old_coordinate
         assert row.status == "session-gone"
         assert row.tmux is None
+
+
+def test_renumbered_pane_on_replaced_herdr_server_stays_unmanaged(*, tmp_path: Path) -> None:
+    scenario = make_scenario(tmp_path=tmp_path)
+    scenario.native.server_pid = 4433221
+    scenario.native.server_starttime = "replacement-server-start"
+
+    row = scenario.sup.evaluate(track=scenario.track, act=True)
+
+    stored = registry.read_valid_mapping(store_path=scenario.sup.store_path)[0]
+    assert stored.tmux == scenario.old_coordinate
+    assert row.status == "session-gone"
+    assert row.tmux is None
