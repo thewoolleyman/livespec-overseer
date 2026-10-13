@@ -74,7 +74,7 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
     resolved = _supervisor_evaluate_target.resolve_evaluate_target(sup=sup, track=track, act=act)
     if isinstance(resolved, RowView):
         return resolved
-    repo, topic = resolved.repo, resolved.topic
+    track, repo, topic = resolved.track, resolved.repo, resolved.topic
     session, key, target = resolved.session, resolved.key, resolved.pane
 
     # Phase 0 — RECONCILE. A fresh-Codex restart whose bounded live-adoption proof ran

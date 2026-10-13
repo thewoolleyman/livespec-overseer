@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, cast
 
 import _supervisor_herdr_recovery
@@ -23,6 +23,7 @@ __all__: list[str] = ["EvaluateTarget", "resolve_evaluate_target"]
 
 @dataclass(frozen=True, kw_only=True)
 class EvaluateTarget:
+    track: registry.Track
     repo: str
     topic: str
     session: str
@@ -92,6 +93,8 @@ def resolve_evaluate_target(
                     f"{old_pane.pane_id} -> {new_pane.pane_id} for {repo}::{topic}"
                 )
             )
+            track = replace(track, tmux=current)
+            session = current
             target = current
         if target is None:
             # The mapped TMUX session is gone — but the work may not be. A Claude
@@ -148,6 +151,7 @@ def resolve_evaluate_target(
         return _supervisor_offer.no_managed_pane_row(sup=sup, track=track, session=session)
 
     return EvaluateTarget(
+        track=track,
         repo=repo,
         topic=topic,
         session=session,
