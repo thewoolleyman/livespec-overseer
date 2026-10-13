@@ -86,6 +86,7 @@ def decide(
             target = drain_target(
                 profiles=profiles,
                 active=ActiveAccount(name=active_name, usage=current, scoped_pin=scoped_pin),
+                protection_floors=protection_floors,
             )
         if target is None:
             return hold_allowed(
