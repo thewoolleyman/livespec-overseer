@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import fcntl
 import os
+import stat
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
+from _lpm_browser_preferences import prepare_browser_preferences
 from _lpm_browser_profile import account_profile, chrome_arguments
 from _lpm_env import scrubbed_environment
 from _lpm_results import ManagerError, store_unavailable
@@ -95,15 +97,40 @@ class BrowserPerformer:
             account_id=account_id,
             owner_uid=self.owner_uid,
         )
+        if isinstance(profile, Failure):
+            return profile
+        return self._launch_profile(profile=profile.unwrap())
+
+    def _launch_profile(self, *, profile: Path) -> Result[BrowserProcess, ManagerError]:
+        """Prepare one validated profile, then revalidate Chrome at the spawn edge."""
+        prepared = prepare_browser_preferences(profile=profile, owner_uid=self.owner_uid)
+        if isinstance(prepared, Failure):
+            return prepared
+        return self._launch_current(profile=profile)
+
+    def _launch_current(self, *, profile: Path) -> Result[BrowserProcess, ManagerError]:
+        """Launch only while the immutable executable identity remains current."""
+        if not _reference_is_current(chrome=self.chrome):
+            return _chrome_unavailable()
         environment = scrubbed_environment(environ=self.environ)
         environment["HOME"] = str(self.account_home)
         return Success(
             _spawn_chrome(
                 chrome=self.chrome,
-                profile=profile.unwrap(),
+                profile=profile,
                 environ=environment,
             )
         )
+
+
+def _reference_is_current(*, chrome: InstalledChrome) -> bool:
+    status = Path(chrome.path).stat(follow_symlinks=False)
+    return (
+        stat.S_ISREG(status.st_mode)
+        and status.st_dev == chrome.device
+        and status.st_ino == chrome.inode
+        and os.access(chrome.path, os.X_OK)
+    )
 
 
 def _spawn_chrome(
