@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import codecs
 import os
 import stat
 import time
@@ -29,14 +30,20 @@ class ExecutionCommand:
     arguments: tuple[str, ...]
 
 
+def _utf8_decoder() -> codecs.IncrementalDecoder:
+    return codecs.getincrementaldecoder("utf-8")()
+
+
 @dataclass(kw_only=True)
 class _TerminalState:
     pid: int
     stdin_descriptor: int
     stdout_descriptor: int
     stderr_descriptor: int
-    stdout: bytearray = field(default_factory=bytearray, repr=False)
-    stderr: bytearray = field(default_factory=bytearray, repr=False)
+    stdout: str = field(default="", repr=False)
+    stderr: str = field(default="", repr=False)
+    stdout_decoder: codecs.IncrementalDecoder = field(default_factory=_utf8_decoder, repr=False)
+    stderr_decoder: codecs.IncrementalDecoder = field(default_factory=_utf8_decoder, repr=False)
     reaped: bool = False
     exit_status: int | None = None
     stdout_closed: bool = False
@@ -68,18 +75,16 @@ class TerminalPerformer:
         state = self._state
         if state is None:
             return _unavailable_observation()
-        _read_available(state=state, timeout_seconds=self.read_timeout_seconds)
-        running, exit_status = _poll(state=state)
         try:
-            stdout = state.stdout.decode("utf-8")
-            stderr = state.stderr.decode("utf-8")
+            _read_available(state=state, timeout_seconds=self.read_timeout_seconds)
         except UnicodeDecodeError:
             return _unavailable_observation()
+        running, exit_status = _poll(state=state)
         return self.sanitizer.terminal_observation(
             running=running,
             exit_status=exit_status,
-            stdout=stdout,
-            stderr=stderr,
+            stdout=state.stdout,
+            stderr=state.stderr,
         )
 
     def send_line(self, *, text: str) -> dict[str, object]:
@@ -89,8 +94,11 @@ class TerminalPerformer:
             return _unavailable()
         payload = f"{text}\n".encode()
         sent = 0
-        while sent < len(payload):
-            sent += os.write(state.stdin_descriptor, payload[sent:])
+        try:
+            while sent < len(payload):
+                sent += os.write(state.stdin_descriptor, payload[sent:])
+        except OSError:
+            return _unavailable()
         return _ok()
 
     def close(self) -> None:
@@ -107,7 +115,10 @@ class TerminalPerformer:
 
 
 def _reference_is_current(*, command: ExecutionCommand) -> bool:
-    status = Path(command.path).stat(follow_symlinks=False)
+    try:
+        status = Path(command.path).stat(follow_symlinks=False)
+    except OSError:
+        return False
     return (
         stat.S_ISREG(status.st_mode)
         and status.st_dev == command.device
@@ -157,35 +168,36 @@ def _spawn(*, command: ExecutionCommand, environ: Mapping[str, str]) -> _Termina
 
 
 def _read_available(*, state: _TerminalState, timeout_seconds: float) -> None:
-    targets = {
-        state.stdout_descriptor: state.stdout,
-        state.stderr_descriptor: state.stderr,
-    }
     deadline = time.monotonic() + timeout_seconds
     while True:
-        changed = False
-        for descriptor, target in targets.items():
-            prior_length = len(target)
-            closed = _drain(descriptor=descriptor, target=target)
-            if descriptor == state.stdout_descriptor:
-                state.stdout_closed = closed
-            else:
-                state.stderr_closed = closed
-            changed = changed or closed or len(target) != prior_length
+        state.stdout_closed, stdout = _drain(
+            descriptor=state.stdout_descriptor,
+            decoder=state.stdout_decoder,
+        )
+        state.stdout += stdout
+        state.stderr_closed, stderr = _drain(
+            descriptor=state.stderr_descriptor,
+            decoder=state.stderr_decoder,
+        )
+        state.stderr += stderr
+        changed = state.stdout_closed or bool(stdout)
+        changed = changed or state.stderr_closed or bool(stderr)
         if changed or time.monotonic() >= deadline:
             return
         time.sleep(min(0.001, max(0.0, deadline - time.monotonic())))
 
 
-def _drain(*, descriptor: int, target: bytearray) -> bool:
+def _drain(*, descriptor: int, decoder: codecs.IncrementalDecoder) -> tuple[bool, str]:
+    pieces: list[str] = []
     while True:
         try:
             chunk = os.read(descriptor, 65536)
         except BlockingIOError:
-            return False
+            return False, "".join(pieces)
         if not chunk:
-            return True
-        target.extend(chunk)
+            pieces.append(decoder.decode(b"", final=True))
+            return True, "".join(pieces)
+        pieces.append(decoder.decode(chunk))
 
 
 def _poll(*, state: _TerminalState) -> tuple[bool, int | None]:
