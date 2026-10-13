@@ -68,3 +68,24 @@ def test_scenario_short_window_threshold_margin_prevents_a_drain(*, tmp_path: Pa
 
     assert code == 0
     assert harness.switches == []
+
+
+def test_scenario_a_drain_keeps_a_satisfiable_scoped_pin_satisfiable(*, tmp_path: Path) -> None:
+    harness = RotationHarness(
+        home=tmp_path,
+        active="active",
+        usages={
+            "active": usage(fable_remaining=80.0, seven_day_reset_s=604_800.0),
+            "candidate": usage(
+                fable_remaining=24.0,
+                seven_day_remaining=70.0,
+                seven_day_reset_s=86_400.0,
+            ),
+        },
+    )
+    harness.seed_state(state={"session_models": {"worker": "fable"}})
+
+    code, _lines = harness.run()
+
+    assert code == 0
+    assert harness.switches == []

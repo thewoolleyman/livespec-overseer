@@ -15,6 +15,7 @@ from caam_decision import (
     min_headroom_gain,
     rank_profiles,
     resets_at,
+    scoped_reserve,
     weekly_reserve,
 )
 from caam_decision_protection import protection_floor_for
@@ -53,6 +54,13 @@ def drain_target(
         )
         + min_headroom_gain()
         and profile.usage.five_hour_remaining >= five_hour_remaining_floor() + min_headroom_gain()
+        and (
+            not active.scoped_pin
+            or (
+                profile.usage.fable_remaining is not None
+                and profile.usage.fable_remaining >= scoped_reserve() + min_headroom_gain()
+            )
+        )
         and resets_at(timestamp=profile.usage.seven_day_resets_at)
         <= active_reset - _RESET_TOLERANCE_S
     )
