@@ -387,3 +387,38 @@ def test_read_only_tick_reports_renumbered_pane_without_rewriting_mapping(
     assert row.status != "session-gone"
     assert row.tmux == scenario.current_coordinate
     assert row.ctx == 70
+
+
+def test_reused_pane_id_without_recorded_identity_or_topic_name_stays_unmanaged(
+    *, tmp_path: Path
+) -> None:
+    scenario = make_scenario(tmp_path=tmp_path, observed_session_identity=None)
+    scenario.native.processes["w1:p7"] = PaneProcess(
+        pid=909090,
+        starttime="replacement-session-start",
+    )
+    del scenario.sup.claude_names_by_session[scenario.old_coordinate]
+
+    row = scenario.sup.evaluate(track=scenario.track, act=True)
+
+    stored = registry.read_valid_mapping(store_path=scenario.sup.store_path)[0]
+    assert stored.tmux == scenario.old_coordinate
+    assert row.status == "session-gone"
+    assert row.tmux is None
+    assert ("capture", "w1:p7") not in scenario.native.calls
+
+
+def test_pane_without_recorded_identity_stays_managed_when_its_claude_names_the_topic(
+    *, tmp_path: Path
+) -> None:
+    scenario = make_scenario(tmp_path=tmp_path, observed_session_identity=None)
+    process = scenario.native.processes.pop("w5:p6")
+    scenario.native.processes["w1:p7"] = process
+
+    row = scenario.sup.evaluate(track=scenario.track, act=True)
+
+    stored = registry.read_valid_mapping(store_path=scenario.sup.store_path)[0]
+    assert stored.tmux == scenario.old_coordinate
+    assert row.tmux == scenario.old_coordinate
+    assert row.ctx == 70
+    assert ("capture", "w1:p7") in scenario.native.calls
