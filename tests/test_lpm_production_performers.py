@@ -305,6 +305,140 @@ def _assert_profile_validation_race_refuses(
     assert not record_path.exists()
 
 
+def _assert_disappeared_launch_refuses(*, module: ModuleType, tmp_path: Path) -> None:
+    disappeared, _ = _browser_fixture(
+        module=module,
+        tmp_path=tmp_path,
+        scope="disappeared-chrome",
+    )
+    Path(disappeared.chrome.path).unlink()
+    assert isinstance(
+        disappeared.launch(provider="anthropic", account_id="disappeared"),
+        Failure,
+    )
+
+
+def _assert_pipe_failure_is_closed(
+    *, module: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pipe_failure, _ = _browser_fixture(
+        module=module,
+        tmp_path=tmp_path,
+        scope="pipe-failure",
+    )
+    pipe_descriptors: list[int] = []
+    real_private_pipe = module._private_pipe
+
+    def fail_second_pipe() -> tuple[int, int]:
+        if pipe_descriptors:
+            raise OSError("second pipe unavailable")
+        descriptors = real_private_pipe()
+        pipe_descriptors.extend(descriptors)
+        return descriptors
+
+    with monkeypatch.context() as patch:
+        patch.setattr(module, "_private_pipe", fail_second_pipe)
+        assert isinstance(
+            pipe_failure.launch(provider="anthropic", account_id="pipe-failure"),
+            Failure,
+        )
+    for descriptor in pipe_descriptors:
+        with pytest.raises(OSError, match="Bad file descriptor"):
+            os.fstat(descriptor)
+
+
+def _assert_pipe_move_failure_is_closed(
+    *,
+    module: ModuleType,
+    performer: object,
+    monkeypatch: pytest.MonkeyPatch,
+    fail_at: int,
+) -> None:
+    real_pipe2 = os.pipe2
+    real_above_cdp = module._above_cdp
+    raw_descriptors: list[int] = []
+    moves = 0
+
+    def record_pipe2(flags: int) -> tuple[int, int]:
+        descriptors = real_pipe2(flags)
+        raw_descriptors.extend(descriptors)
+        return descriptors
+
+    def fail_move(*, descriptor: int) -> int:
+        nonlocal moves
+        moves += 1
+        if moves == fail_at:
+            raise OSError("descriptor move unavailable")
+        return real_above_cdp(descriptor=descriptor)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(module.os, "pipe2", record_pipe2)
+        patch.setattr(module, "_above_cdp", fail_move)
+        assert isinstance(
+            performer.launch(provider="anthropic", account_id=f"move-{fail_at}"),
+            Failure,
+        )
+    for descriptor in raw_descriptors:
+        with pytest.raises(OSError, match="Bad file descriptor"):
+            os.fstat(descriptor)
+
+
+def _assert_pipe_move_failures_are_closed(
+    *, module: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    performer, _ = _browser_fixture(
+        module=module,
+        tmp_path=tmp_path,
+        scope="pipe-move-failures",
+    )
+    for fail_at in (1, 2):
+        _assert_pipe_move_failure_is_closed(
+            module=module,
+            performer=performer,
+            monkeypatch=monkeypatch,
+            fail_at=fail_at,
+        )
+
+
+def _assert_spawn_failure_is_closed(
+    *, module: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    spawn_failure, _ = _browser_fixture(
+        module=module,
+        tmp_path=tmp_path,
+        scope="spawn-failure",
+    )
+    spawn_descriptors: list[int] = []
+    real_private_pipe = module._private_pipe
+    real_open = os.open
+
+    def record_private_pipe() -> tuple[int, int]:
+        descriptors = real_private_pipe()
+        spawn_descriptors.extend(descriptors)
+        return descriptors
+
+    def record_open(path: str, flags: int, mode: int = 0o777) -> int:
+        descriptor = real_open(path, flags, mode)
+        spawn_descriptors.append(descriptor)
+        return descriptor
+
+    def refuse_spawn(*args: object, **kwargs: object) -> int:
+        os.close(spawn_descriptors[0])
+        raise OSError("Chrome disappeared at spawn")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(module, "_private_pipe", record_private_pipe)
+        patch.setattr(module.os, "open", record_open)
+        patch.setattr(module.os, "posix_spawn", refuse_spawn)
+        assert isinstance(
+            spawn_failure.launch(provider="anthropic", account_id="spawn-failure"),
+            Failure,
+        )
+    for descriptor in spawn_descriptors:
+        with pytest.raises(OSError, match="Bad file descriptor"):
+            os.fstat(descriptor)
+
+
 def _descriptor_holding(*, value: bytes) -> int:
     read_descriptor, write_descriptor = os.pipe()
     _ = os.write(write_descriptor, value)
@@ -369,7 +503,7 @@ def _assert_descriptor_only_secret_actions(*, module: ModuleType) -> None:
 
 
 def test_browser_performer_launches_only_installed_headed_chrome_over_private_pipes(
-    *, tmp_path: Path
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     module_path = Path(__file__).parents[1] / "overseer" / "_lpm_browser_performer.py"
     assert module_path.is_file(), "the production browser performer must be implemented"
@@ -379,6 +513,22 @@ def test_browser_performer_launches_only_installed_headed_chrome_over_private_pi
     _assert_non_chrome_routes_refuse(module=module, tmp_path=tmp_path)
     _assert_named_non_google_binaries_refuse(module=module, tmp_path=tmp_path)
     _assert_private_headed_launch(module=module, tmp_path=tmp_path)
+    _assert_disappeared_launch_refuses(module=module, tmp_path=tmp_path)
+    _assert_pipe_failure_is_closed(
+        module=module,
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+    )
+    _assert_pipe_move_failures_are_closed(
+        module=module,
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+    )
+    _assert_spawn_failure_is_closed(
+        module=module,
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+    )
 
 
 def test_browser_profile_is_prepared_and_unsafe_state_refuses_before_launch(

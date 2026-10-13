@@ -120,17 +120,19 @@ class BrowserPerformer:
             return _chrome_unavailable()
         environment = scrubbed_environment(environ=self.environ)
         environment["HOME"] = str(self.account_home)
-        return Success(
-            _spawn_chrome(
-                chrome=self.chrome,
-                profile=profile,
-                environ=environment,
-            )
+        process = _spawn_chrome(
+            chrome=self.chrome,
+            profile=profile,
+            environ=environment,
         )
+        return _chrome_unavailable() if process is None else Success(process)
 
 
 def _reference_is_current(*, chrome: InstalledChrome) -> bool:
-    status = Path(chrome.path).stat(follow_symlinks=False)
+    try:
+        status = Path(chrome.path).stat(follow_symlinks=False)
+    except OSError:
+        return False
     return (
         stat.S_ISREG(status.st_mode)
         and status.st_dev == chrome.device
@@ -141,37 +143,35 @@ def _reference_is_current(*, chrome: InstalledChrome) -> bool:
 
 def _spawn_chrome(
     *, chrome: InstalledChrome, profile: Path, environ: Mapping[str, str]
-) -> BrowserProcess:
-    browser_read, service_write = _private_pipe()
-    service_read, browser_write = _private_pipe()
-    null_descriptor = _above_cdp(descriptor=os.open(os.devnull, os.O_RDWR | os.O_CLOEXEC))
-    actions = (
-        (os.POSIX_SPAWN_DUP2, null_descriptor, 0),
-        (os.POSIX_SPAWN_DUP2, null_descriptor, 1),
-        (os.POSIX_SPAWN_DUP2, null_descriptor, 2),
-        (os.POSIX_SPAWN_DUP2, browser_read, _CDP_READ_DESCRIPTOR),
-        (os.POSIX_SPAWN_DUP2, browser_write, _CDP_WRITE_DESCRIPTOR),
-        *(
-            (os.POSIX_SPAWN_CLOSE, descriptor)
-            for descriptor in _owned_descriptors(
-                browser_read=browser_read,
-                service_write=service_write,
-                service_read=service_read,
-                browser_write=browser_write,
-                null_descriptor=null_descriptor,
-            )
-        ),
-    )
-    arguments = chrome_arguments(chrome_executable=chrome.path, profile=profile)
-    pid = os.posix_spawn(
-        chrome.path,
-        arguments,
-        dict(environ),
-        file_actions=actions,
-        setpgroup=0,
-    )
-    for descriptor in (browser_read, browser_write, null_descriptor):
-        os.close(descriptor)
+) -> BrowserProcess | None:
+    descriptors: list[int] = []
+    try:
+        browser_read, service_write = _private_pipe()
+        descriptors.extend((browser_read, service_write))
+        service_read, browser_write = _private_pipe()
+        descriptors.extend((service_read, browser_write))
+        null_descriptor = _above_cdp(descriptor=os.open(os.devnull, os.O_RDWR | os.O_CLOEXEC))
+        descriptors.append(null_descriptor)
+        actions = (
+            (os.POSIX_SPAWN_DUP2, null_descriptor, 0),
+            (os.POSIX_SPAWN_DUP2, null_descriptor, 1),
+            (os.POSIX_SPAWN_DUP2, null_descriptor, 2),
+            (os.POSIX_SPAWN_DUP2, browser_read, _CDP_READ_DESCRIPTOR),
+            (os.POSIX_SPAWN_DUP2, browser_write, _CDP_WRITE_DESCRIPTOR),
+            *((os.POSIX_SPAWN_CLOSE, descriptor) for descriptor in descriptors),
+        )
+        arguments = chrome_arguments(chrome_executable=chrome.path, profile=profile)
+        pid = os.posix_spawn(
+            chrome.path,
+            arguments,
+            dict(environ),
+            file_actions=actions,
+            setpgroup=0,
+        )
+    except OSError:
+        _close_descriptors(descriptors=descriptors)
+        return None
+    _close_descriptors(descriptors=(browser_read, browser_write, null_descriptor))
     return BrowserProcess(
         pid=pid,
         profile=profile,
@@ -182,24 +182,31 @@ def _spawn_chrome(
 
 def _private_pipe(*, flags: int = os.O_CLOEXEC) -> tuple[int, int]:
     first, second = os.pipe2(flags)
-    return _above_cdp(descriptor=first), _above_cdp(descriptor=second)
+    try:
+        moved_first = _above_cdp(descriptor=first)
+    except OSError:
+        _close_descriptors(descriptors=(first, second))
+        raise
+    try:
+        return moved_first, _above_cdp(descriptor=second)
+    except OSError:
+        _close_descriptors(descriptors=(second, moved_first))
+        raise
 
 
 def _above_cdp(*, descriptor: int) -> int:
-    moved = fcntl.fcntl(descriptor, fcntl.F_DUPFD_CLOEXEC, _CDP_WRITE_DESCRIPTOR + 1)
-    os.close(descriptor)
-    return moved
+    try:
+        return fcntl.fcntl(descriptor, fcntl.F_DUPFD_CLOEXEC, _CDP_WRITE_DESCRIPTOR + 1)
+    finally:
+        os.close(descriptor)
 
 
-def _owned_descriptors(
-    *,
-    browser_read: int,
-    service_write: int,
-    service_read: int,
-    browser_write: int,
-    null_descriptor: int,
-) -> tuple[int, ...]:
-    return (browser_read, service_write, service_read, browser_write, null_descriptor)
+def _close_descriptors(*, descriptors: Sequence[int]) -> None:
+    for descriptor in descriptors:
+        try:
+            os.close(descriptor)
+        except OSError:
+            continue
 
 
 def _chrome_unavailable() -> Failure[ManagerError]:
