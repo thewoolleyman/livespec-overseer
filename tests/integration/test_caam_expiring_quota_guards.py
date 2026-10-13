@@ -89,3 +89,42 @@ def test_scenario_a_drain_keeps_a_satisfiable_scoped_pin_satisfiable(*, tmp_path
 
     assert code == 0
     assert harness.switches == []
+
+
+def test_scenario_a_drain_does_not_move_from_an_unprotected_account_onto_a_protected_one(
+    *, tmp_path: Path
+) -> None:
+    harness = RotationHarness(
+        home=tmp_path,
+        active="active",
+        usages={
+            "active": usage(seven_day_reset_s=604_800.0),
+            "protected": usage(seven_day_remaining=70.0, seven_day_reset_s=86_400.0),
+        },
+    )
+
+    code, _lines = harness.run(protected_accounts=(("protected", "20"),))
+
+    assert code == 0
+    assert harness.switches == []
+
+
+def test_scenario_a_protected_active_drains_to_an_unprotected_candidate_first(
+    *, tmp_path: Path
+) -> None:
+    harness = RotationHarness(
+        home=tmp_path,
+        active="active",
+        usages={
+            "active": usage(seven_day_reset_s=604_800.0),
+            "protected": usage(seven_day_remaining=70.0, seven_day_reset_s=43_200.0),
+            "unprotected": usage(seven_day_remaining=70.0, seven_day_reset_s=86_400.0),
+        },
+    )
+
+    code, _lines = harness.run(
+        protected_accounts=(("active", "5"), ("protected", "20")),
+    )
+
+    assert code == 0
+    assert harness.switches == ["unprotected"]
