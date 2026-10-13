@@ -2869,160 +2869,160 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A scheduled pass drains weekly quota that resets sooner",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_expiring_quota_drain.test_scenario_a_scheduled_pass_drains_weekly_quota_that_resets_sooner",
     "work_item": "overseer-pk5itu",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this expiring-quota drain scenario; work item overseer-pk5itu owns landing it."
+    "reason": "Integration-tier: exercises the shipped rotation pass for this expiring-quota drain scenario."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A scheduled pass holds when no candidate's weekly window resets sooner",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_expiring_quota_drain.test_scenario_a_scheduled_pass_holds_when_no_candidates_weekly_window_resets_sooner",
     "work_item": "overseer-pk5itu",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this expiring-quota drain scenario; work item overseer-pk5itu owns landing it."
+    "reason": "Integration-tier: exercises the shipped rotation pass for this expiring-quota drain scenario."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A drain rotation does not reverse on the next pass",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_expiring_quota_drain.test_scenario_a_drain_rotation_does_not_reverse_on_the_next_pass",
     "work_item": "overseer-pk5itu",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this expiring-quota drain scenario; work item overseer-pk5itu owns landing it."
+    "reason": "Integration-tier: exercises the shipped rotation pass for this expiring-quota drain scenario."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Two accounts sharing a nominal weekly reset do not drain onto each other",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_expiring_quota_drain.test_scenario_two_accounts_sharing_a_nominal_weekly_reset_do_not_drain_onto_each_other",
     "work_item": "overseer-pk5itu",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this expiring-quota drain scenario; work item overseer-pk5itu owns landing it."
+    "reason": "Integration-tier: exercises the shipped rotation pass for this expiring-quota drain scenario."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A candidate within the margin of the weekly reserve does not attract a drain",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_expiring_quota_guards.test_scenario_a_candidate_within_the_margin_of_the_weekly_reserve_does_not_attract_a_drain",
     "work_item": "overseer-pk5itu",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this expiring-quota drain scenario; work item overseer-pk5itu owns landing it."
+    "reason": "Integration-tier: exercises the shipped rotation pass for this expiring-quota drain scenario."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A candidate within the margin of the short-window threshold does not attract a drain",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_expiring_quota_guards.test_scenario_short_window_threshold_margin_prevents_a_drain",
     "work_item": "overseer-pk5itu",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this expiring-quota drain scenario; work item overseer-pk5itu owns landing it."
+    "reason": "Integration-tier: exercises the shipped rotation pass for this expiring-quota drain scenario."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An account left on its short window is not drained back before that window resets",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_expiring_quota_memory.test_scenario_an_account_left_on_its_short_window_is_not_drained_back_before_reset",
     "work_item": "overseer-pk5itu",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this expiring-quota drain scenario; work item overseer-pk5itu owns landing it."
+    "reason": "Integration-tier: exercises the shipped rotation pass for this expiring-quota drain scenario."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Without a reported reset, an account left on its short window waits for full replenishment",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_expiring_quota_memory.test_scenario_without_a_reported_reset_an_account_waits_for_full_replenishment",
     "work_item": "overseer-pk5itu",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this expiring-quota drain scenario; work item overseer-pk5itu owns landing it."
+    "reason": "Integration-tier: exercises the shipped rotation pass for this expiring-quota drain scenario."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A drain does not move from an unprotected account onto a protected one",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_expiring_quota_guards.test_scenario_a_drain_does_not_move_from_an_unprotected_account_onto_a_protected_one",
     "work_item": "overseer-pk5itu",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this expiring-quota drain scenario; work item overseer-pk5itu owns landing it."
+    "reason": "Integration-tier: exercises the shipped rotation pass for this expiring-quota drain scenario."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A protected drain destination keeps a margin above its own floor",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_expiring_quota_guards.test_scenario_a_protected_drain_destination_keeps_a_margin_above_its_own_floor",
     "work_item": "overseer-pk5itu",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this expiring-quota drain scenario; work item overseer-pk5itu owns landing it."
+    "reason": "Integration-tier: exercises the shipped rotation pass for this expiring-quota drain scenario."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A drain keeps a satisfiable scoped pin satisfiable",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_expiring_quota_guards.test_scenario_a_drain_keeps_a_satisfiable_scoped_pin_satisfiable",
     "work_item": "overseer-pk5itu",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this expiring-quota drain scenario; work item overseer-pk5itu owns landing it."
+    "reason": "Integration-tier: exercises the shipped rotation pass for this expiring-quota drain scenario."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unreadable active weekly reset prevents a drain",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_expiring_quota_drain.test_scenario_an_unreadable_active_weekly_reset_prevents_a_drain",
     "work_item": "overseer-pk5itu",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this expiring-quota drain scenario; work item overseer-pk5itu owns landing it."
+    "reason": "Integration-tier: exercises the shipped rotation pass for this expiring-quota drain scenario."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A protected active account drains onto an unprotected candidate before a protected one",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_expiring_quota_guards.test_scenario_a_protected_active_drains_to_an_unprotected_candidate_first",
     "work_item": "overseer-pk5itu",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this expiring-quota drain scenario; work item overseer-pk5itu owns landing it."
+    "reason": "Integration-tier: exercises the shipped rotation pass for this expiring-quota drain scenario."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A candidate whose weekly reset cannot be read does not attract a drain",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_expiring_quota_drain.test_scenario_a_candidate_whose_weekly_reset_cannot_be_read_does_not_attract_a_drain",
     "work_item": "overseer-pk5itu",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this expiring-quota drain scenario; work item overseer-pk5itu owns landing it."
+    "reason": "Integration-tier: exercises the shipped rotation pass for this expiring-quota drain scenario."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A candidate that is not live-verified does not attract a drain",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_expiring_quota_candidate_health.test_scenario_a_candidate_that_is_not_live_verified_does_not_attract_a_drain",
     "work_item": "overseer-pk5itu",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this expiring-quota drain scenario; work item overseer-pk5itu owns landing it."
+    "reason": "Integration-tier: exercises the shipped rotation pass for this expiring-quota drain scenario."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A candidate with no weekly allowance remaining does not attract a drain",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_expiring_quota_candidate_health.test_scenario_a_candidate_with_no_weekly_allowance_does_not_attract_a_drain",
     "work_item": "overseer-pk5itu",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this expiring-quota drain scenario; work item overseer-pk5itu owns landing it."
+    "reason": "Integration-tier: exercises the shipped rotation pass for this expiring-quota drain scenario."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A move on several triggers including the short window counts as a short-window move",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_expiring_quota_memory.test_scenario_a_move_on_several_triggers_including_short_window_is_remembered",
     "work_item": "overseer-pk5itu",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this expiring-quota drain scenario; work item overseer-pk5itu owns landing it."
+    "reason": "Integration-tier: exercises the shipped rotation pass for this expiring-quota drain scenario."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Another trigger on the same pass governs instead of the drain",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_expiring_quota_drain.test_scenario_another_trigger_on_the_same_pass_governs_instead_of_the_drain",
     "work_item": "overseer-pk5itu",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this expiring-quota drain scenario; work item overseer-pk5itu owns landing it."
+    "reason": "Integration-tier: exercises the shipped rotation pass for this expiring-quota drain scenario."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Ranking ignores plan capacity",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_expiring_quota_drain.test_scenario_ranking_ignores_plan_capacity",
     "work_item": "overseer-pk5itu",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this expiring-quota drain scenario; work item overseer-pk5itu owns landing it."
+    "reason": "Integration-tier: exercises the shipped rotation pass for this expiring-quota drain scenario."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An invocation without the scheduled marker does not drain",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_expiring_quota_drain.test_scenario_an_invocation_without_the_scheduled_marker_does_not_drain",
     "work_item": "overseer-pk5itu",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this expiring-quota drain scenario; work item overseer-pk5itu owns landing it."
+    "reason": "Integration-tier: exercises the shipped rotation pass for this expiring-quota drain scenario."
   }
 ]
