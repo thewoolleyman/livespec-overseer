@@ -144,8 +144,9 @@ class PaneRoutingReads:
         )
         if answering_generation != (target.server_pid, target.server_starttime):
             return None
-        identity = observed_session_identity or "unknown:0::"
-        _, pid_text, recorded_starttime, _ = identity.split(":", 3)
+        if observed_session_identity is None:
+            return None
+        _, pid_text, recorded_starttime, _ = observed_session_identity.split(":", 3)
         recorded_identity = (int(pid_text), recorded_starttime)
         matches: list[herdr_identity.HerdrPaneTarget] = []
         for pane in self.herdr.list_panes(target=target).panes:
@@ -156,11 +157,7 @@ class PaneRoutingReads:
                     process.process_group_id,
                     starttime_of(pid=process.process_group_id),
                 )
-                expected_identity = {
-                    True: recorded_identity,
-                    False: actual_identity,
-                }[observed_session_identity is not None]
-                if actual_identity == expected_identity:
+                if actual_identity == recorded_identity:
                     matches.append(candidate)
         pane = matches[0] if len(matches) == 1 else None
         return None if pane is None else herdr_identity.encode_herdr_target(target=pane)
