@@ -6,6 +6,7 @@ import os
 import signal
 import time
 from collections.abc import Mapping
+from contextlib import suppress
 from pathlib import Path
 
 __all__: list[str] = [
@@ -17,16 +18,19 @@ def is_google_chrome(
     *, executable: Path, environ: Mapping[str, str], timeout_seconds: float
 ) -> bool:
     """Accept only a zero-exit version response identifying the Google Chrome product."""
-    version_read, version_write = os.pipe2(os.O_CLOEXEC)
-    null_descriptor = os.open(os.devnull, os.O_RDWR | os.O_CLOEXEC)
-    descriptors = (version_read, version_write, null_descriptor)
-    actions = (
-        (os.POSIX_SPAWN_DUP2, null_descriptor, 0),
-        (os.POSIX_SPAWN_DUP2, version_write, 1),
-        (os.POSIX_SPAWN_DUP2, null_descriptor, 2),
-        *((os.POSIX_SPAWN_CLOSE, descriptor) for descriptor in descriptors),
-    )
+    descriptors: list[int] = []
+    pid: int | None = None
     try:
+        version_read, version_write = os.pipe2(os.O_CLOEXEC)
+        descriptors.extend((version_read, version_write))
+        null_descriptor = os.open(os.devnull, os.O_RDWR | os.O_CLOEXEC)
+        descriptors.append(null_descriptor)
+        actions = (
+            (os.POSIX_SPAWN_DUP2, null_descriptor, 0),
+            (os.POSIX_SPAWN_DUP2, version_write, 1),
+            (os.POSIX_SPAWN_DUP2, null_descriptor, 2),
+            *((os.POSIX_SPAWN_CLOSE, descriptor) for descriptor in descriptors),
+        )
         pid = os.posix_spawn(
             str(executable),
             (str(executable), "--version"),
@@ -34,28 +38,28 @@ def is_google_chrome(
             file_actions=actions,
             setpgroup=0,
         )
-    except OSError:
-        _close_descriptors(descriptors=descriptors)
-        return False
-    _close_descriptors(descriptors=(version_write, null_descriptor))
-    os.set_blocking(version_read, False)
-    output = bytearray()
-    deadline = time.monotonic() + timeout_seconds
-    while True:
+        _close_descriptor(descriptor=version_write, descriptors=descriptors)
+        _close_descriptor(descriptor=null_descriptor, descriptors=descriptors)
+        os.set_blocking(version_read, False)
+        output, deadline = bytearray(), time.monotonic() + timeout_seconds
+        while True:
+            _drain(descriptor=version_read, output=output)
+            waited, status = os.waitpid(pid, os.WNOHANG)
+            if waited != 0:
+                pid = None
+                break
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(min(0.001, max(0.0, deadline - time.monotonic())))
         _drain(descriptor=version_read, output=output)
-        waited, status = os.waitpid(pid, os.WNOHANG)
-        if waited != 0:
-            break
-        if time.monotonic() >= deadline:
-            os.kill(pid, signal.SIGKILL)
-            _ = os.waitpid(pid, 0)
-            os.close(version_read)
-            return False
-        time.sleep(min(0.001, max(0.0, deadline - time.monotonic())))
-    _drain(descriptor=version_read, output=output)
-    os.close(version_read)
-    product = output.decode("utf-8", errors="replace").strip()
-    return os.waitstatus_to_exitcode(status) == 0 and product.startswith("Google Chrome ")
+        product = output.decode("utf-8", errors="replace").strip()
+        return os.waitstatus_to_exitcode(status) == 0 and product.startswith("Google Chrome ")
+    except OSError:
+        return False
+    finally:
+        _close_descriptors(descriptors=descriptors)
+        if pid is not None:
+            _terminate_and_reap(pid=pid)
 
 
 def _drain(*, descriptor: int, output: bytearray) -> None:
@@ -69,6 +73,19 @@ def _drain(*, descriptor: int, output: bytearray) -> None:
         output.extend(chunk)
 
 
-def _close_descriptors(*, descriptors: tuple[int, ...]) -> None:
+def _close_descriptor(*, descriptor: int, descriptors: list[int]) -> None:
+    os.close(descriptor)
+    descriptors.remove(descriptor)
+
+
+def _close_descriptors(*, descriptors: list[int]) -> None:
     for descriptor in descriptors:
-        os.close(descriptor)
+        with suppress(OSError):
+            os.close(descriptor)
+
+
+def _terminate_and_reap(*, pid: int) -> None:
+    with suppress(OSError):
+        os.kill(pid, signal.SIGKILL)
+    with suppress(OSError):
+        _ = os.waitpid(pid, 0)
