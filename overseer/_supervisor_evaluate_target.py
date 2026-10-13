@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import _supervisor_herdr_recovery
 import _supervisor_launch
 import _supervisor_observe
 import _supervisor_offer
+import herdr_identity
 import registry
 from _supervisor_config import track_key
 from _supervisor_view import RowView
@@ -40,6 +42,24 @@ def _unavailable_target(*, sup: Supervisor, track: registry.Track, session: str)
     return _supervisor_offer.no_managed_pane_row(sup=sup, track=track, session=session)
 
 
+def _renumbered_herdr_coordinate(
+    *, sup: Supervisor, track: registry.Track, session: str
+) -> str | None:
+    if not session.startswith(herdr_identity.HERDR_SCHEME):
+        return None
+    resolver = cast(
+        Callable[..., str | None] | None,
+        getattr(sup.tmux, "renumbered_herdr_coordinate", None),
+    )
+    if resolver is None:
+        return None
+    return resolver(
+        session=session,
+        observed_session_identity=track.observed_session_identity,
+        starttime_of=sup.starttime_of,
+    )
+
+
 def resolve_evaluate_target(
     *, sup: Supervisor, track: registry.Track, act: bool
 ) -> RowView | EvaluateTarget:
@@ -50,6 +70,27 @@ def resolve_evaluate_target(
     session = _supervisor_launch.session_of(sup=sup, track=track)
 
     if not sup.tmux.session_exists(session=session):
+        current = _renumbered_herdr_coordinate(sup=sup, track=track, session=session)
+        if current is not None and registry.repoint_tmux(
+            repo=repo,
+            topic=topic,
+            new_tmux=current,
+            store_path=sup.store_path,
+        ):
+            old_pane = cast(
+                herdr_identity.HerdrPaneTarget,
+                herdr_identity.decode_target(value=session).herdr,
+            )
+            new_pane = cast(
+                herdr_identity.HerdrPaneTarget,
+                herdr_identity.decode_target(value=current).herdr,
+            )
+            sup.log(
+                message=(
+                    "re-keyed renumbered herdr pane "
+                    f"{old_pane.pane_id} -> {new_pane.pane_id} for {repo}::{topic}"
+                )
+            )
         # The mapped TMUX session is gone — but the work may not be. A Claude
         # session for the same plan can keep running in a NON-tmux terminal (a bare
         # SSH shell), which the tmux-only daemon cannot capture, inject, or respawn.

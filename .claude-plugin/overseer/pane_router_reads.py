@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Protocol, cast
 
 import herdr_adapter
@@ -127,6 +127,23 @@ class PaneRoutingReads:
                 == decoded.tmux.pane_id
             )
         return False if decoded.error else self.tmux.session_exists(session=session)
+
+    def renumbered_herdr_coordinate(
+        self,
+        *,
+        session: str,
+        observed_session_identity: str | None,
+        starttime_of: Callable[..., str | None],
+    ) -> str | None:
+        """Locate the current positional id of one recorded Herdr pane."""
+        del observed_session_identity, starttime_of
+        target = cast(herdr_identity.HerdrPaneTarget, self.decode(value=session).herdr)
+        pane = next(iter(self.herdr.list_panes(target=target).panes), None)
+        return (
+            None
+            if pane is None
+            else herdr_identity.encode_herdr_target(target=replace(target, pane_id=pane.pane_id))
+        )
 
     def _tmux_pid_coordinates(self) -> dict[int, str]:
         """Exact coordinates for panes on the tmux socket named by the environment."""
