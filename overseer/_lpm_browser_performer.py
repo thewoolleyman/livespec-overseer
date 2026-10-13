@@ -74,14 +74,20 @@ def resolve_installed_google_chrome(
     )
     if candidate is None:
         return _chrome_unavailable()
-    target = candidate.resolve(strict=True)
+    try:
+        target = candidate.resolve(strict=True)
+    except OSError:
+        return _chrome_unavailable()
     if not is_google_chrome(
         executable=target,
         environ=scrubbed_environment(environ=environ),
         timeout_seconds=timeout_seconds,
     ):
         return _chrome_unavailable()
-    status = target.stat()
+    try:
+        status = target.stat()
+    except OSError:
+        return _chrome_unavailable()
     return Success(InstalledChrome(path=str(target), device=status.st_dev, inode=status.st_ino))
 
 

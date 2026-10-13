@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import codecs
 import os
+import signal
 import stat
 import time
 from collections.abc import Mapping
+from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import cast
@@ -128,24 +130,21 @@ def _reference_is_current(*, command: ExecutionCommand) -> bool:
 
 
 def _spawn(*, command: ExecutionCommand, environ: Mapping[str, str]) -> _TerminalState | None:
-    child_stdin, service_stdin = os.pipe2(os.O_CLOEXEC)
-    service_stdout, child_stdout = os.pipe2(os.O_CLOEXEC)
-    service_stderr, child_stderr = os.pipe2(os.O_CLOEXEC)
-    descriptors = (
-        child_stdin,
-        service_stdin,
-        service_stdout,
-        child_stdout,
-        service_stderr,
-        child_stderr,
-    )
-    actions = (
-        (os.POSIX_SPAWN_DUP2, child_stdin, 0),
-        (os.POSIX_SPAWN_DUP2, child_stdout, 1),
-        (os.POSIX_SPAWN_DUP2, child_stderr, 2),
-        *((os.POSIX_SPAWN_CLOSE, descriptor) for descriptor in descriptors),
-    )
+    descriptors: list[int] = []
+    pid: int | None = None
     try:
+        child_stdin, service_stdin = os.pipe2(os.O_CLOEXEC)
+        descriptors.extend((child_stdin, service_stdin))
+        service_stdout, child_stdout = os.pipe2(os.O_CLOEXEC)
+        descriptors.extend((service_stdout, child_stdout))
+        service_stderr, child_stderr = os.pipe2(os.O_CLOEXEC)
+        descriptors.extend((service_stderr, child_stderr))
+        actions = (
+            (os.POSIX_SPAWN_DUP2, child_stdin, 0),
+            (os.POSIX_SPAWN_DUP2, child_stdout, 1),
+            (os.POSIX_SPAWN_DUP2, child_stderr, 2),
+            *((os.POSIX_SPAWN_CLOSE, descriptor) for descriptor in descriptors),
+        )
         pid = os.posix_spawn(
             command.path,
             (command.path, *command.arguments),
@@ -153,12 +152,15 @@ def _spawn(*, command: ExecutionCommand, environ: Mapping[str, str]) -> _Termina
             file_actions=actions,
             setpgroup=0,
         )
+        os.set_blocking(service_stdout, False)
+        os.set_blocking(service_stderr, False)
+        for descriptor in (child_stdin, child_stdout, child_stderr):
+            _close_descriptor(descriptor=descriptor, descriptors=descriptors)
     except OSError:
         _close_descriptors(descriptors=descriptors)
+        if pid is not None:
+            _terminate_and_reap(pid=pid)
         return None
-    _close_descriptors(descriptors=(child_stdin, child_stdout, child_stderr))
-    os.set_blocking(service_stdout, False)
-    os.set_blocking(service_stderr, False)
     return _TerminalState(
         pid=pid,
         stdin_descriptor=service_stdin,
@@ -202,17 +204,30 @@ def _drain(*, descriptor: int, decoder: codecs.IncrementalDecoder) -> tuple[bool
 
 def _poll(*, state: _TerminalState) -> tuple[bool, int | None]:
     if not state.reaped:
-        options = 0 if state.stdout_closed and state.stderr_closed else os.WNOHANG
-        waited, status = os.waitpid(state.pid, options)
+        waited, status = os.waitpid(state.pid, os.WNOHANG)
         if waited != 0:
             state.reaped = True
             state.exit_status = os.waitstatus_to_exitcode(status)
-    return not state.reaped, state.exit_status
+    streams_closed = state.stdout_closed and state.stderr_closed
+    return not (state.reaped and streams_closed), state.exit_status
 
 
-def _close_descriptors(*, descriptors: tuple[int, ...]) -> None:
+def _close_descriptor(*, descriptor: int, descriptors: list[int]) -> None:
+    os.close(descriptor)
+    descriptors.remove(descriptor)
+
+
+def _close_descriptors(*, descriptors: list[int]) -> None:
     for descriptor in descriptors:
-        os.close(descriptor)
+        with suppress(OSError):
+            os.close(descriptor)
+
+
+def _terminate_and_reap(*, pid: int) -> None:
+    with suppress(OSError):
+        os.kill(pid, signal.SIGKILL)
+    with suppress(OSError):
+        _ = os.waitpid(pid, 0)
 
 
 def _ok() -> dict[str, object]:
