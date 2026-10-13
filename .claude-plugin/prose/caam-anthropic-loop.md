@@ -257,3 +257,17 @@ table and the decision exactly as printed -- both, every time, per Reporting's
 first rule above -- and then stop. "Report the decision" never licenses dropping
 the table: a held or unchanged pass shows the same full table as a switching one.
 To stop watching entirely, delete the recurring job id with `CronDelete`.
+
+"And then stop" bounds the report's CONTENT, not just the pass. The report holds
+only what THIS pass's program run printed (the table, the decision, and its
+`FAIL`, `ALERT:`, `note:`, `warm:` and `next-warm-wake:` lines) plus the schedule
+action taken this turn. Append nothing else: no status of another system (a plan
+thread, a herdr pane, a file on disk, a ledger item), no standing reminder, and
+no sentence carried forward from an earlier report or a context summary. A
+reminder copied from tick to tick has no source in the pass that prints it, so
+nothing ever refreshes it and it goes stale silently while reading as current --
+measured 2026-10-13, when three consecutive reports told the operator a plan
+thread was waiting on a question it had long since left. If something outside
+the program's output genuinely matters this turn, measure it with a command in
+this same turn and say what you ran; if you did not measure it this turn, leave
+it out.
