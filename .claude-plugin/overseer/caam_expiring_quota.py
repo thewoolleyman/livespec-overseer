@@ -80,6 +80,7 @@ def drain_target(
         profile
         for profile in profiles
         if profile.name != active.name
+        and profile.source == "live"
         and profile.usage is not None
         and (
             active_protected
