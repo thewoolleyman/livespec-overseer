@@ -9,6 +9,7 @@ inferred from the ones already there:
     profiles             caam_profile_state     -- the usage snapshot cache
     protected_accounts   caam_protected_accounts-- per-account protection floors
     session_models       caam_session_models    -- per-session model exceptions
+    short_window_departures caam_expiring_quota -- reset guard after short-window moves
     warm                 caam_warm              -- the keep-warm memo
 
 THE CONVENTION IS UNDERSCORES, and it is load-bearing rather than
