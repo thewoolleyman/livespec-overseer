@@ -68,6 +68,7 @@ def resolve_evaluate_target(
 
     repo, topic = track.repo, track.topic
     session = _supervisor_launch.session_of(sup=sup, track=track)
+    target: str | None = None
 
     if not sup.tmux.session_exists(session=session):
         current = _renumbered_herdr_coordinate(sup=sup, track=track, session=session)
@@ -91,12 +92,14 @@ def resolve_evaluate_target(
                     f"{old_pane.pane_id} -> {new_pane.pane_id} for {repo}::{topic}"
                 )
             )
-        # The mapped TMUX session is gone — but the work may not be. A Claude
-        # session for the same plan can keep running in a NON-tmux terminal (a bare
-        # SSH shell), which the tmux-only daemon cannot capture, inject, or respawn.
-        # Distinguish that live-but-unmanageable case from a genuinely gone track so
-        # the operator is not falsely alarmed that finished-looking work was lost.
-        return _unavailable_target(sup=sup, track=track, session=session)
+            target = current
+        if target is None:
+            # The mapped TMUX session is gone — but the work may not be. A Claude
+            # session for the same plan can keep running in a NON-tmux terminal (a bare
+            # SSH shell), which the tmux-only daemon cannot capture, inject, or respawn.
+            # Distinguish that live-but-unmanageable case from a genuinely gone track so
+            # the operator is not falsely alarmed that finished-looking work was lost.
+            return _unavailable_target(sup=sup, track=track, session=session)
 
     # Resolve the pane id ONCE and target every subsequent pane op by it (RB3).
     # A pane id is exact and never prefix/fnmatch-matched, so if the tracked
@@ -104,7 +107,8 @@ def resolve_evaluate_target(
     # falling back to a live SIBLING session (e.g. dead `livespec--overseer`
     # resolving to live `livespec--overseer-rewrite`) and, worst case,
     # `respawn-pane -k` killing it. Stable across respawn.
-    target = sup.tmux.pane_id(session=session)
+    if target is None:
+        target = sup.tmux.pane_id(session=session)
     if target is None:
         return _unavailable_target(sup=sup, track=track, session=session)
 

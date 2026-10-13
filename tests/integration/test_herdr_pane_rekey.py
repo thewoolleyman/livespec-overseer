@@ -123,6 +123,7 @@ class RenumberingHerdr:
 class Scenario:
     sup: supervisor.Supervisor
     track: registry.PlanTrack
+    native: RenumberingHerdr
     old_coordinate: str
     current_coordinate: str
 
@@ -184,6 +185,7 @@ def make_scenario(*, tmp_path: Path) -> Scenario:
     return Scenario(
         sup=sup,
         track=track,
+        native=native,
         old_coordinate=old_coordinate,
         current_coordinate=current_coordinate,
     )
@@ -200,3 +202,13 @@ def test_acting_tick_rekeys_a_matching_renumbered_pane_and_logs_both_ids(
     messages = [json.loads(line)["message"] for line in capsys.readouterr().err.splitlines()]
     assert stored.tmux == scenario.current_coordinate
     assert any("re-keyed renumbered herdr pane w1:p7 -> w5:p6" in message for message in messages)
+
+
+def test_rekeyed_tick_supervises_the_live_current_pane(*, tmp_path: Path) -> None:
+    scenario = make_scenario(tmp_path=tmp_path)
+
+    row = scenario.sup.evaluate(track=scenario.track, act=True)
+
+    assert row.status != "session-gone"
+    assert row.ctx == 70
+    assert ("capture", "w5:p6") in scenario.native.calls
