@@ -251,6 +251,69 @@ def _assert_profile_validation_race_refuses(
     assert not record_path.exists()
 
 
+def _descriptor_holding(*, value: bytes) -> int:
+    read_descriptor, write_descriptor = os.pipe()
+    _ = os.write(write_descriptor, value)
+    os.close(write_descriptor)
+    return read_descriptor
+
+
+def _assert_descriptor_only_secret_actions(*, module: ModuleType) -> None:
+    password = b"password-value-must-not-escape"
+    token = b"sk-ant-oat01-token-value-must-not-escape"
+    events: list[tuple[str, object, int]] = []
+
+    def type_descriptor(*, element_handle: str, descriptor: int) -> bool:
+        assert os.read(descriptor, 4096) == password
+        events.append(("typed", element_handle, descriptor))
+        return True
+
+    def persist_descriptor(*, descriptor: int) -> bool:
+        assert os.read(descriptor, 4096) == token
+        events.append(("persisted", "descriptor", descriptor))
+        return True
+
+    performer = module.DescriptorSecretPerformer(
+        type_descriptor=type_descriptor,
+        persist_descriptor=persist_descriptor,
+    )
+    password_descriptor = _descriptor_holding(value=password)
+    token_descriptor = _descriptor_holding(value=token)
+    typed = performer.type_login_material(
+        element_handle="element:opaque",
+        descriptor=password_descriptor,
+    )
+    persisted = performer.persist_token(descriptor=token_descriptor)
+    assert typed == persisted == {"version": 1, "status": "ok"}
+    with pytest.raises(OSError, match="Bad file descriptor"):
+        os.fstat(password_descriptor)
+    with pytest.raises(OSError, match="Bad file descriptor"):
+        os.fstat(token_descriptor)
+
+    def refuse_descriptor(*, descriptor: int) -> bool:
+        events.append(("refused", "descriptor", descriptor))
+        return False
+
+    refused_descriptor = _descriptor_holding(value=b"")
+    refused = replace(performer, persist_descriptor=refuse_descriptor).persist_token(
+        descriptor=refused_descriptor
+    )
+    assert refused == {"version": 1, "status": "unavailable"}
+    emitted = {
+        "tool_arguments": (
+            {"field": "login_secret", "element_handle": "element:opaque"},
+            {"source_handle": "browser:opaque"},
+        ),
+        "responses": (typed, persisted, refused),
+        "logs": events,
+        "screenshots": (),
+        "performer": repr(performer),
+    }
+    serialized = repr(emitted).encode()
+    assert password not in serialized
+    assert token not in serialized
+
+
 def test_browser_performer_launches_only_installed_headed_chrome_over_private_pipes(
     *, tmp_path: Path
 ) -> None:
@@ -278,3 +341,12 @@ def test_browser_profile_is_prepared_and_unsafe_state_refuses_before_launch(
         tmp_path=tmp_path,
         monkeypatch=monkeypatch,
     )
+
+
+def test_secret_typing_and_token_persistence_consume_only_descriptor_held_bytes() -> None:
+    module_path = Path(__file__).parents[1] / "overseer" / "_lpm_secret_performer.py"
+    assert module_path.is_file(), "the descriptor-only secret performer must exist"
+
+    import overseer._lpm_secret_performer as module
+
+    _assert_descriptor_only_secret_actions(module=module)
