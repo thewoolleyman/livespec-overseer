@@ -356,6 +356,25 @@ def test_unusable_recorded_identity_refuses_rekey_without_raising(
     assert row.tmux is None
 
 
+def test_malformed_herdr_coordinate_refuses_rekey_without_raising(*, tmp_path: Path) -> None:
+    scenario = make_scenario(tmp_path=tmp_path)
+    malformed_coordinate = f"{herdr_identity.HERDR_SCHEME}malformed"
+    assert registry.repoint_tmux(
+        repo=scenario.track.repo,
+        topic=scenario.track.topic,
+        new_tmux=malformed_coordinate,
+        store_path=scenario.sup.store_path,
+    )
+    track = registry.read_valid_mapping(store_path=scenario.sup.store_path)[0]
+
+    row = scenario.sup.evaluate(track=track, act=True)
+
+    stored = registry.read_valid_mapping(store_path=scenario.sup.store_path)[0]
+    assert stored.tmux == malformed_coordinate
+    assert row.status == "session-gone"
+    assert row.tmux is None
+
+
 def test_read_only_tick_reports_renumbered_pane_without_rewriting_mapping(
     *, tmp_path: Path
 ) -> None:
