@@ -272,3 +272,16 @@ def test_renumbered_pane_on_replaced_herdr_server_stays_unmanaged(*, tmp_path: P
     assert stored.tmux == scenario.old_coordinate
     assert row.status == "session-gone"
     assert row.tmux is None
+
+
+def test_renumbered_pane_without_recorded_session_identity_stays_unmanaged(
+    *, tmp_path: Path
+) -> None:
+    scenario = make_scenario(tmp_path=tmp_path, observed_session_identity=None)
+
+    row = scenario.sup.evaluate(track=scenario.track, act=True)
+
+    stored = registry.read_valid_mapping(store_path=scenario.sup.store_path)[0]
+    assert stored.tmux == scenario.old_coordinate
+    assert row.status == "session-gone"
+    assert row.tmux is None
