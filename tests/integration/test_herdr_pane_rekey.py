@@ -285,3 +285,17 @@ def test_renumbered_pane_without_recorded_session_identity_stays_unmanaged(
     assert stored.tmux == scenario.old_coordinate
     assert row.status == "session-gone"
     assert row.tmux is None
+
+
+def test_read_only_tick_reports_renumbered_pane_without_rewriting_mapping(
+    *, tmp_path: Path
+) -> None:
+    scenario = make_scenario(tmp_path=tmp_path)
+
+    row = scenario.sup.evaluate(track=scenario.track, act=False)
+
+    stored = registry.read_valid_mapping(store_path=scenario.sup.store_path)[0]
+    assert stored.tmux == scenario.old_coordinate
+    assert row.status != "session-gone"
+    assert row.tmux == scenario.current_coordinate
+    assert row.ctx == 70
