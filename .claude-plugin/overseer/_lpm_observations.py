@@ -107,8 +107,8 @@ class ObservationSanitizer:
         fingerprint_source: dict[str, object] = {
             "running": running,
             "exit_status": exit_status,
-            "stdout": self._sanitize(text=stdout),
-            "stderr": self._sanitize(text=stderr),
+            "stdout": self._sanitize(text=stdout[: self._stdout.released]),
+            "stderr": self._sanitize(text=stderr[: self._stderr.released]),
         }
         self._fingerprint = hashlib.sha256(
             canonical_json_bytes(value=fingerprint_source).unwrap()
