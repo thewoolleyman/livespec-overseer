@@ -32,6 +32,7 @@ from caam_decision import (
     UsageRecord,
     binding,
     eligible_profiles,
+    five_hour_remaining_floor,
     rank_profiles,
     scoped_reserve,
     triggered,
@@ -41,6 +42,7 @@ from caam_expiring_quota import (
     drain_switch_line,
     drain_target,
     drain_trigger_line,
+    remember_short_window_departure,
 )
 from caam_profile_state import caam_vault
 from caam_profiles import active_profile
@@ -87,6 +89,8 @@ def decide(
                 profiles=profiles,
                 active=ActiveAccount(name=active_name, usage=current, scoped_pin=scoped_pin),
                 protection_floors=protection_floors,
+                state=context.state,
+                now=context.now,
             )
         if target is None:
             return hold_allowed(
@@ -175,6 +179,7 @@ def decide(
             # The dimension that BOUND is what made this pass leave, and it is
             # known only here -- the switch itself never sees why it was asked.
             trigger=switch_trigger_name,
+            short_window_triggered=current.five_hour_remaining <= five_hour_remaining_floor(),
         ),
         seams=seams,
     )
@@ -189,6 +194,7 @@ class _SwitchPlan:
     target: ProfileUsage
     decision_line: str
     trigger: str
+    short_window_triggered: bool
 
 
 def _switch_decision(
@@ -222,6 +228,13 @@ def _switch_decision(
     # successful hold.
     if seams.lock_contended is not None and result.reason == REASON_HOLD_LOCK_HELD:
         seams.lock_contended()
+    if result.switched and plan.short_window_triggered:
+        remember_short_window_departure(
+            state=context.state,
+            account=plan.active_name,
+            resets_at_value=plan.current.five_hour_resets_at,
+        )
+        save(state=context.state)
     result_lines = (
         (drain_switch_line(active_name=plan.active_name, target=plan.target, now=context.now),)
         if result.switched and plan.trigger == DRAIN_TRIGGER
