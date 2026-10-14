@@ -7,6 +7,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import codex_sessions
 import herdr_adapter
 import herdr_calls
 import herdr_identity
@@ -25,6 +26,7 @@ __all__: list[str] = []
 class PaneProcess:
     pid: int
     starttime: str
+    name: str = "claude"
 
 
 @dataclass(kw_only=True)
@@ -105,8 +107,8 @@ class RenumberingHerdr:
                 pane_id=target.pane_id,
                 shell_pid=9000,
                 process_group_id=process.pid,
-                name="claude",
-                cmdline="claude --dangerously-skip-permissions",
+                name=process.name,
+                cmdline=f"{process.name} --dangerously-skip-permissions",
                 cwd=self.repo,
             ),
             error="",
@@ -421,4 +423,34 @@ def test_pane_without_recorded_identity_stays_managed_when_its_claude_names_the_
     assert stored.tmux == scenario.old_coordinate
     assert row.tmux == scenario.old_coordinate
     assert row.ctx == 70
+    assert ("capture", "w1:p7") in scenario.native.calls
+
+
+def test_codex_track_with_recorded_codex_identity_stays_managed_at_its_recorded_pane(
+    *, tmp_path: Path
+) -> None:
+    codex_identity = "codex:0199a767-c521-7af0-a31d-a65b6486c9cf"
+    scenario = make_scenario(tmp_path=tmp_path, observed_session_identity=codex_identity)
+    scenario.native.processes.pop("w5:p6")
+    scenario.native.processes["w1:p7"] = PaneProcess(
+        pid=5150,
+        starttime="codex-start",
+        name="codex",
+    )
+    del scenario.sup.claude_names_by_session[scenario.old_coordinate]
+    scenario.sup.live_codex[(scenario.old_coordinate, scenario.track.topic)] = (
+        codex_sessions.CodexSession(
+            pid=5150,
+            name=scenario.track.topic,
+            cwd=scenario.track.repo,
+            session_id="0199a767-c521-7af0-a31d-a65b6486c9cf",
+        )
+    )
+
+    row = scenario.sup.evaluate(track=scenario.track, act=True)
+
+    stored = registry.read_valid_mapping(store_path=scenario.sup.store_path)[0]
+    assert stored.tmux == scenario.old_coordinate
+    assert row.status != "session-gone"
+    assert row.tmux == scenario.old_coordinate
     assert ("capture", "w1:p7") in scenario.native.calls

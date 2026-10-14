@@ -66,10 +66,9 @@ def _resolve_herdr_target(
 ) -> tuple[registry.Track, str, str | None, bool]:
     """Resolve an identity-bound Herdr target before trusting its positional id."""
     current = _renumbered_herdr_coordinate(sup=sup, track=track, session=session)
-    refuses_recorded_target = (
-        session.startswith(herdr_identity.HERDR_SCHEME)
-        and track.observed_session_identity is not None
-    )
+    refuses_recorded_target = session.startswith(
+        herdr_identity.HERDR_SCHEME
+    ) and _carries_claude_identity(track=track)
     if current is None:
         return track, session, None, refuses_recorded_target
     if current == session:
@@ -100,20 +99,25 @@ def _resolve_herdr_target(
     return replace(track, tmux=current), current, current, False
 
 
+def _carries_claude_identity(*, track: registry.Track) -> bool:
+    return (track.observed_session_identity or "").startswith("claude:")
+
+
 def _unproven_herdr_target(
     *, sup: Supervisor, track: registry.Track, session: str, target: str
 ) -> bool:
-    """Whether a Herdr row with no recorded identity fails to name its topic in the pane.
+    """Whether a Herdr row without a Claude process identity fails to name its topic.
 
     Positional Herdr ids are reused, and the shared topic-name check passes an empty
-    name set so a transient registry miss cannot flap a tmux track. With no recorded
-    process generation to validate, that pass would let a reused id route this track
-    to a foreign pane, so a Herdr row must instead show a live Claude named for its
-    topic, or be a live Codex track, in that exact pane.
+    name set so a transient registry miss cannot flap a tmux track. Only a recorded
+    Claude identity carries a process generation the re-key scan can validate; any
+    other row keeps the existence path, where that pass would let a reused id route
+    this track to a foreign pane. Such a row must instead show a live Claude named for
+    its topic, or be a live Codex track, in that exact pane.
     """
     if not session.startswith(herdr_identity.HERDR_SCHEME):
         return False
-    if track.observed_session_identity is not None:
+    if _carries_claude_identity(track=track):
         return False
     if track.topic in sup.claude_names_by_session.get(session, set()):
         return False
@@ -140,8 +144,9 @@ def resolve_evaluate_target(
     # A recorded process generation is authoritative for Herdr. Positional pane ids
     # can be reused, so existence of the old id cannot prove that it still names this
     # track. If the generation scan found no unique match, refuse the pane even when
-    # the old id remains present. Rows without an observed identity retain the legacy
-    # existence path because there is no process generation available to validate.
+    # the old id remains present. Rows without a recorded Claude identity retain the
+    # legacy existence path because there is no process generation available to
+    # validate; `_unproven_herdr_target` then requires the pane to name the topic.
     if target is None and (refuses_recorded_target or not sup.tmux.session_exists(session=session)):
         # The mapped TMUX session is gone — but the work may not be. A Claude
         # session for the same plan can keep running in a NON-tmux terminal (a bare
