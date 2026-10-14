@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, cast
 
-import _supervisor_herdr_recovery
+import _supervisor_herdr_stall
 import _supervisor_launch
 import _supervisor_observe
 import _supervisor_offer
@@ -31,12 +31,15 @@ class EvaluateTarget:
     pane: str
 
 
-def _unavailable_target(*, sup: Supervisor, track: registry.Track, session: str) -> RowView:
-    recovery = _supervisor_herdr_recovery.reconcile_bare_shell(
+def _unavailable_target(
+    *, sup: Supervisor, track: registry.Track, session: str, act: bool
+) -> RowView:
+    recovery = _supervisor_herdr_stall.reconcile_and_alert(
         sup=sup,
         track=track,
         target=session,
         act=False,
+        alert=act,
     )
     if recovery is not None:
         return recovery
@@ -61,15 +64,16 @@ def _unresolved_target(
     real `act` rather than read-only.
     """
     if refuses_recorded_target and sup.tmux.session_exists(session=session):
-        recovery = _supervisor_herdr_recovery.reconcile_bare_shell(
+        recovery = _supervisor_herdr_stall.reconcile_and_alert(
             sup=sup,
             track=track,
             target=session,
             act=act,
+            alert=act,
         )
         if recovery is not None:
             return recovery
-    return _unavailable_target(sup=sup, track=track, session=session)
+    return _unavailable_target(sup=sup, track=track, session=session, act=act)
 
 
 def _renumbered_herdr_coordinate(
@@ -199,13 +203,14 @@ def resolve_evaluate_target(
     if target is None:
         target = sup.tmux.pane_id(session=session)
     if target is None:
-        return _unavailable_target(sup=sup, track=track, session=session)
+        return _unavailable_target(sup=sup, track=track, session=session, act=act)
 
-    recovery = _supervisor_herdr_recovery.reconcile_bare_shell(
+    recovery = _supervisor_herdr_stall.reconcile_and_alert(
         sup=sup,
         track=track,
         target=target,
         act=act,
+        alert=act,
     )
     if recovery is not None:
         return recovery

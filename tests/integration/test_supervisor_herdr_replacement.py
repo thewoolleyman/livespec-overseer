@@ -864,3 +864,42 @@ def test_successor_resume_completes_when_the_row_still_records_the_predecessor(
     assert len(pastes) == 1
     assert record["phase"] == "completed"
     assert stored.observed_session_identity == successor_identity
+
+
+@pytest.mark.parametrize(
+    ("stall", "reason"),
+    [
+        ("refused-successor", "successor runtime identity is not yet observable"),
+        ("pane-unavailable", "recorded Herdr pane is unavailable"),
+    ],
+)
+def test_stalled_herdr_replacement_alerts_once_naming_its_phase_and_reason(
+    *, tmp_path: Path, capsys: pytest.CaptureFixture[str], stall: str, reason: str
+) -> None:
+    """An in-flight replacement that cannot advance must never stall silently.
+
+    Whether the acting reconcile refuses the successor or the recorded pane is gone
+    so the daemon cannot act at all, the operator gets ONE track-scoped alert naming
+    the durable phase and why it stopped, and an unchanged stall does not repeat it.
+    """
+    world, track, _counts = _launched_unknown_world(tmp_path=tmp_path)
+    stale = replace(track, observed_session_identity=f"claude:201:runtime-start:{world.topic}")
+    registry.append_mapping(track=stale, store_path=tmp_path / "map.jsonl")
+    _ = _install_successor(world=world, successor_case="fresh-runtime-child")
+    if stall == "pane-unavailable":
+        world.fake.sessions.remove(world.target)
+    recreated = make_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1003.0)
+    recreated.claude_names_by_session[world.target] = {world.topic}
+    recreated.refresh_claude_status = lambda: None
+    _ = capsys.readouterr()
+
+    recreated.evaluate(track=stale, act=True)
+    recreated.evaluate(track=stale, act=True)
+
+    records = [json.loads(line) for line in capsys.readouterr().err.splitlines()]
+    stalled = [record for record in records if record["event"] == "herdr-replacement-stalled"]
+    assert len(stalled) == 1
+    assert stalled[0]["severity"] == "alert"
+    assert stalled[0]["topic"] == world.topic
+    assert "launch-attempted" in stalled[0]["message"]
+    assert reason in stalled[0]["message"]
