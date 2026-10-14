@@ -259,6 +259,47 @@ def test_replacement_prerequisite_failure_never_signals(
     assert any(key[-1] == "herdr-replacement-refused" for key in sup.alerted)
 
 
+def test_round_lost_after_ready_certification_is_restored_for_the_next_tick(
+    *, tmp_path: Path
+) -> None:
+    world, sup, track = _armed_world(tmp_path=tmp_path)
+    original_snapshot = world.fake.herdr_replacement_snapshot
+    lose_round = True
+
+    def snapshot_after_round_loss(*, session: str) -> SimpleNamespace:
+        nonlocal lose_round
+        snapshot = original_snapshot(session=session)
+        if lose_round:
+            lose_round = False
+            registry.clear_injection_stamp(
+                repo=track.repo,
+                topic=track.topic,
+                stamp_path=sup.stamp_path,
+            )
+        return snapshot
+
+    world.fake.herdr_replacement_snapshot = snapshot_after_round_loss
+
+    refused = sup.evaluate(track=track, act=True)
+
+    declared = signals.read_state(repo=track.repo, topic=track.topic)
+    restored_round = registry.read_round_record(
+        repo=track.repo,
+        topic=track.topic,
+        stamp_path=sup.stamp_path,
+    )
+    assert refused.status == "replacement-failed"
+    assert declared is not None and declared.token == signals.STATE_READY
+    assert restored_round.at == 1000.0
+    assert restored_round.session_identity == f"claude:201:runtime-start:{track.topic}"
+    assert world.observed_at_signal == {}
+
+    retried = sup.evaluate(track=track, act=True)
+
+    assert retried.status == "restarting"
+    assert world.observed_at_signal["phase"] == "signal-attempted"
+
+
 def test_surviving_predecessor_receives_only_one_signal_per_ready_round(*, tmp_path: Path) -> None:
     world, sup, track = _armed_world(tmp_path=tmp_path)
     signal_count = 0

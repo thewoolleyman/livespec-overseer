@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import _supervisor_liveness
 import _supervisor_restart
 import registry
+import signals
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -31,6 +32,28 @@ class ReadyRestartRequest:
     is_codex: bool
     note: str | None
     act: bool
+    round_record: registry.RoundRecord | None = None
+    ready_declaration: signals.TrackState | None = None
+
+
+def _restore_refused_ready_round(*, request: ReadyRestartRequest) -> None:
+    certified = request.ready_declaration
+    current = signals.read_state(repo=request.track.repo, topic=request.track.topic)
+    if (
+        certified is None
+        or certified.token != signals.STATE_READY
+        or current is None
+        or current.token != signals.STATE_READY
+        or current.mtime != certified.mtime
+        or request.round_record is None
+    ):
+        return
+    _ = registry.restore_round_record(
+        repo=request.track.repo,
+        topic=request.track.topic,
+        record=request.round_record,
+        stamp_path=request.sup.stamp_path,
+    )
 
 
 def _missing_plan_epic_decision(
@@ -99,6 +122,8 @@ def ready_restart_decision(*, request: ReadyRestartRequest) -> ReadyRestartDecis
             is_codex=request.is_codex,
         )
     if refusal is not None:
+        if refusal.reason == "ready declaration changed before durable binding":
+            _restore_refused_ready_round(request=request)
         return ReadyRestartDecision(
             status="replacement-failed",
             note=_supervisor_liveness.append_note(note=request.note, extra=refusal.reason),
