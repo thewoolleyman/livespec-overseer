@@ -97,6 +97,7 @@ WRITER_PATH = PACKAGE_DIR / "herdr_write.py"
 LAUNCH_TIMEOUT = 15.0
 PANE_CWD = "/tmp"
 TOP_RATIO = 0.25
+READINESS_FIXTURE = "native Herdr live-layout fixture"
 
 # A long-lived, inert foreground process, so the reading is stable while the
 # assertions run and nothing is left behind after teardown.
@@ -334,7 +335,8 @@ def _established(*, readiness: PaneReadiness, pane_id: str) -> PaneIdentity:
         f"it ran for {readiness.panes} against {pane_id!r} while the writer sent "
         f"{readiness.methods()}"
     )
-    assert readiness.refusal() == "", f"{pane_id!r} readiness: {readiness.refusal()}"
+    refusal = readiness.refusal()
+    assert refusal == "", f"{READINESS_FIXTURE} readiness for {pane_id!r}: {refusal}"
     gate = readiness.gate
     assert gate is not None, "a refusal-free run established something, so it must hold a gate"
     staged = gate.transient

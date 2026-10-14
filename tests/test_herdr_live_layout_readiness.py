@@ -6,11 +6,20 @@ import ast
 import shlex
 from pathlib import Path
 
-from test_herdr_live_observations import TRANSIENT_NAME, startup_transient
+import pytest
+import test_herdr_live_layout as live_layout
+from test_herdr_live_observations import (
+    TRANSIENT_NAME,
+    ChildObservation,
+    PaneReadiness,
+    ReadyShellGate,
+    startup_transient,
+)
 
 __all__: list[str] = []
 
 LAYOUT_PATH = Path(__file__).with_name("test_herdr_live_layout.py")
+CREATED_PANE = "w-load:p-created"
 
 
 def test_the_unrelated_pane_exercise_establishes_its_transient_before_grading(
@@ -53,3 +62,31 @@ def test_the_unrelated_pane_exercise_establishes_its_transient_before_grading(
         f"readiness is graded on line {readiness_line}, after the first layout/outcome "
         f"assertion on line {first_grade_line}"
     )
+
+
+def test_an_unestablished_transient_fails_as_the_named_live_layout_fixture() -> None:
+    """A setup expiry is never rendered as a layout or process-identity failure."""
+    readiness = PaneReadiness(socket_path="unused", transient="controlled transient")
+    readiness.panes.append(CREATED_PANE)
+    gate = ReadyShellGate(
+        inner=None,
+        socket_path="unused",
+        startup_transient="controlled transient",
+        transient_name=TRANSIENT_NAME,
+    )
+    gate.gated.append(CREATED_PANE)
+    gate.transient = ChildObservation(
+        pid=None,
+        reason=f"no {TRANSIENT_NAME!r} child was observed within 30.0s",
+    )
+    readiness.gate = gate
+
+    with pytest.raises(AssertionError) as raised:
+        _ = live_layout._established(readiness=readiness, pane_id=CREATED_PANE)
+
+    message = str(raised.value)
+    assert "native Herdr live-layout fixture" in message, message
+    assert "readiness" in message and CREATED_PANE in message, message
+    assert "controlled startup transient was never observed" in message, message
+    assert "unrelated pane moved" not in message, message
+    assert "shell must not be replaced" not in message, message
