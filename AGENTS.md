@@ -149,6 +149,11 @@ resolves before you propagate it** — a plausible-sounding pointer costs a read
 the search, and this one had survived unchallenged across a rewrite of the file it
 lived in.
 
+- **`.ai/live-verification.md`** — read on EVERY resume of work that changes
+  `overseer/`, and after every release that ships one. Read the running
+  daemon's own output and reconcile each attention row before acting on a
+  handoff. Close an item only on behavior observed on the fleet daemon, never
+  on a merge or a green CI run.
 - **`.ai/supervisor-protocol.md`** — read BEFORE driving a worker as supervisor.
   The shared role-level contract that every generated per-plan binder is read
   TOGETHER with; a binder alone is intentionally incomplete and this file alone
