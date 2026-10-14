@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import _herdr_replacement_authorization
 import _supervisor_liveness
 import _supervisor_restart
 import registry
@@ -122,7 +123,7 @@ def ready_restart_decision(*, request: ReadyRestartRequest) -> ReadyRestartDecis
             is_codex=request.is_codex,
         )
     if refusal is not None:
-        if refusal.reason == "ready declaration changed before durable binding":
+        if _herdr_replacement_authorization.is_authorization_state_refusal(reason=refusal.reason):
             _restore_refused_ready_round(request=request)
         return ReadyRestartDecision(
             status="replacement-failed",
