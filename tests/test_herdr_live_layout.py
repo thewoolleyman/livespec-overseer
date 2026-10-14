@@ -444,8 +444,8 @@ def test_an_unrelated_pane_is_left_exactly_where_it_was(*, live: LiveTab):
 
     outcome, readiness = _split_top(live=live)
 
-    assert outcome.ok is True, outcome.error
     established = _established(readiness=readiness, pane_id=outcome.pane_id)
+    assert outcome.ok is True, outcome.error
     after, _ = _geometry(live=live)
     after_reading = _reading(live=live, pane_id=live.unrelated)
     assert (
