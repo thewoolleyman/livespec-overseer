@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import argparse
 import io
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import _supervisor_cli_actions
 import codex_sessions
 import herdr_adapter
 import herdr_calls
@@ -454,3 +456,27 @@ def test_codex_track_with_recorded_codex_identity_stays_managed_at_its_recorded_
     assert row.status != "session-gone"
     assert row.tmux == scenario.old_coordinate
     assert ("capture", "w1:p7") in scenario.native.calls
+
+
+def test_list_command_reports_renumbered_pane_without_rewriting_mapping(
+    *, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    scenario = make_scenario(tmp_path=tmp_path)
+    (Path(scenario.track.repo) / "plan" / scenario.track.topic).mkdir(parents=True)
+    sessions_dir = tmp_path / "claude-sessions"
+    sessions_dir.mkdir()
+    scenario.sup.watch_repos = [scenario.track.repo]
+    scenario.sup.sessions_dir = str(sessions_dir)
+    store_before = scenario.sup.store_path.read_bytes()
+
+    exit_code = _supervisor_cli_actions.list_once(
+        args=argparse.Namespace(json=True),
+        build_supervisor=lambda: scenario.sup,
+    )
+
+    rows = json.loads(capsys.readouterr().out)["rows"]
+    row = next(row for row in rows if row["topic"] == scenario.track.topic)
+    assert exit_code == 0
+    assert scenario.sup.store_path.read_bytes() == store_before
+    assert row["status"] != "session-gone"
+    assert row["tmux"] == scenario.current_coordinate
