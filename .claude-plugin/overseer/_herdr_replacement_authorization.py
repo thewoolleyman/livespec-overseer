@@ -18,8 +18,14 @@ __all__: list[str] = [
     "DEFAULT_BINDING",
     "ReplacementBinding",
     "bind_authorization",
+    "is_authorization_state_refusal",
     "round_still_authorizes",
 ]
+
+_ROUND_CLOSED_REASON = "round closed before durable binding"
+_ROUND_MALFORMED_REASON = "round malformed before durable binding"
+_ROUND_IDENTITY_MISSING_REASON = "round identity missing before durable binding"
+_DECLARATION_NOT_READY_REASON = "ready declaration no longer ready before durable binding"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -31,6 +37,31 @@ class ReplacementBinding:
 
 
 DEFAULT_BINDING = ReplacementBinding()
+
+
+def is_authorization_state_refusal(*, reason: str) -> bool:
+    """Whether a refusal should recheck the certified ready declaration."""
+    return reason.split(":", 1)[0] in (
+        _ROUND_CLOSED_REASON,
+        _ROUND_MALFORMED_REASON,
+        _ROUND_IDENTITY_MISSING_REASON,
+        _DECLARATION_NOT_READY_REASON,
+    )
+
+
+def _authorization_refusal(
+    *, declared: signals.TrackState | None, round_record: registry.RoundRecord
+) -> str | None:
+    if declared is None or getattr(declared, "token", signals.STATE_READY) != signals.STATE_READY:
+        return _DECLARATION_NOT_READY_REASON
+    malformed_reason = cast(str | None, getattr(round_record, "malformed_reason", None))
+    if malformed_reason == "round record missing session identity":
+        return _ROUND_IDENTITY_MISSING_REASON
+    if malformed_reason is not None:
+        return f"{_ROUND_MALFORMED_REASON}: {malformed_reason}"
+    if round_record.at is None:
+        return _ROUND_CLOSED_REASON
+    return None
 
 
 def bind_authorization(
@@ -51,16 +82,11 @@ def bind_authorization(
         stamp_path=sup.stamp_path,
     )
     declared = signals.read_state(repo=track.repo, topic=track.topic)
-    round_identity = round_record.session_identity
-    if (
-        declared is None
-        or getattr(declared, "token", signals.STATE_READY) != signals.STATE_READY
-        or round_record.at is None
-        or getattr(round_record, "malformed_reason", None) is not None
-        or not isinstance(round_identity, str)
-        or not round_identity
-    ):
-        return None, "ready declaration changed before durable binding"
+    refusal = _authorization_refusal(declared=declared, round_record=round_record)
+    if refusal is not None:
+        return None, refusal
+    declared = cast(signals.TrackState, declared)
+    round_identity = cast(str, round_record.session_identity)
     predecessor_identity = binding.predecessor_identity or round_identity
     predecessor = _herdr_replacement_process.predecessor(
         snapshot=snapshot, identity=predecessor_identity
