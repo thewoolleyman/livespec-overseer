@@ -85,6 +85,7 @@ from _registry_mapping_read import read_mapping as read_mapping
 from _registry_mapping_read import read_valid_mapping as read_valid_mapping
 from _registry_null_epic_audit import NullEpicAuditRow as NullEpicAuditRow
 from _registry_null_epic_audit import audit_null_epics as audit_null_epics
+from _registry_round_restore import restore_round_record as restore_round_record
 from _registry_rounds import RoundRecord as RoundRecord
 from _registry_rounds import mark_compaction_rearmed as mark_compaction_rearmed
 from _registry_rounds import mark_expiry_notice_sent as mark_expiry_notice_sent
@@ -182,6 +183,7 @@ __all__: list[str] = [
     "repo_root_present",
     "repo_slug",
     "repoint_tmux",
+    "restore_round_record",
     "rewrite_mapping",
     "set_epic",
     "set_resume_pending",

@@ -141,6 +141,8 @@ def idle_decision(*, request: IdleRequest) -> IdleDecision:
                 is_codex=request.obs.is_codex,
                 note=note,
                 act=request.act,
+                round_record=request.obs.round_record,
+                ready_declaration=request.obs.declared,
             )
         )
         return IdleDecision(
