@@ -828,3 +828,39 @@ def test_tmux_pre_effect_failure_stays_retryable_and_native_herdr_is_explicit(
             "env": {"ANTHROPIC_MODEL": None},
         }
     ]
+
+
+def test_successor_resume_completes_when_the_row_still_records_the_predecessor(
+    *, tmp_path: Path
+) -> None:
+    """A restart must not strand its successor behind the predecessor's identity.
+
+    After a herdr restart the mapping row still records the PREDECESSOR's
+    `claude:` identity, which no live pane can match any more. The recorded pane
+    still carries the daemon's own durable transaction, so the acting tick must
+    reconcile that transaction (submit the resume, complete the phase) and record
+    the proven successor's identity in place of the predecessor's.
+    """
+    world, track, counts = _launched_unknown_world(tmp_path=tmp_path)
+    predecessor_identity = f"claude:201:runtime-start:{world.topic}"
+    stale = replace(track, observed_session_identity=predecessor_identity)
+    registry.append_mapping(track=stale, store_path=tmp_path / "map.jsonl")
+    successor_identity = _install_successor(world=world, successor_case="fresh-runtime-child")
+    recreated = make_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1003.0)
+    recreated.claude_identity_by_session[(world.target, world.topic)] = successor_identity
+    recreated.claude_names_by_session[world.target] = {world.topic}
+    recreated.refresh_claude_status = lambda: None
+
+    recreated.evaluate(track=stale, act=True)
+
+    record = json.loads(
+        (world.repo / "tmp" / "overseer" / world.topic / ".herdr-replacement.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    stored = registry.read_valid_mapping(store_path=recreated.store_path)[0]
+    pastes = [call for call in world.fake.calls if call[0] == "paste"]
+    assert counts == {"signal": 1, "launch": 1}
+    assert len(pastes) == 1
+    assert record["phase"] == "completed"
+    assert stored.observed_session_identity == successor_identity
