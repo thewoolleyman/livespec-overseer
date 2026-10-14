@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.28.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.28.2...v5.28.3) (2026-10-14)
+
+
+### Bug Fixes
+
+* **overseer:** alert when an in-flight herdr replacement stalls ([8a8f878](https://github.com/thewoolleyman/livespec-overseer/commit/8a8f878720ad96c4b3d82c88a33f94acf4fbd829))
+* **overseer:** complete herdr replacement when the row records the predecessor ([7848b16](https://github.com/thewoolleyman/livespec-overseer/commit/7848b160fae862e1a47346a5b285cc69d239ad44))
+
 ## [5.28.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.28.1...v5.28.2) (2026-10-14)
 
 
