@@ -1444,3 +1444,24 @@ Upstream carrier for the evaluator defect: `bd-ib-vbm7` in the
 twice — `bd-ib-mhhg` (segments on line breaks) and `bd-ib-ujihbw.12` (fuses across a trailing
 abbreviation boundary), both CLOSED — so verify the current behaviour rather than assuming
 either fix covers this.
+
+### Dispatching from a primary checkout that is BEHIND `origin` fails before staging
+
+Measured 2026-10-14 on `overseer-akwzcn` (run `01M4W0MXM0KQ`): the envelope
+failed at stage `fabro-run`, category `structural`, with "pre-run push of branch
+'master' to 'origin' failed, so the sandbox clone would not carry the source
+checkout's HEAD ... refusing to stage". The push error underneath was this
+repo's own primary-checkout guard: "refusing commit/push at primary checkout".
+The launching checkout's `master` was 13 commits behind `origin/master`.
+
+The dispatcher stages from the checkout it is launched in and first makes sure
+that checkout's HEAD exists on `origin`. A stale primary checkout sends it into
+a push the commit-refuse hook correctly refuses, so the run never starts. It
+reads like a factory or credential fault, and it is neither.
+
+**Remedy:** `mise exec -- git pull --ff-only origin master` in the primary
+checkout, confirm `git status -sb` shows no `behind`, release the phantom claim
+the refusal leaves (`bd update <id> --status ready --assignee ""`), and
+re-dispatch. Prevention is the same pull before every launch; a checkout that
+was current an hour ago is routinely behind, because every merge here is
+followed by a release commit.

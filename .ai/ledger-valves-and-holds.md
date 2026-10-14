@@ -115,3 +115,15 @@ items as takeable. The accurate rule is narrower than either. Same family as the
 entries in `.ai/record-versus-world.md` — `Updated:` is not activity, a PATH's age
 is not a BEHAVIOUR's age, a timestamp a session WROTE is not one that was
 MEASURED — with one addition: **the repair for an under-specified rule is not a shorter rule.**
+
+**`bd ready` CANNOT VERIFY A HOLD IN THIS TENANT, BECAUSE IT RETURNS NOTHING.**
+Measured 2026-10-14: `bd ready --json` returned zero items for the whole tenant
+while several rows sat at lifecycle `ready`. It does not model this tenant's
+lifecycle statuses. A session added a `blocks` edge to hold `overseer-iffpgw`
+out of dispatch, then "verified" the hold because `bd ready` did not list the
+item. That check would have read the same with no edge at all, so it verified
+nothing. **Read the dispatcher's own ready view instead**: the plugin's
+`next.py --json`, which is what a drain dispatches from. Confirm the item is
+absent while the hold stands, then present once the blocker closes. A check
+that returns the same answer whether or not the condition holds is not
+evidence; prove it can return the other answer before you trust it.
