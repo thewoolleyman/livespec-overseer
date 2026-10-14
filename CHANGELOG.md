@@ -1,5 +1,24 @@
 # Changelog
 
+## [5.28.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.27.7...v5.28.0) (2026-10-14)
+
+
+### Features
+
+* **lpm:** consume secret values through descriptors ([ecb2a95](https://github.com/thewoolleyman/livespec-overseer/commit/ecb2a95df659912e91e6d07e1b60a077778d079c))
+* **lpm:** launch installed Chrome through private pipes ([5171b38](https://github.com/thewoolleyman/livespec-overseer/commit/5171b389e2087f69dc83c469ce32792aa4834370))
+* **lpm:** prepare Chrome profiles before launch ([3985adf](https://github.com/thewoolleyman/livespec-overseer/commit/3985adfae6c973effd6372c35bde86dfb331a5b2))
+* **lpm:** sanitize production terminal output ([55c98e9](https://github.com/thewoolleyman/livespec-overseer/commit/55c98e96b225bf16fa865bf8a0f8ad98e706c61d))
+
+
+### Bug Fixes
+
+* **lpm:** bind Chrome probe to one bounded identity ([a32faa0](https://github.com/thewoolleyman/livespec-overseer/commit/a32faa01997348537ba8265f2862e59494ac5424))
+* **lpm:** close browser launch failures ([12c59ef](https://github.com/thewoolleyman/livespec-overseer/commit/12c59efbf3204516b722784a1a65bb436258ffe6))
+* **lpm:** close performer lifecycle failures ([6b0affe](https://github.com/thewoolleyman/livespec-overseer/commit/6b0affe80d4a47c9b8b699ca0acea9002c25a45f))
+* **lpm:** close terminal lifecycle races ([eed028e](https://github.com/thewoolleyman/livespec-overseer/commit/eed028e4712fb00a878392b385a31d11fe55868c))
+* **lpm:** verify installed Chrome product identity ([6f6fa20](https://github.com/thewoolleyman/livespec-overseer/commit/6f6fa20035f9f075381bdad7cdb87f7a41437d49))
+
 ## [5.27.7](https://github.com/thewoolleyman/livespec-overseer/compare/v5.27.6...v5.27.7) (2026-10-13)
 
 
