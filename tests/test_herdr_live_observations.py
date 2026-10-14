@@ -93,6 +93,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -238,12 +239,11 @@ class OwnedServer:
 # unmistakably not the child any exercise requested.
 TRANSIENT_NAME = "ovstartup"
 TRANSIENT_SECONDS = 2
-# PR_SET_NAME, from `linux/prctl.h`. The transient names ITSELF, so the name the
-# kernel reports — and therefore the name herdr reports, which it reads from
-# `/proc/<pid>/comm` — comes from a call this fixture makes rather than from the
-# basename of a renamed binary. The script verifies the rename took effect and
-# exits loudly if it did not, so a platform where `prctl` is unavailable fails as
-# itself instead of as an unobserved child.
+# PR_SET_NAME, from `linux/prctl.h`. The launcher is already named at exec (see
+# `startup_transient`), and the script reasserts that controlled name itself. The
+# kernel name Herdr reads therefore never depends on when Python first gets CPU,
+# while a platform where `prctl` is unavailable still fails as itself instead of
+# as an unobserved child.
 _PR_SET_NAME = 15
 _TRANSIENT_SOURCE = f'''\
 """One real, bounded, SELF-NAMED foreground child for the native herdr exercises.
@@ -268,13 +268,14 @@ time.sleep(float(sys.argv[1]))
 def startup_transient(*, scratch: Path) -> str:
     """A command that runs one real, self-terminating foreground child.
 
-    A short Python script run by THIS interpreter under its own real path, which
-    renames itself to :data:`TRANSIENT_NAME` and then sleeps for the argument it
-    is given. The process the kernel reports is genuine, and its lifetime is this
-    fixture's to choose rather than the host's. It stands in for the `mise` and
-    `atuin` children the operator's `zsh` forks while a freshly created pane
-    starts up — the measured condition under which the adapter legitimately
-    refuses a launch.
+    A short Python script run by THIS interpreter through a fixture-owned symlink
+    named :data:`TRANSIENT_NAME`. Linux assigns that name at exec, before any
+    Python instruction needs to be scheduled; the script reasserts and verifies
+    it with ``prctl`` before sleeping for the argument it is given. The process
+    the kernel reports is genuine, and its lifetime is this fixture's to choose
+    rather than the host's. It stands in for the `mise` and `atuin` children the
+    operator's `zsh` forks while a freshly created pane starts up — the measured
+    condition under which the adapter legitimately refuses a launch.
 
     **Why the child names itself instead of being a renamed `sleep`.** This used
     to copy `shutil.which("sleep")` to a file called `ovstartup` and run that.
@@ -291,14 +292,23 @@ def startup_transient(*, scratch: Path) -> str:
     below.
 
     So the identity and the lifetime no longer rest on renaming a system utility
-    at all: nothing here consults `PATH`, the interpreter is invoked by the
-    absolute path it already runs under, and the name is a `prctl` this fixture
-    makes.
+    at all: nothing here consults `PATH`, the symlink resolves to the absolute
+    interpreter this process already runs under, and the name is independently
+    checked by a `prctl` this fixture makes.
     """
     assert sys.executable, "a native exercise needs a real interpreter path to run"
+    launcher = scratch / TRANSIENT_NAME
+    if not launcher.exists():
+        launcher.symlink_to(sys.executable)
     script = scratch / f"{TRANSIENT_NAME}.py"
     _ = script.write_text(_TRANSIENT_SOURCE, encoding="utf-8")
-    return f"{sys.executable} {script} {TRANSIENT_SECONDS}"
+    return " ".join(
+        (
+            shlex.quote(str(launcher)),
+            shlex.quote(str(script)),
+            str(TRANSIENT_SECONDS),
+        )
+    )
 
 
 # ------------------------------------------------------------------ readings
