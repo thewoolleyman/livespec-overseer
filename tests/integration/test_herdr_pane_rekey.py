@@ -310,6 +310,29 @@ def test_renumbered_pane_with_mismatched_process_identity_stays_unmanaged(
         assert row.tmux is None
 
 
+def test_reused_recorded_pane_without_a_replacement_transaction_stays_unmanaged(
+    *, tmp_path: Path
+) -> None:
+    """Only the daemon's own durable replacement may cross the recorded-identity gate.
+
+    The recorded pane id is still present but now hosts a foreign process, and no
+    replacement transaction exists for the track, so the refused pane must not be
+    adopted or reconciled.
+    """
+    scenario = make_scenario(
+        tmp_path=tmp_path,
+        observed_session_identity="claude:999999:session-start:renumbered",
+    )
+    scenario.native.processes["w1:p7"] = PaneProcess(pid=909090, starttime="foreign-start")
+
+    row = scenario.sup.evaluate(track=scenario.track, act=True)
+
+    stored = registry.read_valid_mapping(store_path=scenario.sup.store_path)[0]
+    assert stored.tmux == scenario.old_coordinate
+    assert row.status == "session-gone"
+    assert row.tmux is None
+
+
 def test_renumbered_pane_on_replaced_herdr_server_stays_unmanaged(*, tmp_path: Path) -> None:
     scenario = make_scenario(tmp_path=tmp_path)
     scenario.native.server_pid = 4433221

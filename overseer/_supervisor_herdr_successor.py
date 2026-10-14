@@ -186,4 +186,13 @@ def resume_proven_successor(
         )
     if reason is None:
         reason = _supervisor_herdr_completion.complete_replacement_round(sup=sup, track=track)
+    if reason is None:
+        # The row still records the predecessor, and the recorded-identity pane gate
+        # would refuse this successor on every later tick, so record the proven one.
+        _ = registry.record_observed_session_identity(
+            repo=track.repo,
+            topic=track.topic,
+            session_identity=cast(str, identity),
+            store_path=sup.store_path,
+        )
     return reason

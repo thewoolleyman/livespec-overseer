@@ -43,6 +43,35 @@ def _unavailable_target(*, sup: Supervisor, track: registry.Track, session: str)
     return _supervisor_offer.no_managed_pane_row(sup=sup, track=track, session=session)
 
 
+def _unresolved_target(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    session: str,
+    act: bool,
+    refuses_recorded_target: bool,
+) -> RowView:
+    """Route a track whose pane could not be resolved, honoring its own replacement.
+
+    The one pane the recorded-identity gate must not refuse is the daemon's OWN durable
+    replacement at the recorded pane: its successor is by construction a new process
+    generation, so it can never match the predecessor identity the row still records.
+    The transaction names the exact backend generation and pane, which
+    `reconcile_bare_shell` verifies before acting, so it is reconciled with this tick's
+    real `act` rather than read-only.
+    """
+    if refuses_recorded_target and sup.tmux.session_exists(session=session):
+        recovery = _supervisor_herdr_recovery.reconcile_bare_shell(
+            sup=sup,
+            track=track,
+            target=session,
+            act=act,
+        )
+        if recovery is not None:
+            return recovery
+    return _unavailable_target(sup=sup, track=track, session=session)
+
+
 def _renumbered_herdr_coordinate(
     *, sup: Supervisor, track: registry.Track, session: str
 ) -> str | None:
@@ -153,7 +182,13 @@ def resolve_evaluate_target(
         # SSH shell), which the tmux-only daemon cannot capture, inject, or respawn.
         # Distinguish that live-but-unmanageable case from a genuinely gone track so
         # the operator is not falsely alarmed that finished-looking work was lost.
-        return _unavailable_target(sup=sup, track=track, session=session)
+        return _unresolved_target(
+            sup=sup,
+            track=track,
+            session=session,
+            act=act,
+            refuses_recorded_target=refuses_recorded_target,
+        )
 
     # Resolve the pane id ONCE and target every subsequent pane op by it (RB3).
     # A pane id is exact and never prefix/fnmatch-matched, so if the tracked
