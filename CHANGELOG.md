@@ -1,5 +1,20 @@
 # Changelog
 
+## [5.28.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.28.0...v5.28.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **overseer:** alert on current herdr pane ([a3d3bda](https://github.com/thewoolleyman/livespec-overseer/commit/a3d3bda677be3b43e511e8758ec9a97ecaad636a))
+* **overseer:** keep herdr rekey read-only ([b149923](https://github.com/thewoolleyman/livespec-overseer/commit/b14992310e737c1b6153e224686543847bbc8773))
+* **overseer:** keep supervising a herdr codex track at its recorded pane ([8b41a8f](https://github.com/thewoolleyman/livespec-overseer/commit/8b41a8f4eff7b0b39c141a789d33cdd6b8cd8cc4))
+* **overseer:** re-key renumbered herdr panes ([f8b9a0c](https://github.com/thewoolleyman/livespec-overseer/commit/f8b9a0c718b171c8cbbf5b762c8b6c71b60c4041))
+* **overseer:** refuse a reused herdr pane id that proves no identity ([f071852](https://github.com/thewoolleyman/livespec-overseer/commit/f0718520dc6a870f365b7e353a6cec40c6de2967))
+* **overseer:** refuse mismatched herdr identity ([2f07177](https://github.com/thewoolleyman/livespec-overseer/commit/2f07177de6e817734233d0a57cda5586f3f19ac2))
+* **overseer:** refuse replaced herdr server ([909aff1](https://github.com/thewoolleyman/livespec-overseer/commit/909aff19dbbf91135ec4166b6e3b3408a615ed42))
+* **overseer:** require observed identity for rekey ([beff397](https://github.com/thewoolleyman/livespec-overseer/commit/beff397fe3487260ff90702fee4e1292f7f7c11c))
+* **overseer:** supervise re-keyed herdr pane ([d766e19](https://github.com/thewoolleyman/livespec-overseer/commit/d766e195b3c743f15686b7c75a9a4af05f2820bf))
+
 ## [5.28.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.27.7...v5.28.0) (2026-10-14)
 
 
