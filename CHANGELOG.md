@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.28.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.28.1...v5.28.2) (2026-10-14)
+
+
+### Bug Fixes
+
+* **overseer:** keep refused herdr ready retryable ([aa972d3](https://github.com/thewoolleyman/livespec-overseer/commit/aa972d362ee4de218d51821a71bf94d1cad99f2d))
+* **overseer:** name herdr binding refusals precisely ([2eb0940](https://github.com/thewoolleyman/livespec-overseer/commit/2eb0940792e3d560356e0b2a6e3ebfa65e1234d2))
+
 ## [5.28.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.28.0...v5.28.1) (2026-10-14)
 
 
