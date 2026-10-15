@@ -3,15 +3,52 @@
 from __future__ import annotations
 
 import os
+import time
 from dataclasses import replace
 from pathlib import Path
 from types import ModuleType
+from typing import TYPE_CHECKING, Protocol
 
 from overseer._lpm_observations import ObservationSanitizer
+
+if TYPE_CHECKING:
+    from overseer._lpm_observations import ObservationOutcome
 
 __all__: list[str] = []
 
 _TOKEN = "sk-ant-oat01-partial"
+
+# How long a stand-in may take to exit after the test has released it. The stand-ins
+# do microseconds of work, so this bounds a wedged test, not a slow one: the wait
+# below ends the moment the performer reports the exit, whatever the host load.
+_EXIT_WAIT_SECONDS = 30.0
+
+
+class _Observing(Protocol):
+    def observe(self) -> ObservationOutcome: ...
+
+
+def _observe_until_exited(*, performer: _Observing) -> list[ObservationOutcome]:
+    """Observe until the performer reports the stand-in exited, or the wait expires.
+
+    A fixed count of observe() calls is not a wait: once the stand-in has closed
+    stdout and stderr, every observe() returns at once (the closed streams count
+    as a change), so five calls can complete before waitpid(WNOHANG) sees the
+    exit -- which is exactly how this test failed in a loaded sandbox and dragged
+    overseer/_lpm_terminal_performer.py below full coverage. The event the test
+    needs is the performer reporting `running` False, so that is what it waits on.
+    """
+    deadline = time.monotonic() + _EXIT_WAIT_SECONDS
+    observations: list[ObservationOutcome] = []
+    while True:
+        observed = performer.observe()
+        observations.append(observed)
+        if observed.response.get("running") is False:
+            return observations
+        assert (
+            time.monotonic() < deadline
+        ), f"stand-in still running after {_EXIT_WAIT_SECONDS}s: {observations!r}"
+        time.sleep(0.01)
 
 
 def _write_terminal_standin(*, path: Path, invalid_utf8: bool = False) -> None:
@@ -84,12 +121,7 @@ def _assert_incremental_sanitized_output(*, module: ModuleType, tmp_path: Path) 
     assert first.response["stdout"] == "prefix "
     assert _TOKEN not in repr(first)
     assert performer.send_line(text="continue") == {"version": 1, "status": "ok"}
-    observations = [first]
-    for _ in range(5):
-        observed = performer.observe()
-        observations.append(observed)
-        if observed.response.get("running") is False:
-            break
+    observations = [first, *_observe_until_exited(performer=performer)]
     assert observations[-1].response["running"] is False
     stdout = "".join(str(item.response.get("stdout", "")) for item in observations)
     stderr = "".join(str(item.response.get("stderr", "")) for item in observations)
@@ -145,9 +177,7 @@ def _assert_lifecycle_races_refuse(*, module: ModuleType, tmp_path: Path) -> Non
         read_timeout_seconds=0.5,
     )
     assert performer.start() == {"version": 1, "status": "ok"}
-    for _ in range(5):
-        if performer.observe().response.get("running") is False:
-            break
+    assert _observe_until_exited(performer=performer)[-1].response["running"] is False
     assert performer.send_line(text="too-late") == {"version": 1, "status": "unavailable"}
     performer.close()
 
@@ -165,12 +195,7 @@ def _assert_split_utf8_is_incremental(*, module: ModuleType, tmp_path: Path) -> 
     first = performer.observe()
     assert first.response["stdout"] == "before "
     assert performer.send_line(text="continue") == {"version": 1, "status": "ok"}
-    observations = [first]
-    for _ in range(5):
-        observed = performer.observe()
-        observations.append(observed)
-        if observed.response.get("running") is False:
-            break
+    observations = [first, *_observe_until_exited(performer=performer)]
     assert "".join(str(item.response.get("stdout", "")) for item in observations) == (
         "before € after\n"
     )
