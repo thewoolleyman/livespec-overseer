@@ -59,21 +59,43 @@ And it performs no restart until the shell has stopped
 
 And a later fresh ready passes the interlock
 
-## Scenario: Generating or sub-agent-busy evidence suppresses a low-context paste
+## Scenario: A busy session with an empty input box receives the wrap-up
 
 Given a tracked session at or below its wind-down threshold
 
-When the pane is generating or the runtime reports sub-agent-busy evidence
+And the pane is generating or the runtime reports sub-agents, monitors, or background shells
+
+And its input box is positively empty and unchanged across both settle captures
+
+When the daemon observes the track
+
+Then the daemon records an injection stamp and pastes and submits the wrap-up
+
+And it performs no restart
+
+## Scenario: Typed input, a gate, or a human wait suppresses the wrap-up of a busy session
+
+Given a busy tracked session at or below its wind-down threshold
+
+When its input box holds typed text, or it shows a structured gate, or the runtime reports it waiting on a human
 
 Then the daemon records no injection stamp and pastes no wrap-up
 
-And it performs no restart
+## Scenario: A busy Codex session whose empty composer cannot be proven is surfaced, not pasted
+
+Given a busy Codex session at or below its wind-down threshold
+
+When its composer cannot be positively proven empty
+
+Then the daemon records no injection stamp and pastes no wrap-up
+
+And the track is surfaced naming that reason
 
 ## Scenario: A changing pane or changed evidence cancels a pending wrap-up
 
 Given a low-context pane whose first capture satisfies the guarded-paste predicate
 
-When the second capture differs or an authorization input changes before paste
+When the input region of the second capture differs or an authorization input changes before paste
 
 Then the daemon records no injection stamp and pastes no wrap-up that tick
 
@@ -85,7 +107,7 @@ When it shows a gate or human wait
 
 Or carries blocked or ready or done or a fresh winding-down acknowledgement
 
-Or has unknown or conflicting runtime evidence
+Or has unknown or conflicting evidence about its input, its identity, a gate, or a human wait
 
 Then the daemon records no injection stamp and pastes no wrap-up
 
@@ -444,19 +466,39 @@ Then no wrap-up is pasted into that pane
 
 And the outcome is the same whether or not background-shell evidence is present
 
-## Scenario: A declaration on a track that was never in a round is surfaced, not healed
+## Scenario: A ready with no delivered round is retired and a fresh round delivered
 
 Given a track whose state file declares ready
 
-And the track has neither an injection stamp nor a recorded expiry
+And the track has no round-open timestamp and no recorded expiry
 
-When the daemon observes the track below its wind-down threshold
+And the track is at or below its wind-down threshold or carries a context-compaction latch
 
-Then no wrap-up is pasted, because the pane carries a standing declaration
+And the declaration is older than the two-minute declaration grace
 
-And the declaration certifies nothing, because the track has no certification floor
+When the daemon's supervising loop observes the track
 
-And the track is surfaced to the operator for as long as the declaration stands
+Then the daemon deletes the state file and records an alert naming the retired declaration
+
+And it performs no restart
+
+And a later eligible observation opens a fresh round and pastes the wrap-up
+
+And a ready the session writes after that wrap-up certifies against the fresh round
+
+## Scenario: A ready with no delivered round on a track that owes no wind-down is surfaced, not retired
+
+Given a track whose state file declares ready
+
+And the track has no round-open timestamp and no recorded expiry
+
+And the track is above its wind-down threshold and carries no context-compaction latch
+
+When the daemon observes the track
+
+Then the declaration is left standing and certifies nothing
+
+And the track is surfaced to the operator
 
 ## Scenario: A failed un-open leaves a standing round that is surfaced
 
@@ -535,7 +577,7 @@ And no restart is authorized
 
 ## Scenario: A ready declaration on a track that was never in a round certifies nothing
 
-Given a track with no injection stamp and no recorded expiry
+Given a track with no round-open timestamp and no recorded expiry
 
 And a state file declaring ready
 
@@ -5006,3 +5048,47 @@ When the operation renders the account table
 Then that account's row shows an unknown capacity class
 
 And the pass does not fail on that account
+
+## Scenario: A context rise under an unchanged session identity latches a restart obligation
+
+Given a tracked session with a known remaining-context reading
+
+When the daemon reads a known remaining context more than the tolerance higher under the provably same live session identity
+
+Then the daemon durably records a restart-required latch for the track
+
+And it reports the compaction once
+
+And it delivers the wrap-up at the next eligible observation, stating that a compaction requires a restart
+
+And it performs no restart
+
+## Scenario: A changed session identity clears the compaction latch
+
+Given a track carrying a restart-required latch
+
+When the daemon observes a known reading under a different live session identity
+
+Then the latch is cleared
+
+## Scenario: A latched round is never closed as recovered
+
+Given a track carrying a restart-required latch and a delivered round
+
+And its known remaining context is above its wind-down threshold
+
+And its state file is absent
+
+When the daemon's supervising loop observes the track
+
+Then the round stays open
+
+## Scenario: A session told of a compaction keeps its declaration on context recovery
+
+Given a session whose latest wrap-up stated that a context compaction requires a restart
+
+And its own remaining context is above its wind-down threshold
+
+When it finds its own winding-down or ready declaration standing
+
+Then it does not treat that declaration as expired

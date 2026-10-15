@@ -149,8 +149,15 @@ predicate; the idle-with-context-left keep-going nudge and the bounded
 pair-stall nudge, both in spec.md §"The keep-going nudge"; and the bounded
 charter-reminder paste into a stalled reserved-entity picker in spec.md §"The
 stalled-picker charter reminder". The shell is left running and NO such paste
-authorizes a restart. Generating, changing, sub-agent-busy, foreign,
-and ambiguous panes MUST never be pasted into. Bare-shell panes MUST never be
+authorizes a restart. Foreign panes and panes of ambiguous identity MUST never be pasted into.
+Generating, changing, and sub-agent-busy panes MUST never be pasted into by
+any act EXCEPT the low-context wrap-up and its expiry-notice tail: those two
+acts are delivered into a busy pane whose INPUT REGION is positively empty
+and settled, per spec.md §"The supervision round", because winding down is
+the session's own responsibility and a session that never idles could
+otherwise never be restarted. For those two acts "settled" means the input
+region is unchanged across the settle captures; for every other act it means
+the whole pane is. Bare-shell panes MUST never be
 pasted into except for the herdr successor-launch exception below. Gated and human-waiting panes
 MUST never be pasted into by any DAEMON informational act EXCEPT the
 stalled-picker charter reminder under its own complete predicate, which MUST NOT

@@ -330,25 +330,30 @@ that entity's own key.
 - Trigger: effective remaining context at or below the track's threshold AND
   the complete guarded-paste predicate. The threshold is the per-track override
   when set, else the daemon-wide default (50% remaining unless overridden at
-  daemon launch). Claude MUST show a positively empty input box; Codex MUST show
+  daemon launch). Claude MUST show a positively empty input box. An IDLE Codex session MUST show
   its structural idle-input evidence — a live prompt and statusline with no
-  generating marker or picker — because Codex cannot distinguish its empty
+  generating marker or picker — which is sufficient positive evidence that its
+  composer is empty, because Codex cannot distinguish its empty placeholder from
+  typed text in an ANSI-stripped capture. A BUSY Codex session MUST present
+  positive evidence that its composer is empty that distinguishes the
   placeholder from typed text. This Codex divergence applies only to the
   low-context wrap-up and MUST NOT weaken the pair nudge's positively-empty
-  guard. Both settle captures MUST retain the runtime-appropriate eligible input
-  shape and be identical. The pane MUST NOT be generating, changing,
-  sub-agent-busy, gated, runtime-reported as waiting on a human, carrying
+  guard. The trigger also fires for a track carrying a context-compaction latch, at any
+  remaining context. The input region of both settle captures MUST retain the
+  runtime-appropriate positively-empty shape and be identical. When a busy Codex
+  session's composer cannot be proven empty the paste MUST be withheld and the
+  reason surfaced. The pane
+  MUST NOT be gated, runtime-reported as waiting on a human, carrying
   `blocked:`, `ready`, or `done`, or carrying a fresh `winding-down`; a stale
-  acknowledgement MAY resume escalation. Shell-only eligibility MUST be
-  affirmative — recognized Claude registry `status=shell`, or the Codex
-  descendant-shell fallback — and any unknown, conflicting, malformed, or
-  unavailable authoritative status suppresses the paste. Immediately before
-  paste, the daemon MUST re-read managed-pane identity, authoritative runtime
-  busy evidence, declaration, gate, and eligible-input state; any change or
-  unreadable input cancels the act for that tick. No-busy and affirmatively
-  shell-only-busy panes can satisfy this predicate; any other busy evidence
-  cannot. A certifiable `ready` takes only the restart path after its stricter
-  no-busy interlock passes; an uncertifiable `ready` remains report-only and is
+  acknowledgement MAY resume escalation. Busy evidence — generating,
+  sub-agent-busy, monitors, background shells, or a capture that changes
+  outside the input region — MUST NOT suppress the paste. Unknown, conflicting,
+  malformed, or unavailable evidence about the input, the managed-pane
+  identity, a gate, or a human wait suppresses the paste. Immediately before paste, the daemon MUST re-read managed-pane identity,
+  declaration, gate, human-wait, and eligible-input state; any change or
+  unreadable input cancels the act for that tick. A change in busy evidence
+  alone MUST NOT cancel it. A certifiable `ready` takes only the restart path
+  after its stricter no-busy interlock passes; an uncertifiable `ready` remains report-only and is
   not pasted into; a malformed state value remains fail-closed as no declaration.
   The `ready` exclusion applies UNIFORMLY to ANY `ready` token on disk —
   certifiable or not, background-shell evidence present or absent, whichever
@@ -357,11 +362,12 @@ that entity's own key.
   interlock" existing: an implementation MUST NOT tighten this predicate before
   that floor is in place, because doing so removes the only route by which a
   track carrying an uncertifiable declaration currently recovers without a
-  person. It leaves a residual that is a REGRESSION against shipped behavior
-  for one class of track and MUST be stated rather than discovered — a
-  declaration standing on a track that was never in a round, which the floor
-  deliberately does not reach, is surfaced rather than healed (per spec.md
-  §"Fail-soft posture").
+  person. A `ready` standing on a track with no delivered round, which the floor
+  deliberately does not reach, is RETIRED rather than left standing once the
+  track owes a wind-down (per spec.md §"Fail-soft posture"): the daemon
+  deletes the state file under the same-token, same-modification-time guard,
+  exactly as ready-side expiry deletes it, so the next eligible observation
+  opens a fresh round.
 - The injection stamp is written durably BEFORE the message is pasted, so a
   responding declaration always post-dates it.
 - Escalation bands: the threshold itself, then each lower ten-percent band
@@ -380,7 +386,9 @@ that entity's own key.
 - The message is delivered as ONE atomic paste followed by a verified
   submission — a payload is never typed key-by-key, and submission is
   confirmed by runtime-appropriate evidence, with a bounded number of
-  retries.
+  retries. A paste into a busy session is queued by the runtime; its
+  submission MUST be confirmed by evidence that the payload left the input,
+  never by the pane going busy alone.
 
 ## The keep-going nudge
 

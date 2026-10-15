@@ -102,22 +102,36 @@ current harness.
 ## The supervision round
 
 Supervision proceeds in per-track ROUNDS. A round opens when a session at or
-below its wind-down threshold satisfies the runtime-specific eligible-input
-predicate and is settled: Claude requires a positively empty input box; Codex,
-whose empty placeholder cannot be distinguished from typed text, requires its
-structural idle-input evidence — a live prompt and statusline with no generating
-marker or picker. The pane MUST NOT be generating, changing, sub-agent-busy,
-gated, runtime-reported as waiting on a human, or carrying `blocked:`, `ready`,
-`done`, or a fresh `winding-down`; a stale acknowledgement MAY resume escalation.
-Affirmatively recognized background-shell evidence alone does not prevent the
-round. The daemon re-checks every authorization input immediately before acting,
-records an injection stamp durably, then pastes the wrap-up while leaving the
-shell running. The stamp is written BEFORE the paste, so a declaration that
+below its wind-down threshold, or carrying a context-compaction latch, presents
+a POSITIVELY EMPTY input. Claude MUST show a positively empty input box. Codex
+cannot distinguish its empty placeholder from typed text in a plain capture, so
+it MUST present positive evidence that its composer is empty: for an IDLE Codex
+session its structural idle-input evidence — a live prompt and statusline with
+no generating marker or picker — is that evidence; a BUSY Codex session needs
+evidence that distinguishes the placeholder from typed text, and when that
+evidence is unavailable the round MUST NOT open and the track MUST be surfaced
+naming that reason. The input region MUST be identical across the two settle
+captures. The pane MUST NOT show a structured gate or picker, MUST NOT be
+runtime-reported as waiting on a human, and MUST NOT carry `blocked:`, `ready`,
+`done`, or a fresh `winding-down`; a stale acknowledgement MAY resume
+escalation. Busy evidence MUST NOT prevent the round: a generating turn,
+sub-agents, monitors, background shells, and a capture that changes OUTSIDE the
+input region all leave the round eligible. Winding down, including stopping its
+own background processes, monitors and sub-agents before declaring `ready`, is
+the SESSION's responsibility, and a session that never idles could otherwise
+never be restarted. The daemon re-checks every authorization input immediately before acting,
+records an injection stamp durably, then pastes the wrap-up, leaving all running work untouched. The stamp is written BEFORE the paste, so a declaration that
 responds to the wrap-up is always newer than the stamp. The round closes when
 the daemon restarts the session — which deletes the state file and the round's
 stamp together — so a declaration can never re-trigger, and a stamp can never
-outlive its round. The recovered-round closure defined below is the one
-other closure, and it deletes the round's durable record only when the state
+outlive its round. A paste into a busy session is a queued submission. Its
+submission MUST still be confirmed by runtime-appropriate evidence that the
+payload left the input; an unconfirmed submission MUST be handled as a failed
+opening paste. This rule governs DELIVERY only. The restart interlock is
+unchanged: a `ready` declaration restarts a session only under contracts.md
+§"The restart interlock", including its no-busy gates, so a busy session that
+declared `ready` is never killed mid-work. The recovered-round closure defined
+below is the one other closure, and it deletes the round's durable record only when the state
 file is already absent. A subsequent round starts fresh: every escalation
 band may fire again.
 
@@ -169,7 +183,9 @@ track's state file is ABSENT — any session-written token (`ready`,
 `blocked`, `winding-down`, `done`), however stale, holds the round open, an
 unreadable or malformed state file holds the round open exactly as a
 declaration would, and only the daemon's own idle marker is treated as
-absence. It MUST NOT occur while the round's resume submission is pending,
+absence. It MUST NOT occur while the track carries a context-compaction latch (per
+§"The context-compaction latch"), nor while the round's resume submission is
+pending,
 and an unknown or stale context reading MUST NOT count as above-threshold.
 The daemon MUST re-read every one of these closure inputs immediately before
 deleting the record, exactly as it re-checks every authorization input
@@ -180,7 +196,8 @@ escalation band MAY fire again, and a declaration written after the closure
 certifies nothing, exactly as for a declaration on a track that was never in
 a round. One residual is accepted and surfaced rather than closed: a
 standing declaration that can neither certify nor expire holds its round
-open indefinitely, and such a track remains visible through the existing
+open indefinitely (a `ready` that stands with no delivered round is not this
+residual; it is retired under §"Fail-soft posture"), and such a track remains visible through the existing
 standing-declaration attention members — except a standing `done`, which
 holds its round open by design and renders the quiet `done` status rather
 than an attention member, per §"The terminal declaration".
@@ -243,11 +260,11 @@ the escalation, not a band, and it MUST NOT re-open, re-fire, or reset any
 notified band. A failed expiry-notice paste MUST NOT un-open the round and MAY
 be retried on a later observation within the same round's single-notice bound.
 The expiry-notice authorizes nothing. This mechanism is scoped to a DELIVERED
-round only, mirroring the void-notice it supersedes; a round-less standing
-declaration (per §"Fail-soft posture", a declaration standing on a track that
-has NEVER been in a round) has no round to expire within and remains governed
-entirely by that existing, separate, continuously-surfaced rule — it is
-neither expired nor notice-eligible under this paragraph.
+round only, mirroring the void-notice it supersedes; a round-less `ready`
+(per §"Fail-soft posture", a `ready` standing on a track with no delivered
+round) has no round to expire within and is governed
+entirely by the retirement rule of §"Fail-soft posture" — it is neither
+expired nor notice-eligible under this paragraph.
 
 ## The restart
 
@@ -521,7 +538,12 @@ Keystroke-bearing informational pastes share one safety floor: a paste MUST
 remain suppressed while its target is generating, changing, gated,
 runtime-reported as waiting on a human, sub-agent-busy, blocked or done by
 declaration,
-or missing the input evidence that act requires. Background-shell evidence
+or missing the input evidence that act requires — except that the
+generating, changing, and sub-agent-busy legs do NOT apply to the low-context
+wrap-up or its expiry-notice tail, which are delivered into a busy pane whose
+input region is positively empty and settled, per §"The supervision round".
+The keep-going nudge, the pair-stall nudge, and the charter reminder keep all
+three legs. Background-shell evidence
 alone does not suppress an otherwise qualified informational paste. Exactly
 five acts apply that rule: the low-context wrap-up for any supervised
 entity, using the runtime-specific predicate in §"The supervision round";
@@ -625,7 +647,10 @@ to inaction.
 A supervised session's own wind-down intent is scoped to the CONDITION that
 produced it — remaining context at or below the wind-down threshold — and
 MUST be treated by that session as EXPIRED once that condition no longer
-holds. The runtime's own auto-compaction is the recognized case: it can
+holds — except when the latest wrap-up the session received stated that a
+context compaction requires a restart (per §"The context-compaction latch"):
+that intent is scoped to the compaction, not to the remaining-context reading,
+and MUST NOT be treated as expired on context recovery. The runtime's own auto-compaction is the recognized case: it can
 restore a session's remaining context to strictly above its wind-down
 threshold at any point after the session formed a wind-down intent, and it
 does so by an event that can also erase the session's own memory of having
@@ -672,6 +697,47 @@ this rule clears has actually gone absent, and the two rules are
 neighbors, not the same rule: the recovered-round closure is what the
 daemon does once no declaration stands in the way, and this rule is what
 the SESSION itself must do while one still does.
+
+## The context-compaction latch
+
+Remaining context falls monotonically within one context generation, so a
+RISE in a track's remaining context has exactly two causes: the session was
+replaced, or the runtime compacted its context in place. A compacted
+generation is a summary of the one the daemon was winding down, and it MUST be
+treated as EXHAUSTED: the obligation to wind it down and restart it stands at
+any later percentage.
+
+The daemon's supervising loop (never a read-only listing surface) MUST latch a
+track as RESTART-REQUIRED when it observes a KNOWN remaining-context reading
+that exceeds the LOWEST known reading observed under the same live session
+identity by more than a bounded tolerance (five percentage points), while the
+live session identity at the pane is PROVABLY that same identity. Rises within
+the tolerance are noise and do not move the lowest reading back up. A
+changed live session identity is the successor of a completed restart and
+MUST clear the latch. An unprovable identity, an unknown or unreadable
+reading, or a rise within the tolerance MUST change nothing, in either
+direction. No elapsed time and no context reading clears the latch. The latch
+MUST be durable across daemon restarts, held with the track's own durable
+record rather than in memory.
+
+The latch is an OBLIGATION, never an authorization. While it stands:
+
+- the track owes the wind-down at ANY remaining context: the wrap-up trigger
+  of contracts.md §"The wrap-up injection" fires for it, and band selection
+  treats it as at its threshold unless it is genuinely lower;
+- once per latch, the delivered round's already-notified bands are re-armed,
+  so a wrap-up is delivered even when every band was already spent; the
+  round's open time and certification floor MUST NOT move;
+- a latched track's round MUST NOT be closed as recovered under §"The
+  supervision round", whatever its reading;
+- every wrap-up delivered under the latch MUST state that a context
+  compaction was detected and that a restart is required regardless of the
+  remaining context the session sees.
+
+The cardinal rule is unchanged: only the session's own fresh certifiable
+`ready` restarts it, under the unchanged restart interlock. Each latch is
+reported once, as an edge-triggered alert naming the track, both session
+identities compared, and the readings.
 
 ## The terminal declaration
 
@@ -1054,20 +1120,26 @@ take down the loop, and no ambiguous reading may trigger an action:
   a threshold crossing.
 - A storage error on the overseer's own files is reported and survived,
   never raised out of the supervision loop.
-- Generating and sub-agent-busy detection deliberately over-fire: a false
-  positive suppresses action, while a miss could inject into a working session.
+- Generating and sub-agent-busy detection deliberately over-fire for the
+  RESTART: a false positive withholds a restart, while a miss could kill a
+  working session. Busy evidence MUST NOT suppress a wrap-up, wind-down, or
+  expiry-notice paste into a positively empty input.
   Ambiguous, conflicting, malformed, unavailable, or unknown authoritative
-  runtime evidence therefore resolves toward doing nothing. Shell-only
+  runtime evidence therefore resolves toward withholding a restart, and
+  ambiguous evidence about the input, the pane's identity, a gate, or a human
+  wait resolves toward withholding a paste. Shell-only
   eligibility is affirmative: Claude requires recognized registry
   `status=shell`; Codex requires its descendant-shell fallback. Recognized
   shell-only evidence neither authorizes an act nor suppresses a separately
-  qualified informational paste. Action suppression remains unbounded for
-  generating, changing, sub-agent-busy, and ambiguous evidence, and bounded for
-  ATTENTION (see below).
+  qualified informational paste. RESTART suppression remains unbounded for
+  generating, changing, sub-agent-busy, and ambiguous evidence. PASTE
+  suppression remains unbounded only for typed, unreadable, or unproven-empty
+  input, gates, human waits, standing declarations, and ambiguous identity
+  evidence. Both are bounded for ATTENTION (see below).
 - Every authorization check is fail-closed: absent, unreadable, or
   unexpected inputs answer "no".
 
-Suppressing action without limit for generating, changing, sub-agent-busy,
+Suppressing a RESTART without limit for generating, changing, sub-agent-busy,
 or ambiguous evidence is correct; shell-only evidence does not by itself impose
 that suppression. Suppressing ATTENTION without limit is not. A track can sit in a state in which no supervision round can
 open — a busy classification that never ends, a standing `blocked:`
@@ -1101,15 +1173,28 @@ branch still runs its own reporting and its own predicate evaluation:
 surfacing a dead end and evaluating the wrap-up are independent obligations,
 and satisfying the first MUST NOT discharge the second.
 
-A declaration standing on a track that has NEVER been in a round — no
-injection stamp and no recorded expiry, as after an out-of-band session
-replacement, a lost sidecar, or an unprompted write — carries no certification
-floor and therefore cannot certify. The daemon MUST NOT paste into that pane
-either, because a standing declaration is never keystroked over (per
-contracts.md §"The wrap-up injection"). Such a track MUST be surfaced to the
-operator for as long as the declaration stands, and the state MUST NOT be
-described as self-healing: it is not, and the track receives no further
-escalation-band warnings while its remaining context runs down. A fresh session-written `ready`
+A `ready` declaration standing on a track with NO DELIVERED ROUND — no
+round-open timestamp and no recorded expiry, as after a failed opening paste
+whose round was un-opened, an out-of-band session replacement, a lost sidecar,
+or an unprompted write — carries no certification floor and cannot certify. It
+MUST NOT be left to block the wind-down. When the daemon's supervising loop
+(never a read-only listing surface) observes such a `ready` on a track whose
+remaining context is KNOWN and at or below its wind-down threshold, or which
+carries a context-compaction latch, and the declaration has stood unchanged
+past the same two-minute grace, measured from the declaration's own
+modification time, that governs voiding a `blocked:` declaration, the daemon
+MUST retire it. It MUST re-read the state file immediately before acting, MUST
+delete the state file only if it still holds that same `ready` token with the
+same modification time, and MUST NOT restart, keystroke, or open a round in the
+same act. The retirement is recorded as an edge-triggered alert naming the
+track and the retired declaration's age; it writes no new state-file value. The ordinary
+wrap-up predicate of §"The supervision round" then opens a fresh round on that
+or a later observation, and a `ready` the session writes in answer certifies
+against that round normally. The retirement authorizes NOTHING. A failed
+retirement delete MUST be surfaced through the attention surface and MUST NOT
+be retried as anything but the same guarded delete. A `ready` on an un-rounded track that
+owes no wind-down (above threshold, no latch) is left standing and surfaced
+exactly as before, and that state MUST NOT be described as self-healing. A fresh session-written `ready`
 remains the SOLE restart authorization. Each floor MUST be long enough that
 ordinary long-running background work completes inside it, so a genuine
 build is not ordinarily reported; a genuine command that outlives its floor
