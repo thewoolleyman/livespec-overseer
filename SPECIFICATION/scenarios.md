@@ -5152,3 +5152,111 @@ When the round that attempt belongs to closes
 Then the attempt is released
 
 And the next prompt delivered to that pane is pasted afresh
+
+## Scenario: A daemon message is delivered through a session-bound channel when one is available
+
+Given a supervised worker whose runtime offers a supported channel addressed by its live session identity
+
+And the daemon owes it a wrap-up whose guarded predicate holds
+
+When the daemon delivers the wrap-up
+
+Then the message is sent through the channel and no keystroke is typed into the pane
+
+And the round's stamp was written before the delivery
+
+And the track's row and the daemon log name the channel as the delivery path
+
+## Scenario: A keep-going nudge is delivered through a session-bound channel
+
+Given a supervised worker idle above its threshold whose keep-going nudge is due
+
+And its runtime offers a supported channel addressed by its live session identity
+
+When the daemon sends the nudge
+
+Then the nudge is sent through the channel, its idle-with-context-left marker is written as for a paste, and no keystroke is typed into the pane
+
+## Scenario: A channel that does not address the session by its live identity is never used
+
+Given a runtime channel that can address a session only by topic name, pane or repository
+
+When the daemon delivers a wrap-up to that session
+
+Then it delivers the wrap-up by the guarded paste and never through that channel
+
+## Scenario: A channel whose addressed identity differs from the targeted session is not used that tick
+
+Given a wrap-up due to a session whose round-open session identity differs from the identity the channel would address
+
+When the daemon performs its immediate pre-delivery re-read
+
+Then the whole act is cancelled for that tick: nothing is sent through the channel and nothing is pasted
+
+## Scenario: A failed channel delivery falls back to the guarded paste
+
+Given a supervised worker whose supported channel refuses a wrap-up before transmission
+
+When the daemon records the outcome
+
+Then it repeats the pre-paste re-read and delivers the same wrap-up by the guarded paste in that act
+
+And the round is not un-opened by the channel failure
+
+And the track's row and the daemon log name both the failed channel attempt and the paste
+
+## Scenario: An unconfirmed channel delivery is held and never sent again
+
+Given a wrap-up sent through a supported channel whose acceptance acknowledgement never arrives
+
+When the daemon next observes the track
+
+Then the round stays open with its stamp unchanged and the unconfirmed delivery is surfaced
+
+And the wrap-up is neither pasted nor sent through the channel again
+
+And no later daemon message is delivered to that session while the delivery is held
+
+## Scenario: The resume prompt and the picker-stall relay keep their paste forms
+
+Given a supervised worker whose runtime offers a supported channel
+
+When the daemon delivers a restart's resume prompt or a picker-stall relay to it
+
+Then it uses the paste form and its existing submission and retry rules, never the channel
+
+## Scenario: A held channel delivery is released when its acceptance is later confirmed
+
+Given a wrap-up held as an unconfirmed channel delivery
+
+When a late acceptance acknowledgement for it arrives, or a turn is observed starting on a pane that was not already busy
+
+Then the delivery is recorded as delivered and the hold is released
+
+And the round's stamp is unchanged
+
+## Scenario: A held keep-going nudge is released when its idle episode ends
+
+Given a keep-going nudge held as an unconfirmed channel delivery
+
+When the session is next observed non-idle
+
+Then the hold is released and a later idle episode may be nudged again
+
+## Scenario: A paste on a runtime with no supported channel records the paste path
+
+Given a supervised worker whose runtime offers no supported channel
+
+When the daemon delivers a wrap-up
+
+Then it pastes the wrap-up and the track's row and the daemon log name the paste as the delivery path
+
+## Scenario: A failed channel delivery with no fallback paste un-opens its round
+
+Given a wrap-up whose supported channel refuses it before transmission
+
+And no paste follows in the same act
+
+When the daemon records the outcome
+
+Then the round is un-opened and the track's row and the daemon log record the failed channel delivery

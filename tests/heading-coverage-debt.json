@@ -1846,5 +1846,89 @@
     "heading": "## Scenario: A provider-refused claim is reported, not failed",
     "work_item": "overseer-33kyxp",
     "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A daemon message is delivered through a session-bound channel when one is available",
+    "work_item": "overseer-uepcr6",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A keep-going nudge is delivered through a session-bound channel",
+    "work_item": "overseer-uepcr6",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A channel that does not address the session by its live identity is never used",
+    "work_item": "overseer-uepcr6",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A channel whose addressed identity differs from the targeted session is not used that tick",
+    "work_item": "overseer-uepcr6",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A failed channel delivery falls back to the guarded paste",
+    "work_item": "overseer-uepcr6",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unconfirmed channel delivery is held and never sent again",
+    "work_item": "overseer-uepcr6",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The resume prompt and the picker-stall relay keep their paste forms",
+    "work_item": "overseer-uepcr6",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A held channel delivery is released when its acceptance is later confirmed",
+    "work_item": "overseer-uepcr6",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A held keep-going nudge is released when its idle episode ends",
+    "work_item": "overseer-uepcr6",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A paste on a runtime with no supported channel records the paste path",
+    "work_item": "overseer-uepcr6",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A failed channel delivery with no fallback paste un-opens its round",
+    "work_item": "overseer-uepcr6",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "contracts.md",
+    "heading": "## Daemon message delivery channel",
+    "work_item": "overseer-uepcr6",
+    "first_seen": "2026-10-15"
   }
 ]
