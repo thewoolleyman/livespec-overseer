@@ -169,6 +169,49 @@ it never selects a protected account below its floor. `CAAM_ROTATE_FABLE_REMAINI
 restores the earlier behaviour exactly: rotate only when the active account's Fable
 is fully spent.
 
+### Usage-Limit Refusals
+
+A refusal for a usage limit is ground truth about an account's allowance; a usage
+percentage is a report about it. On 2026-10-13 an account read 45 percent of its
+five-hour window remaining nine minutes before it refused every session on the
+host, and the loop held every pass. So every pass also reads the refusal records
+that tracked sessions' transcripts already carry -- it sends no request of its own
+-- and a refusal attributed to the active account rotates the fleet off it
+whatever the usage figures report.
+
+This trigger has no configuration of its own. It governs wherever it fires:
+candidates are compared on the window the refusal NAMES and the departing
+account's headroom on that window is taken as zero, so the eligibility margin,
+the weekly reserve, every per-account protection floor, the zero-weekly and
+cannot-serve disqualifiers and live verification all apply beneath it unchanged.
+
+Its trigger line names `usage-limit refusal`, the account, the window it refused
+on and the instant the refusal was recorded. Its switch line names the same
+refusal and instant beside the destination's weekly percent remaining and time to
+weekly reset. Read that instant against the table printed above the decision:
+those figures will disagree with the move, and the time the refusal was recorded
+is what reconciles them. Where no candidate survives the other rules the pass
+holds and says both things -- that the active account is refusing requests, and
+that no account could be selected.
+
+An account a refusal holds is never selected, whatever its readings report, until
+that refusal lapses: when the reset the provider reported passes, or -- where it
+reported none -- when a later reading of the named window shows it fully
+replenished or shows a reset more than a minute later than the one that window
+carried when the refusal was attributed. That hold is what keeps the trigger from
+oscillating, since the lagging reading on an account that has refused is exactly
+the one that would otherwise attract a return to it.
+
+Refusals are only ever attributed to the account that was actually spending. A
+session's own agent configuration directory decides whether it authenticates with
+the host-wide live credential, so the refresh-maintenance sandbox and any
+separately provisioned credential contribute nothing; a refusal recorded before
+the operation observed this account become active belongs to whatever was active
+then; and a refusal whose reported reset matches, within a minute, the same
+window's reset last read on an account just departed belongs to that account,
+because concurrent sessions keep spending a departed credential for a while after
+a switch.
+
 ### Expiring Weekly Quota Drain
 
 A scheduled pass that has no forced or threshold-triggered rotation drains quota
