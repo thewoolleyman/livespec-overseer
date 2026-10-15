@@ -31,6 +31,7 @@ from caam_decision import UsageRecord
 from tests.test_caam_anthropic_loop import (
     FakeProcess,
     caam_loop_module,
+    no_plan_read,
     write_creds,
     write_snapshot,
 )
@@ -129,6 +130,7 @@ def _run(
         now=_NOW,
         stdout=lines.append,
         caam_runner=lambda *, args: FakeProcess(),
+        capacity_source=no_plan_read,
         fetcher=_fetcher,
         save_state=lambda *, state, state_path: None,
         agent_runner=agent,

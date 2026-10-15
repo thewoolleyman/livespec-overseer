@@ -7,11 +7,13 @@ from datetime import datetime
 from math import inf
 from typing import Protocol
 
+from caam_capacity import AccountCapacity, capacity_cell
 from caam_decision_models import ExtraUsage
 from caam_scoped_model import SCOPED_MODEL
 from caam_spend_report import extra_usage_cells
 
 __all__: list[str] = [
+    "CAPACITY_COL",
     "CURRENT_COL",
     "RenderableProfileUsage",
     "RenderableUsageRecord",
@@ -48,6 +50,7 @@ class RenderableProfileUsage(Protocol):
     name: str
     source: str
     usage: RenderableUsageRecord | None
+    capacity: AccountCapacity | None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -60,6 +63,9 @@ class SwitchTargetSummary:
 
 
 CURRENT_COL = 8
+# Wide enough for the longest class-plus-detail Anthropic produces,
+# `large (default_claude_max_20x)`, so SOURCE stays in one column.
+CAPACITY_COL = 30
 
 
 def fmt_duration(*, seconds: float) -> str:
@@ -96,7 +102,7 @@ def render_table(
         "",
         f"{'PROFILE':<13} {'CURRENT':<{CURRENT_COL}} {'5H LEFT':>7} {'5H RESET':>13} "
         f"{'WEEK LEFT':>9} {'WEEK RESET':>13} {'FABLE LEFT':>10} {'FABLE RESET':>13} "
-        f"{'EXTRA':>7} {'$ LEFT':>8}   SOURCE",
+        f"{'EXTRA':>7} {'$ LEFT':>8}  {'CAPACITY':<{CAPACITY_COL}}  SOURCE",
     ]
     lines.extend(row_line(row=row, active_name=active_name, now=now) for row in rows)
     lines.append("")
@@ -225,17 +231,21 @@ def decision_switched(
 def row_line(*, row: RenderableProfileUsage, active_name: str, now: datetime) -> str:
     is_active = row.name == active_name
     source = _display_source(source=row.source, is_active=is_active)
+    # The capacity class comes from its OWN read, so it is rendered on every
+    # branch below: an account whose quota is unreadable or stale can still have
+    # a perfectly readable plan, and the requirement is every account ROW.
+    capacity = capacity_cell(capacity=row.capacity)
     if row.usage is None:
         return (
             f"{row.name:<13} {current_cell(is_active=is_active)} "
             f"{'-':>7} {'-':>13} {'-':>9} {'-':>13} {'-':>10} {'-':>13} "
-            f"{'-':>7} {'-':>8}   {source}"
+            f"{'-':>7} {'-':>8}  {capacity:<{CAPACITY_COL}}  {source}"
         )
     if stale_past_reset(usage=row.usage, source=row.source, now=now, is_active=is_active):
         return (
             f"{row.name:<13} {current_cell(is_active=is_active)} "
             f"{'?':>7} {'reset':>13} {'?':>9} {'reset':>13} {'?':>10} {'reset':>13} "
-            f"{'?':>7} {'?':>8}   {source}, stale"
+            f"{'?':>7} {'?':>8}  {capacity:<{CAPACITY_COL}}  {source}, stale"
         )
     # Every cell is the stored figure printed as it stands: the record already
     # holds what each allowance has LEFT, which is what these columns are named
@@ -249,7 +259,7 @@ def row_line(*, row: RenderableProfileUsage, active_name: str, now: datetime) ->
         f"{row.usage.seven_day_remaining:8.0f}% "
         f"{until(timestamp=row.usage.seven_day_resets_at, now=now):>13} "
         f"{fable:>9} {until(timestamp=row.usage.fable_resets_at, now=now):>13} "
-        f"{extra_state:>7} {extra_left:>8}   {source}"
+        f"{extra_state:>7} {extra_left:>8}  {capacity:<{CAPACITY_COL}}  {source}"
     )
 
 

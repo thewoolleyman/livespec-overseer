@@ -38,6 +38,7 @@ from caam_profile_state import save_state as real_save_state
 from tests.test_caam_anthropic_loop import (
     FakeProcess,
     caam_loop_module,
+    no_plan_read,
     write_creds,
     write_snapshot,
 )
@@ -90,6 +91,7 @@ def _run_real_pass(*, home: Path, argv: list[str]) -> None:
         now=2_000.0,
         stdout=lambda line: None,
         caam_runner=lambda *, args: FakeProcess(),
+        capacity_source=no_plan_read,
         fetcher=fetcher,
         save_state=real_save_state,
         agent_runner=None,
@@ -162,6 +164,7 @@ def test_the_last_write_of_the_pass_carries_the_enforcement_mutation(*, tmp_path
         now=2_000.0,
         stdout=lambda line: None,
         caam_runner=lambda *, args: FakeProcess(),
+        capacity_source=no_plan_read,
         fetcher=lambda *, creds_path, now=None: (_usage(), None),
         save_state=recording_save,
         agent_runner=None,

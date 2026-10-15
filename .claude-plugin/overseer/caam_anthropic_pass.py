@@ -16,6 +16,7 @@ from caam_anthropic_finish import LineWriter, finish
 from caam_anthropic_flags import Flags, scheduled_pass
 from caam_anthropic_revive import revive_pass_profiles
 from caam_anthropic_status import write_status
+from caam_pass_capacity import observe_pass_capacity
 from caam_pass_probe import probe_snapshotless_profiles
 from caam_pass_publish import pass_publication, pass_stamp
 from caam_pass_refusals import observe_pass_refusals
@@ -181,6 +182,19 @@ def _pass_with_active(
     )
     profiles = revive_pass_profiles(
         active_name=active_name, context=context, profiles=profiles, seams=seams
+    )
+    # Observed after the rows are settled and BEFORE the table, because every
+    # exit from here on renders one: a pass that cannot read the active
+    # account's usage still prints the table, and every row of it owes a
+    # capacity class. It is a separate read-only request per account, made with
+    # the same credential that account's usage was polled with, and a failure is
+    # `unknown` rather than an exit code.
+    profiles = observe_pass_capacity(
+        active_name=active_name,
+        home=context.home,
+        now=context.now,
+        profiles=profiles,
+        source=seams.capacity_source,
     )
     protected_accounts = apply_protected_accounts(
         state=context.state,

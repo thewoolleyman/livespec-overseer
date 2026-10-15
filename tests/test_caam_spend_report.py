@@ -140,10 +140,14 @@ def test_the_rendered_table_carries_the_extra_usage_columns() -> None:
 
     assert "EXTRA" in header
     assert "$ LEFT" in header
-    assert capped_row.split()[-3:] == ["CAPPED", "$0.00", "live"]
-    assert spending_row.split()[-3:] == ["on", "$12.50", "snapshot"]
+    # The capacity class sits between the meter and the source, and these rows
+    # carry no capacity observation, so it reads `unknown`. It is named here
+    # rather than skipped over: a trailing-token assertion that did not account
+    # for the column would pass on a table whose meter cells had moved.
+    assert capped_row.split()[-4:] == ["CAPPED", "$0.00", "unknown", "live"]
+    assert spending_row.split()[-4:] == ["on", "$12.50", "unknown", "snapshot"]
     # A row with no usage at all reports no meter reading rather than "off".
-    assert dark_row.split()[-5:] == ["-", "-", "dark:", "no", "token"]
+    assert dark_row.split()[-6:] == ["-", "-", "unknown", "dark:", "no", "token"]
 
 
 def test_a_capped_account_raises_an_alert_naming_the_spend_limit() -> None:

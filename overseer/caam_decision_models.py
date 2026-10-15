@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from caam_capacity import AccountCapacity
+
 __all__: list[str] = [
     "ActiveAccount",
     "EligibleProfiles",
@@ -89,10 +91,23 @@ class UsageRecord:
 
 @dataclass(frozen=True, kw_only=True)
 class ProfileUsage:
+    """One polled account row: its name, where its figures came from, and its plan.
+
+    `capacity` rides HERE rather than inside `UsageRecord` because it is a
+    per-account observation and not a quota figure: it comes from a separate
+    read-only request, it is unaffected by whether the quota read succeeded, and
+    nothing that compares allowances should be able to reach it by accident.
+
+    It defaults to None, which reads as "this pass made no capacity observation"
+    -- a row built from a remembered snapshot or by a test written before the
+    class existed. None is reported as `unknown`, never as a class.
+    """
+
     name: str
     source: str
     usage: UsageRecord | None
     credential_expired: bool = False
+    capacity: AccountCapacity | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
