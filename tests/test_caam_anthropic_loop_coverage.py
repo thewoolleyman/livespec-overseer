@@ -216,14 +216,16 @@ def test_switch_request_active_reader_uses_decision_default_caam_runner(
     *, tmp_path: Path, monkeypatch
 ) -> None:
     module = caam_loop_module()
-    decide_module = importlib.import_module("caam_anthropic_decide")
+    # The lock-held re-read of the active profile lives beside the switch execution
+    # it serves, so the activate seam is patched where that execution imports it.
+    switch_module = importlib.import_module("caam_decide_switch")
     saved: list[dict[str, object]] = []
     out: list[str] = []
     for name in ("active", "target"):
         (tmp_path / ".local/share/caam/vault/claude" / name).mkdir(parents=True)
 
     monkeypatch.setattr(
-        decide_module,
+        switch_module,
         "caam_activate",
         lambda *, args, timeout: FakeProcess(),
     )
