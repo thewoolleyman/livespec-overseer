@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import _supervisor_channel
 import _supervisor_channel_delivery
+import _supervisor_channel_hold
 import _supervisor_launch
 import _supervisor_launch_profile_refresh
 import _supervisor_ready
@@ -147,6 +148,32 @@ def armed_bands(*, record: registry.RoundRecord, compaction_latched_at: float | 
     return set(record.bands)
 
 
+def _mark_delivered(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    due: list[int],
+    eff_ctx: int,
+    compaction_latched_at: float | None,
+    path: str,
+) -> None:
+    """Record a landed wrap-up: every band it answered, the latch, and its route."""
+    repo, topic = track.repo, track.topic
+    for band in due:
+        registry.add_notified_band(repo=repo, topic=topic, band=band, stamp_path=sup.stamp_path)
+    if compaction_latched_at is not None:
+        # Unconditionally, not only when this delivery re-armed anything: a round
+        # OPENED by a latched track resets its bands (and this mark with them), so
+        # leaving it unwritten there would re-arm again on the very next tick.
+        registry.mark_compaction_rearmed(
+            repo=repo,
+            topic=topic,
+            latched_at=compaction_latched_at,
+            stamp_path=sup.stamp_path,
+        )
+    sup.log(message=f"injected wrap-up into {repo}::{topic} (ctx {eff_ctx}%, bands {due}; {path})")
+
+
 def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of these facts
     *,
     sup: Supervisor,
@@ -158,6 +185,7 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
     blocker: str | None = None,
     compaction_latched_at: float | None = None,
     reread: _supervisor_channel_delivery.PreDeliveryReRead | None = None,
+    pane_busy: bool = False,
 ) -> None:
     """Escalating, spam-proof wrap-up injection: warn once per crossed band.
 
@@ -182,6 +210,10 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
     same guarded re-read that authorized the paste; when set it is surfaced in the
     wrap-up so the session reaps the real obstacle before declaring ``ready``.
 
+    ``pane_busy`` is whether the pane was ALREADY busy when this act ran, recorded
+    with an unconfirmed delivery's hold so a later release can judge whether an
+    observed turn started because of the message or was already in flight.
+
     ``reread`` re-runs the caller's own guarded-paste predicate. It is what makes the
     fallback after a refused channel delivery (v060) safe: the paste that rescues the
     refusal runs behind the same gate that authorized the act, re-checked.
@@ -197,6 +229,13 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
     notified = armed_bands(record=round_record, compaction_latched_at=compaction_latched_at)
     due = [b for b in bands if eff_ctx <= b and b not in notified]
     if not due:
+        return
+    held = _supervisor_channel_hold.held_delivery(sup=sup, track=track)
+    if held is not None:
+        # v060: while a delivery to this session is held as unconfirmed, NO later
+        # daemon message reaches it by either path. The round (if one is open) keeps
+        # its stamp, so the held wrap-up is still the one this track owes.
+        _supervisor_channel_hold.surface_hold(sup=sup, track=track, hold=held, pane=target)
         return
     opened_now = round_record.at is None or round_record.malformed_reason is not None
     state = signals.read_state(repo=repo, topic=topic)
@@ -219,6 +258,7 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
         text="",
         kind=_supervisor_channel.WRAPUP_MESSAGE,
         is_codex=is_codex,
+        pane_busy=pane_busy,
         reread=reread,
     )
     # The binding proof is part of the act's immediate pre-delivery re-read, so it runs
@@ -258,22 +298,13 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
         sup=sup, track=track, record=delivered.record
     )
     if submitted:
-        for b in due:
-            registry.add_notified_band(repo=repo, topic=topic, band=b, stamp_path=sup.stamp_path)
-        if compaction_latched_at is not None:
-            # Unconditionally, not only when this delivery re-armed anything: a round
-            # OPENED by a latched track resets its bands (and this mark with them), so
-            # leaving it unwritten there would re-arm again on the very next tick.
-            registry.mark_compaction_rearmed(
-                repo=repo,
-                topic=topic,
-                latched_at=compaction_latched_at,
-                stamp_path=sup.stamp_path,
-            )
-        sup.log(
-            message=(
-                f"injected wrap-up into {repo}::{topic} " f"(ctx {eff_ctx}%, bands {due}; {path})"
-            )
+        _mark_delivered(
+            sup=sup,
+            track=track,
+            due=due,
+            eff_ctx=eff_ctx,
+            compaction_latched_at=compaction_latched_at,
+            path=path,
         )
     else:
         _report_undelivered(

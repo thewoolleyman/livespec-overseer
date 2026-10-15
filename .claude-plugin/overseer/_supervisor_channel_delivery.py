@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
 import _supervisor_channel
+import _supervisor_channel_hold
 import _supervisor_launch
 import _supervisor_ready
 import _supervisor_records
@@ -67,6 +68,10 @@ class DeliveryRequest:
     text: str
     kind: str
     is_codex: bool
+    # Whether the pane was ALREADY busy when this act ran. Recorded with a hold so a
+    # later release can tell a turn that STARTED after the send — evidence the session
+    # took the message — from one that was already in flight and proves nothing.
+    pane_busy: bool = False
     # Present only for an act that DEFINES a pre-paste re-read, which today is the
     # wrap-up alone. Absent, a refused channel is simply reported and retried on a
     # later observation: the contract makes the fallback a MAY, and a fallback with
@@ -234,6 +239,15 @@ def deliver(
     sent = channel.send(text=request.text)
     if sent.outcome == _supervisor_channel.CHANNEL_FAILED:
         return _after_refusal(request=request, channel=channel)
+    if sent.outcome == _supervisor_channel.CHANNEL_UNCONFIRMED:
+        _supervisor_channel_hold.record_unconfirmed(
+            sup=request.sup,
+            track=request.track,
+            message=request.kind,
+            channel=channel.name,
+            identity=channel.addressed_identity,
+            pane_was_busy=request.pane_busy,
+        )
     # An UNCONFIRMED send is the channel's word for the may-have-landed state a paste
     # reports as an unknown effect, so it rides the SAME flag: the caller's round stays
     # open with its stamp unchanged, exactly as v059 already requires for a paste.

@@ -93,6 +93,7 @@ def threshold(*, request: ThresholdRequest) -> ThresholdDecision:
             # (v060) is gated by THIS branch's own guarded-paste predicate rather than
             # by a weaker copy of it living in the delivery helper.
             reread=lambda: _fresh_threshold_observation(request=request) is not None,
+            pane_busy=obs.busy,
         )
         _supervisor_observe.advance_condition(
             episode=obs.istate.winddown_starved_episode,
