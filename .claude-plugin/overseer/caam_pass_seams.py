@@ -16,17 +16,27 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass
-from typing import Final, Protocol
+from typing import Final, Protocol, cast
 
 from _caam_switch_host import caam_activate
-from caam_anthropic_finish import LineWriter
-from caam_warm import AgentProcess, Logger
+from caam_anthropic_decide import SwitchAccount, UsageFetcher
+from caam_anthropic_finish import LineWriter, SaveState
+from caam_anthropic_status import EnforceModels
+from caam_enforcement import enforce_models as default_enforce_models
+from caam_pass_refusals import TrackedSessionSource, tracked_session_source
+from caam_profile_state import save_state as default_save_state
+from caam_profiles import CaamRunner
+from caam_switch import switch_account as default_switch_account
+from caam_usage import fetch_usage
+from caam_warm import AgentProcess, Logger, ResnapshotRunner
 
 __all__: list[str] = [
     "AgentRunner",
+    "PassSeams",
     "default_agent_runner",
     "default_caam_runner",
     "line_logger",
+    "pass_seams",
 ]
 
 _CAAM_TIMEOUT_S: Final = 60.0
@@ -68,4 +78,35 @@ def default_agent_runner(
         check=False,
         capture_output=True,
         text=True,
+    )
+
+
+@dataclass(frozen=True, kw_only=True)
+class PassSeams:
+    fetcher: UsageFetcher
+    save_state: SaveState
+    switch_account: SwitchAccount
+    enforce_models: EnforceModels
+    agent_runner: AgentRunner
+    caam_runner: ResnapshotRunner
+    tracked_sessions: TrackedSessionSource
+
+
+def pass_seams(*, overrides: dict[str, object]) -> PassSeams:
+    """Every seam the pass will use: the caller's where given, production's where not.
+
+    Resolved in ONE place so the pass itself reads as the sequence it performs
+    rather than as a list of defaults, and so a seam added later costs one line
+    here instead of three there.
+    """
+    caam_runner = cast(CaamRunner | None, overrides.get("caam_runner"))
+    agent_runner = cast(AgentRunner | None, overrides.get("agent_runner"))
+    return PassSeams(
+        fetcher=cast(UsageFetcher, overrides.get("fetcher", fetch_usage)),
+        save_state=cast(SaveState, overrides.get("save_state", default_save_state)),
+        switch_account=cast(SwitchAccount, overrides.get("switch_account", default_switch_account)),
+        enforce_models=cast(EnforceModels, overrides.get("enforce_models", default_enforce_models)),
+        agent_runner=default_agent_runner if agent_runner is None else agent_runner,
+        caam_runner=default_caam_runner if caam_runner is None else caam_runner,
+        tracked_sessions=tracked_session_source(overrides=overrides),
     )
