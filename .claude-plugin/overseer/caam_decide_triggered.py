@@ -128,11 +128,16 @@ def _hold_empty_set(
     decision_line: str,
     reasons: tuple[str, ...],
 ) -> int:
+    # The WHOLE vault, not the set the refusal hold left: the diagnosis names
+    # the gate that emptied the candidate set, and the hold is one of them. Fed
+    # only what survived it, it reads a held account as one that was never there
+    # and says so beside a table that still lists its figures.
     population = CandidatePopulation(
-        profiles=arm_candidates(request=request, arm=arm),
+        profiles=request.profiles,
         active_name=request.active_name,
         dimension=arm.bound.dimension,
         protection_floors=request.protection_floors,
+        refusal_held=arm.refusal.held,
     )
     if arm.refusal.holds_active:
         return hold_refusing(
