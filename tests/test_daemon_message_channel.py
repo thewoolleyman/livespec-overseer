@@ -213,3 +213,61 @@ def test_a_nudge_whose_channel_binding_is_unprovable_is_cancelled(*, tmp_path, m
     assert channel.sent == []
     assert nudge_count(fake=fake) == 0
     assert signals.read_state(repo=str(repo), topic=topic) is None
+
+
+def test_an_unconfirmed_channel_delivery_keeps_the_round_open_and_stamped(*, tmp_path, monkeypatch):
+    """DoD 9: an unconfirmed send may have landed, so its round stands unchanged."""
+    monkeypatch.chdir(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
+    clock = {"t": 1000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
+    offer(
+        monkeypatch=monkeypatch,
+        channel=RecordingChannel(
+            addressed_identity=f"claude:{session}:{session}", outcome="unconfirmed"
+        ),
+    )
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        sup.evaluate(track=track, act=True)
+    stamped = registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+
+    assert stamped == 1000.0
+    clock["t"] += 60.0
+    with contextlib.redirect_stderr(_io.StringIO()):
+        sup.evaluate(track=track, act=True)
+    assert (
+        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        == 1000.0
+    )
+
+
+def test_a_refused_channel_delivery_with_no_fallback_unopens_its_round(*, tmp_path, monkeypatch):
+    """DoD 13: a pre-transmission refusal that nothing follows leaves no stamped
+    round standing behind an undelivered wrap-up."""
+    monkeypatch.chdir(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    offer(
+        monkeypatch=monkeypatch,
+        channel=RecordingChannel(
+            addressed_identity=f"claude:{session}:{session}", outcome="failed"
+        ),
+    )
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert (
+        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        is None
+    )
+    assert "channel test-channel: failed" in err.getvalue()
