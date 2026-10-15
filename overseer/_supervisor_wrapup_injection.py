@@ -157,6 +157,7 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
     is_codex: bool = False,
     blocker: str | None = None,
     compaction_latched_at: float | None = None,
+    reread: _supervisor_channel_delivery.PreDeliveryReRead | None = None,
 ) -> None:
     """Escalating, spam-proof wrap-up injection: warn once per crossed band.
 
@@ -180,6 +181,10 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
     ``blocker`` names concrete busy evidence the caller observed for this track in the
     same guarded re-read that authorized the paste; when set it is surfaced in the
     wrap-up so the session reaps the real obstacle before declaring ``ready``.
+
+    ``reread`` re-runs the caller's own guarded-paste predicate. It is what makes the
+    fallback after a refused channel delivery (v060) safe: the paste that rescues the
+    refusal runs behind the same gate that authorized the act, re-checked.
 
     ``compaction_latched_at`` is the standing context-compaction latch's instant, or
     None for an unlatched track. It RE-ARMS this round's bands exactly once (see
@@ -214,6 +219,7 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
         text="",
         kind=_supervisor_channel.WRAPUP_MESSAGE,
         is_codex=is_codex,
+        reread=reread,
     )
     # The binding proof is part of the act's immediate pre-delivery re-read, so it runs
     # BEFORE the round is stamped: a cancelled act must leave no stamped round behind.
