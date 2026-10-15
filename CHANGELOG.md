@@ -1,5 +1,21 @@
 # Changelog
 
+## [5.29.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.29.0...v5.29.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* **caam:** attribute a refusal only where every condition holds ([6826d12](https://github.com/thewoolleyman/livespec-overseer/commit/6826d120e67dd3cfc991b1952f8042614eba16fc))
+* **caam:** diagnose an empty candidate set against the whole vault ([d5e2788](https://github.com/thewoolleyman/livespec-overseer/commit/d5e2788ad7a8bf8fc753798c29839da18a3e5b25))
+* **caam:** end a refusal hold for good once it has lapsed ([98a829f](https://github.com/thewoolleyman/livespec-overseer/commit/98a829f21a52a6e6278149a7ac07bddbf6907301))
+* **caam:** make room for the refusal trigger in the two decision modules ([da79411](https://github.com/thewoolleyman/livespec-overseer/commit/da79411075d057baee4d36cdbca06b690d86211d))
+* **caam:** name the accounts a refusal excluded, and when each refused ([37b1ca1](https://github.com/thewoolleyman/livespec-overseer/commit/37b1ca14ba0e05331f824b5c0470a3b871647cc5))
+* **caam:** name the refusal, and when it was recorded, on the switch line ([935c3b9](https://github.com/thewoolleyman/livespec-overseer/commit/935c3b9e56eea163a41619a1594ee41715cdbf7e))
+* **caam:** never select an account a refusal still holds ([891b848](https://github.com/thewoolleyman/livespec-overseer/commit/891b84860a4109dec4e76b6edda95202932abf87))
+* **caam:** require a STRUCTURAL error marker, not a phrase, for a refusal ([91327e4](https://github.com/thewoolleyman/livespec-overseer/commit/91327e4d02c885e97117de1093222ac0722067dd))
+* **caam:** rotate off an account that is refusing requests ([94438d3](https://github.com/thewoolleyman/livespec-overseer/commit/94438d3b674c5aca75d529b0538a1583da68154c))
+* **caam:** say that the active account is refusing when the pass holds ([90f0cf3](https://github.com/thewoolleyman/livespec-overseer/commit/90f0cf3bb763f8fc7b081ec02113a2d591e2cb5e))
+
 ## [5.29.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.28.3...v5.29.0) (2026-10-15)
 
 
