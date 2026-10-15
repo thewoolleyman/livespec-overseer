@@ -10,6 +10,13 @@ The predicates here mirror the gates `candidate_allowed` applies, in the same
 order, so the cause named is the one that actually emptied the set. They are
 DELIBERATELY not consulted when a target is chosen: nothing in this module can
 admit or reject a candidate, it only decides which true sentence to print.
+
+The refusal hold is the FIRST of those gates, applied before `candidate_allowed`
+sees anything, so it is mirrored here as the first predicate rather than left
+upstream as a filter on what this module is shown. Handed the already-filtered
+set, the diagnosis cannot tell an account that is ABSENT from the vault from one
+a refusal deliberately excluded, and reports the first -- which is the same
+contradiction, against a table that still lists the held account's figures.
 """
 
 from __future__ import annotations
@@ -38,12 +45,18 @@ class CandidatePopulation:
     Carried as one value so the diagnosis reads exactly what selection read. The
     caller hands over its inputs rather than a verdict, which is what keeps this
     module incapable of influencing the choice it explains.
+
+    ``profiles`` is every account in the vault, NOT the set the refusal hold
+    left behind, and ``refusal_held`` names the ones that hold excluded. The two
+    are carried separately because a cause that cannot tell them apart denies
+    the held account exists.
     """
 
     profiles: tuple[ProfileUsage, ...]
     active_name: str
     dimension: str
     protection_floors: Mapping[str, float]
+    refusal_held: frozenset[str] = frozenset()
 
 
 def unverifiable_candidate_names(
@@ -75,20 +88,31 @@ def no_candidate_cause(*, population: CandidatePopulation, gain_needed: float) -
     The margin appears only in the last clause, and only over candidates the
     margin was actually applied to. Where nothing could be verified live there is
     no comparison to report, and the line says so instead.
+
+    A refusal-held account is named by none of the clauses below it, because no
+    gate below ever judged it: saying it failed the margin would report a
+    comparison that was never made against it. Which accounts a refusal excluded,
+    and when each was recorded, is the refusal trigger's own reason to give.
     """
     active_name = population.active_name
     dimension = population.dimension
     others = tuple(profile for profile in population.profiles if profile.name != active_name)
-    if not others:
+    selectable = tuple(profile for profile in others if profile.name not in population.refusal_held)
+    if not selectable:
+        if others:
+            return (
+                f"no account other than {active_name} is selectable this pass, "
+                f"so no {dimension} headroom comparison was made"
+            )
         return (
             f"{active_name} is the only account in the vault, "
             f"so no {dimension} headroom comparison was made"
         )
-    live = tuple(profile for profile in others if _live_verified(profile=profile))
+    live = tuple(profile for profile in selectable if _live_verified(profile=profile))
     if not live:
         return (
             f"no account other than {active_name} could be verified live this pass "
-            f"({_names(profiles=others)}), so no {dimension} headroom comparison was made"
+            f"({_names(profiles=selectable)}), so no {dimension} headroom comparison was made"
         )
     spend_cap_excluded = tuple(profile for profile in live if spend_capped(usage=profile.usage))
     if spend_cap_excluded:

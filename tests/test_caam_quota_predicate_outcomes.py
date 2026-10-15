@@ -408,3 +408,50 @@ def test_the_empty_set_diagnosis_blames_the_margin_while_a_sliver_remains():
     assert "headroom margin over active" in no_candidate_cause(
         population=population, gain_needed=10.0
     )
+
+
+def test_the_empty_set_diagnosis_never_calls_a_refusal_held_account_absent():
+    """A refusal-held account is still IN the vault, so the cause may not deny it.
+
+    The refusal hold is the first gate selection applies, ahead of every gate
+    this diagnosis already mirrors, so an account it excluded is one the
+    diagnosis must account for rather than one it may read as missing. Diagnosed
+    against the already-filtered set, the sole other account in the vault
+    disappears and the line says the active account is the only one there --
+    two lines under a table that lists the held account with healthy figures.
+    """
+    refuser = live(name="refuser", record=account(short_window_remaining=90.0))
+    population = CandidatePopulation(
+        profiles=(refuser,),
+        active_name="active",
+        dimension="five_hour",
+        protection_floors={},
+        refusal_held=frozenset({"refuser"}),
+    )
+
+    assert no_candidate_cause(population=population, gain_needed=10.0) == (
+        "no account other than active is selectable this pass, "
+        "so no five_hour headroom comparison was made"
+    )
+
+
+def test_the_empty_set_diagnosis_judges_only_the_accounts_no_refusal_holds():
+    """Where candidates remain, the held ones are not among those judged.
+
+    Naming a refusal-held account as one that failed the headroom margin would
+    report a comparison that was never made against it.
+    """
+    refuser = live(name="refuser", record=account(short_window_remaining=90.0))
+    sliver = live(name="sliver", record=account(short_window_remaining=0.1))
+    population = CandidatePopulation(
+        profiles=(refuser, sliver),
+        active_name="active",
+        dimension="five_hour",
+        protection_floors={},
+        refusal_held=frozenset({"refuser"}),
+    )
+
+    cause = no_candidate_cause(population=population, gain_needed=10.0)
+
+    assert "refuser" not in cause
+    assert "headroom margin over active" in cause
