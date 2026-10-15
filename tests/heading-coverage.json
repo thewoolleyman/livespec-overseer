@@ -3029,81 +3029,81 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A refusing active account is left whatever its usage reads",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_refusal_trigger.test_scenario_a_refusing_active_account_is_left_whatever_its_usage_reads",
     "work_item": "overseer-pffwyp",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this refusal-trigger scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-pffwyp owns landing it."
+    "reason": "Integration-tier: drives the measured 2026-10-13 incident end to end through the shipped `run_pass` -- anthropic-3 reading 45% five-hour remaining, comfortably clear of the 15% floor, with a session-limit refusal in a real transcript under the live credential's own agent configuration directory nine minutes earlier. The pass must rotate on the refusal alone. Its companion assertion (`test_scenario_the_switch_line_names_the_refusal_and_when_it_was_recorded`) pins the other half of the clause: the switch line names the refusal as the reason and states when it was recorded. CONTROL ARM: the six non-attribution scenarios below share this fixture and hold, so a trigger wired to fire on any transcript at all reddens them rather than satisfying this one."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The operation does not return to an account inside its refusal window",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_refusal_trigger.test_scenario_the_operation_does_not_return_to_an_account_inside_its_refusal_window",
     "work_item": "overseer-pffwyp",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this refusal-trigger scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-pffwyp owns landing it."
+    "reason": "Integration-tier: two passes. The first leaves anthropic-3 on the refusal trigger; the second reads 90% five-hour remaining on it -- more headroom than the active account by far more than the margin, because that lagging reading is exactly what lagged in the first place -- and must hold rather than return. This is the no-oscillation guarantee the refusal hold carries in place of the relative-headroom margin. CONTROL ARM: `test_scenario_a_window_that_actually_reset_ends_the_hold_on_a_refusal_with_no_reset` returns to the account once its window is observed to have moved on, so a hold that could never end does not satisfy this row."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A refusal from another credential or provider is not attributed to the active account",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_refusal_trigger.test_scenario_a_refusal_from_another_credential_or_provider_is_not_attributed",
     "work_item": "overseer-pffwyp",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this refusal-trigger scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-pffwyp owns landing it."
+    "reason": "Integration-tier: three tracked sessions refuse on one pass and none of them is spending the live credential -- the refresh-maintenance sandbox's own configuration directory, a separately provisioned one, and a session of another provider in the default directory. The pass must hold. Asserting the absence of the trigger LINE as well as the absence of a switch is what separates 'not attributed' from 'attributed but no candidate survived'."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A lagging session's refusal after a switch stays with the account just left",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_refusal_trigger.test_scenario_a_lagging_refusal_after_a_switch_stays_with_the_account_just_left",
     "work_item": "overseer-pffwyp",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this refusal-trigger scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-pffwyp owns landing it."
+    "reason": "Integration-tier: three passes on a MOVING clock, which is load-bearing -- the refusal is recorded after the pass that observed the new account become active, so the activation rule cannot be what excludes it and the departed-entry reset match is left to do the work. The operation made this switch itself."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A lagging session's refusal after a hand switch stays with the account left",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_refusal_trigger.test_scenario_a_lagging_refusal_after_a_hand_switch_stays_with_the_account_left",
     "work_item": "overseer-pffwyp",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this refusal-trigger scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-pffwyp owns landing it."
+    "reason": "Integration-tier: the same sequence with the operator switching the host by hand, which the operation is told nothing about. It records an activation whenever it OBSERVES one, so the account the previous activation named is departed either way -- the discriminating difference from the scenario above, and the reason both are pinned rather than one."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A refusal on an account returned to is attributed to it",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_refusal_trigger.test_scenario_a_refusal_on_an_account_returned_to_is_attributed_to_it",
     "work_item": "overseer-pffwyp",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this refusal-trigger scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-pffwyp owns landing it."
+    "reason": "Integration-tier: the other half of the departed rule, and the one that keeps it from over-applying. Four passes leave anthropic-3, return to it before its departed entry's resets have passed, and then record a refusal reporting that account's own current short-window reset -- which is also the reset its departed entry held. It must be attributed, because the entry is dropped the moment that account becomes active again."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Reading jitter does not end a hold on a refusal that reported no reset",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_refusal_trigger.test_scenario_reading_jitter_does_not_end_a_hold_on_a_refusal_with_no_reset",
     "work_item": "overseer-pffwyp",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this refusal-trigger scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-pffwyp owns landing it."
+    "reason": "Integration-tier: a refusal reporting no reset, then a later reading of the named window whose reset sits 30 seconds from the one it showed at attribution. That is the provider's own sub-second jitter straddling a minute boundary, not a reset, so the hold stands. CONTROL ARM: `test_scenario_a_window_that_actually_reset_ends_the_hold_on_a_refusal_with_no_reset` moves the same reading past the tolerance and the hold ends."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A refusal recorded before the account became active is not attributed to it",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_refusal_trigger.test_scenario_a_refusal_recorded_before_the_account_became_active_is_not_attributed",
     "work_item": "overseer-pffwyp",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this refusal-trigger scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-pffwyp owns landing it."
+    "reason": "Integration-tier: the refusal predates the stored activation by a minute and belongs to whatever was active then. Pinned against the SAME fixture that rotates when the refusal is one minute later, so the row turns on the recorded instant rather than on the pass finding no transcript."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A refusal whose reset has passed does not trigger rotation",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_refusal_trigger.test_scenario_a_refusal_whose_reset_has_passed_does_not_trigger_rotation",
     "work_item": "overseer-pffwyp",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this refusal-trigger scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-pffwyp owns landing it."
+    "reason": "Integration-tier: the window the refusal named has already recovered, so the refusal is no longer ground truth about the account and is neither attributed nor held."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A refusing account with no selectable candidate holds and says so",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_refusal_trigger.test_scenario_a_refusing_account_with_no_selectable_candidate_holds_and_says_so",
     "work_item": "overseer-pffwyp",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this refusal-trigger scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-pffwyp owns landing it."
+    "reason": "Integration-tier: the trigger relaxes no other rule, so it can end in a hold -- here the only other account is disqualified for having no weekly allowance left. The assertion is on the LINE, because the whole clause is about what the operator is told: that the active account is refusing requests AND that no account could be selected. A hold reporting only an empty candidate set beside a table showing 45% five-hour remaining explains neither."
   },
   {
     "spec_root": "SPECIFICATION",
