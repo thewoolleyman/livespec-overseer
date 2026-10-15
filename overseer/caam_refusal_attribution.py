@@ -15,6 +15,9 @@ conditions, every one of which must hold, and every one of which FAILS CLOSED:
     stable identifier;
   * the refusal was recorded AFTER the moment the operation last observed this
     account become active;
+  * the refusal was recorded AFTER the attribution floor a lapse on that window
+    left, since a transcript keeps its records and a refusal whose hold has
+    already been discharged would otherwise re-arm it on the very next pass;
   * the reset it reported has not already passed; and
   * that reset does not match, within the one-minute tolerance, the same
     window's reset as last read on any DEPARTED account, because concurrent
@@ -37,6 +40,7 @@ from typing import Final
 
 from caam_decision import ProfileUsage, UsageRecord
 from caam_profiles import ActiveIdentity
+from caam_refusal_lapse import attribution_floor
 from caam_refusal_store import (
     Activation,
     DepartedEntry,
@@ -142,6 +146,13 @@ def _attributable(
     departed: tuple[DepartedEntry, ...],
 ) -> bool:
     if refusal.recorded_at <= activation.at:
+        return False
+    floor = attribution_floor(
+        state=observation.state,
+        account=observation.active.profile,
+        window=refusal.window,
+    )
+    if floor is not None and refusal.recorded_at <= floor:
         return False
     if refusal.resets_at is not None and refusal.resets_at <= observation.now:
         return False
