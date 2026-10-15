@@ -4,7 +4,8 @@ One arm per trigger, and each one needs the same three things before it can
 choose anything: whether an operator pin names the scoped model, which accounts
 a refusal holds, and what the pass is leaving ON. Resolving them once and
 handing them to whichever arm runs is what keeps the arms from disagreeing about
-their own inputs.
+their own inputs -- the refusal standing in particular, which is READ-AND-PRUNE
+against the durable store and must therefore happen exactly once per pass.
 """
 
 from __future__ import annotations
@@ -20,7 +21,13 @@ from caam_decision import (
     UsageRecord,
     five_hour_remaining_floor,
 )
-from caam_refusal_hold import RefusalState, TriggerBinding, refusal_state, trigger_binding
+from caam_refusal_hold import (
+    RefusalState,
+    TriggerBinding,
+    refusal_state,
+    selectable_profiles,
+    trigger_binding,
+)
 from caam_refusal_store import RememberedRefusal
 from caam_refusals import WINDOW_FIVE_HOUR
 from caam_scoped_model import scoped_model_pinned
@@ -30,6 +37,7 @@ __all__: list[str] = [
     "RotationChoice",
     "RotationRequest",
     "arm_active_account",
+    "arm_candidates",
     "resolve_arm",
     "short_window_triggered",
 ]
@@ -82,8 +90,13 @@ class RotationArm:
 
 
 def resolve_arm(*, request: RotationRequest) -> RotationArm:
-    """Resolve the shared terms, once, for whichever arm the pass then runs."""
-    refusal = refusal_state(state=request.context.state, active_name=request.active_name)
+    """Resolve the shared terms, pruning the refusals that have lapsed as it goes."""
+    refusal = refusal_state(
+        state=request.context.state,
+        profiles=request.profiles,
+        active_name=request.active_name,
+        now=request.context.now,
+    )
     return RotationArm(
         scoped_pin=scoped_model_pinned(state=request.context.state),
         refusal=refusal,
@@ -94,6 +107,11 @@ def resolve_arm(*, request: RotationRequest) -> RotationArm:
             protection_floors=request.protection_floors,
         ),
     )
+
+
+def arm_candidates(*, request: RotationRequest, arm: RotationArm) -> tuple[ProfileUsage, ...]:
+    """The rows this pass may select from: every account no refusal holds."""
+    return selectable_profiles(profiles=request.profiles, refusal=arm.refusal)
 
 
 def arm_active_account(*, request: RotationRequest, arm: RotationArm) -> ActiveAccount:
