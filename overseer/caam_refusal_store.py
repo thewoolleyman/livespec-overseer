@@ -19,6 +19,11 @@ decided from a single pass's readings:
                        figure is what ends a hold for a refusal that reported no
                        reset.
 
+A FOURTH memory belongs to the same family and is NOT held here: the attribution
+floor a lapsed refusal leaves, which `caam_refusal_lapse` owns, because dropping
+a lapsed refusal from ``refusals`` does not stop the transcript it was read from
+carrying the record.
+
 CONCURRENT WRITERS MAY OVERWRITE ONE ANOTHER, and contracts.md bounds what that
 costs: a lost refusal memory ends a hold early, at most one return follows and
 the refusal is then attributed afresh; a lost departed entry can attribute a

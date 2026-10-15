@@ -202,6 +202,15 @@ carried when the refusal was attributed. That hold is what keeps the trigger fro
 oscillating, since the lagging reading on an account that has refused is exactly
 the one that would otherwise attract a return to it.
 
+A lapse is final. The transcript the refusal was read from still carries the
+record, so the loop also remembers, per account and window, the latest instant at
+which a refusal on that window lapsed, and attributes no refusal recorded at or
+before it. Without that memory a hold would end for one pass and re-arm on the
+next -- and a refusal that reported no reset would re-arm against the very
+reading that ended it, so the pass would go on reporting that the account is
+refusing requests long after its window had rolled. A refusal recorded AFTER that
+instant is a fresh refusal of the window and holds the account on its own terms.
+
 Refusals are only ever attributed to the account that was actually spending. A
 session's own agent configuration directory decides whether it authenticates with
 the host-wide live credential, so the refresh-maintenance sandbox and any

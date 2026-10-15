@@ -25,6 +25,7 @@ from dataclasses import dataclass, replace
 from typing import Final
 
 from caam_decision import ProfileUsage, UsageRecord, binding, resets_at
+from caam_refusal_lapse import remember_lapsed
 from caam_refusal_store import RememberedRefusal, keep_refusals, remembered_refusals
 from caam_refusals import WINDOW_FIVE_HOUR, window_label
 
@@ -91,16 +92,26 @@ def refusal_state(
     Lapsed refusals are dropped from the durable store as they are read, so that
     a settled refusal neither holds its account nor returns on a later pass. The
     drop is a write to the state this pass will persist; nothing else prunes it.
+
+    Dropping one is not enough on its own, because the transcript the refusal was
+    read from still carries the record: the lapse is ALSO remembered, as the
+    attribution floor `caam_refusal_lapse` keeps, or the next pass would attribute
+    the same refusal afresh and -- for a refusal that reported no reset -- do it
+    against a baseline that makes the hold unendable.
     """
-    kept = tuple(
-        remembered
-        for remembered in remembered_refusals(state=state)
-        if not _lapsed(
-            remembered=remembered,
-            reading=_reading(profiles=profiles, account=remembered.account),
-            now=now,
+    judged = tuple(
+        (
+            remembered,
+            _lapsed(
+                remembered=remembered,
+                reading=_reading(profiles=profiles, account=remembered.account),
+                now=now,
+            ),
         )
+        for remembered in remembered_refusals(state=state)
     )
+    kept = tuple(remembered for remembered, lapsed in judged if not lapsed)
+    remember_lapsed(state=state, lapsed=tuple(r for r, lapsed in judged if lapsed))
     keep_refusals(state=state, remembered=kept)
     return RefusalState(
         held=frozenset(remembered.account for remembered in kept),
