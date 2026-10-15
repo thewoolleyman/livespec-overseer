@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 import _supervisor_channel
 import _supervisor_channel_delivery
 import _supervisor_launch
-import _supervisor_launch_profile_refresh
 import _supervisor_ready
+import _supervisor_wrapup_round
 import registry
 import signals
 from _supervisor_prompts import wrapup_message as _default_wrapup_message
@@ -41,88 +41,6 @@ wrapup_message_provider = _default_wrapup_message
 def with_compaction_notice(*, latched: bool, message: str) -> str:
     """Lead a latched wrap-up with the compaction notice; leave any other untouched."""
     return f"{COMPACTION_WRAPUP_NOTICE}{message}" if latched else message
-
-
-def _report_undelivered(
-    *,
-    sup: Supervisor,
-    track: registry.Track,
-    target: str,
-    opened_now: bool,
-    effect_unknown: bool,
-    path: str,
-) -> None:
-    """A wrap-up whose submission was not confirmed: un-open ONLY a provable failure.
-
-    SPECIFICATION v059: a paste whose effect is unknown may have landed — the 2026-10-15
-    petri wrap-up did, and its session wound down and declared — so its stamped round
-    stays open and a ``ready`` answering it certifies. Only a provably failed paste is
-    rolled back. Either way the bands stay unmarked, so the delivery is retried.
-
-    v060 generalises the same split to a channel: an UNCONFIRMED send is the channel's
-    word for exactly that may-have-landed state, and a pre-transmission refusal is the
-    provable failure. ``path`` names the route and its outcome so the log reports a
-    failed delivery as specifically as it reports a successful one.
-    """
-    repo, topic = track.repo, track.topic
-    if opened_now and not effect_unknown:
-        # Roll back the just-opened round so the next tick retries cleanly.
-        registry.clear_injection_stamp(repo=repo, topic=topic, stamp_path=sup.stamp_path)
-    sup.alert(
-        repo=repo,
-        topic=topic,
-        session=_supervisor_launch.session_of(sup=sup, track=track),
-        pane=target,
-        message=(
-            f"wrap-up delivery UNCONFIRMED (it may have landed); round kept open so "
-            f"a ready answering it certifies; will retry ({path})"
-            if effect_unknown
-            else f"wrap-up injection FAILED (it did not land); will retry ({path})"
-        ),
-        condition=(
-            "wrapup-delivery-unconfirmed" if effect_unknown else "wrapup-injection-submit-failed"
-        ),
-    )
-
-
-def _open_round(
-    *,
-    sup: Supervisor,
-    track: registry.Track,
-    target: str,
-    session: str,
-    identity: str | None,
-) -> bool:
-    """Refresh the launch profile and stamp the round open; False cancels the act.
-
-    Stamp BEFORE the delivery (design) so a marker the session writes has
-    ``mtime > at``. Only on opening — a re-warn preserves the round's ``at``.
-    """
-    repo, topic = track.repo, track.topic
-    _supervisor_launch_profile_refresh.refresh_launch_profile_at_wrapup(
-        sup=sup,
-        track=track,
-        target=target,
-        capture=sup.tmux.capture_pane(session=session),
-    )
-    if identity is None:
-        sup.alert(
-            repo=repo,
-            topic=topic,
-            session=session,
-            pane=target,
-            message="wrap-up round NOT opened; session identity could not be determined",
-            condition="round-identity-undetermined",
-        )
-        return False
-    registry.write_injection_stamp(
-        repo=repo,
-        topic=topic,
-        ts=sup.now(),
-        session_identity=identity,
-        stamp_path=sup.stamp_path,
-    )
-    return True
 
 
 def armed_bands(*, record: registry.RoundRecord, compaction_latched_at: float | None) -> set[int]:
@@ -231,7 +149,7 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
     )
     if cancelled:
         return
-    if opened_now and not _open_round(
+    if opened_now and not _supervisor_wrapup_round.open_round(
         sup=sup, track=track, target=target, session=session, identity=identity
     ):
         return
@@ -258,25 +176,16 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
         sup=sup, track=track, record=delivered.record
     )
     if submitted:
-        for b in due:
-            registry.add_notified_band(repo=repo, topic=topic, band=b, stamp_path=sup.stamp_path)
-        if compaction_latched_at is not None:
-            # Unconditionally, not only when this delivery re-armed anything: a round
-            # OPENED by a latched track resets its bands (and this mark with them), so
-            # leaving it unwritten there would re-arm again on the very next tick.
-            registry.mark_compaction_rearmed(
-                repo=repo,
-                topic=topic,
-                latched_at=compaction_latched_at,
-                stamp_path=sup.stamp_path,
-            )
-        sup.log(
-            message=(
-                f"injected wrap-up into {repo}::{topic} " f"(ctx {eff_ctx}%, bands {due}; {path})"
-            )
+        _supervisor_wrapup_round.mark_delivered(
+            sup=sup,
+            track=track,
+            due=due,
+            eff_ctx=eff_ctx,
+            compaction_latched_at=compaction_latched_at,
+            path=path,
         )
     else:
-        _report_undelivered(
+        _supervisor_wrapup_round.report_undelivered(
             sup=sup,
             track=track,
             target=target,
