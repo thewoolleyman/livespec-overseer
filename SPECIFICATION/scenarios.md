@@ -4528,3 +4528,265 @@ And a drain candidate exists
 When the operation is invoked without the scheduled marker
 
 Then any switch it makes is the explicit rotate-now request and not a drain
+
+## Scenario: A refusing active account is left whatever its usage reads
+
+Given a tracked session on the host-wide live credential recorded a short-window usage-limit refusal after the active account became active
+
+And the usage API reports the active account's short-window remaining above the short-window floor
+
+And an eligible candidate exists
+
+When a scheduled pass runs
+
+Then the operation rotates off the active account
+
+And the switch line names the refusal as the reason and states when it was recorded
+
+## Scenario: The operation does not return to an account inside its refusal window
+
+Given the operation left an account on the refusal trigger
+
+And the reset time that refusal reported has not passed
+
+And that account's usage reading now shows more headroom than the active account by more than the margin
+
+When a scheduled pass runs
+
+Then that account is not selected
+
+## Scenario: A refusal from another credential or provider is not attributed to the active account
+
+Given a usage-limit refusal was recorded by a session on a separately provisioned credential, a session of another provider, or the refresh-maintenance sandbox
+
+And the active account is clear of every rotation threshold
+
+When a scheduled pass runs
+
+Then the refusal does not trigger rotation
+
+## Scenario: A lagging session's refusal after a switch stays with the account just left
+
+Given the operation just left an account on its short-window threshold
+
+And after the switch a tracked session records a short-window refusal whose reported reset time is within one minute of that account's last-read short-window reset time
+
+When a scheduled pass runs
+
+Then the refusal is not attributed to the new active account
+
+## Scenario: A lagging session's refusal after a hand switch stays with the account left
+
+Given the operator switched the host off an account by hand
+
+And a later pass recorded the new active account's activation time
+
+And afterwards a tracked session records a refusal whose reported reset time is within one minute of the replaced account's last-read reset time for that window
+
+When a scheduled pass runs
+
+Then the refusal is not attributed to the new active account
+
+## Scenario: A refusal on an account returned to is attributed to it
+
+Given the operation left an account and later returned to it before its departed entry's reset times passed
+
+And a tracked session on the host-wide live credential then records a refusal reporting that account's current short-window reset time
+
+When a scheduled pass runs
+
+Then the refusal is attributed to that account and triggers rotation
+
+## Scenario: Reading jitter does not end a hold on a refusal that reported no reset
+
+Given an account is refusal-held on a refusal that reported no reset time
+
+And a later reading of that window shows a reset time less than one minute from the one it showed when the refusal was attributed
+
+When a scheduled pass runs
+
+Then the account remains refusal-held
+
+## Scenario: A refusal recorded before the account became active is not attributed to it
+
+Given a usage-limit refusal was recorded before the active account became active
+
+And the active account is clear of every rotation threshold
+
+When a scheduled pass runs
+
+Then the refusal does not trigger rotation
+
+## Scenario: A refusal whose reset has passed does not trigger rotation
+
+Given the active account recorded a usage-limit refusal whose provider-reported reset time has passed
+
+And the active account is clear of every rotation threshold
+
+When a scheduled pass runs
+
+Then the refusal does not trigger rotation
+
+## Scenario: A refusing account with no selectable candidate holds and says so
+
+Given the active account is refusing requests for a usage limit
+
+And no candidate survives the protection floors, the zero-weekly and cannot-serve-immediately disqualifiers, live verification and the margin
+
+When a scheduled pass runs
+
+Then the operation holds
+
+And it reports that the active account is refusing requests and no account could be selected
+
+## Scenario: An account projected to reach the floor before the next pass is left
+
+Given the active account's short-window remaining fell from 75% to 36% between a baseline and a reading of the same window one projection horizon apart
+
+And the short-window floor is 15% remaining
+
+And an eligible candidate exists
+
+When a scheduled pass runs
+
+Then the operation rotates off the active account
+
+And the switch line names the projected short-window drain and states the burn rate
+
+## Scenario: A slowly draining account holds
+
+Given the active account's short-window remaining fell from 75% to 65% between a baseline and a reading of the same window one projection horizon apart
+
+And the short-window floor is 15% remaining
+
+When a scheduled pass runs
+
+Then the fast-drain trigger does not fire
+
+## Scenario: Closely spaced readings do not produce a burn rate
+
+Given the active account's baseline reading was taken less than half the projection horizon before the current reading
+
+When a pass runs
+
+Then the burn rate is unknown
+
+And the baseline is not replaced
+
+## Scenario: No burn rate is computed across a short-window reset
+
+Given the active account's baseline and current reading report short-window reset times more than one minute apart
+
+When a scheduled pass runs
+
+Then the burn rate is unknown
+
+And the fast-drain trigger does not fire
+
+## Scenario: No burn rate is computed across a switch
+
+Given the active account became active after its baseline reading was taken
+
+When a scheduled pass runs
+
+Then the burn rate is unknown
+
+And the fast-drain trigger does not fire
+
+## Scenario: A small candidate that the current load would drain is not selected
+
+Given the active account is in the large capacity class with a short-window burn rate of 10 points per projection horizon
+
+And a candidate in the small capacity class holds 50% short-window remaining
+
+And the short-window floor is 15% remaining
+
+And the capacity weights are large 7 and small 1
+
+When the operation selects a destination
+
+Then the small candidate is not selected
+
+## Scenario: A small candidate is selectable under light load
+
+Given the active account is in the large capacity class with a short-window burn rate of 1 point per projection horizon
+
+And a candidate in the small capacity class holds 50% short-window remaining
+
+And the short-window floor is 15% remaining
+
+And the capacity weights are large 7 and small 1
+
+When the operation selects a destination
+
+Then the capacity test does not exclude the small candidate
+
+## Scenario: The capacity test uses the remembered fleet load after a switch
+
+Given the active account's burn rate is unknown because it became active since its baseline
+
+And a fleet load was recorded less than twice the projection horizon ago
+
+When the operation applies the capacity test
+
+Then it uses that recorded fleet load
+
+## Scenario: A candidate of unknown capacity is weighted as the smallest class
+
+Given a candidate whose capacity class cannot be determined
+
+And a fleet load is available
+
+When the operation applies the capacity test
+
+Then the candidate is weighted as the smallest capacity class configured for its provider
+
+## Scenario: The capacity test is released for a refusing account when no candidate passes it
+
+Given the active account is refusing requests for a usage limit
+
+And every candidate that survives the other rules fails the capacity test
+
+When a scheduled pass runs
+
+Then the operation selects among those candidates by soonest weekly reset
+
+## Scenario: The capacity test holds when it excludes every candidate and the active account is not refusing
+
+Given the active account has triggered rotation at its short-window floor
+
+And the capacity test excludes every candidate
+
+When a scheduled pass runs
+
+Then the operation holds
+
+And it reports that no candidate can carry the current load until the next pass
+
+## Scenario: The account table shows each account's capacity class
+
+Given the provider reports a large plan for one account and a small plan for another
+
+When the operation renders the account table
+
+Then each row shows its capacity class with the provider's plan name as detail
+
+## Scenario: A plan change shows without a fresh login
+
+Given an account's stored login-time credential names a large plan
+
+And the provider's live read reports a small plan for that account
+
+When the operation renders the account table
+
+Then that account's row shows the small capacity class
+
+## Scenario: An unreadable plan shows unknown
+
+Given the live plan read for an account fails
+
+When the operation renders the account table
+
+Then that account's row shows an unknown capacity class
+
+And the pass does not fail on that account
