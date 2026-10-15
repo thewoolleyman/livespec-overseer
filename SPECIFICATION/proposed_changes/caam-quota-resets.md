@@ -63,7 +63,7 @@ When a rotation trigger fires on the active account and no candidate survives, s
 
 ### Motivation
 
-The maintainer's first use case: spend a reset when the window it resets is almost completely exhausted and a reset is available. Rotation already handles exhaustion while an eligible candidate exists, and that spends no scarce reset. The case rotation cannot handle is the hold, where every session on the host waits for the window to replenish. Research note 002 measured anthropic-3 at a 100% short window with both a session reset and a granted reset available. The maintainer also asked that a reset not be spent on a window that is about to reset on its own anyway. And the existing never-refresh clause permits read-only requests only, so claiming needs a deliberate, bounded exception rather than a silent breach.
+The maintainer's first use case: spend a reset when the window it resets is almost completely exhausted and a reset is available. Rotation already handles exhaustion while an eligible candidate exists, and that spends no scarce reset. The case rotation cannot handle is the hold, where every session on the host waits for the window to replenish. Research note 002 measured anthropic-3 at a 100% short window with both a session reset and a granted reset available. The maintainer also asked that a reset not be spent on a window that is about to reset on its own anyway. And the existing never-refresh clause permits read-only requests only, so claiming needs a deliberate, bounded exception rather than a silent breach. This proposal is revised after caam-capacity-aware-rotation, whose refusal trigger, fast-drain trigger, refusal hold and capacity-test release it names; the refusal sentence keeps a reset from ever being spent while a refusing account can still be left.
 
 ### Proposed Changes
 
@@ -73,7 +73,7 @@ The operation MUST perform read-only requests only, with the single exception of
 
 Then insert the following paragraph immediately after the **Ranking** paragraph:
 
-**A reset MUST be claimed rather than held at an exhausted window.** Where an invocation carrying the scheduled marker finds that a rotation trigger has fired on the active account — the short-window threshold, the weekly reserve, its own protection floor, or the scoped-model reserve — and no candidate survives the rules of this section, so that the operation would hold, the operation MUST claim one of the active account's resets that is usable now and clears every window whose trigger fired, before it holds. Rotation MUST remain preferred: while any candidate survives, the operation MUST rotate and MUST NOT claim under this clause. The operation MUST NOT claim under this clause where every window whose trigger fired is reported to replenish on its own within a configurable SELF-RESET HORIZON, whose default MUST be sixty minutes, because such a claim buys at most that horizon's worth of use at the price of a reset. Where several resets qualify, the operation MUST prefer a reset that clears ONLY the windows whose trigger fired over one that clears more, and among those equal on that test MUST prefer the one that lapses soonest, treating a reset with no reported lapse as lapsing last. After a claim, the operation MUST re-read the active account and MUST re-evaluate the rotation triggers against the fresh reading, holding if no trigger still fires.
+**A reset MUST be claimed rather than held at an exhausted window.** Where an invocation carrying the scheduled marker finds that a rotation trigger has fired on the active account — the short-window threshold, the weekly reserve, its own protection floor, the scoped-model reserve, the usage-limit refusal trigger, or the fast-drain trigger — and no candidate survives the rules of this section, so that the operation would hold, the operation MUST claim one of the active account's resets that is usable now and clears every window whose trigger fired, before it holds. Rotation MUST remain preferred: while any candidate survives, the operation MUST rotate and MUST NOT claim under this clause. Where the active account is refusal-held, the refusal trigger governs: the operation MUST rotate while any candidate survives, including under the capacity-test release, MAY claim a reset that clears the refused window only where none survives, and a claim whose re-read shows that window replenished ends the refusal hold. The operation MUST NOT claim under this clause where every window whose trigger fired is reported to replenish on its own within a configurable SELF-RESET HORIZON, whose default MUST be sixty minutes, because such a claim buys at most that horizon's worth of use at the price of a reset. Where several resets qualify, the operation MUST prefer a reset that clears ONLY the windows whose trigger fired over one that clears more, and among those equal on that test MUST prefer the one that lapses soonest, treating a reset with no reported lapse as lapsing last. After a claim, the operation MUST re-read the active account and MUST re-evaluate the rotation triggers against the fresh reading, holding if no trigger still fires.
 
 In scenarios.md, add these scenarios after "## Scenario: A reset reading declined for the requesting client is unreadable, not empty":
 
@@ -127,6 +127,32 @@ And the account holds a usable reset clearing only its short window and another 
 When a scheduled pass runs
 
 Then the operation claims the reset that clears only the short window
+
+## Scenario: A refusal-held active account rotates under the capacity-test release rather than claiming a reset
+
+Given the active account is refusal-held on a short-window refusal
+
+And every candidate that survives the other rotation rules fails the capacity test
+
+And the active account holds a usable reset that clears its short window
+
+When a scheduled pass runs
+
+Then the operation rotates to the best-ranked of those candidates
+
+And it claims no reset
+
+## Scenario: A claim that replenishes the refused window ends the refusal hold
+
+Given the active account is refusal-held on a short-window refusal and no candidate survives
+
+And the active account holds a usable reset that clears its short window
+
+When a scheduled pass claims that reset and the re-read shows the short window replenished
+
+Then the active account is no longer refusal-held
+
+And the operation holds on it without rotating
 ```
 
 
