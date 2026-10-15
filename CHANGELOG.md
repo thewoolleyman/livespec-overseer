@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.29.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.28.3...v5.29.0) (2026-10-15)
+
+
+### Features
+
+* **overseer:** deliver the wrap-up to busy sessions and retire un-rounded ready (v058) ([e1fd22b](https://github.com/thewoolleyman/livespec-overseer/commit/e1fd22b88b5de973b4b3afbd92ff9d8a3dc9194d))
+
+
+### Bug Fixes
+
+* **overseer:** keep an unconfirmed herdr wrap-up round open; release stuck submits (v059) ([77898b7](https://github.com/thewoolleyman/livespec-overseer/commit/77898b72fa89e46b2d303cf59b2d98740baf1a9c))
+
 ## [5.28.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.28.2...v5.28.3) (2026-10-14)
 
 
