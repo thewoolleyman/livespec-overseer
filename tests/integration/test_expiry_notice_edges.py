@@ -8,7 +8,7 @@ import _supervisor_config
 
 from overseer import registry, signals
 from overseer.test_supervisor_builders import (
-    busy_capture,
+    busy_typed_capture,
     declare,
     idle_capture,
     make_plan,
@@ -115,7 +115,7 @@ def test_a_busy_pane_defers_the_notice_to_a_later_observation(*, tmp_path):
     clock["t"] = 1010.0 + MAX_AGE + 1.0
     sup.evaluate(track=track, act=True)
 
-    fake.serve(session=session, repo=repo, capture=busy_capture(ctx=40))
+    fake.serve(session=session, repo=repo, capture=busy_typed_capture(ctx=40))
     clock["t"] += 1.0
     assert sup.evaluate(track=track, act=True).status == "working"
     assert _notices(fake=fake) == []

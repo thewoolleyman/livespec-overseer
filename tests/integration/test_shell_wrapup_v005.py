@@ -10,7 +10,7 @@ from overseer import codex_sessions, registry, signals
 from overseer.test_supervisor_builders import (
     adopt_codex_ready,
     arm_ready_marker,
-    busy_capture,
+    busy_typed_capture,
     codex_busy_capture,
     codex_idle_capture,
     declare,
@@ -131,36 +131,6 @@ def test_codex_shell_only_evidence_does_not_withhold_or_void_a_certified_ready(*
     assert respawns[0][3] == "codex --dangerously-bypass-approvals-and-sandbox"
     assert session_id not in respawns[0][3]  # a wrap-up restart is a FRESH session
     assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
-
-
-@pytest.mark.parametrize(
-    ("capture", "claude_status", "expected_note"),
-    [
-        (busy_capture(ctx=40), None, None),
-        (idle_capture(ctx=40), "busy", "sub-agent (Claude busy)"),
-    ],
-)
-def test_generating_and_sub_agent_evidence_still_suppress_wrapup(
-    *, tmp_path, capture, claude_status, expected_note
-):
-    repo, topic = make_plan(tmp_path=tmp_path)
-    session = registry.tmux_id(repo=str(repo), topic=topic)
-    fake = FakeTmux()
-    fake.serve(session=session, repo=repo, capture=capture)
-    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    if claude_status is not None:
-        sup.claude_status_by_session = {session: claude_status}
-
-    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
-
-    assert view.status == "working"
-    assert view.note == expected_note
-    assert wrapup_count(fake=fake) == 0
-    assert (
-        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-        is None
-    )
-    assert not fake.has(method="respawn")
 
 
 @pytest.mark.parametrize(
@@ -289,7 +259,9 @@ def test_pre_paste_recheck_cancels_when_capture_changes_after_settle(*, tmp_path
             idle_capture(ctx=40),
             idle_capture(ctx=40),
             idle_capture(ctx=40),
-            busy_capture(ctx=40),
+            # Typed input appearing after the settle: an INPUT change, which still
+            # cancels; a busy-evidence change alone no longer does (spec v058).
+            busy_typed_capture(ctx=40),
         ],
     )
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
@@ -311,7 +283,8 @@ def test_pre_paste_recheck_cancels_when_claude_status_changes_after_settle(*, tm
     _change_before_fresh_observe(
         fake=fake,
         after_captures=4,
-        change=lambda: sup.claude_status_by_session.update({session: "idle"}),
+        # A runtime-reported human wait appearing after the settle cancels the paste.
+        change=lambda: sup.claude_status_by_session.update({session: "waiting"}),
     )
 
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
@@ -327,7 +300,8 @@ def test_pre_paste_recheck_cancels_when_codex_fallback_changes_after_settle(*, t
     fake.serve(
         session=session,
         repo=repo,
-        capture=[codex_idle_capture(ctx=40, topic=topic)] * 4 + [codex_busy_capture(ctx=40)],
+        # The composer stops being provably empty after the settle (Codex goes busy).
+        capture=[codex_idle_capture(ctx=40, topic=topic)] * 3 + [codex_busy_capture(ctx=40)],
         cmd="bun",
     )
     shell_children = {100: [200]}
@@ -344,12 +318,6 @@ def test_pre_paste_recheck_cancels_when_codex_fallback_changes_after_settle(*, t
             pid=321, name=topic, cwd=str(repo), session_id="codex-1"
         )
     }
-    _change_before_fresh_observe(
-        fake=fake,
-        after_captures=4,
-        change=lambda: children.clear(),
-    )
-
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
 
     assert view.status == "settling"

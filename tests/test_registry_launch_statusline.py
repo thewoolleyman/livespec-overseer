@@ -169,7 +169,7 @@ def test_malformed_round_note_names_non_numeric_injection_stamp(*, tmp_path: Pat
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
-    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=70))  # owes no wind-down
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     stamp_path = Path(sup.stamp_path)
     stamp_path.write_text(

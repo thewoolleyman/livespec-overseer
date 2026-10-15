@@ -24,6 +24,9 @@ from test_supervisor_capture_builders import (
     busy_capture as busy_capture,
 )
 from test_supervisor_capture_builders import (
+    busy_typed_capture as busy_typed_capture,
+)
+from test_supervisor_capture_builders import (
     codex_busy_capture as codex_busy_capture,
 )
 from test_supervisor_capture_builders import (

@@ -127,7 +127,9 @@ def test_textually_busy_pane_has_no_background_shell_note(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
-    fake.serve(session=session, repo=repo, capture=busy_capture(ctx=40))  # actively generating
+    fake.serve(
+        session=session, repo=repo, capture=busy_capture(ctx=70)
+    )  # actively generating, above the line
     fake.pane_pid_map[session] = 100
     children = {100: [200]}
     comms = {200: "zsh"}

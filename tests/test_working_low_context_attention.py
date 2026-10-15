@@ -7,7 +7,7 @@ import pytest
 import registry
 import signals
 from test_supervisor_builders import (
-    busy_capture,
+    busy_typed_capture,
     idle_capture,
     make_plan,
     make_supervisor,
@@ -27,7 +27,7 @@ def test_busy_undeclared_track_at_danger_floor_is_reported_without_acting(*, tmp
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
-    fake.serve(session=session, repo=repo, capture=busy_capture(ctx=15))
+    fake.serve(session=session, repo=repo, capture=busy_typed_capture(ctx=15))
     sup = make_supervisor(
         tmp_path=tmp_path,
         fake=fake,

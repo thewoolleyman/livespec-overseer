@@ -75,19 +75,19 @@ def test_scenario_a_round_whose_opening_wrapup_never_landed_is_unopened(*, tmp_p
     assert _respawn_count(fake=fake) == 0
 
 
-def test_scenario_declaration_on_never_rounded_track_is_surfaced_not_healed(*, tmp_path):
+def test_scenario_unrounded_ready_owing_no_wind_down_is_surfaced_not_retired(*, tmp_path):
+    """Spec v058: a ready with no delivered round is retired only once the track owes a
+    wind-down. Above its threshold and unlatched it owes none, so it stands and is
+    surfaced — however old, since a round-less declaration has no round to expire in."""
     clock = {"t": 1000.0}
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
-    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=70))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"], out=_io.StringIO())
     track = mapped_track(repo=repo, topic=topic, session=session)
     marker = declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=clock["t"])
 
-    # Past the maximum age too: a round-less declaration has no round to expire
-    # within, so it is neither expired nor healed — only surfaced, for as long as
-    # it stands.
     clock["t"] += _supervisor_config.READY_ARM_MAX_AGE + 1
     view = sup.evaluate(track=track, act=True)
 
@@ -107,6 +107,15 @@ def test_scenario_standing_uncertifiable_declaration_does_not_suppress_threshold
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"], out=_io.StringIO())
     track = mapped_track(repo=repo, topic=topic, session=session)
     declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=clock["t"])
+    # A DELIVERED round the declaration predates: uncertifiable, and (spec v058) not the
+    # round-less `ready` that is retired once a wind-down is owed.
+    registry.write_injection_stamp(
+        repo=str(repo),
+        topic=topic,
+        ts=clock["t"] + 5,
+        session_identity="claude:x:topic",
+        stamp_path=sup.stamp_path,
+    )
     clock["t"] += _supervisor_config.CONDITION_CONTINUITY_GAP + 1
 
     view = sup.evaluate(track=track, act=True)
@@ -486,6 +495,15 @@ def test_uncertifiable_ready_at_danger_surfaces_its_certification_failure(*, tmp
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"], out=_io.StringIO())
     track = mapped_track(repo=repo, topic=topic, session=session)
     declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=clock["t"])
+    # A DELIVERED round the declaration predates: uncertifiable, and (spec v058) not the
+    # round-less `ready` that is retired once a wind-down is owed.
+    registry.write_injection_stamp(
+        repo=str(repo),
+        topic=topic,
+        ts=clock["t"] + 5,
+        session_identity="claude:x:topic",
+        stamp_path=sup.stamp_path,
+    )
     clock["t"] += _supervisor_config.CONDITION_CONTINUITY_GAP + 1
 
     view = sup.evaluate(track=track, act=True)

@@ -158,15 +158,6 @@ def test_guarded_paste_refuses_changed_is_codex(*, tmp_path, monkeypatch):
     )
 
 
-def test_guarded_paste_refuses_changed_busy(*, tmp_path, monkeypatch):
-    _assert_authorization_change_refuses(
-        tmp_path=tmp_path,
-        monkeypatch=monkeypatch,
-        settled=_observation(busy=True),
-        fresh=_observation(),
-    )
-
-
 def test_guarded_paste_refuses_changed_gate(*, tmp_path, monkeypatch):
     _assert_authorization_change_refuses(
         tmp_path=tmp_path,
@@ -284,10 +275,6 @@ def test_guarded_paste_refuses_generating(*, tmp_path, monkeypatch):
         monkeypatch=monkeypatch,
         obs=_observation(claude_status="busy"),
     )
-
-
-def test_guarded_paste_refuses_busy_without_shell_only(*, tmp_path, monkeypatch):
-    _assert_clause_refuses(tmp_path=tmp_path, monkeypatch=monkeypatch, obs=_observation(busy=True))
 
 
 def test_guarded_paste_refuses_waiting_status(*, tmp_path, monkeypatch):

@@ -9,6 +9,7 @@ import registry
 import signals
 from test_supervisor_builders import (
     busy_capture,
+    busy_typed_capture,
     declare,
     idle_capture,
     key_for,
@@ -47,7 +48,7 @@ def test_round_starvation_surfaces_after_floor_without_acting(*, tmp_path):
 
     with contextlib.redirect_stderr(_io.StringIO()) as err:
         assert sup.evaluate(track=track, act=True).status == "blocked:human"
-        fake.panes[session] = busy_capture(ctx=40)
+        fake.panes[session] = busy_typed_capture(ctx=40)
         for _ in range(9):
             clock["t"] += 800.0
             assert sup.evaluate(track=track, act=True).status == "working"
@@ -74,7 +75,7 @@ def test_round_starvation_clears_when_round_opens_or_ctx_recovers(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
-    fake.serve(session=session, repo=repo, capture=busy_capture(ctx=40))
+    fake.serve(session=session, repo=repo, capture=busy_typed_capture(ctx=40))
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
     track = mapped_track(repo=repo, topic=topic, session=session)
@@ -95,7 +96,7 @@ def test_round_starvation_clears_when_round_opens_or_ctx_recovers(*, tmp_path):
     assert registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
     assert sup.inject[key_for(repo=repo, topic=topic)].winddown_starved_episode.since is None
 
-    fake.panes[session] = busy_capture(ctx=40)
+    fake.panes[session] = busy_typed_capture(ctx=40)
     registry.clear_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
     sup.evaluate(track=track, act=True)
     fake.panes[session] = busy_capture(ctx=73)
