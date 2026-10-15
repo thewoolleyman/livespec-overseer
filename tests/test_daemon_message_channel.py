@@ -7,6 +7,9 @@ after transmission. Everything here drives that contract through `evaluate`, bec
 the guards it must keep are the cascade's, not the delivery helper's.
 """
 
+import contextlib
+import io as _io
+
 import registry
 from test_supervisor_builders import (
     FakeTmux,
@@ -95,3 +98,24 @@ def test_a_keep_going_nudge_is_delivered_through_a_supported_channel(*, tmp_path
     assert nudge_count(fake=fake) == 0
     state = signals.read_state(repo=str(repo), topic=topic)
     assert state is not None and state.token == signals.STATE_IDLE_WITH_CONTEXT_LEFT
+
+
+def test_a_channel_delivery_is_named_as_the_delivery_path(*, tmp_path, monkeypatch):
+    """DoD 3: the track's row and the daemon log both name the channel that carried it."""
+    monkeypatch.chdir(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    offer(
+        monkeypatch=monkeypatch,
+        channel=RecordingChannel(addressed_identity=f"claude:{session}:{session}"),
+    )
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert "via channel test-channel: delivered" in err.getvalue()
+    assert getattr(view, "delivery_path", None) == "wrap-up via channel test-channel: delivered"

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import _supervisor_channel
+import _supervisor_channel_delivery
 import _supervisor_launch
 import _supervisor_launch_profile_refresh
 import _supervisor_ready
@@ -117,30 +118,6 @@ def _open_round(
     return True
 
 
-def _deliver_wrapup(
-    *,
-    sup: Supervisor,
-    target: str,
-    message: str,
-    is_codex: bool,
-    channel: _supervisor_channel.MessageChannel | None,
-) -> tuple[bool, bool]:
-    """``(submitted, effect_unknown)`` for this act's wrap-up, by channel or by paste.
-
-    SPECIFICATION v060, contracts.md, the daemon-message
-    delivery channel: a supported
-    channel delivers the wrap-up WITHOUT a keystroke. The round's stamp was already
-    written by the caller, so the ordering a paste guarantees — stamp, then deliver —
-    is unchanged by which route carries the message.
-    """
-    if channel is None:
-        return _supervisor_launch.submit_prompt_outcome(
-            sup=sup, target=target, text=message, expect_codex=is_codex
-        )
-    sent = channel.send(text=message)
-    return sent.outcome == _supervisor_channel.CHANNEL_DELIVERED, False
-
-
 def armed_bands(*, record: registry.RoundRecord, compaction_latched_at: float | None) -> set[int]:
     """The bands this round counts as notified, as delivery stands RIGHT NOW.
 
@@ -242,14 +219,20 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
             blocker=blocker,
         ),
     )
-    submitted, effect_unknown = _deliver_wrapup(
-        sup=sup,
-        target=target,
-        message=message,
-        is_codex=is_codex,
-        channel=_supervisor_channel.resolve_channel(
-            sup=sup, runtime=runtime, session=session, topic=topic, identity=identity
+    delivered = _supervisor_channel_delivery.deliver(
+        request=_supervisor_channel_delivery.DeliveryRequest(
+            sup=sup,
+            track=track,
+            target=target,
+            text=message,
+            kind=_supervisor_channel.WRAPUP_MESSAGE,
+            is_codex=is_codex,
         ),
+        identity=identity,
+    )
+    submitted, effect_unknown = delivered.submitted, delivered.effect_unknown
+    path = _supervisor_channel_delivery.record_delivery(
+        sup=sup, track=track, record=delivered.record
     )
     if submitted:
         for b in due:
@@ -264,7 +247,11 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
                 latched_at=compaction_latched_at,
                 stamp_path=sup.stamp_path,
             )
-        sup.log(message=f"injected wrap-up into {repo}::{topic} (ctx {eff_ctx}%, bands {due})")
+        sup.log(
+            message=(
+                f"injected wrap-up into {repo}::{topic} " f"(ctx {eff_ctx}%, bands {due}; {path})"
+            )
+        )
     else:
         _report_undelivered(
             sup=sup,

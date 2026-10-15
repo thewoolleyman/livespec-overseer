@@ -42,13 +42,23 @@ __all__: list[str] = [
     "CHANNEL_DELIVERED",
     "CHANNEL_FAILED",
     "CHANNEL_UNCONFIRMED",
+    "NUDGE_MESSAGE",
+    "WRAPUP_MESSAGE",
     "ChannelProvider",
     "ChannelSend",
+    "DeliveryRecord",
     "MessageChannel",
     "channel_provider",
+    "delivery_path",
     "no_supported_channel",
     "resolve_channel",
 ]
+
+# The two daemon messages this contract governs, named as the row and the log name
+# them. The resume prompt, the pair nudge and the picker-stall relay are NOT daemon
+# messages under it and never acquire a delivery-path record.
+WRAPUP_MESSAGE = "wrap-up"
+NUDGE_MESSAGE = "keep-going nudge"
 
 # A channel delivery is DELIVERED only on the channel's acceptance acknowledgement
 # for that message, and FAILED only when the channel reports a refusal or an
@@ -66,6 +76,37 @@ class ChannelSend:
 
     outcome: str
     detail: str = ""
+
+
+@dataclass(frozen=True, kw_only=True)
+class DeliveryRecord:
+    """WHICH routes one daemon message took this act, and how each of them ended.
+
+    Both halves are carried because an act can take BOTH: a channel that refuses
+    before transmission may be followed by the guarded paste in the same act, and the
+    contract requires the row and the log to name the failed attempt as well as the
+    paste that rescued it. Naming only the surviving route would read as though the
+    channel was never tried.
+    """
+
+    message: str
+    channel: str | None = None
+    channel_outcome: str | None = None
+    paste_outcome: str | None = None
+
+
+def delivery_path(*, record: DeliveryRecord) -> str:
+    """The one phrase the track's row and the daemon log both name the route by.
+
+    Single-sourced so the two surfaces cannot drift: an operator comparing a row
+    against the log is comparing the same string, not two renderings of one fact.
+    """
+    legs: list[str] = []
+    if record.channel is not None:
+        legs.append(f"channel {record.channel}: {record.channel_outcome}")
+    if record.paste_outcome is not None:
+        legs.append(f"paste: {record.paste_outcome}")
+    return f"{record.message} via {', then '.join(legs)}"
 
 
 class MessageChannel(Protocol):

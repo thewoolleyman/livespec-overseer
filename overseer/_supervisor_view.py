@@ -231,6 +231,15 @@ class RowView:
     supervisor_state_stale: bool = False
     parked_delivery_sender: str | None = None
     archived_live: bool = False
+    # WHICH route the last daemon message to this track took, and how it ended —
+    # ``wrap-up via channel <name>: delivered``, ``keep-going nudge via paste:
+    # delivered``, or a failed channel attempt followed by its fallback paste
+    # (SPECIFICATION v060). Its own machine-readable field for the reason
+    # ``picker_open`` and ``parked_delivery_sender`` are: a note is elided at a
+    # DISPLAY width, so a route recorded only inside one would survive or vanish on
+    # the wording of the day. ``None`` means no daemon message has been delivered to
+    # this track in this daemon's lifetime, which is NOT the same as "pasted".
+    delivery_path: str | None = None
 
 
 def needs_attention(*, row: RowView) -> bool:
