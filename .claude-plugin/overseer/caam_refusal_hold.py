@@ -47,20 +47,30 @@ _NOTHING_LEFT: Final = 0.0
 class RefusalState:
     """Which accounts are refusal-held, and the refusal governing the active one.
 
+    ``holding`` is every refusal that still holds its account, carried whole
+    rather than reduced to the names it covers: a hold has to be REPORTED as
+    well as applied, and the report states when each refusal was recorded.
+    ``held`` is derived from it so the set selection prunes by and the set the
+    report names cannot drift apart.
+
     ``active`` is the active account's own governing refusal, which is the most
     recently recorded of the ones still holding it, and None where no refusal
     holds it. The refusal trigger fires exactly while it is present.
     """
 
-    held: frozenset[str]
+    holding: tuple[RememberedRefusal, ...]
     active: RememberedRefusal | None
+
+    @property
+    def held(self) -> frozenset[str]:
+        return frozenset(remembered.account for remembered in self.holding)
 
     @property
     def holds_active(self) -> bool:
         return self.active is not None
 
 
-NO_REFUSALS: Final = RefusalState(held=frozenset(), active=None)
+NO_REFUSALS: Final = RefusalState(holding=(), active=None)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -114,7 +124,7 @@ def refusal_state(
     remember_lapsed(state=state, lapsed=tuple(r for r, lapsed in judged if lapsed))
     keep_refusals(state=state, remembered=kept)
     return RefusalState(
-        held=frozenset(remembered.account for remembered in kept),
+        holding=kept,
         active=max(
             (remembered for remembered in kept if remembered.account == active_name),
             key=lambda remembered: remembered.refusal.recorded_at,

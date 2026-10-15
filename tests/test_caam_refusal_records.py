@@ -292,14 +292,12 @@ def test_a_weekly_refusal_takes_the_weekly_headroom_as_zero() -> None:
         fable_remaining=None,
         fable_resets_at=None,
     )
-    state = RefusalState(
-        held=frozenset({"a"}),
-        active=RememberedRefusal(
-            account="a",
-            refusal=Refusal(recorded_at=RECORDED_AT, window=WINDOW_SEVEN_DAY, resets_at=RESET_AT),
-            window_reset_at=None,
-        ),
+    remembered = RememberedRefusal(
+        account="a",
+        refusal=Refusal(recorded_at=RECORDED_AT, window=WINDOW_SEVEN_DAY, resets_at=RESET_AT),
+        window_reset_at=None,
     )
+    state = RefusalState(holding=(remembered,), active=remembered)
 
     bound = trigger_binding(refusal=state, current=usage, active_name="a", protection_floors={})
 

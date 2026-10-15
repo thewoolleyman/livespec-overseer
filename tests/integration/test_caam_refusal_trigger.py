@@ -735,3 +735,39 @@ def test_scenario_a_refusing_account_with_no_selectable_candidate_holds_and_says
     held = next(line for line in lines if line.startswith("hold:"))
     assert "anthropic-3 is refusing requests" in held
     assert "no account could be selected" in held
+
+
+def test_a_hold_names_the_refusal_held_account_rather_than_denying_it(*, tmp_path: Path) -> None:
+    """The candidate-set diagnosis must not read a refusal-held account as absent.
+
+    A pass whose own account has fallen below the short-window floor still holds
+    where nothing can replace it, and the account a refusal is holding is one of
+    the things that could not. Diagnosed against the set the refusal hold had
+    already emptied, the line said the active account was the only one in the
+    vault -- printed two lines under a table listing the held account at 90%.
+    The operator reading it has no signal that the healthy account was
+    deliberately excluded, which is the exact triage path this trigger exists to
+    shorten.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="anthropic-3",
+        usages={
+            "anthropic-3": usage(five_hour_remaining=45.0),
+            "anthropic-1": usage(five_hour_remaining=90.0),
+        },
+    )
+    harness.seed_state(state=active_since(account="anthropic-3", at=NOW - 2 * ONE_HOUR))
+    session = harness.record_refusal(recorded_at=NOW - NINE_MINUTES, reset_at_epoch=NOW + ONE_HOUR)
+    harness.track(sessions=(session,))
+    harness.run()
+    harness.usages["anthropic-1"] = usage(five_hour_remaining=10.0)
+
+    code, lines = harness.run(at=NOW + PASS_INTERVAL)
+
+    assert code == 0
+    assert harness.switches == ["anthropic-1"]
+    held = next(line for line in lines if line.startswith("hold:"))
+    assert "is the only account in the vault" not in held
+    assert "no account other than anthropic-1 is selectable this pass" in held
+    assert f"anthropic-3 (refused at {stamp(at=NOW - NINE_MINUTES)})" in held

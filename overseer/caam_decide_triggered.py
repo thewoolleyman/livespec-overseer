@@ -24,7 +24,7 @@ from caam_decide_report import (
     with_note,
 )
 from caam_decision import eligible_profiles, rank_profiles, scoped_reserve
-from caam_refusal_lines import REFUSAL_TRIGGER, refusal_trigger_line
+from caam_refusal_lines import REFUSAL_TRIGGER, refusal_exclusion_reason, refusal_trigger_line
 from caam_rotation_arm import (
     RotationArm,
     RotationChoice,
@@ -73,6 +73,9 @@ def triggered_choice(*, request: RotationRequest, arm: RotationArm) -> RotationC
         protection_floors=request.protection_floors,
         note=eligible.note,
         pin_unsatisfiable=pin_unsatisfiable,
+        refusal_excluded=refusal_exclusion_reason(
+            holding=arm.refusal.holding, active_name=request.active_name
+        ),
     )
     if not ranked:
         return RotationChoice(
