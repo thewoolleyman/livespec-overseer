@@ -3459,5 +3459,101 @@
     "heading": "## Scenario: A held unconfirmed attempt is released when its round closes",
     "test": "tests.integration.test_herdr_unconfirmed_delivery_v059.test_scenario_a_held_attempt_is_released_when_its_round_closes",
     "reason": "Integration-tier (SPECIFICATION v059): clear_state on round close releases only this track's held herdr submit attempt."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A daemon message is delivered through a session-bound channel when one is available",
+    "test": "TODO",
+    "work_item": "overseer-uepcr6",
+    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uepcr6 with the implementation; ratified 2026-10-15 under the daemon-message-channel-delivery revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A keep-going nudge is delivered through a session-bound channel",
+    "test": "TODO",
+    "work_item": "overseer-uepcr6",
+    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uepcr6 with the implementation; ratified 2026-10-15 under the daemon-message-channel-delivery revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A channel that does not address the session by its live identity is never used",
+    "test": "TODO",
+    "work_item": "overseer-uepcr6",
+    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uepcr6 with the implementation; ratified 2026-10-15 under the daemon-message-channel-delivery revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A channel whose addressed identity differs from the targeted session is not used that tick",
+    "test": "TODO",
+    "work_item": "overseer-uepcr6",
+    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uepcr6 with the implementation; ratified 2026-10-15 under the daemon-message-channel-delivery revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A failed channel delivery falls back to the guarded paste",
+    "test": "TODO",
+    "work_item": "overseer-uepcr6",
+    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uepcr6 with the implementation; ratified 2026-10-15 under the daemon-message-channel-delivery revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unconfirmed channel delivery is held and never sent again",
+    "test": "TODO",
+    "work_item": "overseer-uepcr6",
+    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uepcr6 with the implementation; ratified 2026-10-15 under the daemon-message-channel-delivery revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The resume prompt and the picker-stall relay keep their paste forms",
+    "test": "TODO",
+    "work_item": "overseer-uepcr6",
+    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uepcr6 with the implementation; ratified 2026-10-15 under the daemon-message-channel-delivery revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A held channel delivery is released when its acceptance is later confirmed",
+    "test": "TODO",
+    "work_item": "overseer-uepcr6",
+    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uepcr6 with the implementation; ratified 2026-10-15 under the daemon-message-channel-delivery revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A held keep-going nudge is released when its idle episode ends",
+    "test": "TODO",
+    "work_item": "overseer-uepcr6",
+    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uepcr6 with the implementation; ratified 2026-10-15 under the daemon-message-channel-delivery revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A paste on a runtime with no supported channel records the paste path",
+    "test": "TODO",
+    "work_item": "overseer-uepcr6",
+    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uepcr6 with the implementation; ratified 2026-10-15 under the daemon-message-channel-delivery revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A failed channel delivery with no fallback paste un-opens its round",
+    "test": "TODO",
+    "work_item": "overseer-uepcr6",
+    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uepcr6 with the implementation; ratified 2026-10-15 under the daemon-message-channel-delivery revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "contracts.md",
+    "heading": "## Daemon message delivery channel",
+    "test": "TODO",
+    "work_item": "overseer-uepcr6",
+    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uepcr6 with the implementation; ratified 2026-10-15 under the daemon-message-channel-delivery revise (spec-first)."
   }
 ]

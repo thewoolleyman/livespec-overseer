@@ -396,6 +396,65 @@ that entity's own key.
   round, an UNCONFIRMED one keeps the stamped round open and is completed
   without re-stamping or re-pasting, and a held per-pane attempt is released
   when it resolves or when its round closes.
+  The message MAY instead be delivered through a supported channel under
+  §"Daemon message delivery channel", which keeps every obligation in this
+  section.
+
+## Daemon message delivery channel
+
+The wrap-up and the keep-going nudge to a supervised worker are DAEMON
+MESSAGES under this section. The resume prompt a restart delivers to its
+successor, the pair nudge to a supervisor, and the picker-stall relay act are
+NOT: each keeps its paste form and its own submission, retry and attention
+rules.
+
+A daemon message MAY be delivered through a direct message channel instead of
+the ONE atomic paste, but only through a SUPPORTED channel. A channel is
+supported only when it (a) addresses exactly one session by that session's
+live session identity, never by topic name, pane or repository; (b) reports,
+for each message, an explicit acknowledgement that the addressed session
+accepted it; and (c) reports a refusal or an unavailable channel before
+transmission distinguishably from a loss after transmission. A runtime that
+offers no channel meeting all three delivers by the paste.
+
+- Binding. As part of the act's immediate pre-delivery re-read, the daemon
+  MUST prove the channel's addressed session identity equal to the session
+  identity the act targets: the round-open session identity for a wrap-up, and
+  the pane's currently proven session identity for a keep-going nudge. A
+  mismatched or unprovable identity cancels the whole act for that tick, the
+  paste included; the act is re-evaluated on the next observation.
+- Choosing the channel changes HOW a message is delivered, never WHETHER it is.
+  Every guard that governs the act's paste governs its channel delivery,
+  unchanged, as it applies to that act: for a wrap-up the guarded predicate,
+  the immediate pre-delivery re-read, the stamp written durably before
+  delivery, the escalation bands, the message obligations and every
+  suppression; for a keep-going nudge its trigger, its guards and its
+  `idle-with-context-left` marker, written exactly as for its paste.
+- A channel delivery is DELIVERED only on the channel's acceptance
+  acknowledgement for that message, and FAILED only when the channel reports a
+  refusal or an unavailable channel before transmission. Every other outcome —
+  a connection made and then lost, a timeout after transmission, an
+  acknowledgement that never arrives — is UNCONFIRMED.
+- After a FAILED channel delivery the daemon MAY fall back to the guarded paste
+  within the same act. The fallback repeats the immediate pre-paste re-read,
+  the act's outcome is the paste's outcome: when a fallback paste follows, the
+  channel failure does not un-open the round and the paste's outcome governs
+  (spec.md §"The supervision round"). A FAILED channel delivery that is NOT
+  followed by a paste in the same act un-opens the round exactly as a FAILED
+  paste does, so no stamped round ever stands behind an undelivered message.
+- An UNCONFIRMED channel delivery is held. It is surfaced, it is never sent
+  again by either path, and while it is held no later daemon message is
+  delivered to that session by either path. For a wrap-up the round stays open
+  with its stamp unchanged. A held delivery is released when a late acceptance
+  acknowledgement for it arrives or, on a pane that was not already busy, a
+  turn is observed starting after the send, either of which makes it
+  DELIVERED; or when its round closes. A held keep-going nudge, which opens no
+  round, is released instead when the idle episode it answered ends. A held
+  delivery is surfaced through §"Attention surface" with its age, so a hold
+  that never resolves cannot sit unseen.
+- The track's row and the daemon log MUST name each daemon message's delivery
+  path (channel or paste) and its outcome, including a FAILED channel attempt
+  that was followed by a paste.
 
 ## The keep-going nudge
 
@@ -411,6 +470,9 @@ declaration for a session whose work is finished. A track holding `done`
 MUST NOT be nudged. The marker clears when the
 session works again; the continuous-idle clock is in-memory, so a daemon
 restart only ever delays a nudge.
+The message MAY instead be delivered through a supported channel under
+§"Daemon message delivery channel", which keeps every obligation in this
+section.
 
 The nudge MUST describe the blocked declaration generically and truthfully. It
 MUST NOT name a runtime, a launch mode, or an approval or sandbox policy as

@@ -195,6 +195,11 @@ That exposure is bounded by the stamp-before-paste ordering, which keeps any
 older or inherited declaration from certifying, and by contracts.md §"The
 restart interlock", whose no-busy gates still apply.
 
+A wrap-up MAY instead be delivered through a supported direct channel under
+contracts.md §"Daemon message delivery channel". Every rule of this section
+applies to it, with its three delivery outcomes as that section defines them
+for a channel.
+
 A round carries a CERTIFICATION FLOOR, and that floor MAY rise within the round
 — when a declaration expires, per contracts.md §"The restart interlock". A
 rising floor never re-opens an escalation band, never authorizes a paste, and
@@ -532,6 +537,10 @@ CONTINUOUSLY idle for at least one hour, is above its threshold, is not
 waiting on a human, and has made no declaration of its own, the daemon pastes
 one message telling it to continue, and writes `idle-with-context-left` to
 the state file as a note to itself so the same episode is never re-nudged.
+
+The nudge MAY instead be delivered through a supported direct channel under
+contracts.md §"Daemon message delivery channel", which keeps every obligation
+in this section.
 
 That daemon-written value authorizes NOTHING — it gates only the
 once-per-episode nudge, never a restart. It is edge-triggered and
