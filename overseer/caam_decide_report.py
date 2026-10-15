@@ -168,8 +168,14 @@ def hold_reasons(
     protection_floors: Mapping[str, float],
     note: str | None,
     pin_unsatisfiable: bool = False,
+    refusal_excluded: str | None = None,
 ) -> tuple[str, ...]:
-    """Every reason this pass can give for holding, in the order they are reported."""
+    """Every reason this pass can give for holding, in the order they are reported.
+
+    ``refusal_excluded`` comes second because it qualifies the candidate set the
+    cause above it speaks about, while the floor breach is about the account
+    being left; the pin and the reserve-release note follow as before.
+    """
     breach = floor_breach_reason(
         active_name=active_name,
         breached_floor=floor_breach(
@@ -180,7 +186,7 @@ def hold_reasons(
         ),
     )
     pin = unsatisfiable_pin_reason() if pin_unsatisfiable else None
-    return tuple(reason for reason in (breach, pin, note) if reason is not None)
+    return tuple(reason for reason in (breach, refusal_excluded, pin, note) if reason is not None)
 
 
 def trigger_line(

@@ -23,6 +23,7 @@ from caam_rendering import until, with_reasons
 
 __all__: list[str] = [
     "REFUSAL_TRIGGER",
+    "refusal_exclusion_reason",
     "refusal_hold_line",
     "refusal_switch_line",
     "refusal_trigger_line",
@@ -69,6 +70,30 @@ def refusal_hold_line(*, active_name: str, cause: str, reasons: tuple[str, ...] 
         ),
         reasons=reasons,
     )
+
+
+def refusal_exclusion_reason(
+    *, holding: tuple[RememberedRefusal, ...], active_name: str
+) -> str | None:
+    """Why a candidate the table still lists was never considered, and since when.
+
+    A hold REASON rather than a line of its own, so it composes with every other
+    condition that can hold a pass exactly as they compose with each other. It
+    is what reconciles the hold with the table printed beside it: the cause names
+    the gate that emptied the candidate set, and this names the accounts that
+    never reached that gate, each with the instant its refusal was recorded.
+
+    The ACTIVE account is left out. It is not a candidate, and where a refusal
+    holds it the hold line already says it is refusing requests.
+    """
+    excluded = tuple(remembered for remembered in holding if remembered.account != active_name)
+    if not excluded:
+        return None
+    named = ", ".join(
+        f"{remembered.account} (refused at {_stamp(at=remembered.refusal.recorded_at)})"
+        for remembered in excluded
+    )
+    return f"a usage-limit refusal excludes {named} from the candidate set"
 
 
 def _stamp(*, at: float) -> str:
