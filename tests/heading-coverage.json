@@ -3424,5 +3424,40 @@
     "heading": "## Scenario: A session told of a compaction keeps its declaration on context recovery",
     "test": "tests.integration.test_busy_session_wrapup_v058.test_scenario_the_latched_wrapup_tells_the_session_not_to_expire_its_declaration",
     "reason": "Integration-tier (SPECIFICATION v058): The latched wrap-up a session receives tells it the restart is required whatever context it sees and not to treat its wind-down or declaration as expired."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unconfirmed wrap-up delivery keeps its round open",
+    "test": "tests.integration.test_herdr_unconfirmed_delivery_v059.test_scenario_an_unconfirmed_delivery_keeps_its_round_open",
+    "reason": "Integration-tier (SPECIFICATION v059): A real maybe_inject whose submission is unconfirmed keeps the stamped round open and surfaces it; a ready written after the stamp then restarts the session."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A provably failed wrap-up paste still un-opens its round",
+    "test": "tests.integration.test_herdr_unconfirmed_delivery_v059.test_scenario_a_provably_failed_paste_still_unopens_its_round",
+    "reason": "Integration-tier (SPECIFICATION v059): A real maybe_inject whose paste provably failed deletes the stamp and surfaces the failed paste."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A payload that left the input after it was observed there counts as delivered",
+    "test": "tests.integration.test_herdr_unconfirmed_delivery_v059.test_scenario_a_payload_that_left_the_input_counts_as_delivered",
+    "reason": "Integration-tier (SPECIFICATION v059): The herdr submitter confirms a payload seen in the composer and then gone from an empty composer, with no busy frame, and releases its attempt."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unconfirmed delivery is completed without re-stamping or re-pasting",
+    "test": "tests.integration.test_herdr_unconfirmed_delivery_v059.test_scenario_an_unconfirmed_delivery_is_retried_without_restamping",
+    "reason": "Integration-tier (SPECIFICATION v059): A second maybe_inject into a round kept open as unconfirmed leaves the round's stamp unchanged."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A held unconfirmed attempt is released when its round closes",
+    "test": "tests.integration.test_herdr_unconfirmed_delivery_v059.test_scenario_a_held_attempt_is_released_when_its_round_closes",
+    "reason": "Integration-tier (SPECIFICATION v059): clear_state on round close releases only this track's held herdr submit attempt."
   }
 ]

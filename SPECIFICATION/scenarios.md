@@ -5092,3 +5092,63 @@ And its own remaining context is above its wind-down threshold
 When it finds its own winding-down or ready declaration standing
 
 Then it does not treat that declaration as expired
+
+## Scenario: An unconfirmed wrap-up delivery keeps its round open
+
+Given a tracked session whose wrap-up paste was written to the pane
+
+And the daemon could not confirm the submission
+
+And the paste was not provably failed
+
+When the daemon records the outcome
+
+Then the stamped round stays open and the unconfirmed delivery is surfaced
+
+And a ready the session writes after the stamp certifies against that round
+
+## Scenario: A provably failed wrap-up paste still un-opens its round
+
+Given a tracked session whose wrap-up paste was written to the pane
+
+And an observation taken after the paste and before any Enter shows the input empty
+
+When the daemon records the outcome
+
+Then the round is un-opened and the failed paste is surfaced
+
+## Scenario: A payload that left the input after it was observed there counts as delivered
+
+Given a wrap-up paste observed in the session's input
+
+And the daemon pressed Enter
+
+When the input is next observed empty without a busy frame having been seen
+
+Then the delivery is confirmed and no failure is reported
+
+And the attempt is released
+
+And a later wrap-up to that pane is pasted afresh rather than suppressed by the earlier attempt
+
+## Scenario: An unconfirmed delivery is completed without re-stamping or re-pasting
+
+Given a round kept open because its wrap-up delivery was unconfirmed
+
+And the payload is still standing in the session's input
+
+When the daemon next observes the track
+
+Then it submits the standing payload without pasting it again
+
+And the round's stamp is unchanged
+
+## Scenario: A held unconfirmed attempt is released when its round closes
+
+Given a pane holding an unconfirmed wrap-up delivery attempt
+
+When the round that attempt belongs to closes
+
+Then the attempt is released
+
+And the next prompt delivered to that pane is pasted afresh

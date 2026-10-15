@@ -347,6 +347,9 @@ def test_native_submit_refuses_to_replay_an_uncertain_paste(*, tmp_path: Path) -
         effect_unknown=True,
     )
     scenario.writes.render_after_paste = False
+    # The composer holds text that is not the payload, so the paste is UNCONFIRMED, not
+    # FAILED (SPECIFICATION v059): the attempt is held and the payload never replayed.
+    scenario.writes.native.captures["/run/herdr-a.sock"] = _claude_composer(text="operator draft")
 
     assert scenario.sup._submit_prompt(target=scenario.coordinate_a, text="one prompt") is False
     assert scenario.sup._submit_prompt(target=scenario.coordinate_a, text="one prompt") is False
@@ -354,7 +357,13 @@ def test_native_submit_refuses_to_replay_an_uncertain_paste(*, tmp_path: Path) -
     assert [call[0] for call in scenario.writes.calls] == ["paste"]
 
 
-def test_native_submit_does_not_submit_or_repaste_an_unobserved_composer(*, tmp_path: Path) -> None:
+def test_native_submit_releases_a_paste_never_seen_in_an_empty_composer(*, tmp_path: Path) -> None:
+    """SPECIFICATION v059: an empty composer after the paste and before Enter is FAILED.
+
+    Holding the attempt instead was the wedge that answered every later paste to the
+    pane from a dead state, so the attempt is released and the next request pastes
+    afresh. Nothing is ever submitted into the empty composer.
+    """
     module = importlib.import_module("pane_router")
     scenario = _scenario(tmp_path=tmp_path, pane_router=module)
     scenario.writes.render_after_paste = False
@@ -362,7 +371,7 @@ def test_native_submit_does_not_submit_or_repaste_an_unobserved_composer(*, tmp_
     assert scenario.sup._submit_prompt(target=scenario.coordinate_a, text="one prompt") is False
     assert scenario.sup._submit_prompt(target=scenario.coordinate_a, text="one prompt") is False
 
-    assert [call[0] for call in scenario.writes.calls] == ["paste"]
+    assert [call[0] for call in scenario.writes.calls] == ["paste", "paste"]
 
 
 def test_native_submit_never_calls_an_acknowledged_but_visible_prompt_delivered(

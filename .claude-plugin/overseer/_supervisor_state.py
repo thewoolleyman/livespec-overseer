@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import _supervisor_launch
 import registry
 import signals
 from _supervisor_config import MARKER_VOID_GRACE, READY_ARM_MAX_AGE, track_key
@@ -81,6 +82,7 @@ def clear_state(
     if not persisted and preserve_round_on_failure:
         return False
     registry.clear_injection_stamp(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
+    _supervisor_launch.release_held_submit(sup=sup, track=track)
     _ = sup.inject.pop(track_key(repo=track.repo, topic=track.topic), None)
     return persisted
 
