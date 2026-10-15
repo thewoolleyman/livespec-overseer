@@ -177,7 +177,7 @@ In spec.md §"Account rotation and quota supervision", insert the following para
 
 **A reset that would otherwise lapse MUST be claimed.** A reset left unclaimed past the moment it lapses is forfeited permanently. An invocation carrying the scheduled marker MUST therefore claim, on any managed account whether active or not, a reset that is usable now and whose reported lapse falls within a configurable EXPIRY HORIZON, whose default MUST be twenty-four hours, provided that the claim would refill at least the eligibility margin of **Eligibility** of spent allowance on at least one window the reset clears. The operation MUST NOT claim a reset under this clause on an account whose credential is not live-verified on that pass. It MUST NOT claim a reset whose provider permits its use only while the account is at a limit unless the account is at a limit that the reset clears. And it MUST NOT claim under this clause a reset that reports no lapse. Where an account holds several resets within the horizon, the operation MUST claim at most one per account per pass, the one that lapses soonest. This clause MUST apply whether or not any rotation trigger fired, and a claim under it MUST NOT itself cause a rotation. Rotation on that pass MUST be decided on readings taken after the claim.
 
-In scenarios.md, add these scenarios after "## Scenario: The narrowest qualifying reset is claimed":
+In scenarios.md, add these scenarios after "## Scenario: A claim that replenishes the refused window ends the refusal hold":
 
 ```gherkin
 ## Scenario: A reset about to lapse is claimed
