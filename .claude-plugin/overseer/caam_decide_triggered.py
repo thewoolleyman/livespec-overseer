@@ -25,6 +25,7 @@ from caam_rotation_arm import (
     RotationChoice,
     RotationRequest,
     arm_active_account,
+    arm_candidates,
     short_window_triggered,
 )
 from caam_scoped_selection import none_holds_scoped_above_reserve, scoped_alone_trigger
@@ -51,7 +52,7 @@ def triggered_choice(*, request: RotationRequest, arm: RotationArm) -> RotationC
     )
     decision_line = _decision_line(request=request, arm=arm)
     eligible = eligible_profiles(
-        profiles=request.profiles,
+        profiles=arm_candidates(request=request, arm=arm),
         active=arm_active_account(request=request, arm=arm),
         force=request.context.flags.force,
         dimension=arm.bound.dimension,
@@ -76,7 +77,7 @@ def triggered_choice(*, request: RotationRequest, arm: RotationArm) -> RotationC
                 save_state=request.save_state,
                 decision_line=decision_line,
                 population=CandidatePopulation(
-                    profiles=request.profiles,
+                    profiles=arm_candidates(request=request, arm=arm),
                     active_name=request.active_name,
                     dimension=arm.bound.dimension,
                     protection_floors=request.protection_floors,
