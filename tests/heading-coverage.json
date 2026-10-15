@@ -255,41 +255,36 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A busy session with an empty input box receives the wrap-up",
-    "test": "TODO",
-    "work_item": "overseer-uzvcbn.3",
-    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uzvcbn.3 with the implementation; ratified 2026-10-15 under the busy-session-wrapup-delivery revise."
+    "test": "tests.integration.test_busy_session_wrapup_v058.test_scenario_busy_session_with_empty_input_receives_the_wrapup",
+    "reason": "Integration-tier (SPECIFICATION v058): Real Supervisor act ticks over a generating pane and a Claude sub-agent pane, each with an empty box at 40%, record a stamp, paste and submit the wrap-up naming the live work, and restart nothing."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Typed input, a gate, or a human wait suppresses the wrap-up of a busy session",
-    "test": "TODO",
-    "work_item": "overseer-uzvcbn.3",
-    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uzvcbn.3 with the implementation; ratified 2026-10-15 under the busy-session-wrapup-delivery revise."
+    "test": "tests.integration.test_busy_session_wrapup_v058.test_scenario_typed_input_gate_or_human_wait_suppresses_a_busy_wrapup",
+    "reason": "Integration-tier (SPECIFICATION v058): A busy low-context pane with typed input, an open picker, or a runtime-reported human wait gets no stamp and no paste."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A busy Codex session whose empty composer cannot be proven is surfaced, not pasted",
-    "test": "TODO",
-    "work_item": "overseer-uzvcbn.3",
-    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uzvcbn.3 with the implementation; ratified 2026-10-15 under the busy-session-wrapup-delivery revise."
+    "test": "tests.integration.test_busy_session_wrapup_v058.test_scenario_busy_codex_without_proven_empty_composer_is_surfaced",
+    "reason": "Integration-tier (SPECIFICATION v058): A generating Codex track at 40% gets no stamp and no paste, stays working, and the row and an alert name the withheld wrap-up."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A ready with no delivered round is retired and a fresh round delivered",
-    "test": "TODO",
-    "work_item": "overseer-uzvcbn.3",
-    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uzvcbn.3 with the implementation; ratified 2026-10-15 under the busy-session-wrapup-delivery revise."
+    "test": "tests.integration.test_busy_session_wrapup_v058.test_scenario_unrounded_ready_is_retired_and_a_fresh_round_delivered",
+    "reason": "Integration-tier (SPECIFICATION v058): A round-less ready past the two-minute grace at 40% is deleted with an alert and no act; the next tick opens a round and pastes the wrap-up; a ready written after it restarts the session."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A ready with no delivered round on a track that owes no wind-down is surfaced, not retired",
-    "test": "TODO",
-    "work_item": "overseer-uzvcbn.3",
-    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uzvcbn.3 with the implementation; ratified 2026-10-15 under the busy-session-wrapup-delivery revise."
+    "test": "tests.integration.test_busy_session_wrapup_v058.test_scenario_unrounded_ready_owing_no_wind_down_is_left_standing",
+    "reason": "Integration-tier (SPECIFICATION v058): A round-less ready on a track at 70% stays on disk, renders ready-uncertifiable, and nothing is pasted or restarted."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -3406,32 +3401,28 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A context rise under an unchanged session identity latches a restart obligation",
-    "test": "TODO",
-    "work_item": "overseer-uzvcbn.3",
-    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uzvcbn.3 with the implementation; ratified 2026-10-15 under the busy-session-wrapup-delivery revise. Existing unit-tier evidence of the latch itself: overseer.test_supervisor_compaction_detector.test_a_rise_past_the_band_under_the_same_session_latches_a_restart_obligation."
+    "test": "tests.integration.test_busy_session_wrapup_v058.test_scenario_same_identity_rise_latches_and_the_wrapup_states_the_compaction",
+    "reason": "Integration-tier (SPECIFICATION v058): A 45%->82% rise under the same Claude identity latches durably and alerts once with no act while typed input holds the pane; the next empty-input tick delivers a wrap-up that states the compaction."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A changed session identity clears the compaction latch",
-    "test": "TODO",
-    "work_item": "overseer-uzvcbn.3",
-    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uzvcbn.3 with the implementation; ratified 2026-10-15 under the busy-session-wrapup-delivery revise. Existing unit-tier evidence: overseer.test_supervisor_compaction_claude.test_a_claude_track_latches_a_compaction_and_clears_it_only_on_a_fresh_session."
+    "test": "tests.integration.test_busy_session_wrapup_v058.test_scenario_a_changed_session_identity_clears_the_latch",
+    "reason": "Integration-tier (SPECIFICATION v058): A reading under a successor identity clears the latch and records the new identity."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A latched round is never closed as recovered",
-    "test": "TODO",
-    "work_item": "overseer-uzvcbn.3",
-    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uzvcbn.3 with the implementation; ratified 2026-10-15 under the busy-session-wrapup-delivery revise. Existing unit-tier evidence: overseer.test_supervisor_compaction_safety.test_a_latched_round_is_not_closed_by_a_healthy_post_compaction_reading."
+    "test": "tests.integration.test_busy_session_wrapup_v058.test_scenario_a_latched_round_is_never_closed_as_recovered",
+    "reason": "Integration-tier (SPECIFICATION v058): A delivered latched round at 82% with an absent state file keeps its stamp across a further tick."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A session told of a compaction keeps its declaration on context recovery",
-    "test": "TODO",
-    "work_item": "overseer-uzvcbn.3",
-    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uzvcbn.3 with the implementation; ratified 2026-10-15 under the busy-session-wrapup-delivery revise."
+    "test": "tests.integration.test_busy_session_wrapup_v058.test_scenario_the_latched_wrapup_tells_the_session_not_to_expire_its_declaration",
+    "reason": "Integration-tier (SPECIFICATION v058): The latched wrap-up a session receives tells it the restart is required whatever context it sees and not to treat its wind-down or declaration as expired."
   }
 ]

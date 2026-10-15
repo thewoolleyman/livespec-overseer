@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 import _supervisor_attention
 import _supervisor_blocked
 import _supervisor_busy
+import _supervisor_busy_delivery
 import _supervisor_declaration_voiding
 import registry
 import signals
@@ -128,7 +129,16 @@ def active_decision(*, request: ActiveRequest) -> ActiveDecision | None:
         and (
             request.ready
             or not (
-                shell_only and request.eff_ctx is not None and request.eff_ctx <= request.threshold
+                (
+                    shell_only
+                    and request.eff_ctx is not None
+                    and request.eff_ctx <= request.threshold
+                )
+                # Spec v058: a busy pane whose input is positively empty still receives
+                # the owed wind-down; only input-protecting evidence holds it back.
+                or _supervisor_busy_delivery.deliverable_while_busy(
+                    obs=request.obs, threshold=request.threshold
+                )
             )
         )
         and not (
@@ -151,9 +161,22 @@ def active_decision(*, request: ActiveRequest) -> ActiveDecision | None:
                 act=request.act,
             )
         )
+        note = busy_decision.note
+        if _supervisor_busy_delivery.codex_busy_withheld(
+            obs=request.obs, threshold=request.threshold
+        ):
+            note = _supervisor_busy_delivery.surface_codex_withheld(
+                sup=request.sup,
+                track=request.track,
+                session=request.session,
+                pane=request.target,
+                note=note,
+                act=request.act,
+            )
+            active_conditions.add(_supervisor_busy_delivery.CODEX_BUSY_WITHHELD_CONDITION)
         return ActiveDecision(
             status="working",
-            note=busy_decision.note,
+            note=note,
             ready=busy_decision.ready,
             blocked=busy_decision.blocked,
             blocked_age=busy_decision.blocked_age,

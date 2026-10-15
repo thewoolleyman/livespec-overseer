@@ -1321,6 +1321,21 @@ for the marker's edge-triggered lifecycle.
   carrying no session declaration (or already holding the marker) becomes
   `idle-with-context-left` and gets ONE keep-going nudge; anything else is plain
   `idle` (see invariant 9 for the marker lifecycle).
+- **Busy delivery (SPECIFICATION v058, maintainer ruling 2026-10-15) supersedes the
+  busy short-circuit for the wrap-up and its expiry notice.** A track that owes the
+  wind-down (or its round's expiry notice) and whose INPUT is positively empty falls
+  through the busy branch however busy it is
+  (`_supervisor_busy_delivery.deliverable_while_busy`); the settle compares the input
+  region (`input_settled`), and the pre-paste recheck compares only identity,
+  declaration/ACK, gate, human-wait and input (`_input_authorization_changed`), so a
+  change in busy evidence alone never cancels it. Typed input, a gate, a human wait or
+  a standing declaration still holds the paste. A busy Codex session cannot prove an
+  empty composer, so it is withheld and surfaced
+  (`codex-busy-wrapup-withheld`). The RESTART keeps every no-busy gate: winding down,
+  including stopping background work, is the session's job before it declares
+  `ready`. Separately, an un-rounded `ready` on a track that owes a wind-down is
+  retired by a guarded delete (`_supervisor_unrounded_ready`, called from
+  `_supervisor_ready_alerts.uncertifiable_ready_surface`) so a fresh round can open.
 - **Backend-specific replacement preserves the ready interlock.** Before the
   ordinary session, pane, or managed-runtime target gate rejects a retained bare
   shell, evaluate reconciles an exact Herdr transaction for that backend/pane.

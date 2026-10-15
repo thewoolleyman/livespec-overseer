@@ -5,12 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import _supervisor_busy_delivery
 import _supervisor_compaction
+import _supervisor_evaluate_busy
 import _supervisor_evaluate_ctx_stale
 import _supervisor_evaluate_restart
 import _supervisor_evaluate_threshold
 import _supervisor_idle
-import _supervisor_launch
 import _supervisor_observe
 import _supervisor_round_recovery
 import _supervisor_threshold
@@ -90,12 +91,18 @@ def _idle_room_or_recovered(*, request: IdleRequest) -> tuple[str, bool]:
 def idle_decision(*, request: IdleRequest) -> IdleDecision:
     active_conditions: set[str] = set()
     note = request.note
-    if not request.obs.idle:
+    # Spec v058: a BUSY pane reaches this cascade only when the active branch judged it
+    # deliverable (positively empty input, wind-down or expiry notice owed). It settles
+    # on its INPUT region, since a generating pane never settles as a whole.
+    busy_delivery = _supervisor_busy_delivery.deliverable_while_busy(
+        obs=request.obs, threshold=request.threshold
+    )
+    if not (request.obs.idle or busy_delivery):
         # Pane present but not a verified idle-input state and not busy —
         # a transient/settling capture. Wait; never act.
         status = "settling"
-    elif request.act and not _supervisor_launch.pane_settled(
-        sup=request.sup, target=request.target
+    elif request.act and not _supervisor_evaluate_busy.settled(
+        request=request, busy_delivery=busy_delivery
     ):
         # One frame looks idle, but the pane is actively changing (streaming).
         return IdleDecision(
@@ -209,6 +216,10 @@ def idle_decision(*, request: IdleRequest) -> IdleDecision:
             active_conditions=threshold.active_conditions,
             settled_streaming_progress=False,
         )
+    elif busy_delivery:
+        # Above the line and unlatched: only the round's expiry notice is owed, and a
+        # busy session must never reach the idle-with-room nudge or recovered closure.
+        status = _supervisor_evaluate_busy.busy_expiry_notice_status(request=request)
     else:
         status, settled_streaming_progress = _idle_room_or_recovered(request=request)
         return IdleDecision(

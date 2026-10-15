@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import _supervisor_busy_delivery
 import _supervisor_launch
 import _supervisor_observe
 import _supervisor_round_recovery
@@ -30,22 +31,21 @@ _KNOWN_CLAUDE_STATUSES = frozenset({"busy", "idle", "shell", "waiting"})
 def busy_evidence_blocker(*, obs: Observation) -> str | None:
     """Name the concrete busy evidence that is blocking ready-certification, or None.
 
-    The guarded-paste predicate (:func:`fresh_guarded_paste_observation`) only ever
-    pastes into an idle, settled, non-generating pane, so the SOLE busy class that can
-    still be live when a wrap-up or an expiry notice actually lands is a background
-    shell: for Claude the adopted session's registry status is exactly ``shell``; for
-    Codex the descendant-shell fallback is the only busy evidence. That is exactly the
-    evidence that keeps a ``ready`` from ever certifying (the restart interlock requires
-    no live background shell under the pane), so it is what the message must name.
-
-    Every other busy class — a generating turn, an in-process sub-agent (Claude
-    ``busy``), or any non-shell busy — fails that predicate and is never reached at a
-    paste, so naming it would describe a state the message cannot be sent in. This reads
-    only observed facts and decides nothing: it does not authorize a restart and does not
-    weaken the cardinal rule.
+    Since spec v058 the guarded paste also lands in a BUSY pane whose input is
+    positively empty, so any busy class can be live when a wrap-up or an expiry notice
+    lands: a background shell (Claude registry ``shell``, or the Codex descendant-shell
+    fallback), or a running turn / in-process sub-agent (Claude ``busy`` or a generating
+    spinner). Each is evidence that keeps a ``ready`` from certifying under the
+    restart interlock's no-busy gate, so the message names it and the session stops it
+    first. This reads only observed facts and decides nothing: it does not authorize a
+    restart and does not weaken the cardinal rule.
     """
     if obs.claude_status == "shell" or obs.codex_fallback:
         return "a background shell is still running under this pane"
+    if obs.claude_status == "busy" or signals.is_busy(capture_text=obs.capture):
+        # Spec v058 delivers into a busy pane whose input is empty; the session must stop
+        # its own turn, sub-agents and monitors before a `ready` can certify.
+        return "this session is still working (a running turn, sub-agents or monitors)"
     return None
 
 
@@ -59,8 +59,32 @@ def _claude_status_unavailable(*, fresh: Observation) -> bool:
     return not fresh.is_codex and fresh.claude_status is None
 
 
+def _input_authorization_changed(*, settled: Observation, fresh: Observation) -> bool:
+    """The busy-delivery recheck: only INPUT-protecting inputs may cancel the paste.
+
+    Spec v058 (contracts.md, the wrap-up injection): identity, declaration, gate,
+    human-wait and eligible-input state are re-read; a change in busy evidence alone —
+    the capture, the generating spinner, the registry's busy/shell status — MUST NOT
+    cancel it, or a session that never stops working could never be wound down.
+    """
+    return (
+        fresh.is_codex != settled.is_codex
+        or _supervisor_busy_delivery.obs_input_empty(obs=fresh)
+        != _supervisor_busy_delivery.obs_input_empty(obs=settled)
+        or fresh.gate != settled.gate
+        or (fresh.claude_status == "waiting") != (settled.claude_status == "waiting")
+        or fresh.ready != settled.ready
+        or fresh.malformed != settled.malformed
+        or fresh.blocked != settled.blocked
+        or fresh.acked != settled.acked
+        or _declaration_signature(obs=fresh) != _declaration_signature(obs=settled)
+    )
+
+
 def _authorization_inputs_changed(*, request: ThresholdRequest, fresh: Observation) -> bool:
     settled = request.obs
+    if settled.busy:
+        return _input_authorization_changed(settled=settled, fresh=fresh)
     return (
         fresh.capture != settled.capture
         or fresh.is_codex != settled.is_codex
@@ -96,12 +120,16 @@ def fresh_guarded_paste_observation(
         target=request.target,
         key=track_key(repo=request.track.repo, topic=request.track.topic),
     )
-    if _claude_status_unavailable(fresh=fresh):
-        return None
-    if fresh.claude_status is not None and fresh.claude_status not in _KNOWN_CLAUDE_STATUSES:
+    if _claude_status_unavailable(fresh=fresh) or (
+        fresh.claude_status is not None and fresh.claude_status not in _KNOWN_CLAUDE_STATUSES
+    ):
         return None
     if _authorization_inputs_changed(request=request, fresh=fresh):
         return None
+    if request.obs.busy:
+        return _busy_delivery_guarded(
+            request=request, fresh=fresh, require_below_threshold=require_below_threshold
+        )
     generating = signals.is_busy(capture_text=fresh.capture) or fresh.claude_status == "busy"
     shell_only = (not signals.is_busy(capture_text=fresh.capture)) and (
         fresh.claude_status == "shell" or fresh.codex_fallback
@@ -118,6 +146,27 @@ def fresh_guarded_paste_observation(
         or fresh.claude_status == "waiting"
         or blocked
         or ready
+        or fresh.malformed
+        or fresh.acked
+    ):
+        return None
+    return fresh
+
+
+def _busy_delivery_guarded(
+    *, request: ThresholdRequest, fresh: Observation, require_below_threshold: bool
+) -> Observation | None:
+    """The input-only paste predicate for a busy pane (spec v058)."""
+    if (
+        fresh.eff_ctx is None
+        or (require_below_threshold and fresh.eff_ctx > request.threshold)
+        or not _supervisor_busy_delivery.obs_input_empty(obs=fresh)
+        or fresh.gate
+        or fresh.claude_status == "waiting"
+        or (
+            fresh.declared is not None
+            and fresh.declared.token in (signals.STATE_BLOCKED, signals.STATE_READY)
+        )
         or fresh.malformed
         or fresh.acked
     ):
