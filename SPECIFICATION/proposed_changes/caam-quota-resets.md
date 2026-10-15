@@ -77,7 +77,7 @@ Then insert the following paragraph immediately after the **Ranking** paragraph:
 
 In the paragraph beginning **An account that is refusing requests MUST be left, and MUST NOT be returned to until its refusal has lapsed.**, replace "An account is REFUSAL-HELD from the moment a refusal is attributed to it until the reset time that refusal reported has passed, or, where none was reported, until a later reading of the named window shows it fully replenished or shows a reset time more than one minute later than the reset time that window's reading carried when the refusal was attributed." with:
 
-An account is REFUSAL-HELD from the moment a refusal is attributed to it until the reset time that refusal reported has passed, or, where none was reported, until a later reading of the named window shows it fully replenished or shows a reset time more than one minute later than the reset time that window's reading carried when the refusal was attributed, or until a reset claim settles it. A reset claim made on an account SETTLES every refusal remembered against that account whose named window the claim cleared, once the claim's re-read shows that window replenished. The operation MUST record in its durable store, against that account, the time of the settling claim's re-read, and MUST NOT attribute to that account again any refusal recorded at or before that time, so that a settled refusal neither holds its account nor returns on a later pass.
+An account is REFUSAL-HELD from the moment a refusal is attributed to it until the reset time that refusal reported has passed, or, where none was reported, until a later reading of the named window shows it fully replenished or shows a reset time more than one minute later than the reset time that window's reading carried when the refusal was attributed, or until a reset claim settles it. A reset claim made on an account SETTLES every refusal remembered against that account whose named window the claim cleared, only where the provider's answer to that claim reports the reset as used by it and the claim's re-read then shows that window fully replenished; a claim answered as already used, not needed, cooling down, ineligible or unavailable settles nothing, because the re-read after such a claim is the same reading the hold already distrusts. A rate-limit refusal names no quota window a reset clears, so no claim settles it. The operation MUST record in its durable store, against that account, the time of the settling claim's re-read, and MUST NOT attribute to that account again any refusal recorded at or before that time, so that a settled refusal neither holds its account nor returns on a later pass.
 
 In scenarios.md, add these scenarios after "## Scenario: A reset reading declined for the requesting client is unreadable, not empty":
 
@@ -152,7 +152,11 @@ Given the active account is refusal-held on a short-window refusal and no candid
 
 And the active account holds a usable reset that clears its short window
 
-When a scheduled pass claims that reset and the re-read shows the short window replenished
+When a scheduled pass claims that reset
+
+And the provider reports the reset as used by that claim
+
+And the claim's re-read shows the short window fully replenished
 
 Then the active account is no longer refusal-held
 
