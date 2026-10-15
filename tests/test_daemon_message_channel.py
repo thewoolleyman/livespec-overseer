@@ -333,3 +333,28 @@ def test_a_refused_nudge_channel_does_not_fall_back_to_a_paste(*, tmp_path, monk
 
     assert nudge_count(fake=fake) == 0
     assert signals.read_state(repo=str(repo), topic=topic) is None
+
+
+def test_a_failed_channel_attempt_and_its_fallback_paste_are_both_named(*, tmp_path, monkeypatch):
+    """DoD 8: naming only the paste that rescued the act would read as though the
+    channel had never been tried, so the row and the log name both legs in order."""
+    monkeypatch.chdir(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    offer(
+        monkeypatch=monkeypatch,
+        channel=RecordingChannel(
+            addressed_identity=f"claude:{session}:{session}", outcome="failed"
+        ),
+    )
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    expected = "wrap-up via channel test-channel: failed, then paste: delivered"
+    assert view.delivery_path == expected
+    assert expected in err.getvalue()
