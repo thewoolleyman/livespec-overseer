@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import cast
 
@@ -17,7 +16,6 @@ from caam_anthropic_finish import LineWriter, SaveState, finish
 from caam_anthropic_flags import Flags, scheduled_pass
 from caam_anthropic_revive import revive_pass_profiles
 from caam_anthropic_status import EnforceModels, write_status
-from caam_decision import ProfileUsage
 from caam_enforcement import enforce_models as default_enforce_models
 from caam_pass_probe import probe_snapshotless_profiles
 from caam_pass_publish import pass_publication, pass_stamp
@@ -27,6 +25,7 @@ from caam_pass_seams import (
     default_caam_runner,
     line_logger,
 )
+from caam_pass_table import emit_pass_table, pass_table_lines
 from caam_pass_warm import WarmStage, run_warm_stage, warm_idle
 from caam_profile_state import (
     caam_vault,
@@ -46,7 +45,7 @@ from caam_profiles import (
     active_profile,
 )
 from caam_protected_accounts import apply_protected_accounts
-from caam_rendering import RenderableProfileUsage, render_table, trigger_header
+from caam_rendering import trigger_header
 from caam_switch import switch_account as default_switch_account
 from caam_usage import fetch_usage
 from caam_warm import ResnapshotRunner, resnapshot_active
@@ -235,7 +234,7 @@ def _pass_with_active(
             save=seams.save_state,
             stdout=context.stdout,
             lines=(
-                *_table_lines(context=context, profiles=profiles, active_name=active_name),
+                *pass_table_lines(profiles=profiles, active_name=active_name, now=context.now),
                 f"FAIL cannot read usage for active profile {active_name}",
             ),
         )
@@ -263,7 +262,9 @@ def _pass_with_active(
     run_warm_stage(stage=warm, active_name=active_name)
 
     def _after_switch(*, active_name: str) -> None:
-        _emit_table(context=context, profiles=profiles, active_name=active_name)
+        emit_pass_table(
+            stdout=context.stdout, profiles=profiles, active_name=active_name, now=context.now
+        )
         # Runs only on a switch that MOVED the credential, so the record ends the
         # pass naming the account now in use rather than the one it started on.
         # The identifier comes from the destination profile's own stored snapshot:
@@ -297,25 +298,3 @@ def _pass_with_active(
     # failed switch that DID hold the lock. A switch that moved the credential
     # and a contended lock both settled it above, so this is a no-op for them.
     return publication.publish(code=code)
-
-
-def _emit_table(
-    *, context: PassContext, profiles: tuple[ProfileUsage, ...], active_name: str
-) -> None:
-    """Re-render the table so its CURRENT column names the account now in use.
-
-    Carrier R13. The rows are the ones this pass ALREADY polled, so no request is
-    made: re-polling would cost one per switch and would also print figures that
-    disagree with the table above for reasons having nothing to do with the move.
-    Only the active marker is expected to differ between the two renderings.
-    """
-    for line in _table_lines(context=context, profiles=profiles, active_name=active_name):
-        context.stdout(line)
-
-
-def _table_lines(
-    *, context: PassContext, profiles: tuple[ProfileUsage, ...], active_name: str
-) -> tuple[str, ...]:
-    now_dt = datetime.fromtimestamp(context.now, tz=timezone.utc)
-    rows = cast(tuple[RenderableProfileUsage, ...], profiles)
-    return tuple(render_table(rows=rows, active_name=active_name, now=now_dt).splitlines())
