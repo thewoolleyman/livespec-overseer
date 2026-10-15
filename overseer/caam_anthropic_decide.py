@@ -26,6 +26,8 @@ from caam_expiring_quota import (
 )
 from caam_profile_state import caam_vault
 from caam_profiles import active_profile
+from caam_refusal_lines import refusal_switch_line
+from caam_refusal_store import RememberedRefusal
 from caam_switch import REASON_HOLD_LOCK_HELD, SwitchRequest, SwitchResult
 
 __all__: list[str] = [
@@ -80,6 +82,7 @@ def decide(
             decision_line=choice.decision_line,
             trigger=choice.trigger,
             short_window_triggered=choice.short_window_triggered,
+            refusal=choice.refusal,
         ),
         seams=seams,
     )
@@ -95,6 +98,11 @@ class _SwitchPlan:
     decision_line: str
     trigger: str
     short_window_triggered: bool
+    # The refusal that governed this move, where one did. Carried because the
+    # switch line owes the operator the instant it was recorded, and the switch
+    # itself -- which composes the ordinary line -- has never been told why it
+    # was asked.
+    refusal: RememberedRefusal | None
 
 
 def _switch_decision(
@@ -169,6 +177,15 @@ def _result_lines(*, plan: _SwitchPlan, result: SwitchResult, now: float) -> tup
         return result.lines
     if plan.trigger == DRAIN_TRIGGER:
         return (drain_switch_line(active_name=plan.active_name, target=plan.target, now=now),)
+    if plan.refusal is not None:
+        return (
+            refusal_switch_line(
+                active_name=plan.active_name,
+                target=plan.target,
+                remembered=plan.refusal,
+                now=now,
+            ),
+        )
     return result.lines
 
 

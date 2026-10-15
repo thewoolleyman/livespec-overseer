@@ -102,6 +102,7 @@ def triggered_choice(*, request: RotationRequest, arm: RotationArm) -> RotationC
         # known only here -- the switch itself never sees why it was asked.
         trigger=_switch_trigger_name(request=request, arm=arm),
         short_window_triggered=short_window_triggered(request=request, arm=arm),
+        refusal=arm.refusal.active,
     )
 
 
