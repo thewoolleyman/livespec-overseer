@@ -13,7 +13,7 @@ never persisting, and the beside-test would pass against a daemon that cannot.
 import codex_sessions
 import registry
 from test_supervisor_capture_builders import (
-    busy_capture,
+    busy_typed_capture,
     codex_busy_capture,
     codex_idle_capture,
     idle_capture,
@@ -52,7 +52,7 @@ def claude_compaction_track(*, tmp_path, ctx):
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
-    fake.serve(session=session, repo=repo, capture=busy_capture(ctx=ctx))
+    fake.serve(session=session, repo=repo, capture=busy_typed_capture(ctx=ctx))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     registry.append_mapping(
         track=mapped_track(repo=repo, topic=topic, session=session), store_path=sup.store_path
@@ -114,7 +114,8 @@ def show_pane(*, fake, session, capture):
 
 
 def claude_busy(*, ctx):
-    return busy_capture(ctx=ctx)
+    """Busy with NO injection window: typed input holds the wrap-up (spec v058)."""
+    return busy_typed_capture(ctx=ctx)
 
 
 def claude_idle(*, ctx):

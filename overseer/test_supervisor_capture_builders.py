@@ -28,6 +28,16 @@ def busy_capture(*, ctx=None):
     return f"● response\n{SPINNER}\n" + idle_capture(ctx=ctx)
 
 
+def busy_typed_capture(*, ctx=None):
+    """A generating pane whose input box holds TYPED text.
+
+    Since spec v058 a busy pane with an EMPTY box still receives the owed wrap-up, so
+    "busy, with no injection window" is this shape: typed input is what the paste must
+    never type over, whatever the session is doing.
+    """
+    return busy_capture(ctx=ctx).replace("❯ \n", "❯ draft reply to the maintainer\n", 1)
+
+
 # The REAL live idle Codex TUI shape (verified 2026-07-17, codex-cli 0.144.5): a `›`
 # input line above the Codex statusline `model · cwd · Context N% left · <name>` — NOT
 # Claude's empty-`❯`-between-rules box. An UNNAMED session shows its UUID where a named
