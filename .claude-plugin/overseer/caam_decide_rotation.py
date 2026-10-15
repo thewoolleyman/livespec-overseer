@@ -30,6 +30,7 @@ from caam_rotation_arm import (
     RotationChoice,
     RotationRequest,
     arm_active_account,
+    arm_candidates,
     resolve_arm,
     short_window_triggered,
 )
@@ -59,7 +60,7 @@ def _drain_choice(*, request: RotationRequest, arm: RotationArm) -> RotationChoi
     target = None
     if request.scheduled:
         target = drain_target(
-            profiles=request.profiles,
+            profiles=arm_candidates(request=request, arm=arm),
             active=arm_active_account(request=request, arm=arm),
             protection_floors=request.protection_floors,
             state=request.context.state,
