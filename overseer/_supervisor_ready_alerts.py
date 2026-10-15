@@ -17,6 +17,7 @@ from _supervisor_ready_notice import (
     maybe_deliver_stranded_ready_notice,
 )
 from _supervisor_records import InjectState, Observation
+from _supervisor_unrounded_ready import retire_unrounded_ready
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -71,6 +72,12 @@ def uncertifiable_ready_surface(
         reset_uncertifiable_ready_state(istate=obs.istate)
         return None
     reason = obs.ready_uncertifiable_reason
+    # Spec v058: an un-rounded `ready` on a track that owes a wind-down is RETIRED, not
+    # surfaced indefinitely — the fresh round that follows is the only route to a
+    # certifiable one. Nothing is surfaced for a declaration just retired.
+    if retire_unrounded_ready(sup=sup, track=track, obs=obs, session=session, pane=pane, act=act):
+        reset_uncertifiable_ready_state(istate=obs.istate)
+        return None
 
     istate = obs.istate
     age = max(0.0, sup.now() - declared.mtime)

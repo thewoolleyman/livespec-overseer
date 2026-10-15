@@ -16,10 +16,28 @@ if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
 __all__: list[str] = [
+    "COMPACTION_WRAPUP_NOTICE",
     "maybe_inject",
+    "with_compaction_notice",
 ]
 
+# Spec v058 (spec.md, the context-compaction latch): a latched wrap-up MUST say why it
+# arrives at a healthy-looking percentage, or the session's own wind-down-expiry check
+# (on context recovery) would read its recovered context as license to ignore it.
+COMPACTION_WRAPUP_NOTICE = (
+    "CONTEXT COMPACTION DETECTED: your context was compacted in place, and a compacted "
+    "context is a summary of the one being wound down — it is EXHAUSTED. A restart is "
+    "REQUIRED regardless of the remaining context you now see; do NOT treat this "
+    "wind-down, or any declaration you write for it, as expired because your context "
+    "looks recovered.\n\n"
+)
+
 wrapup_message_provider = _default_wrapup_message
+
+
+def with_compaction_notice(*, latched: bool, message: str) -> str:
+    """Lead a latched wrap-up with the compaction notice; leave any other untouched."""
+    return f"{COMPACTION_WRAPUP_NOTICE}{message}" if latched else message
 
 
 def armed_bands(*, record: registry.RoundRecord, compaction_latched_at: float | None) -> set[int]:
@@ -132,17 +150,20 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
             session_identity=identity,
             stamp_path=sup.stamp_path,
         )
-    message = select_wrapup_message(
-        track=track,
-        remaining=eff_ctx,
-        worker_wrapup=lambda remaining, repo, topic, epic: wrapup_message_provider(
-            remaining=remaining,
-            repo=repo,
-            topic=topic,
-            epic=epic,
+    message = with_compaction_notice(
+        latched=compaction_latched_at is not None,
+        message=select_wrapup_message(
+            track=track,
+            remaining=eff_ctx,
+            worker_wrapup=lambda remaining, repo, topic, epic: wrapup_message_provider(
+                remaining=remaining,
+                repo=repo,
+                topic=topic,
+                epic=epic,
+                blocker=blocker,
+            ),
             blocker=blocker,
         ),
-        blocker=blocker,
     )
     if _supervisor_launch.submit_prompt(
         sup=sup, target=target, text=message, expect_codex=is_codex

@@ -115,30 +115,44 @@ never mapped, and has no live session, produces no row at all.
 ## What the daemon injects at threshold — an ESCALATING wrap-up
 
 When a tracked session's **remaining context** falls to or below its threshold
-(`ctx_threshold`, default 50%) AND the pane is in a verified runtime-specific
-idle-input state, the daemon records an **injection stamp** (an epoch-seconds
-timestamp in the sidecar `~/.livespec-overseer-stamps.json`, keyed by `(repo,
-topic)`) and then **bracketed-pastes** the wrap-up message.
+(`ctx_threshold`, default 50%), or it carries a context-compaction latch, AND its
+INPUT is positively empty, the daemon records an **injection stamp** (an
+epoch-seconds timestamp in the sidecar `~/.livespec-overseer-stamps.json`, keyed by
+`(repo, topic)`) and then **bracketed-pastes** the wrap-up message.
 
-Recognized background-shell evidence is the one busy class that may coexist
-with this low-context paste. For Claude that means the adopted session's
-registry status is exactly `shell`; for Codex that means the descendant-shell
-fallback is the only busy evidence. It does not make the shell safe to kill,
-does not authorize a restart, and does not weaken the input guard: Claude still
-needs a positively available input box (empty, or a generated placeholder proven
-by its dim terminal styling), Codex still needs its structural prompt and
-statusline with no picker or generating marker, and the daemon re-reads the
-pane identity, runtime/busy evidence, capture, declaration/ACK/gate state, and
-input predicate immediately before opening the round. Any change, unknown
-status, malformed state, typed input, generating/sub-agent evidence, gate,
-human wait, `ready`, `blocked:`, fresh `winding-down`, or `done` cancels the paste for
-that tick.
+**Busyness does NOT hold the wrap-up back — this REVERSED the idle-only rule
+(maintainer ruling 2026-10-15, SPECIFICATION v058).** The paste used to be
+suppressed for any generating, sub-agent-busy or changing pane, and a session that
+never idles — a running turn, monitors, background agents — could therefore never be
+wound down and never restarted (gitops-fleet-capacity-monitoring sat through 373
+`winddown-starved` alerts and a compaction latch that way). Now winding down,
+including stopping its own background processes, monitors and sub-agents before
+declaring `ready`, is the SESSION's responsibility, and the daemon only refuses to
+type over INPUT. A paste into a running Claude turn is queued by the harness and
+submitted when it can be; submission is still confirmed by the box emptying.
 
-**When that background-shell evidence is present, the wrap-up NAMES it.** Because
-the guarded predicate above admits no other busy class at a paste, a live
-background shell is the one concrete blocker the daemon can still hold when the
-message lands — and it is exactly what keeps a subsequent `ready` from ever
-certifying (the restart interlock requires no live background shell). So the
+What still cancels the paste is evidence about the input, never about busyness:
+typed input, an open picker or structured gate, a runtime-reported human wait,
+`ready`, `blocked:`, fresh `winding-down`, `done`, a malformed state value, or
+unknown/ambiguous identity or input evidence. Claude needs a positively available
+input box (empty, or a generated placeholder proven by its dim terminal styling);
+for a busy pane the settle compares that INPUT region across the two captures, not
+the whole pane. Codex cannot tell its empty placeholder from typed text, so an IDLE
+Codex session's structural prompt and statusline are its proof of an empty
+composer, and a BUSY Codex session has none: its wrap-up is withheld and the row
+says `wrap-up withheld: busy Codex composer cannot be proven empty`. Immediately
+before opening the round the daemon re-reads the pane identity, declaration/ACK,
+gate, human-wait and input state; for a busy pane a change in busy evidence alone
+(the capture, the spinner, the registry's busy/shell status) does not cancel it.
+
+The RESTART is untouched by any of this: a `ready` still restarts a session only
+under the restart interlock's own no-busy gates, so a busy session that declares
+`ready` is never killed mid-work — it is restarted once its own wind-down has
+stopped its background work.
+
+**When busy evidence is present, the wrap-up NAMES it.** A live background shell,
+or a running turn / sub-agent, is exactly what keeps a subsequent `ready` from
+certifying (the restart interlock requires no busy evidence). So the
 message opens with a callout — "BLOCKING YOUR RESTART RIGHT NOW: a background
 shell is still running under this pane" — telling the session to reap it before
 declaring, rather than only to reach "a clean stopping point". The callout is
@@ -322,8 +336,11 @@ crossing still notifies each band exactly once.
 
 **The cardinal rule is untouched.** Restart-required is an OBLIGATION to deliver the
 wind-down and obtain a fresh certifiable `ready` — never a licence to kill a busy or
-undeclared session. A latched track that is busy is left alone; a latched track that
-is idle and silent is REPORTED, exactly as any other is; and the only thing that
+undeclared session. A latched track whose input is positively empty receives the
+wind-down whether or not it is busy (SPECIFICATION v058), and every wrap-up delivered
+under the latch opens by stating that a compaction was detected and a restart is
+required regardless of the remaining context the session sees; a latched track that
+never declares is REPORTED, exactly as any other is; and the only thing that
 reaches the restart surface is still the session's own fresh, certifiable `ready`.
 
 **How an operator tells it from an ordinary warning.** The row is an ordinary `warned`
@@ -632,13 +649,30 @@ recovered before the notice lands sends none — the fresh round's own wrap-up
 re-teaches the protocol instead. The notice re-opens no round, resets no notified
 band, and authorizes nothing.
 
-Like the wrap-up, when the daemon holds background-shell evidence at the paste the
-notice NAMES it in the same leading callout. This is the loop this repair exists to
+Like the wrap-up, when the daemon holds busy evidence at the paste the notice NAMES
+it in the same leading callout, and like the wrap-up it is delivered into a busy pane
+whose input is positively empty. This is the loop this repair exists to
 break: a `ready` armed but could never fire while a live background shell held the
 interlock open, it expired at the maximum age, the notice arrived saying only to
 reach "a clean stopping point", the session re-declared `ready`, and it repeated.
 Naming the shell turns the daemon's only lever into an actionable one without
 weakening the cardinal rule.
+
+**A `ready` with NO delivered round is RETIRED once a wind-down is owed
+(SPECIFICATION v058).** A `ready` standing on a track with no round-open timestamp and
+no recorded expiry certifies nothing — there is no floor for it to beat — and, because
+no paste is ever made over a standing declaration, it also blocked every fresh round.
+The measured case: a wrap-up paste failed, the daemon un-opened the round as it must,
+the session wrote `ready` anyway, and gitops-fleet-capacity-monitoring sat
+`ready-uncertifiable` for ~15h until an operator deleted the file. Now, once the
+track owes a wind-down (known context at or below its threshold, or a compaction
+latch) and the declaration is older than the two-minute declaration grace, the
+supervising loop DELETES the state file — only if it still holds that same `ready`
+with the same mtime, so a newer write is never clobbered — and alerts
+(`unrounded-ready-retired`). It never restarts, keystrokes or opens a round in that
+act; the next eligible observation opens a fresh round, and a `ready` written in
+answer certifies normally. A round-less `ready` on a track that owes no wind-down is
+left standing and surfaced as before.
 
 ## The restart mechanics (unchanged trigger, profile-preserving launch)
 
