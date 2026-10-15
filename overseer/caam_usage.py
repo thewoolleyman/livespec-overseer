@@ -1,20 +1,21 @@
-"""Credential parsing and usage polling for caam account rotation."""
+"""Credential parsing and usage polling for caam account rotation.
+
+The provider REQUEST itself lives in `caam_oauth_get`, which the capacity source
+reads its own endpoint through. What stays here is everything specific to the
+usage answer: which credential a token comes out of, whether that token is still
+live, and the usage record one response parses into.
+"""
 
 from __future__ import annotations
 
-import http.client
-import io
-import json
 import time
-import urllib.error
-import urllib.parse
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, Protocol
+from typing import Final
 
 import jsonio
 from caam_decision import UsageRecord
 from caam_extra_usage import extra_usage_from, window_dollars_from
+from caam_oauth_get import OAuthRequest, OAuthTransport, get_json
 
 __all__: list[str] = [
     "USAGE_URL",
@@ -25,9 +26,7 @@ __all__: list[str] = [
 ]
 
 USAGE_URL: Final = "https://api.anthropic.com/api/oauth/usage"
-_REQUEST_TIMEOUT_S: Final = 30.0
 _EXPIRY_SKEW_S: Final = 60.0
-_HTTP_ERROR_MINIMUM: Final = 400
 _FULL_ALLOWANCE: Final = 100.0
 
 
@@ -42,29 +41,6 @@ def remaining_from_utilization(*, utilization: float) -> float:
     and the two directions cannot circulate side by side unannounced.
     """
     return _FULL_ALLOWANCE - utilization
-
-
-@dataclass(frozen=True, kw_only=True)
-class UsageRequest:
-    url: str
-    headers: dict[str, str]
-
-
-class UsageHttpResponse(Protocol):
-    def __enter__(self) -> UsageHttpResponse: ...
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc: BaseException | None,
-        traceback: object,
-    ) -> bool | None: ...
-
-    def read(self, *, size: int = -1) -> bytes: ...
-
-
-class UsageTransport(Protocol):
-    def __call__(self, request: UsageRequest, timeout: float) -> UsageHttpResponse: ...
 
 
 def read_creds(*, path: Path) -> tuple[str | None, float | None]:
@@ -100,7 +76,7 @@ def fetch_usage(
     *,
     creds_path: Path,
     now: float | None = None,
-    transport: UsageTransport | None = None,
+    transport: OAuthTransport | None = None,
 ) -> tuple[UsageRecord | None, str | None]:
     """Return (usage, None) or (None, reason). Never raises."""
 
@@ -108,19 +84,12 @@ def fetch_usage(
     if token is None:
         return None, why
 
-    request = UsageRequest(url=USAGE_URL, headers={"Authorization": "Bearer " + token})
-    open_usage = _open_usage if transport is None else transport
-    try:
-        with open_usage(request=request, timeout=_REQUEST_TIMEOUT_S) as response:
-            parsed: object = json.loads(response.read().decode())
-    except urllib.error.HTTPError as exc:
-        return None, _http_error_reason(error=exc)
-    except (OSError, http.client.HTTPException, TypeError, UnicodeDecodeError, ValueError) as exc:
-        return None, f"{type(exc).__name__}: {exc}"
-
-    body = jsonio.as_object(value=parsed)
+    body, why = get_json(
+        request=OAuthRequest(url=USAGE_URL, headers={"Authorization": "Bearer " + token}),
+        transport=transport,
+    )
     if body is None:
-        return None, "unexpected response shape"
+        return None, why
     return _usage_record(body=body)
 
 
@@ -132,59 +101,6 @@ def _oauth_object(*, path: Path) -> dict[str, object] | None:
     if body is None:
         return None
     return jsonio.as_object(value=body.get("claudeAiOauth"))
-
-
-@dataclass(kw_only=True)
-class _HttpResponse:
-    response: http.client.HTTPResponse
-
-    def __enter__(self) -> _HttpResponse:
-        return self
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc: BaseException | None,
-        traceback: object,
-    ) -> bool:
-        self.response.close()
-        return False
-
-    def read(self, *, size: int = -1) -> bytes:
-        return self.response.read(size)
-
-
-def _open_usage(*, request: UsageRequest, timeout: float) -> UsageHttpResponse:
-    parsed = urllib.parse.urlsplit(request.url)
-    if parsed.scheme != "https" or not parsed.netloc:
-        raise ValueError
-
-    connection = http.client.HTTPSConnection(parsed.netloc, timeout=timeout)
-    target = urllib.parse.urlunsplit(("", "", parsed.path or "/", parsed.query, ""))
-    connection.request("GET", target, headers=request.headers)
-    response = connection.getresponse()
-    if response.status >= _HTTP_ERROR_MINIMUM:
-        body = response.read()
-        raise urllib.error.HTTPError(
-            url=request.url,
-            code=response.status,
-            msg=response.reason,
-            hdrs=response.headers,
-            fp=io.BytesIO(body),
-        )
-    return _HttpResponse(response=response)
-
-
-def _http_error_reason(*, error: urllib.error.HTTPError) -> str:
-    try:
-        parsed: object = json.loads(error.read().decode())
-    except (OSError, TypeError, UnicodeDecodeError, ValueError):
-        return f"HTTP {error.code}"
-
-    body = jsonio.as_object(value=parsed)
-    detail = jsonio.as_object(value=None if body is None else body.get("error"))
-    message = None if detail is None else detail.get("message")
-    return message if isinstance(message, str) else f"HTTP {error.code}"
 
 
 def _usage_record(*, body: dict[str, object]) -> tuple[UsageRecord | None, str | None]:
