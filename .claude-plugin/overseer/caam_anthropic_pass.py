@@ -11,20 +11,15 @@ from typing import cast
 from _caam_pass_span import Clock, PassEventEmitter, PassSpan, open_pass_span
 from _caam_rotation_span import rotation_sink
 from _caam_span_seam import emitter_from_env
-from caam_anthropic_decide import DecisionSeams, SwitchAccount, UsageFetcher, decide
-from caam_anthropic_finish import LineWriter, SaveState, finish
+from caam_anthropic_decide import DecisionSeams, decide
+from caam_anthropic_finish import LineWriter, finish
 from caam_anthropic_flags import Flags, scheduled_pass
 from caam_anthropic_revive import revive_pass_profiles
-from caam_anthropic_status import EnforceModels, write_status
-from caam_enforcement import enforce_models as default_enforce_models
+from caam_anthropic_status import write_status
 from caam_pass_probe import probe_snapshotless_profiles
 from caam_pass_publish import pass_publication, pass_stamp
-from caam_pass_seams import (
-    AgentRunner,
-    default_agent_runner,
-    default_caam_runner,
-    line_logger,
-)
+from caam_pass_refusals import observe_pass_refusals
+from caam_pass_seams import AgentRunner, PassSeams, line_logger, pass_seams
 from caam_pass_table import emit_pass_table, pass_table_lines
 from caam_pass_warm import WarmStage, run_warm_stage, warm_idle
 from caam_profile_state import (
@@ -34,21 +29,15 @@ from caam_profile_state import (
     profile_names,
 )
 from caam_profile_state import (
-    save_state as default_save_state,
-)
-from caam_profile_state import (
     state_path as caam_state_path,
 )
 from caam_profiles import (
     ActiveIdentity,
-    CaamRunner,
     active_profile,
 )
 from caam_protected_accounts import apply_protected_accounts
 from caam_rendering import trigger_header
-from caam_switch import switch_account as default_switch_account
-from caam_usage import fetch_usage
-from caam_warm import ResnapshotRunner, resnapshot_active
+from caam_warm import resnapshot_active
 
 __all__: list[str] = ["AgentRunner", "Flags", "PassContext", "run_pass"]
 
@@ -108,14 +97,7 @@ def _run_pass(
     span: PassSpan,
     overrides: dict[str, object],
 ) -> int:
-    caam_runner = cast(CaamRunner | None, overrides.get("caam_runner"))
-    fetcher = cast(UsageFetcher, overrides.get("fetcher", fetch_usage))
-    save_state = cast(SaveState, overrides.get("save_state", default_save_state))
-    switch_account = cast(SwitchAccount, overrides.get("switch_account", default_switch_account))
-    enforce_models = cast(EnforceModels, overrides.get("enforce_models", default_enforce_models))
-    agent_runner = cast(AgentRunner | None, overrides.get("agent_runner"))
-    run_caam = default_caam_runner if caam_runner is None else caam_runner
-    run_agent = default_agent_runner if agent_runner is None else agent_runner
+    seams = pass_seams(overrides=overrides)
     run_home = Path.home() if home is None else home
     checked_at = time.time() if now is None else now
     state_path = caam_state_path(home=run_home)
@@ -126,21 +108,21 @@ def _run_pass(
             code=2,
             state=state,
             state_path=state_path,
-            save=save_state,
+            save=seams.save_state,
             stdout=stdout,
             lines=(_EMPTY_VAULT,),
         )
     active = active_profile(
         live_account_path=run_home / ".claude.json",
         vault_path=vault,
-        caam_runner=run_caam,
+        caam_runner=seams.caam_runner,
     )
     if active is None:
         return finish(
             code=2,
             state=state,
             state_path=state_path,
-            save=save_state,
+            save=seams.save_state,
             stdout=stdout,
             lines=(_ACTIVE_FAIL,),
         )
@@ -156,25 +138,8 @@ def _run_pass(
             span=span,
         ),
         active=active,
-        seams=PassSeams(
-            fetcher=fetcher,
-            save_state=save_state,
-            switch_account=switch_account,
-            enforce_models=enforce_models,
-            agent_runner=run_agent,
-            caam_runner=run_caam,
-        ),
+        seams=seams,
     )
-
-
-@dataclass(frozen=True, kw_only=True)
-class PassSeams:
-    fetcher: UsageFetcher
-    save_state: SaveState
-    switch_account: SwitchAccount
-    enforce_models: EnforceModels
-    agent_runner: AgentRunner
-    caam_runner: ResnapshotRunner
 
 
 def _pass_with_active(
@@ -239,6 +204,18 @@ def _pass_with_active(
             ),
         )
         return publication.publish(code=code)
+    # Observed BEFORE the decision and after the readings, because a refusal is
+    # evidence about the account those readings describe: the operation reads the
+    # refusal records tracked sessions have already written -- sending no request
+    # of its own -- and remembers what it can attribute in the durable store the
+    # decision then reads its refusal standing from.
+    observe_pass_refusals(
+        context=context,
+        active=active,
+        current=current,
+        profiles=profiles,
+        source=seams.tracked_sessions,
+    )
     write_status(
         context=context,
         profiles=profiles,
