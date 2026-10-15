@@ -1545,5 +1545,173 @@
     "heading": "## LLM provider credential management",
     "work_item": "overseer-5tpc72",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A refusing active account is left whatever its usage reads",
+    "work_item": "overseer-pffwyp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The operation does not return to an account inside its refusal window",
+    "work_item": "overseer-pffwyp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A refusal from another credential or provider is not attributed to the active account",
+    "work_item": "overseer-pffwyp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A lagging session's refusal after a switch stays with the account just left",
+    "work_item": "overseer-pffwyp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A lagging session's refusal after a hand switch stays with the account left",
+    "work_item": "overseer-pffwyp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A refusal on an account returned to is attributed to it",
+    "work_item": "overseer-pffwyp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Reading jitter does not end a hold on a refusal that reported no reset",
+    "work_item": "overseer-pffwyp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A refusal recorded before the account became active is not attributed to it",
+    "work_item": "overseer-pffwyp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A refusal whose reset has passed does not trigger rotation",
+    "work_item": "overseer-pffwyp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A refusing account with no selectable candidate holds and says so",
+    "work_item": "overseer-pffwyp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An account projected to reach the floor before the next pass is left",
+    "work_item": "overseer-ivpkrf",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A slowly draining account holds",
+    "work_item": "overseer-ivpkrf",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Closely spaced readings do not produce a burn rate",
+    "work_item": "overseer-ivpkrf",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: No burn rate is computed across a short-window reset",
+    "work_item": "overseer-ivpkrf",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: No burn rate is computed across a switch",
+    "work_item": "overseer-ivpkrf",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A small candidate that the current load would drain is not selected",
+    "work_item": "overseer-ivpkrf",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A small candidate is selectable under light load",
+    "work_item": "overseer-ivpkrf",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The capacity test uses the remembered fleet load after a switch",
+    "work_item": "overseer-ivpkrf",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A candidate of unknown capacity is weighted as the smallest class",
+    "work_item": "overseer-ivpkrf",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The capacity test is released for a refusing account when no candidate passes it",
+    "work_item": "overseer-ivpkrf",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The capacity test holds when it excludes every candidate and the active account is not refusing",
+    "work_item": "overseer-ivpkrf",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The account table shows each account's capacity class",
+    "work_item": "overseer-wzw2zw",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A plan change shows without a fresh login",
+    "work_item": "overseer-wzw2zw",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unreadable plan shows unknown",
+    "work_item": "overseer-wzw2zw",
+    "first_seen": "2026-10-15"
   }
 ]
