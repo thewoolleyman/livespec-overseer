@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import _supervisor_channel
 import _supervisor_launch
 import _supervisor_launch_profile_refresh
 import _supervisor_ready
@@ -74,6 +75,70 @@ def _report_undelivered(
             "wrapup-delivery-unconfirmed" if effect_unknown else "wrapup-injection-submit-failed"
         ),
     )
+
+
+def _open_round(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    target: str,
+    session: str,
+    identity: str | None,
+) -> bool:
+    """Refresh the launch profile and stamp the round open; False cancels the act.
+
+    Stamp BEFORE the delivery (design) so a marker the session writes has
+    ``mtime > at``. Only on opening — a re-warn preserves the round's ``at``.
+    """
+    repo, topic = track.repo, track.topic
+    _supervisor_launch_profile_refresh.refresh_launch_profile_at_wrapup(
+        sup=sup,
+        track=track,
+        target=target,
+        capture=sup.tmux.capture_pane(session=session),
+    )
+    if identity is None:
+        sup.alert(
+            repo=repo,
+            topic=topic,
+            session=session,
+            pane=target,
+            message="wrap-up round NOT opened; session identity could not be determined",
+            condition="round-identity-undetermined",
+        )
+        return False
+    registry.write_injection_stamp(
+        repo=repo,
+        topic=topic,
+        ts=sup.now(),
+        session_identity=identity,
+        stamp_path=sup.stamp_path,
+    )
+    return True
+
+
+def _deliver_wrapup(
+    *,
+    sup: Supervisor,
+    target: str,
+    message: str,
+    is_codex: bool,
+    channel: _supervisor_channel.MessageChannel | None,
+) -> tuple[bool, bool]:
+    """``(submitted, effect_unknown)`` for this act's wrap-up, by channel or by paste.
+
+    SPECIFICATION v060, contracts.md, the daemon-message
+    delivery channel: a supported
+    channel delivers the wrap-up WITHOUT a keystroke. The round's stamp was already
+    written by the caller, so the ordering a paste guarantees — stamp, then deliver —
+    is unchanged by which route carries the message.
+    """
+    if channel is None:
+        return _supervisor_launch.submit_prompt_outcome(
+            sup=sup, target=target, text=message, expect_codex=is_codex
+        )
+    sent = channel.send(text=message)
+    return sent.outcome == _supervisor_channel.CHANNEL_DELIVERED, False
 
 
 def armed_bands(*, record: registry.RoundRecord, compaction_latched_at: float | None) -> set[int]:
@@ -153,39 +218,15 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
         and not signals.valid_session_token(token=state.token)
     ):
         due = [threshold]
-    if opened_now:
-        _supervisor_launch_profile_refresh.refresh_launch_profile_at_wrapup(
-            sup=sup,
-            track=track,
-            target=target,
-            capture=sup.tmux.capture_pane(
-                session=_supervisor_launch.session_of(sup=sup, track=track)
-            ),
-        )
-        # Stamp BEFORE the paste (design) so a marker the session writes has
-        # mtime > at. Only on opening — a re-warn preserves the round's at.
-        session = _supervisor_launch.session_of(sup=sup, track=track)
-        runtime = "codex" if is_codex else "claude"
-        identity = _supervisor_ready.session_identity(
-            sup=sup, session=session, topic=topic, runtime=runtime
-        )
-        if identity is None:
-            sup.alert(
-                repo=repo,
-                topic=topic,
-                session=session,
-                pane=target,
-                message="wrap-up round NOT opened; session identity could not be determined",
-                condition="round-identity-undetermined",
-            )
-            return
-        registry.write_injection_stamp(
-            repo=repo,
-            topic=topic,
-            ts=sup.now(),
-            session_identity=identity,
-            stamp_path=sup.stamp_path,
-        )
+    session = _supervisor_launch.session_of(sup=sup, track=track)
+    runtime = "codex" if is_codex else "claude"
+    identity = _supervisor_ready.session_identity(
+        sup=sup, session=session, topic=topic, runtime=runtime
+    )
+    if opened_now and not _open_round(
+        sup=sup, track=track, target=target, session=session, identity=identity
+    ):
+        return
     message = with_compaction_notice(
         latched=compaction_latched_at is not None,
         message=select_wrapup_message(
@@ -201,8 +242,14 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
             blocker=blocker,
         ),
     )
-    submitted, effect_unknown = _supervisor_launch.submit_prompt_outcome(
-        sup=sup, target=target, text=message, expect_codex=is_codex
+    submitted, effect_unknown = _deliver_wrapup(
+        sup=sup,
+        target=target,
+        message=message,
+        is_codex=is_codex,
+        channel=_supervisor_channel.resolve_channel(
+            sup=sup, runtime=runtime, session=session, topic=topic, identity=identity
+        ),
     )
     if submitted:
         for b in due:
