@@ -19,6 +19,7 @@ nudge reporting its route in a second, drifting dialect.
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
@@ -207,7 +208,16 @@ def _after_refusal(
     """
     if request.reread is None or not request.reread():
         return _refused(request=request, channel=channel)
-    return _by_paste(request=request)
+    pasted = _by_paste(request=request)
+    return DeliveryOutcome(
+        submitted=pasted.submitted,
+        effect_unknown=pasted.effect_unknown,
+        record=dataclasses.replace(
+            pasted.record,
+            channel=channel.name,
+            channel_outcome=_supervisor_channel.CHANNEL_FAILED,
+        ),
+    )
 
 
 def deliver(
