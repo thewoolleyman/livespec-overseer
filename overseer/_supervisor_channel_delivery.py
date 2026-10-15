@@ -20,7 +20,7 @@ nudge reporting its route in a second, drifting dialect.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 import _supervisor_channel
 import _supervisor_launch
@@ -35,6 +35,7 @@ if TYPE_CHECKING:
 __all__: list[str] = [
     "DeliveryOutcome",
     "DeliveryRequest",
+    "PreDeliveryReRead",
     "binding_proven",
     "deliver",
     "live_identity",
@@ -42,6 +43,17 @@ __all__: list[str] = [
     "record_delivery",
     "resolve_bound_channel",
 ]
+
+
+class PreDeliveryReRead(Protocol):
+    """Re-run the act's immediate pre-paste re-read; False withdraws authorization.
+
+    The act owns this predicate — it is the same guarded observation that authorized
+    the delivery in the first place — so the fallback repeats the caller's own gate
+    rather than a weaker copy of it living down here.
+    """
+
+    def __call__(self) -> bool: ...
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -54,6 +66,11 @@ class DeliveryRequest:
     text: str
     kind: str
     is_codex: bool
+    # Present only for an act that DEFINES a pre-paste re-read, which today is the
+    # wrap-up alone. Absent, a refused channel is simply reported and retried on a
+    # later observation: the contract makes the fallback a MAY, and a fallback with
+    # no re-read behind it would paste on an authorization nobody re-checked.
+    reread: PreDeliveryReRead | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -161,6 +178,38 @@ def _by_paste(*, request: DeliveryRequest) -> DeliveryOutcome:
     )
 
 
+def _refused(
+    *, request: DeliveryRequest, channel: _supervisor_channel.MessageChannel
+) -> DeliveryOutcome:
+    return DeliveryOutcome(
+        submitted=False,
+        effect_unknown=False,
+        record=_supervisor_channel.DeliveryRecord(
+            message=request.kind,
+            channel=channel.name,
+            channel_outcome=_supervisor_channel.CHANNEL_FAILED,
+        ),
+    )
+
+
+def _after_refusal(
+    *, request: DeliveryRequest, channel: _supervisor_channel.MessageChannel
+) -> DeliveryOutcome:
+    """A refusal BEFORE transmission: fall back to the guarded paste, or report it.
+
+    The refusal is a proven non-delivery, so the message may still be delivered in
+    THIS act — but only behind the act's own pre-paste re-read, run again. Between
+    the channel attempt and the paste the pane can have gone busy, opened a picker or
+    exited to a shell, and pasting on the earlier authorization would type a wrap-up
+    into whatever is there now. A re-read that refuses leaves the refusal standing as
+    the act's outcome, which un-opens the round rather than stranding a stamped round
+    behind an undelivered message.
+    """
+    if request.reread is None or not request.reread():
+        return _refused(request=request, channel=channel)
+    return _by_paste(request=request)
+
+
 def deliver(
     *, request: DeliveryRequest, channel: _supervisor_channel.MessageChannel | None
 ) -> DeliveryOutcome:
@@ -173,6 +222,8 @@ def deliver(
     if channel is None:
         return _by_paste(request=request)
     sent = channel.send(text=request.text)
+    if sent.outcome == _supervisor_channel.CHANNEL_FAILED:
+        return _after_refusal(request=request, channel=channel)
     # An UNCONFIRMED send is the channel's word for the may-have-landed state a paste
     # reports as an unknown effect, so it rides the SAME flag: the caller's round stays
     # open with its stamp unchanged, exactly as v059 already requires for a paste.

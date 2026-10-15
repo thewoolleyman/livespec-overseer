@@ -89,6 +89,10 @@ def threshold(*, request: ThresholdRequest) -> ThresholdDecision:
             is_codex=obs.is_codex,
             blocker=_supervisor_threshold_expiry.busy_evidence_blocker(obs=obs),
             compaction_latched_at=_supervisor_compaction.rearm_instant(compaction=obs.compaction),
+            # The pre-paste re-read, handed down so a channel refusal's fallback paste
+            # (v060) is gated by THIS branch's own guarded-paste predicate rather than
+            # by a weaker copy of it living in the delivery helper.
+            reread=lambda: _fresh_threshold_observation(request=request) is not None,
         )
         _supervisor_observe.advance_condition(
             episode=obs.istate.winddown_starved_episode,
