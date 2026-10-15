@@ -14,6 +14,7 @@ from test_supervisor_builders import (
     make_plan,
     make_supervisor,
     mapped_track,
+    nudge_count,
     wrapup_count,
 )
 
@@ -66,3 +67,31 @@ def test_a_wrapup_is_delivered_through_a_supported_channel_without_typing(*, tmp
     assert len(channel.sent) == 1
     assert "Declare your state by writing ONE line" in channel.sent[0]
     assert wrapup_count(fake=fake) == 0
+
+
+def test_a_keep_going_nudge_is_delivered_through_a_supported_channel(*, tmp_path, monkeypatch):
+    """DoD 2: the nudge goes through the channel and still writes its own marker."""
+    import _supervisor_config
+    import signals
+
+    monkeypatch.chdir(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
+    clock = {"t": 1000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
+    sup.claude_status_by_session = {session: "idle"}
+    channel = RecordingChannel(addressed_identity=f"claude:{session}:{session}")
+    offer(monkeypatch=monkeypatch, channel=channel)
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    sup.evaluate(track=track, act=True)  # stamps the continuous-idle clock
+    clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1
+    assert sup.evaluate(track=track, act=True).status == "idle-with-context-left"
+
+    assert len(channel.sent) == 1
+    assert "do NOT offer to stop" in channel.sent[0]
+    assert nudge_count(fake=fake) == 0
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None and state.token == signals.STATE_IDLE_WITH_CONTEXT_LEFT
