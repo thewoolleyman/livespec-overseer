@@ -299,3 +299,96 @@ def test_scenario_the_switch_line_names_the_refusal_and_when_it_was_recorded(
     assert "5-hour window" in switched
     assert stamp(at=NOW - NINE_MINUTES) in switched
     assert "70% week left" in switched
+
+
+def test_scenario_the_operation_does_not_return_to_an_account_inside_its_refusal_window(
+    *, tmp_path: Path
+) -> None:
+    """The lagging reading that would otherwise pull the fleet straight back.
+
+    The account the first pass left is exactly the one whose usage figures still
+    look healthiest, because those figures are what lagged in the first place.
+    Without the hold the second pass reads 90% on it and returns -- which is the
+    oscillation the trigger would otherwise introduce.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="anthropic-3",
+        usages={
+            "anthropic-3": usage(five_hour_remaining=45.0),
+            "anthropic-1": usage(five_hour_remaining=90.0),
+        },
+    )
+    harness.seed_state(state=active_since(account="anthropic-3", at=NOW - 2 * ONE_HOUR))
+    session = harness.record_refusal(recorded_at=NOW - NINE_MINUTES, reset_at_epoch=NOW + ONE_HOUR)
+    harness.track(sessions=(session,))
+
+    first_code, _first_lines = harness.run()
+    harness.usages["anthropic-1"] = usage(five_hour_remaining=10.0)
+    harness.track(sessions=())
+    second_code, second_lines = harness.run()
+
+    assert first_code == second_code == 0
+    assert harness.switches == ["anthropic-1"]
+    assert any(line.startswith("hold:") for line in second_lines)
+
+
+def test_scenario_reading_jitter_does_not_end_a_hold_on_a_refusal_with_no_reset(
+    *, tmp_path: Path
+) -> None:
+    """A reset half a minute later is the provider's own jitter, not a reset."""
+    harness = RotationHarness(
+        home=tmp_path,
+        active="anthropic-3",
+        usages={
+            "anthropic-3": usage(five_hour_remaining=45.0, five_hour_reset_s=ONE_HOUR),
+            "anthropic-1": usage(five_hour_remaining=90.0),
+        },
+    )
+    harness.seed_state(state=active_since(account="anthropic-3", at=NOW - 2 * ONE_HOUR))
+    session = harness.record_refusal(recorded_at=NOW - NINE_MINUTES, reset_at_epoch=None)
+    harness.track(sessions=(session,))
+
+    harness.run()
+    harness.usages["anthropic-3"] = usage(
+        five_hour_remaining=45.0, five_hour_reset_s=ONE_HOUR + 30.0
+    )
+    harness.usages["anthropic-1"] = usage(five_hour_remaining=10.0)
+    harness.track(sessions=())
+    _code, lines = harness.run()
+
+    assert harness.switches == ["anthropic-1"]
+    assert any(line.startswith("hold:") for line in lines)
+
+
+def test_scenario_a_window_that_actually_reset_ends_the_hold_on_a_refusal_with_no_reset(
+    *, tmp_path: Path
+) -> None:
+    """The control for the two holds above: a hold that could not END is not a hold.
+
+    A refusal that reported no reset is held until the named window is OBSERVED
+    to have moved on -- a reset more than the tolerance later, or a fully
+    replenished reading -- and then the account is selectable again.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="anthropic-3",
+        usages={
+            "anthropic-3": usage(five_hour_remaining=45.0, five_hour_reset_s=ONE_HOUR),
+            "anthropic-1": usage(five_hour_remaining=90.0),
+        },
+    )
+    harness.seed_state(state=active_since(account="anthropic-3", at=NOW - 2 * ONE_HOUR))
+    session = harness.record_refusal(recorded_at=NOW - NINE_MINUTES, reset_at_epoch=None)
+    harness.track(sessions=(session,))
+
+    harness.run()
+    harness.usages["anthropic-3"] = usage(
+        five_hour_remaining=100.0, five_hour_reset_s=ONE_HOUR + 6 * ONE_HOUR
+    )
+    harness.usages["anthropic-1"] = usage(five_hour_remaining=10.0)
+    harness.track(sessions=())
+    _code, _lines = harness.run()
+
+    assert harness.switches == ["anthropic-1", "anthropic-3"]
+    assert harness.read_state()["refusals"] == []
