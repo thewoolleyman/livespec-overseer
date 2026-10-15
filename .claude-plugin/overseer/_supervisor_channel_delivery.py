@@ -35,10 +35,12 @@ if TYPE_CHECKING:
 __all__: list[str] = [
     "DeliveryOutcome",
     "DeliveryRequest",
+    "binding_proven",
     "deliver",
     "live_identity",
     "paste_outcome",
     "record_delivery",
+    "resolve_bound_channel",
 ]
 
 
@@ -88,6 +90,60 @@ def _runtime_of(*, is_codex: bool) -> str:
     return "codex" if is_codex else "claude"
 
 
+def binding_proven(*, channel: _supervisor_channel.MessageChannel, identity: str | None) -> bool:
+    """Is the channel's addressed session PROVABLY the session this act targets?
+
+    Fail-closed on BOTH unknowns, which is the whole point of stating it as a proof
+    rather than as a mismatch test: an act whose target identity could not be
+    resolved, and a channel that will not name the session it addresses, are each
+    "cannot be proven equal" — and a daemon message delivered to a session the
+    daemon cannot name is exactly the confusion the live-identity requirement exists
+    to prevent.
+    """
+    return (
+        identity is not None
+        and channel.addressed_identity is not None
+        and channel.addressed_identity == identity
+    )
+
+
+def resolve_bound_channel(
+    *, request: DeliveryRequest, identity: str | None
+) -> tuple[_supervisor_channel.MessageChannel | None, bool]:
+    """``(channel, cancelled)`` — the channel to use, or an act to abandon this tick.
+
+    Three answers, not two. ``(None, False)`` is "no supported channel; paste as
+    before". ``(channel, False)`` is a proven binding. ``(None, True)`` is a channel
+    whose addressed session cannot be proven to be this act's target, which cancels
+    the WHOLE act for the tick — the paste included — so a mismatched identity never
+    degrades into typing the message into the pane anyway.
+    """
+    channel = _supervisor_channel.resolve_channel(
+        sup=request.sup,
+        runtime=_runtime_of(is_codex=request.is_codex),
+        session=_supervisor_launch.session_of(sup=request.sup, track=request.track),
+        topic=request.track.topic,
+        identity=identity,
+    )
+    if channel is None:
+        return None, False
+    if binding_proven(channel=channel, identity=identity):
+        return channel, False
+    request.sup.alert(
+        repo=request.track.repo,
+        topic=request.track.topic,
+        session=_supervisor_launch.session_of(sup=request.sup, track=request.track),
+        pane=request.target,
+        message=(
+            f"{request.kind} act CANCELLED this tick: the channel addresses "
+            f"{channel.addressed_identity!r}, not the targeted session "
+            f"{identity!r}; nothing was sent and nothing was pasted"
+        ),
+        condition="channel-binding-unproven",
+    )
+    return None, True
+
+
 def _by_paste(*, request: DeliveryRequest) -> DeliveryOutcome:
     submitted, effect_unknown = _supervisor_launch.submit_prompt_outcome(
         sup=request.sup,
@@ -105,22 +161,15 @@ def _by_paste(*, request: DeliveryRequest) -> DeliveryOutcome:
     )
 
 
-def deliver(*, request: DeliveryRequest, identity: str | None) -> DeliveryOutcome:
-    """Deliver the owed message through its supported channel, else by the paste.
+def deliver(
+    *, request: DeliveryRequest, channel: _supervisor_channel.MessageChannel | None
+) -> DeliveryOutcome:
+    """Deliver the owed message through its bound channel, else by the guarded paste.
 
-    ``identity`` is the session identity THIS ACT TARGETS — the round-open identity
-    for a wrap-up, the pane's currently proven identity for a nudge. It is what the
-    channel is resolved for; a runtime with no supported channel pastes exactly as
-    it did before this contract existed.
+    ``channel`` is whatever :func:`resolve_bound_channel` proved for this act, so by
+    the time delivery runs the binding question is already answered: a runtime with
+    no supported channel pastes exactly as it did before this contract existed.
     """
-    session = _supervisor_launch.session_of(sup=request.sup, track=request.track)
-    channel = _supervisor_channel.resolve_channel(
-        sup=request.sup,
-        runtime=_runtime_of(is_codex=request.is_codex),
-        session=session,
-        topic=request.track.topic,
-        identity=identity,
-    )
     if channel is None:
         return _by_paste(request=request)
     sent = channel.send(text=request.text)

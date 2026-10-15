@@ -119,3 +119,97 @@ def test_a_channel_delivery_is_named_as_the_delivery_path(*, tmp_path, monkeypat
 
     assert "via channel test-channel: delivered" in err.getvalue()
     assert getattr(view, "delivery_path", None) == "wrap-up via channel test-channel: delivered"
+
+
+def test_a_runtime_with_no_supported_channel_pastes_the_wrapup_as_before(*, tmp_path, monkeypatch):
+    """DoD 4: no supported channel resolves, so the guarded paste runs unchanged."""
+    import _supervisor_channel
+
+    monkeypatch.chdir(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+
+    # The shipped default: no runtime has a measured channel, so none is offered.
+    assert (
+        _supervisor_channel.resolve_channel(
+            sup=sup, runtime="claude", session=session, topic=topic, identity="claude:x:y"
+        )
+        is None
+    )
+    sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert wrapup_count(fake=fake) == 1
+    assert (
+        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        is not None
+    )
+
+
+def test_a_paste_delivery_is_named_as_the_delivery_path(*, tmp_path, monkeypatch):
+    """DoD 5: a pasted daemon message names the paste on the row and in the log."""
+    monkeypatch.chdir(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert "via paste: delivered" in err.getvalue()
+    assert view.delivery_path == "wrap-up via paste: delivered"
+
+
+def test_a_channel_addressing_another_session_cancels_the_whole_act(*, tmp_path, monkeypatch):
+    """DoD 6: an unproven binding sends nothing, pastes nothing, and opens no round."""
+    monkeypatch.chdir(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    channel = RecordingChannel(addressed_identity="claude:some-other-session:other-topic")
+    offer(monkeypatch=monkeypatch, channel=channel)
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert channel.sent == []
+    assert wrapup_count(fake=fake) == 0
+    assert (
+        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        is None
+    )
+
+
+def test_a_nudge_whose_channel_binding_is_unprovable_is_cancelled(*, tmp_path, monkeypatch):
+    """DoD 6, the nudge half: a channel naming no identity cancels the act and
+    leaves the idle episode un-nudged, so a later tick can answer it properly."""
+    import _supervisor_config
+    import signals
+
+    monkeypatch.chdir(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
+    clock = {"t": 1000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
+    sup.claude_status_by_session = {session: "idle"}
+    channel = RecordingChannel(addressed_identity=None)
+    offer(monkeypatch=monkeypatch, channel=channel)
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    sup.evaluate(track=track, act=True)
+    clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1
+    with contextlib.redirect_stderr(_io.StringIO()):
+        assert sup.evaluate(track=track, act=True).status == "idle-with-context-left"
+
+    assert channel.sent == []
+    assert nudge_count(fake=fake) == 0
+    assert signals.read_state(repo=str(repo), topic=topic) is None
