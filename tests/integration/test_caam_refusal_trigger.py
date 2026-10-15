@@ -36,6 +36,9 @@ pytestmark = pytest.mark.integration
 NOW = 1_800_000_000.0
 ONE_HOUR = 3_600.0
 NINE_MINUTES = 540.0
+# The documented interval of this operation's own schedule, so a scenario that
+# spans several passes spans them the way the fleet does.
+PASS_INTERVAL = 1_800.0
 
 
 def reset_at(*, seconds_from_now: float) -> str:
@@ -146,6 +149,15 @@ class RotationHarness:
     def track(self, *, sessions: tuple[StandInSession, ...]) -> None:
         self.sessions = sessions
 
+    def hand_switch(self, *, to: str) -> None:
+        """The operator switching the host off an account themselves.
+
+        The operation is told nothing: it observes the new active account on its
+        next pass exactly as it observes its own switches.
+        """
+        self.active = to
+        self._write_account(path=self.home / ".claude.json", name=to)
+
     def seed_state(self, *, state: dict[str, object]) -> None:
         path = self.home / STATE_REL
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -157,10 +169,18 @@ class RotationHarness:
     def run(
         self,
         *,
+        at: float = NOW,
         scheduled: bool = True,
         force: bool = False,
         protected_accounts: tuple[tuple[str, str], ...] = (),
     ) -> tuple[int, tuple[str, ...]]:
+        """One pass, at its own instant.
+
+        `at` is what lets a scenario span several passes the way the schedule
+        does: the operation records when it OBSERVED an account become active,
+        so a refusal recorded after a switch can only be told from one recorded
+        before it when the passes do not share a clock.
+        """
         lines: list[str] = []
         code = run_pass(
             flags=Flags(
@@ -173,7 +193,7 @@ class RotationHarness:
                 protected_accounts=protected_accounts,
             ),
             home=self.home,
-            now=NOW,
+            now=at,
             stdout=lines.append,
             caam_runner=self.run_caam,
             fetcher=self.fetch_usage,
@@ -392,3 +412,213 @@ def test_scenario_a_window_that_actually_reset_ends_the_hold_on_a_refusal_with_n
 
     assert harness.switches == ["anthropic-1", "anthropic-3"]
     assert harness.read_state()["refusals"] == []
+
+
+def test_scenario_a_refusal_from_another_credential_or_provider_is_not_attributed(
+    *, tmp_path: Path
+) -> None:
+    """Three sessions that refused, none of them spending the live credential.
+
+    The refresh-maintenance sandbox deliberately exercises OTHER accounts'
+    stored credentials, so its refusals are about those accounts; a separately
+    provisioned credential is somebody else's account entirely; and another
+    provider's refusal says nothing about this one. The discriminator is the
+    session's own agent configuration directory, read from the process that
+    wrote the transcript.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="anthropic-3",
+        usages={
+            "anthropic-3": usage(seven_day_reset_s=86_400.0),
+            "anthropic-1": usage(five_hour_remaining=95.0, seven_day_reset_s=172_800.0),
+        },
+    )
+    harness.seed_state(state=active_since(account="anthropic-3", at=NOW - 2 * ONE_HOUR))
+    sandbox = harness.record_refusal(
+        session_id="refresh-sandbox",
+        config_dir=tmp_path / ".cache/caam-refresh/anthropic-1",
+        recorded_at=NOW - NINE_MINUTES,
+        reset_at_epoch=NOW + ONE_HOUR,
+    )
+    provisioned = harness.record_refusal(
+        session_id="provisioned",
+        config_dir=tmp_path / ".config/claude-provisioned",
+        recorded_at=NOW - NINE_MINUTES,
+        reset_at_epoch=NOW + ONE_HOUR,
+    )
+    foreign = harness.record_refusal(
+        session_id="other-provider",
+        recorded_at=NOW - NINE_MINUTES,
+        reset_at_epoch=NOW + ONE_HOUR,
+    )
+    harness.track(
+        sessions=(
+            sandbox,
+            provisioned,
+            StandInSession(
+                session_id=foreign.session_id,
+                config_dir=foreign.config_dir,
+                provider="openai",
+            ),
+        )
+    )
+
+    code, lines = harness.run()
+
+    assert code == 0
+    assert harness.switches == []
+    assert all("usage-limit refusal" not in line for line in lines)
+
+
+def test_scenario_a_refusal_recorded_before_the_account_became_active_is_not_attributed(
+    *, tmp_path: Path
+) -> None:
+    """It belongs to whatever was active then, which this account was not."""
+    harness = RotationHarness(
+        home=tmp_path,
+        active="anthropic-3",
+        usages={
+            "anthropic-3": usage(seven_day_reset_s=86_400.0),
+            "anthropic-1": usage(five_hour_remaining=95.0, seven_day_reset_s=172_800.0),
+        },
+    )
+    harness.seed_state(state=active_since(account="anthropic-3", at=NOW - ONE_HOUR))
+    session = harness.record_refusal(
+        recorded_at=NOW - ONE_HOUR - 60.0, reset_at_epoch=NOW + ONE_HOUR
+    )
+    harness.track(sessions=(session,))
+
+    code, lines = harness.run()
+
+    assert code == 0
+    assert harness.switches == []
+    assert all("usage-limit refusal" not in line for line in lines)
+
+
+def test_scenario_a_refusal_whose_reset_has_passed_does_not_trigger_rotation(
+    *, tmp_path: Path
+) -> None:
+    """The window it named has already recovered, so it is not ground truth now."""
+    harness = RotationHarness(
+        home=tmp_path,
+        active="anthropic-3",
+        usages={
+            "anthropic-3": usage(seven_day_reset_s=86_400.0),
+            "anthropic-1": usage(five_hour_remaining=95.0, seven_day_reset_s=172_800.0),
+        },
+    )
+    harness.seed_state(state=active_since(account="anthropic-3", at=NOW - 2 * ONE_HOUR))
+    session = harness.record_refusal(recorded_at=NOW - NINE_MINUTES, reset_at_epoch=NOW - 60.0)
+    harness.track(sessions=(session,))
+
+    code, lines = harness.run()
+
+    assert code == 0
+    assert harness.switches == []
+    assert all("usage-limit refusal" not in line for line in lines)
+
+
+def test_scenario_a_lagging_refusal_after_a_switch_stays_with_the_account_just_left(
+    *, tmp_path: Path
+) -> None:
+    """Concurrent sessions keep spending a departed credential for a while.
+
+    Their refusals belong to the account just left, and the only thing that
+    tells them apart from the new account's own is the reset they report
+    matching the one that account was last read at.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="anthropic-3",
+        usages={
+            "anthropic-3": usage(five_hour_remaining=10.0, five_hour_reset_s=ONE_HOUR),
+            "anthropic-1": usage(five_hour_remaining=95.0, five_hour_reset_s=3 * ONE_HOUR),
+        },
+    )
+    harness.seed_state(state=active_since(account="anthropic-3", at=NOW - 2 * ONE_HOUR))
+
+    harness.run(at=NOW)
+    harness.run(at=NOW + PASS_INTERVAL)
+    lagging = harness.record_refusal(
+        session_id="lagging",
+        recorded_at=NOW + PASS_INTERVAL + 60.0,
+        reset_at_epoch=NOW + ONE_HOUR + 30.0,
+    )
+    harness.track(sessions=(lagging,))
+    code, lines = harness.run(at=NOW + 2 * PASS_INTERVAL)
+
+    assert code == 0
+    assert harness.switches == ["anthropic-1"]
+    assert all("usage-limit refusal" not in line for line in lines)
+
+
+def test_scenario_a_lagging_refusal_after_a_hand_switch_stays_with_the_account_left(
+    *, tmp_path: Path
+) -> None:
+    """The operation did not make this switch, and that changes nothing.
+
+    It records an activation whenever it observes one, so the account the
+    previous activation named is departed either way.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="anthropic-3",
+        usages={
+            "anthropic-3": usage(five_hour_reset_s=ONE_HOUR),
+            "anthropic-1": usage(five_hour_remaining=95.0, five_hour_reset_s=3 * ONE_HOUR),
+        },
+    )
+    harness.seed_state(state=active_since(account="anthropic-3", at=NOW - 2 * ONE_HOUR))
+
+    harness.run(at=NOW)
+    harness.hand_switch(to="anthropic-1")
+    harness.run(at=NOW + PASS_INTERVAL)
+    lagging = harness.record_refusal(
+        session_id="lagging",
+        recorded_at=NOW + PASS_INTERVAL + 60.0,
+        reset_at_epoch=NOW + ONE_HOUR + 30.0,
+    )
+    harness.track(sessions=(lagging,))
+    code, lines = harness.run(at=NOW + 2 * PASS_INTERVAL)
+
+    assert code == 0
+    assert harness.switches == []
+    assert all("usage-limit refusal" not in line for line in lines)
+
+
+def test_scenario_a_refusal_on_an_account_returned_to_is_attributed_to_it(
+    *, tmp_path: Path
+) -> None:
+    """The other half of the departed rule: an account is never its own departure.
+
+    An account returned to before its departed entry's resets passed must still
+    be able to refuse on its OWN account, which is why the entry is dropped the
+    moment that account becomes active again.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="anthropic-3",
+        usages={
+            "anthropic-3": usage(five_hour_remaining=10.0, five_hour_reset_s=4 * ONE_HOUR),
+            "anthropic-1": usage(five_hour_remaining=95.0, five_hour_reset_s=6 * ONE_HOUR),
+        },
+    )
+    harness.seed_state(state=active_since(account="anthropic-3", at=NOW - 2 * ONE_HOUR))
+
+    harness.run(at=NOW)
+    harness.run(at=NOW + PASS_INTERVAL)
+    harness.hand_switch(to="anthropic-3")
+    harness.usages["anthropic-3"] = usage(five_hour_remaining=45.0, five_hour_reset_s=4 * ONE_HOUR)
+    harness.run(at=NOW + 2 * PASS_INTERVAL)
+    own = harness.record_refusal(
+        session_id="own",
+        recorded_at=NOW + 2 * PASS_INTERVAL + 60.0,
+        reset_at_epoch=NOW + 4 * ONE_HOUR,
+    )
+    harness.track(sessions=(own,))
+    code, lines = harness.run(at=NOW + 3 * PASS_INTERVAL)
+
+    assert code == 0
+    assert harness.switches == ["anthropic-1", "anthropic-1"]
+    assert any("usage-limit refusal" in line for line in lines)

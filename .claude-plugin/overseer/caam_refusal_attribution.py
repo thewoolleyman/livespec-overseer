@@ -4,9 +4,29 @@ A transcript says a request was refused. It does not say which account was
 spending at that moment, and getting that wrong is worse than missing the
 refusal entirely -- it would move the fleet off a healthy account on the
 strength of another account's exhaustion. So attribution is a conjunction of
-conditions, every one of which must hold, and every one of which FAILS CLOSED.
-The first of them is the moment the operation last observed the active account
-become ACTIVE: a refusal recorded before it belongs to whatever was active then.
+conditions, every one of which must hold, and every one of which FAILS CLOSED:
+
+  * the session authenticates with the HOST-WIDE LIVE credential, established
+    from its agent configuration directory being the host's default one. Neither
+    a separately provisioned credential nor the operation's own
+    refresh-maintenance sandbox -- whose sessions deliberately exercise OTHER
+    accounts' stored credentials -- can contribute;
+  * where the record names an account identity, it is the active account's
+    stable identifier;
+  * the refusal was recorded AFTER the moment the operation last observed this
+    account become active;
+  * the reset it reported has not already passed; and
+  * that reset does not match, within the one-minute tolerance, the same
+    window's reset as last read on any DEPARTED account, because concurrent
+    sessions MAY still be spending a departed account's credential for a while
+    after a switch and their refusals belong to it.
+
+TWO RESIDUALS ARE ACCEPTED AND NOT CORRECTED, as the ratified clause states. A
+lagging session's RATE-LIMIT refusal derives its reset from its own retry-after
+interval, so it cannot match a departed account's reset and may be attributed to
+the new account -- bounded by its own short hold. And a genuine refusal of the
+new account whose reset coincides within a minute with a departed account's is
+NOT attributed, which fails safe because every other trigger still applies.
 """
 
 from __future__ import annotations
@@ -17,8 +37,20 @@ from typing import Final
 
 from caam_decision import ProfileUsage, UsageRecord
 from caam_profiles import ActiveIdentity
-from caam_refusal_store import Activation, record_activation, remember_refusals
-from caam_refusals import Refusal, RefusalReader, TrackedSession, session_refusals
+from caam_refusal_store import (
+    Activation,
+    DepartedEntry,
+    departed_entries,
+    record_activation,
+    remember_refusals,
+)
+from caam_refusals import (
+    WINDOW_FIVE_HOUR,
+    Refusal,
+    RefusalReader,
+    TrackedSession,
+    session_refusals,
+)
 
 __all__: list[str] = [
     "LIVE_CONFIG_REL",
@@ -27,6 +59,7 @@ __all__: list[str] = [
 ]
 
 LIVE_CONFIG_REL: Final = ".claude"
+_RESET_TOLERANCE_S: Final = 60.0
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -59,6 +92,7 @@ def observe_refusals(*, observation: RefusalObservation) -> None:
     activation = record_activation(
         state=observation.state,
         active_name=observation.active.profile,
+        profiles=observation.profiles,
         now=observation.now,
     )
     if activation.fresh:
@@ -67,18 +101,73 @@ def observe_refusals(*, observation: RefusalObservation) -> None:
         # ratified clause requires recording the moment and attributing nothing
         # rather than guessing.
         return
+    departed = departed_entries(state=observation.state, active_name=observation.active.profile)
     remember_refusals(
         state=observation.state,
         account=observation.active.profile,
-        refusals=_attributed(observation=observation, activation=activation),
+        refusals=_attributed(observation=observation, activation=activation, departed=departed),
         reading=observation.current,
     )
 
 
-def _attributed(*, observation: RefusalObservation, activation: Activation) -> tuple[Refusal, ...]:
+def _attributed(
+    *,
+    observation: RefusalObservation,
+    activation: Activation,
+    departed: tuple[DepartedEntry, ...],
+) -> tuple[Refusal, ...]:
     return tuple(
         refusal
         for session in observation.sessions
+        if _on_the_live_credential(session=session, home=observation.home)
         for refusal in observation.reader(session=session)
-        if refusal.recorded_at > activation.at
+        if _attributable(
+            refusal=refusal,
+            observation=observation,
+            activation=activation,
+            departed=departed,
+        )
     )
+
+
+def _on_the_live_credential(*, session: TrackedSession, home: Path) -> bool:
+    return session.config_dir == home / LIVE_CONFIG_REL
+
+
+def _attributable(
+    *,
+    refusal: Refusal,
+    observation: RefusalObservation,
+    activation: Activation,
+    departed: tuple[DepartedEntry, ...],
+) -> bool:
+    if refusal.recorded_at <= activation.at:
+        return False
+    if refusal.resets_at is not None and refusal.resets_at <= observation.now:
+        return False
+    if refusal.account is not None and refusal.account != observation.active.account_uuid:
+        return False
+    return not _matches_a_departed_reset(refusal=refusal, departed=departed)
+
+
+def _matches_a_departed_reset(*, refusal: Refusal, departed: tuple[DepartedEntry, ...]) -> bool:
+    """Whether this refusal's reset is one a departed account was last read at.
+
+    A refusal that reported no reset never matches, so it is attributed to the
+    active account and bounded by the replenishment rule instead.
+    """
+    reported = refusal.resets_at
+    if reported is None:
+        return False
+    return any(
+        abs(reported - reset) <= _RESET_TOLERANCE_S
+        for entry in departed
+        for reset in (_entry_reset(entry=entry, window=refusal.window),)
+        if reset is not None
+    )
+
+
+def _entry_reset(*, entry: DepartedEntry, window: str) -> float | None:
+    if window == WINDOW_FIVE_HOUR:
+        return entry.five_hour_reset_at
+    return entry.seven_day_reset_at
