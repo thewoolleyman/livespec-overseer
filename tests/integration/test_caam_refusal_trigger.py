@@ -414,6 +414,88 @@ def test_scenario_a_window_that_actually_reset_ends_the_hold_on_a_refusal_with_n
     assert harness.read_state()["refusals"] == []
 
 
+def test_a_lapsed_refusal_is_not_attributed_afresh_on_the_pass_after_its_hold_ended(
+    *, tmp_path: Path
+) -> None:
+    """A hold that ends for exactly one pass is no hold, and cannot end either.
+
+    A transcript KEEPS its records, so the pass after a refusal lapses reads the
+    same refusal again and every attribution condition it met the first time it
+    meets again. For a refusal that reported no reset that is worse than merely
+    re-arming the hold: the lapse criterion compares the window's reset against
+    the reset it carried WHEN THE REFUSAL WAS ATTRIBUTED, so a re-attribution
+    re-baselines the criterion against the very reading that just satisfied it,
+    and no later reading can satisfy it again short of another whole window roll.
+
+    The shape here is the one that leaves the activation rule unable to catch
+    it: no candidate survives, so the account is never departed, its activation
+    time never moves, and nothing else bounds the re-attribution.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="anthropic-3",
+        usages={
+            "anthropic-3": usage(five_hour_remaining=45.0, five_hour_reset_s=ONE_HOUR),
+            "anthropic-1": usage(five_hour_remaining=95.0, seven_day_remaining=0.0),
+        },
+    )
+    harness.seed_state(state=active_since(account="anthropic-3", at=NOW - 2 * ONE_HOUR))
+    session = harness.record_refusal(recorded_at=NOW - NINE_MINUTES, reset_at_epoch=None)
+    harness.track(sessions=(session,))
+
+    _code, held = harness.run(at=NOW)
+    harness.usages["anthropic-3"] = usage(five_hour_remaining=40.0, five_hour_reset_s=6 * ONE_HOUR)
+    _code, lapsing = harness.run(at=NOW + PASS_INTERVAL)
+    _code, after = harness.run(at=NOW + 2 * PASS_INTERVAL)
+
+    assert any("anthropic-3 is refusing requests" in line for line in held)
+    assert all("anthropic-3 is refusing requests" not in line for line in lapsing)
+    assert all("anthropic-3 is refusing requests" not in line for line in after)
+    assert harness.read_state()["refusals"] == []
+    assert harness.switches == []
+
+
+@pytest.mark.parametrize(
+    "floors",
+    [
+        pytest.param("whatever a writer left here", id="not-a-list"),
+        pytest.param(["a bare string"], id="not-a-record"),
+        pytest.param([{"window": "five_hour", "recorded_at": NOW}], id="no-account"),
+        pytest.param([{"account": "anthropic-3", "recorded_at": NOW}], id="no-window"),
+        pytest.param([{"account": "anthropic-3", "window": "five_hour"}], id="no-instant"),
+    ],
+)
+def test_an_unreadable_lapse_memory_settles_nothing(*, tmp_path: Path, floors: object) -> None:
+    """A lapse memory nothing can read discharges no hold, so the refusal stands.
+
+    That is the same cost contracts.md bounds a lost refusal memory at -- the
+    refusal is attributed afresh and holds its account again -- and it is the
+    direction that cannot strand the fleet on an account that serves nothing.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="anthropic-3",
+        usages={
+            "anthropic-3": usage(five_hour_remaining=45.0),
+            "anthropic-1": usage(five_hour_remaining=90.0),
+        },
+    )
+    harness.seed_state(
+        state={
+            **active_since(account="anthropic-3", at=NOW - 2 * ONE_HOUR),
+            "lapsed_refusals": floors,
+        }
+    )
+    session = harness.record_refusal(recorded_at=NOW - NINE_MINUTES, reset_at_epoch=NOW + ONE_HOUR)
+    harness.track(sessions=(session,))
+
+    code, lines = harness.run()
+
+    assert code == 0
+    assert harness.switches == ["anthropic-1"]
+    assert any("usage-limit refusal" in line for line in lines)
+
+
 def test_scenario_a_refusal_from_another_credential_or_provider_is_not_attributed(
     *, tmp_path: Path
 ) -> None:
