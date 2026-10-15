@@ -86,7 +86,7 @@ def _deliver_nudge(
     target: str,
     message: str,
     is_codex: bool,
-) -> bool:
+) -> bool | None:
     """Deliver the keep-going nudge by its supported channel, else by the paste.
 
     SPECIFICATION v060, contracts.md, the daemon-message delivery channel: choosing
@@ -96,19 +96,23 @@ def _deliver_nudge(
     opens no round, so the identity the act targets is the pane's currently proven
     one rather than a round-open identity.
     """
-    delivered = _supervisor_channel_delivery.deliver(
-        request=_supervisor_channel_delivery.DeliveryRequest(
-            sup=sup,
-            track=track,
-            target=target,
-            text=message,
-            kind=_supervisor_channel.NUDGE_MESSAGE,
-            is_codex=is_codex,
-        ),
+    request = _supervisor_channel_delivery.DeliveryRequest(
+        sup=sup,
+        track=track,
+        target=target,
+        text=message,
+        kind=_supervisor_channel.NUDGE_MESSAGE,
+        is_codex=is_codex,
+    )
+    channel, cancelled = _supervisor_channel_delivery.resolve_bound_channel(
+        request=request,
         identity=_supervisor_channel_delivery.live_identity(
             sup=sup, track=track, is_codex=is_codex
         ),
     )
+    if cancelled:
+        return None
+    delivered = _supervisor_channel_delivery.deliver(request=request, channel=channel)
     _ = _supervisor_channel_delivery.record_delivery(sup=sup, track=track, record=delivered.record)
     return delivered.submitted
 
@@ -151,7 +155,16 @@ def nudge_idle_with_context(
             topic=topic,
             epic=track.epic,
         )
-    if _deliver_nudge(sup=sup, track=track, target=target, message=message, is_codex=is_codex):
+    delivered = _deliver_nudge(
+        sup=sup, track=track, target=target, message=message, is_codex=is_codex
+    )
+    if delivered is None:
+        # The act was cancelled for this tick by an unproven channel binding, which
+        # `resolve_bound_channel` has already surfaced. Nothing was sent and nothing
+        # was pasted, so there is no delivery to report as failed and no marker to
+        # write: the episode stays un-nudged and the next observation re-evaluates it.
+        return
+    if delivered:
         write_idle_nudge_state(sup=sup, track=track)
         sup.log(
             message=f"nudged idle-with-context-left {repo}::{topic} "

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 from typing import TYPE_CHECKING
 
 import _supervisor_channel
@@ -200,6 +201,24 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
     identity = _supervisor_ready.session_identity(
         sup=sup, session=session, topic=topic, runtime=runtime
     )
+    request = _supervisor_channel_delivery.DeliveryRequest(
+        sup=sup,
+        track=track,
+        target=target,
+        text="",
+        kind=_supervisor_channel.WRAPUP_MESSAGE,
+        is_codex=is_codex,
+    )
+    # The binding proof is part of the act's immediate pre-delivery re-read, so it runs
+    # BEFORE the round is stamped: a cancelled act must leave no stamped round behind.
+    # The identity the wrap-up targets is the round-open one — this tick's for a round
+    # opening now, the recorded one for a round already open.
+    channel, cancelled = _supervisor_channel_delivery.resolve_bound_channel(
+        request=request,
+        identity=identity if opened_now else round_record.session_identity,
+    )
+    if cancelled:
+        return
     if opened_now and not _open_round(
         sup=sup, track=track, target=target, session=session, identity=identity
     ):
@@ -220,15 +239,7 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
         ),
     )
     delivered = _supervisor_channel_delivery.deliver(
-        request=_supervisor_channel_delivery.DeliveryRequest(
-            sup=sup,
-            track=track,
-            target=target,
-            text=message,
-            kind=_supervisor_channel.WRAPUP_MESSAGE,
-            is_codex=is_codex,
-        ),
-        identity=identity,
+        request=dataclasses.replace(request, text=message), channel=channel
     )
     submitted, effect_unknown = delivered.submitted, delivered.effect_unknown
     path = _supervisor_channel_delivery.record_delivery(
