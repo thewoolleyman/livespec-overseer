@@ -622,3 +622,34 @@ def test_scenario_a_refusal_on_an_account_returned_to_is_attributed_to_it(
     assert code == 0
     assert harness.switches == ["anthropic-1", "anthropic-1"]
     assert any("usage-limit refusal" in line for line in lines)
+
+
+def test_scenario_a_refusing_account_with_no_selectable_candidate_holds_and_says_so(
+    *, tmp_path: Path
+) -> None:
+    """The trigger relaxes nothing, so it can end in a hold -- and must say which.
+
+    An operator reading `the candidate set was empty` beside a table showing
+    45% five-hour remaining has been told the pass found nobody to move to, and
+    nothing at all about the fleet sitting on an account that serves nothing.
+    Both facts belong on the line.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="anthropic-3",
+        usages={
+            "anthropic-3": usage(five_hour_remaining=45.0),
+            "anthropic-1": usage(five_hour_remaining=95.0, seven_day_remaining=0.0),
+        },
+    )
+    harness.seed_state(state=active_since(account="anthropic-3", at=NOW - 2 * ONE_HOUR))
+    session = harness.record_refusal(recorded_at=NOW - NINE_MINUTES, reset_at_epoch=NOW + ONE_HOUR)
+    harness.track(sessions=(session,))
+
+    code, lines = harness.run()
+
+    assert code == 0
+    assert harness.switches == []
+    held = next(line for line in lines if line.startswith("hold:"))
+    assert "anthropic-3 is refusing requests" in held
+    assert "no account could be selected" in held
