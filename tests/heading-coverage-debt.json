@@ -1713,5 +1713,138 @@
     "heading": "## Scenario: An unreadable plan shows unknown",
     "work_item": "overseer-wzw2zw",
     "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The account table shows each account's resets",
+    "work_item": "overseer-33kyxp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reset reading declined for the requesting client is unreadable, not empty",
+    "work_item": "overseer-33kyxp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An exhausted active account with no candidate claims a reset instead of holding",
+    "work_item": "overseer-33kyxp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reset is not claimed while a candidate can be rotated to",
+    "work_item": "overseer-33kyxp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reset is not spent on a window about to replenish on its own",
+    "work_item": "overseer-33kyxp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The narrowest qualifying reset is claimed",
+    "work_item": "overseer-33kyxp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A refusal-held active account rotates under the capacity-test release rather than claiming a reset",
+    "work_item": "overseer-33kyxp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A claim that replenishes the refused window ends the refusal hold",
+    "work_item": "overseer-33kyxp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A refusal settled by a claim does not hold its account on a later pass",
+    "work_item": "overseer-33kyxp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reset about to lapse is claimed",
+    "work_item": "overseer-33kyxp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A lapsing reset that would refill almost nothing is not claimed",
+    "work_item": "overseer-33kyxp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reset lapsing beyond the expiry horizon is not claimed early",
+    "work_item": "overseer-33kyxp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A refusal-held active account rotates before its lapsing reset is claimed",
+    "work_item": "overseer-33kyxp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A refilled protected account is not preferred over an unprotected one",
+    "work_item": "overseer-33kyxp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A retried claim reuses its identifier",
+    "work_item": "overseer-33kyxp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A concurrent reporting pass cannot discard an unsettled claim identifier",
+    "work_item": "overseer-33kyxp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A spend-capped account is not given a reset",
+    "work_item": "overseer-33kyxp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A manual invocation claims no reset",
+    "work_item": "overseer-33kyxp",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A provider-refused claim is reported, not failed",
+    "work_item": "overseer-33kyxp",
+    "first_seen": "2026-10-15"
   }
 ]

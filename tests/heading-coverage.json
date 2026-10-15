@@ -3216,5 +3216,157 @@
     "test": "TODO",
     "work_item": "overseer-wzw2zw",
     "reason": "An integration-tier test over the shipped rotation pass is owed for this capacity-reporting scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-wzw2zw owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The account table shows each account's resets",
+    "test": "TODO",
+    "work_item": "overseer-33kyxp",
+    "reason": "An integration-tier test over the shipped rotation pass is owed for this quota-reset scenario (SPECIFICATION v057, plan caam-quota-resets); work item overseer-33kyxp owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reset reading declined for the requesting client is unreadable, not empty",
+    "test": "TODO",
+    "work_item": "overseer-33kyxp",
+    "reason": "An integration-tier test over the shipped rotation pass is owed for this quota-reset scenario (SPECIFICATION v057, plan caam-quota-resets); work item overseer-33kyxp owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An exhausted active account with no candidate claims a reset instead of holding",
+    "test": "TODO",
+    "work_item": "overseer-33kyxp",
+    "reason": "An integration-tier test over the shipped rotation pass is owed for this quota-reset scenario (SPECIFICATION v057, plan caam-quota-resets); work item overseer-33kyxp owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reset is not claimed while a candidate can be rotated to",
+    "test": "TODO",
+    "work_item": "overseer-33kyxp",
+    "reason": "An integration-tier test over the shipped rotation pass is owed for this quota-reset scenario (SPECIFICATION v057, plan caam-quota-resets); work item overseer-33kyxp owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reset is not spent on a window about to replenish on its own",
+    "test": "TODO",
+    "work_item": "overseer-33kyxp",
+    "reason": "An integration-tier test over the shipped rotation pass is owed for this quota-reset scenario (SPECIFICATION v057, plan caam-quota-resets); work item overseer-33kyxp owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The narrowest qualifying reset is claimed",
+    "test": "TODO",
+    "work_item": "overseer-33kyxp",
+    "reason": "An integration-tier test over the shipped rotation pass is owed for this quota-reset scenario (SPECIFICATION v057, plan caam-quota-resets); work item overseer-33kyxp owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A refusal-held active account rotates under the capacity-test release rather than claiming a reset",
+    "test": "TODO",
+    "work_item": "overseer-33kyxp",
+    "reason": "An integration-tier test over the shipped rotation pass is owed for this quota-reset scenario (SPECIFICATION v057, plan caam-quota-resets); work item overseer-33kyxp owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A claim that replenishes the refused window ends the refusal hold",
+    "test": "TODO",
+    "work_item": "overseer-33kyxp",
+    "reason": "An integration-tier test over the shipped rotation pass is owed for this quota-reset scenario (SPECIFICATION v057, plan caam-quota-resets); work item overseer-33kyxp owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A refusal settled by a claim does not hold its account on a later pass",
+    "test": "TODO",
+    "work_item": "overseer-33kyxp",
+    "reason": "An integration-tier test over the shipped rotation pass is owed for this quota-reset scenario (SPECIFICATION v057, plan caam-quota-resets); work item overseer-33kyxp owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reset about to lapse is claimed",
+    "test": "TODO",
+    "work_item": "overseer-33kyxp",
+    "reason": "An integration-tier test over the shipped rotation pass is owed for this quota-reset scenario (SPECIFICATION v057, plan caam-quota-resets); work item overseer-33kyxp owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A lapsing reset that would refill almost nothing is not claimed",
+    "test": "TODO",
+    "work_item": "overseer-33kyxp",
+    "reason": "An integration-tier test over the shipped rotation pass is owed for this quota-reset scenario (SPECIFICATION v057, plan caam-quota-resets); work item overseer-33kyxp owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reset lapsing beyond the expiry horizon is not claimed early",
+    "test": "TODO",
+    "work_item": "overseer-33kyxp",
+    "reason": "An integration-tier test over the shipped rotation pass is owed for this quota-reset scenario (SPECIFICATION v057, plan caam-quota-resets); work item overseer-33kyxp owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A refusal-held active account rotates before its lapsing reset is claimed",
+    "test": "TODO",
+    "work_item": "overseer-33kyxp",
+    "reason": "An integration-tier test over the shipped rotation pass is owed for this quota-reset scenario (SPECIFICATION v057, plan caam-quota-resets); work item overseer-33kyxp owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A refilled protected account is not preferred over an unprotected one",
+    "test": "TODO",
+    "work_item": "overseer-33kyxp",
+    "reason": "An integration-tier test over the shipped rotation pass is owed for this quota-reset scenario (SPECIFICATION v057, plan caam-quota-resets); work item overseer-33kyxp owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A retried claim reuses its identifier",
+    "test": "TODO",
+    "work_item": "overseer-33kyxp",
+    "reason": "An integration-tier test over the shipped rotation pass is owed for this quota-reset scenario (SPECIFICATION v057, plan caam-quota-resets); work item overseer-33kyxp owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A concurrent reporting pass cannot discard an unsettled claim identifier",
+    "test": "TODO",
+    "work_item": "overseer-33kyxp",
+    "reason": "An integration-tier test over the shipped rotation pass is owed for this quota-reset scenario (SPECIFICATION v057, plan caam-quota-resets); work item overseer-33kyxp owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A spend-capped account is not given a reset",
+    "test": "TODO",
+    "work_item": "overseer-33kyxp",
+    "reason": "An integration-tier test over the shipped rotation pass is owed for this quota-reset scenario (SPECIFICATION v057, plan caam-quota-resets); work item overseer-33kyxp owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A manual invocation claims no reset",
+    "test": "TODO",
+    "work_item": "overseer-33kyxp",
+    "reason": "An integration-tier test over the shipped rotation pass is owed for this quota-reset scenario (SPECIFICATION v057, plan caam-quota-resets); work item overseer-33kyxp owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A provider-refused claim is reported, not failed",
+    "test": "TODO",
+    "work_item": "overseer-33kyxp",
+    "reason": "An integration-tier test over the shipped rotation pass is owed for this quota-reset scenario (SPECIFICATION v057, plan caam-quota-resets); work item overseer-33kyxp owns landing it."
   }
 ]
