@@ -17,6 +17,16 @@ keeps a transcript that merely DISCUSSES a rate limit -- which the sessions this
 operation watches do constantly -- from being read as having hit one: an API
 ERROR MARKER, and a usage-limit PHRASE.
 
+THE MARKER IS STRUCTURAL AND THE PHRASE IS NOT, and that asymmetry is the
+conjunction. A phrase is the provider's prose and a session can write any of it
+on purpose; only the ENVELOPE's own error keys say a request actually failed, so
+the marker is matched against JSON structure (``"isApiErrorMessage": true``,
+``"type": "error"``) and never against a word a sentence could carry. A provider
+error TYPE such as ``rate_limit_error`` names the window on the phrase side and
+is NOT a marker on its own -- a real rate-limit envelope carries ``"type":
+"error"`` around it -- because a session discussing this very module would
+otherwise be read as having been refused by it.
+
 THE RESET A REFUSAL REPORTS is taken from the error's own epoch
 (``… limit reached|1760568600``) or, for a rate limit, from the time the record
 was written plus its retry-after interval, per the ratified clause that reads a
@@ -71,7 +81,7 @@ _WINDOW_LABELS: Final = {
 _TAIL_BYTES: Final = 65_536
 
 _ERROR_MARKER_RE: Final = re.compile(
-    r'"isApiErrorMessage"\s*:\s*true|"type"\s*:\s*"error"|rate_limit_error',
+    r'"isApiErrorMessage"\s*:\s*true|"type"\s*:\s*"error"',
     re.IGNORECASE,
 )
 _WEEKLY_LIMIT_RE: Final = re.compile(
