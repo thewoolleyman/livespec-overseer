@@ -16,6 +16,19 @@ def caam_usage_module() -> ModuleType:
     return importlib.import_module("caam_usage")
 
 
+def caam_oauth_get_module() -> ModuleType:
+    """The provider REQUEST boundary, which both reads now share.
+
+    The default HTTPS transport moved out of `caam_usage` when the capacity
+    source began reading a second endpoint with the same credential under the
+    same **Never refresh** rule, so the connection class to stand in for lives
+    here. These tests still drive it through `fetch_usage`, which is the point:
+    the usage poll's behaviour against a real connection is unchanged by the
+    move.
+    """
+    return importlib.import_module("caam_oauth_get")
+
+
 def write_creds(*, path: Path, bearer: str | None, expires_at_ms: int | None) -> None:
     oauth: dict[str, object] = {}
     if bearer is not None:
@@ -176,7 +189,7 @@ def test_default_https_transport_success_and_http_error(*, monkeypatch, tmp_path
         ),
     ]
     FakeConnection.requests = []
-    monkeypatch.setattr(module.http.client, "HTTPSConnection", FakeConnection)
+    monkeypatch.setattr(caam_oauth_get_module().http.client, "HTTPSConnection", FakeConnection)
 
     usage, why = module.fetch_usage(creds_path=creds, now=1000.0)
     assert why is None
