@@ -12,7 +12,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import _supervisor_channel
 import _supervisor_launch
+import _supervisor_ready
 import _supervisor_state
 import registry
 import signals
@@ -77,6 +79,39 @@ def clear_idle_nudge_state(*, sup: Supervisor, track: registry.Track) -> None:
         )
 
 
+def _deliver_nudge(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    target: str,
+    message: str,
+    is_codex: bool,
+) -> bool:
+    """Deliver the keep-going nudge by its supported channel, else by the paste.
+
+    SPECIFICATION v060, contracts.md, the daemon-message delivery channel: choosing
+    the channel changes HOW the nudge is delivered, never WHETHER it is — so this
+    returns the same "did it land?" boolean the paste always returned, and the
+    caller's marker write and failure alert are untouched by the route.
+    """
+    session = _supervisor_launch.session_of(sup=sup, track=track)
+    runtime = "codex" if is_codex else "claude"
+    channel = _supervisor_channel.resolve_channel(
+        sup=sup,
+        runtime=runtime,
+        session=session,
+        topic=track.topic,
+        identity=_supervisor_ready.live_session_identity(
+            sup=sup, session=session, topic=track.topic, runtime=runtime
+        ),
+    )
+    if channel is None:
+        return _supervisor_launch.submit_prompt(
+            sup=sup, target=target, text=message, expect_codex=is_codex
+        )
+    return channel.send(text=message).outcome == _supervisor_channel.CHANNEL_DELIVERED
+
+
 def nudge_idle_with_context(
     *,
     sup: Supervisor,
@@ -115,9 +150,7 @@ def nudge_idle_with_context(
             topic=topic,
             epic=track.epic,
         )
-    if _supervisor_launch.submit_prompt(
-        sup=sup, target=target, text=message, expect_codex=is_codex
-    ):
+    if _deliver_nudge(sup=sup, track=track, target=target, message=message, is_codex=is_codex):
         write_idle_nudge_state(sup=sup, track=track)
         sup.log(
             message=f"nudged idle-with-context-left {repo}::{topic} "
