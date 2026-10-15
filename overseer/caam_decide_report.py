@@ -36,6 +36,7 @@ from caam_decision import (
     weekly_left,
     weekly_reserve,
 )
+from caam_refusal_lines import refusal_hold_line
 from caam_target_summary import target_summary
 
 __all__: list[str] = [
@@ -43,6 +44,7 @@ __all__: list[str] = [
     "hold_allowed",
     "hold_no_candidate",
     "hold_reasons",
+    "hold_refusing",
     "hold_unsatisfiable_pin",
     "trigger_line",
     "with_note",
@@ -82,6 +84,35 @@ def hold_no_candidate(
     it selected FROM, and nothing computed for this line can reach the choice.
     """
     line = decision_hold_no_candidate(
+        cause=no_candidate_cause(
+            population=population,
+            gain_needed=0.01 if context.flags.force else min_headroom_gain(),
+        ),
+        reasons=reasons,
+    )
+    return _report(context=context, save_state=save_state, lines=(decision_line, line))
+
+
+def hold_refusing(
+    *,
+    context: DecisionContext,
+    save_state: SaveState,
+    decision_line: str,
+    active_name: str,
+    population: CandidatePopulation,
+    reasons: tuple[str, ...] = (),
+) -> int:
+    """Hold where the account to be left is REFUSING and nothing could replace it.
+
+    Distinct from the plain no-candidate hold because the operator's situation is
+    distinct: the fleet is sitting on an account that serves nothing at all, so
+    the line says that outright rather than reporting an empty candidate set and
+    leaving the reader to infer it from a table whose figures look healthy. The
+    cause that emptied the set is still handed over, because every other rule
+    applied unchanged and the operator's next move depends on which one spoke.
+    """
+    line = refusal_hold_line(
+        active_name=active_name,
         cause=no_candidate_cause(
             population=population,
             gain_needed=0.01 if context.flags.force else min_headroom_gain(),

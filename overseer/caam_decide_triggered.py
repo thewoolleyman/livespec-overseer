@@ -5,6 +5,10 @@ candidates are compared on, the active account's standing on it, and the line
 that states the reason. The refusal trigger supplies all three through the arm's
 binding, where the active account's headroom is already taken as zero, so
 nothing below this point needs to know that a refusal is what fired.
+
+What does differ is how a HOLD reads. A refusing account with no replacement is
+a different situation from an ordinary empty candidate set -- the fleet is
+sitting on an account that serves nothing -- so it gets its own line.
 """
 
 from __future__ import annotations
@@ -14,6 +18,7 @@ from caam_candidate_diagnosis import CandidatePopulation
 from caam_decide_report import (
     hold_no_candidate,
     hold_reasons,
+    hold_refusing,
     hold_unsatisfiable_pin,
     trigger_line,
     with_note,
@@ -72,17 +77,8 @@ def triggered_choice(*, request: RotationRequest, arm: RotationArm) -> RotationC
     if not ranked:
         return RotationChoice(
             target=None,
-            exit_code=hold_no_candidate(
-                context=request.context,
-                save_state=request.save_state,
-                decision_line=decision_line,
-                population=CandidatePopulation(
-                    profiles=arm_candidates(request=request, arm=arm),
-                    active_name=request.active_name,
-                    dimension=arm.bound.dimension,
-                    protection_floors=request.protection_floors,
-                ),
-                reasons=reasons,
+            exit_code=_hold_empty_set(
+                request=request, arm=arm, decision_line=decision_line, reasons=reasons
             ),
         )
     if pin_unsatisfiable:
@@ -123,3 +119,34 @@ def _switch_trigger_name(*, request: RotationRequest, arm: RotationArm) -> str:
     if arm.refusal.holds_active:
         return REFUSAL_TRIGGER
     return switch_trigger(force=request.context.flags.force, dimension=arm.bound.dimension)
+
+
+def _hold_empty_set(
+    *,
+    request: RotationRequest,
+    arm: RotationArm,
+    decision_line: str,
+    reasons: tuple[str, ...],
+) -> int:
+    population = CandidatePopulation(
+        profiles=arm_candidates(request=request, arm=arm),
+        active_name=request.active_name,
+        dimension=arm.bound.dimension,
+        protection_floors=request.protection_floors,
+    )
+    if arm.refusal.holds_active:
+        return hold_refusing(
+            context=request.context,
+            save_state=request.save_state,
+            decision_line=decision_line,
+            active_name=request.active_name,
+            population=population,
+            reasons=reasons,
+        )
+    return hold_no_candidate(
+        context=request.context,
+        save_state=request.save_state,
+        decision_line=decision_line,
+        population=population,
+        reasons=reasons,
+    )
