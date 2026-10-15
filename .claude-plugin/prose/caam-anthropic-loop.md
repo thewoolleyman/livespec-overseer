@@ -298,6 +298,30 @@ report the table and the decision too, because a completed switch STANDS. Never
 re-run the pass to try to undo a rotation whose only failure was publishing it,
 and never `caam activate` back by hand.
 
+## Capacity Class
+
+Every account row of the table carries a `CAPACITY` cell: one of `small`,
+`medium`, `large` or `unknown`, with the provider's own plan name in parentheses
+as detail, as in `large (default_claude_max_20x)`. Two accounts at the same
+percentage can hold very different absolute headroom, so the class is what says
+how much an account can actually carry, and the plan name is what says which
+plan produced that class.
+
+The class is read LIVE on every pass, with the same credential that account's
+usage was polled with -- the host's live credential for the active account, each
+other account's own stored snapshot for the rest. It is never derived from the
+plan fields a credential recorded at login. Those are written once, at login,
+and an account downgraded afterwards goes on reporting its old plan there
+indefinitely, which is exactly what happened on 2026-10-13: a snapshot still
+read `max` / `default_claude_max_20x` for an account already on the $20 plan.
+
+`unknown` means this pass could not say. A failed or unparseable read, a plan
+name the operation has no mapping for, and a locally-expired token that was
+skipped rather than sent all read `unknown`. None of them is a failure: an
+unknown class never makes a pass exit non-zero and never changes the rotation.
+Report the cell exactly as printed, and never substitute a class from an earlier
+pass, from the vault, or from what you know the plan to be.
+
 ## Reporting
 
 Show the account table verbatim on EVERY pass -- scheduled, held, dry-run,

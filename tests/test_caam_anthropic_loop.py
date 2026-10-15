@@ -51,6 +51,19 @@ def write_snapshot(*, home: Path, name: str, credential: str, expires_at_s: floa
     return profile
 
 
+def no_plan_read(*, creds_path: Path, now: float | None = None) -> tuple[str | None, str | None]:
+    """The capacity source for a pass test that is not about capacity.
+
+    Every pass sends a live plan read per account beside the usage poll, and the
+    suite refuses a live provider request outright (`conftest.py`), so a pass
+    test has to say what that read answers. "Nothing" is the answer that changes
+    the least: every row's capacity cell reads `unknown`, which is what these
+    tables already assert.
+    """
+    del creds_path, now
+    return None, "no live plan read in this test"
+
+
 class FakeProcess:
     returncode = 0
     stdout = '{"tools": [{"tool": "claude", "active_profile": "active"}]}'
@@ -170,6 +183,7 @@ def test_no_warm_run_makes_no_keep_warm_attempt(*, tmp_path: Path, monkeypatch):
         now=2_000.0,
         stdout=out.append,
         caam_runner=lambda *, args: FakeProcess(),
+        capacity_source=no_plan_read,
         fetcher=fetcher,
         save_state=lambda *, state, state_path: None,
         agent_runner=agent,
@@ -206,6 +220,7 @@ def test_default_run_attempts_a_due_expired_idle_profile(*, tmp_path: Path):
         now=10_000.0,
         stdout=out.append,
         caam_runner=lambda *, args: FakeProcess(),
+        capacity_source=no_plan_read,
         fetcher=fetcher,
         save_state=lambda *, state, state_path: None,
         agent_runner=agent,
@@ -249,6 +264,7 @@ def test_empty_vault_fails_loud_and_saves_state(*, tmp_path: Path):
         now=1787395200.0,
         stdout=out.append,
         caam_runner=lambda *, args: FakeProcess(),
+        capacity_source=no_plan_read,
         save_state=lambda *, state, state_path: saved.append(dict(state)),
     )
 
@@ -276,6 +292,7 @@ def test_active_usage_unreadable_prints_table_then_source_fail(*, tmp_path: Path
         now=1787395200.0,
         stdout=out.append,
         caam_runner=lambda *, args: FakeProcess(),
+        capacity_source=no_plan_read,
         fetcher=fetcher,
         save_state=lambda *, state, state_path: saved.append(dict(state)),
     )
@@ -310,6 +327,7 @@ def test_unverified_live_rows_are_not_considered_and_get_revive_note(*, tmp_path
         now=1787395200.0,
         stdout=out.append,
         caam_runner=lambda *, args: FakeProcess(),
+        capacity_source=no_plan_read,
         fetcher=fetcher,
         save_state=lambda *, state, state_path: saved.append(dict(state)),
         enforce_models=lambda **kwargs: [],
@@ -357,6 +375,7 @@ def test_dark_profile_is_revived_reprobed_and_becomes_eligible(*, tmp_path: Path
         now=2_000.0,
         stdout=out.append,
         caam_runner=lambda *, args: FakeProcess(),
+        capacity_source=no_plan_read,
         fetcher=fetcher,
         save_state=lambda *, state, state_path: saved.append(dict(state)),
         agent_runner=agent,
@@ -406,6 +425,7 @@ def test_revive_attempts_only_already_dark_profiles(*, tmp_path: Path):
         now=2_000.0,
         stdout=out.append,
         caam_runner=lambda *, args: FakeProcess(),
+        capacity_source=no_plan_read,
         fetcher=fetcher,
         save_state=lambda *, state, state_path: None,
         agent_runner=agent,
@@ -442,6 +462,7 @@ def test_failed_revive_leaves_dark_profile_unverified(*, tmp_path: Path):
         now=2_000.0,
         stdout=out.append,
         caam_runner=lambda *, args: FakeProcess(),
+        capacity_source=no_plan_read,
         fetcher=fetcher,
         save_state=lambda *, state, state_path: None,
         agent_runner=agent,
@@ -489,6 +510,7 @@ def test_revive_success_with_failed_reprobe_leaves_profile_unverified(*, tmp_pat
         now=2_000.0,
         stdout=out.append,
         caam_runner=lambda *, args: FakeProcess(),
+        capacity_source=no_plan_read,
         fetcher=fetcher,
         save_state=lambda *, state, state_path: None,
         agent_runner=agent,
@@ -527,6 +549,7 @@ def test_dry_run_returns_zero_and_saves_state(*, tmp_path: Path):
         now=1787395200.0,
         stdout=out.append,
         caam_runner=lambda *, args: FakeProcess(),
+        capacity_source=no_plan_read,
         fetcher=fetcher,
         save_state=lambda *, state, state_path: saved.append(dict(state)),
         enforce_models=lambda **kwargs: [],
@@ -556,6 +579,7 @@ def test_switch_path_returns_switch_result_and_preserves_switch_save(*, tmp_path
         now=1787395200.0,
         stdout=out.append,
         caam_runner=lambda *, args: FakeProcess(),
+        capacity_source=no_plan_read,
         fetcher=fetcher,
         save_state=lambda *, state, state_path: saved.append(dict(state)),
         switch_account=lambda *, request: module.SwitchResult(
@@ -594,6 +618,7 @@ def test_protected_accounts_persist_as_top_level_state_and_survive_empty_pass(
         now=1787395200.0,
         stdout=out.append,
         caam_runner=lambda *, args: FakeProcess(),
+        capacity_source=no_plan_read,
         fetcher=fetcher,
         save_state=lambda *, state, state_path: saved.append(dict(state)),
         enforce_models=lambda **kwargs: [],
@@ -612,6 +637,7 @@ def test_protected_accounts_persist_as_top_level_state_and_survive_empty_pass(
         now=1787395200.0,
         stdout=out.append,
         caam_runner=lambda *, args: FakeProcess(),
+        capacity_source=no_plan_read,
         fetcher=fetcher,
         save_state=lambda *, state, state_path: saved.append(dict(state)),
         enforce_models=lambda **kwargs: [],
@@ -647,6 +673,7 @@ def test_protected_account_bad_values_report_and_leave_existing_state_unchanged(
         now=1787395200.0,
         stdout=out.append,
         caam_runner=lambda *, args: FakeProcess(),
+        capacity_source=no_plan_read,
         fetcher=lambda *, creds_path, now=None: (usage(five_hour=10.0, seven_day=20.0), None),
         save_state=lambda *, state, state_path: saved.append(dict(state)),
         enforce_models=lambda **kwargs: [],
@@ -679,6 +706,7 @@ def test_protected_accounts_summary_reports_floors_and_table_is_unchanged(*, tmp
         now=1787395200.0,
         stdout=out.append,
         caam_runner=lambda *, args: FakeProcess(),
+        capacity_source=no_plan_read,
         fetcher=lambda *, creds_path, now=None: (usage(five_hour=10.0, seven_day=20.0), None),
         save_state=lambda *, state, state_path: None,
         enforce_models=lambda **kwargs: [],
@@ -693,13 +721,13 @@ def test_protected_accounts_summary_reports_floors_and_table_is_unchanged(*, tmp
     assert out[1:6] == [
         "",
         "PROFILE       CURRENT  5H LEFT      5H RESET WEEK LEFT    WEEK RESET "
-        "FABLE LEFT   FABLE RESET   EXTRA   $ LEFT   SOURCE",
+        "FABLE LEFT   FABLE RESET   EXTRA   $ LEFT  CAPACITY                        SOURCE",
         "active        ✅           90%        1h 20m       80%    1d 13h 20m       "
-        "90%    1d 13h 20m       -        -   live",
+        "90%    1d 13h 20m       -        -  unknown                         live",
         "backup                     90%        1h 20m       80%    1d 13h 20m       "
-        "90%    1d 13h 20m       -        -   snapshot",
+        "90%    1d 13h 20m       -        -  unknown                         snapshot",
         "main                       90%        1h 20m       80%    1d 13h 20m       "
-        "90%    1d 13h 20m       -        -   snapshot",
+        "90%    1d 13h 20m       -        -  unknown                         snapshot",
     ]
 
 
@@ -725,6 +753,7 @@ def test_protected_account_reaches_decision_core_and_defers_to_unprotected_candi
         now=1787395200.0,
         stdout=out.append,
         caam_runner=lambda *, args: FakeProcess(),
+        capacity_source=no_plan_read,
         fetcher=fetcher,
         save_state=lambda *, state, state_path: None,
         enforce_models=lambda **kwargs: [],
@@ -755,6 +784,7 @@ def test_every_state_key_the_program_writes_uses_the_underscore_convention(*, tm
         now=1787395200.0,
         stdout=out.append,
         caam_runner=lambda *, args: FakeProcess(),
+        capacity_source=no_plan_read,
         fetcher=lambda *, creds_path, now=None: (usage(five_hour=10.0, seven_day=20.0), None),
         save_state=lambda *, state, state_path: saved.append(dict(state)),
         enforce_models=lambda **kwargs: [],

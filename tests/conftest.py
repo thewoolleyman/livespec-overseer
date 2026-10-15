@@ -11,6 +11,7 @@ Without this, `from overseer import registry` fails at import with
 package only because something already put its directory on the path.
 """
 
+import http.client
 import json
 import os
 import sys
@@ -22,6 +23,56 @@ import pytest
 _PACKAGE_DIR = str(Path(__file__).resolve().parent.parent / "overseer")
 if _PACKAGE_DIR not in sys.path:
     sys.path.insert(0, _PACKAGE_DIR)
+
+
+class ProviderRequestRefusedError(RuntimeError):
+    """A test tried to send a LIVE request to an LLM provider.
+
+    Deliberately NOT an `OSError`: the caam provider boundary
+    (`caam_oauth_get.get_json`) fails closed on `OSError` and turns it into a
+    reason string, which would swallow the refusal and let the test pass quietly
+    against a real request.
+    """
+
+
+# The caam rotation pass sends TWO read-only requests per account per pass -- the
+# usage poll and the capacity read -- and each resolves a real HTTPS connection
+# unless the test seams it. A pass test that seamed only the usage fetcher would
+# therefore reach the live provider once per account: slowly, against the
+# maintainer's own quota, and reported as a flake. This guard makes forgetting
+# one loud instead.
+_REFUSED_PROVIDER_HOSTS: frozenset[str] = frozenset({"api.anthropic.com"})
+
+
+@pytest.fixture(autouse=True)
+def refuse_live_provider_requests(*, monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test under `tests/` may open a connection to a live provider endpoint.
+
+    It refuses at CONSTRUCTION, and it replaces the initializer rather than the
+    class, because `HTTPSConnection.__init__` reaches its base through
+    `super(HTTPSConnection, self)` -- which resolves the module global at call
+    time. Rebinding that global to a wrapper function therefore breaks every
+    legitimate connection with `super() argument 1 must be type, not function`.
+
+    The tests that exercise the DEFAULT HTTPS transport stand in for the whole
+    class themselves, and their own patch replaces this one.
+    """
+    real_init = http.client.HTTPSConnection.__init__
+
+    def _refuse(*, host: str) -> ProviderRequestRefusedError:
+        return ProviderRequestRefusedError(
+            f"test tried to send a live provider request to {host!r}; "
+            "seam the usage fetcher AND the capacity source instead"
+        )
+
+    def _guarded_init(
+        self: http.client.HTTPSConnection, host: str, *args: object, **kwargs: object
+    ) -> None:
+        if host.split(":")[0] in _REFUSED_PROVIDER_HOSTS:
+            raise _refuse(host=host)
+        real_init(self, host, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(http.client.HTTPSConnection, "__init__", _guarded_init)
 
 
 @pytest.fixture(autouse=True)

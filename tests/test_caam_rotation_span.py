@@ -39,6 +39,8 @@ from typing import Any, cast
 
 from caam_decision import ProfileUsage, UsageRecord
 
+from tests.test_caam_anthropic_loop import no_plan_read
+
 __all__: list[str] = []
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -358,6 +360,7 @@ def drive_pass(
             now=now,
             stdout=out.append,
             caam_runner=lambda *, args: ActiveProfileProcess(),
+            capacity_source=no_plan_read,
             fetcher=fetcher,
             save_state=lambda *, state, state_path: None,
             enforce_models=lambda **kwargs: [],
