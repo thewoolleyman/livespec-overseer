@@ -344,31 +344,34 @@
         "fix": 7200,
         "review_fix": 14400
       },
-      // Factory agent policy: every current implement-work-item ACP node runs
-      // through Codex by default. The maintainer requires factory Codex only.
-      // The core implement / fix / review_fix / review routes use
-      // gpt-5.6-sol at xhigh. Applying that same tier to dod_gate,
-      // proof_capture and proof_verify is the coordinator's current engineering
-      // choice under that direction; it is not a claim that the older six-node
-      // migration plan specified those later nodes. The scripted pr route uses
-      // gpt-5.6-terra at high, while disposition uses it at medium.
+      // Factory agent policy: every factory node runs a Claude adapter. The
+      // seven work nodes (dod_gate, implement, fix, review_fix, proof_capture,
+      // proof_verify, review) run claude-acp / claude-opus-5 at high; the
+      // scripted pr route runs claude-sonnet-4-6 at high and disposition at
+      // medium -- the form livespec-orchestrator-beads-fabro adopted in its PR
+      // 2950. No factory node runs Codex: maintainer direction 2026-10-14
+      // (bd-ib-5pxtaw) reserves Codex astra for consensus and reviews OUTSIDE
+      // the factory nodes and puts it on no factory node for now. From
+      // 2026-10-14 until this change every node here ran codex-acp
+      // (gpt-5.6-sol xhigh; pr/disposition gpt-5.6-terra); measured 2026-10-15
+      // on run 01M4YS5RSV6Q (overseer-pffwyp), whose dod_gate ran on Codex.
       //
       // These structured entries resolve through the released agent and model
-      // catalogs to the baked Codex ACP adapter. The resolver derives mode from
+      // catalogs to the baked Claude ACP adapter. The resolver derives mode from
       // node posture: review and disposition are read-only; every other node is
       // agent-full-access. A structured adapter replaces the workflow default's
-      // environment completely, so no Anthropic model or effort variables are
-      // inherited. Do not use the retired dispatcher.codex_models shorthand.
+      // environment completely, so no model or effort variables are inherited.
+      // Do not use the retired dispatcher.codex_models shorthand.
       "acp_nodes": {
-        "dod_gate": { "agent": "codex-acp", "model": "gpt-5.6-sol", "effort": "xhigh" },
-        "implement": { "agent": "codex-acp", "model": "gpt-5.6-sol", "effort": "xhigh" },
-        "fix": { "agent": "codex-acp", "model": "gpt-5.6-sol", "effort": "xhigh" },
-        "review_fix": { "agent": "codex-acp", "model": "gpt-5.6-sol", "effort": "xhigh" },
-        "proof_capture": { "agent": "codex-acp", "model": "gpt-5.6-sol", "effort": "xhigh" },
-        "proof_verify": { "agent": "codex-acp", "model": "gpt-5.6-sol", "effort": "xhigh" },
-        "review": { "agent": "codex-acp", "model": "gpt-5.6-sol", "effort": "xhigh" },
-        "pr": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high" },
-        "disposition": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "medium" }
+        "dod_gate": { "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" },
+        "implement": { "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" },
+        "fix": { "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" },
+        "review_fix": { "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" },
+        "proof_capture": { "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" },
+        "proof_verify": { "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" },
+        "review": { "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" },
+        "pr": { "agent": "claude-acp", "model": "claude-sonnet-4-6", "effort": "high" },
+        "disposition": { "agent": "claude-acp", "model": "claude-sonnet-4-6", "effort": "medium" }
       },
       "prepare_toolchain": {
         "mise": ["sh", "-c", "mise trust && env -u GITHUB_TOKEN -u GH_TOKEN -u GITHUB_API_TOKEN mise install --quiet"],
