@@ -11,6 +11,7 @@ import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import _supervisor_channel
 import registry
 import signals
 from _supervisor_records import Observation
@@ -143,7 +144,14 @@ def row_view(*, request: RowViewRequest) -> RowView:
         stall_seconds=request.picker_stall.stall_seconds,
         supervisor_state_stale=request.supervisor_state_stale,
         parked_delivery_sender=request.parked_delivery_sender,
+        delivery_path=_delivery_path(obs=request.obs),
     )
+
+
+def _delivery_path(*, obs: Observation) -> str | None:
+    """Project this track's last daemon-message route onto its row (v060)."""
+    record = obs.istate.last_delivery
+    return None if record is None else _supervisor_channel.delivery_path(record=record)
 
 
 def _progress_now(*, obs: Observation, settled_streaming_progress: bool) -> bool:
