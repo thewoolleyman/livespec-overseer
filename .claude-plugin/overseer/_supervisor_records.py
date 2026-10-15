@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import _supervisor_channel
 import registry
 import signals
 from _supervisor_compaction import NO_COMPACTION_TRANSITION, CompactionTransition
@@ -165,6 +166,12 @@ class InjectState:
     stall_watch_due_observations: int = 0
     wait_target_cache: dict[str, WaitTargetCacheEntry] = field(default_factory=dict)
     wait_target_relayed_keys: set[str] = field(default_factory=set)
+    # The route the LAST daemon message to this track took, and how it ended
+    # (SPECIFICATION v060). In-memory like the rest of this record: it is a REPORT of
+    # an act, not an authorization for one, so a daemon bounce losing it costs the
+    # operator one row's provenance and nothing else. The durable facts an act turns
+    # on — the round, its bands — stay in the sidecar.
+    last_delivery: _supervisor_channel.DeliveryRecord | None = None
 
 
 @dataclass(frozen=True, kw_only=True)

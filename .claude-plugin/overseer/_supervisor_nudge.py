@@ -13,8 +13,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import _supervisor_channel
+import _supervisor_channel_delivery
 import _supervisor_launch
-import _supervisor_ready
 import _supervisor_state
 import registry
 import signals
@@ -92,24 +92,25 @@ def _deliver_nudge(
     SPECIFICATION v060, contracts.md, the daemon-message delivery channel: choosing
     the channel changes HOW the nudge is delivered, never WHETHER it is — so this
     returns the same "did it land?" boolean the paste always returned, and the
-    caller's marker write and failure alert are untouched by the route.
+    caller's marker write and failure alert are untouched by the route. The nudge
+    opens no round, so the identity the act targets is the pane's currently proven
+    one rather than a round-open identity.
     """
-    session = _supervisor_launch.session_of(sup=sup, track=track)
-    runtime = "codex" if is_codex else "claude"
-    channel = _supervisor_channel.resolve_channel(
-        sup=sup,
-        runtime=runtime,
-        session=session,
-        topic=track.topic,
-        identity=_supervisor_ready.live_session_identity(
-            sup=sup, session=session, topic=track.topic, runtime=runtime
+    delivered = _supervisor_channel_delivery.deliver(
+        request=_supervisor_channel_delivery.DeliveryRequest(
+            sup=sup,
+            track=track,
+            target=target,
+            text=message,
+            kind=_supervisor_channel.NUDGE_MESSAGE,
+            is_codex=is_codex,
+        ),
+        identity=_supervisor_channel_delivery.live_identity(
+            sup=sup, track=track, is_codex=is_codex
         ),
     )
-    if channel is None:
-        return _supervisor_launch.submit_prompt(
-            sup=sup, target=target, text=message, expect_codex=is_codex
-        )
-    return channel.send(text=message).outcome == _supervisor_channel.CHANNEL_DELIVERED
+    _ = _supervisor_channel_delivery.record_delivery(sup=sup, track=track, record=delivered.record)
+    return delivered.submitted
 
 
 def nudge_idle_with_context(
