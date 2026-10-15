@@ -4529,6 +4529,222 @@ When the operation is invoked without the scheduled marker
 
 Then any switch it makes is the explicit rotate-now request and not a drain
 
+## Scenario: The account table shows each account's resets
+
+Given an account holds one reset that clears its short-window and weekly windows, with one use remaining, lapsing in eight days
+
+When a pass renders the account table
+
+Then that account's row shows one reset clearing the short-window and weekly windows, with one use left, lapsing in eight days
+
+## Scenario: A reset reading declined for the requesting client is unreadable, not empty
+
+Given the provider answers an account's reset read as ineligible for a reason concerning the requesting client
+
+When a pass renders the account table
+
+Then that account's resets are shown as unreadable
+
+And the account is not shown as holding no resets
+
+## Scenario: An exhausted active account with no candidate claims a reset instead of holding
+
+Given the active account's short window is at the rotation threshold and does not replenish within the self-reset horizon
+
+And no candidate survives the rotation rules
+
+And the active account holds a reset that is usable now and clears its short window
+
+When a scheduled pass runs
+
+Then the operation claims that reset
+
+And it re-reads the active account and holds without rotating
+
+## Scenario: A reset is not claimed while a candidate can be rotated to
+
+Given the active account's short window is at the rotation threshold
+
+And an eligible candidate exists
+
+And the active account holds a usable reset that clears its short window
+
+When a scheduled pass runs
+
+Then the operation rotates to the candidate
+
+And it claims no reset
+
+## Scenario: A reset is not spent on a window about to replenish on its own
+
+Given the active account's short window is at the rotation threshold and replenishes within the self-reset horizon
+
+And no candidate survives the rotation rules
+
+And the active account holds a usable reset that clears its short window
+
+When a scheduled pass runs
+
+Then the operation claims no reset and holds
+
+## Scenario: The narrowest qualifying reset is claimed
+
+Given only the active account's short-window trigger fired and no candidate survives
+
+And the account holds a usable reset clearing only its short window and another clearing its short-window and weekly windows
+
+When a scheduled pass runs
+
+Then the operation claims the reset that clears only the short window
+
+## Scenario: A refusal-held active account rotates under the capacity-test release rather than claiming a reset
+
+Given the active account is refusal-held on a short-window refusal
+
+And every candidate that survives the other rotation rules fails the capacity test
+
+And the active account holds a usable reset that clears its short window
+
+When a scheduled pass runs
+
+Then the operation rotates to the best-ranked of those candidates
+
+And it claims no reset
+
+## Scenario: A claim that replenishes the refused window ends the refusal hold
+
+Given the active account is refusal-held on a short-window refusal and no candidate survives
+
+And the active account holds a usable reset that clears its short window
+
+When a scheduled pass claims that reset
+
+And the provider reports the reset as used by that claim
+
+And the claim's re-read shows the short window fully replenished
+
+Then the active account is no longer refusal-held
+
+And the operation holds on it without rotating
+
+## Scenario: A refusal settled by a claim does not hold its account on a later pass
+
+Given a claim settled the active account's short-window refusal on an earlier pass
+
+And the refusal record is still present in the tracked session's transcript
+
+And the active account's short window is below the rotation threshold
+
+When a later scheduled pass runs
+
+Then the refusal is not attributed to the active account again
+
+And the operation does not rotate on the refusal trigger
+
+## Scenario: A reset about to lapse is claimed
+
+Given a non-active, live-verified account holds a usable reset lapsing within the expiry horizon
+
+And that account's weekly window is spent by more than the eligibility margin
+
+When a scheduled pass runs
+
+Then the operation claims that reset
+
+And it does not switch to that account because of the claim
+
+## Scenario: A lapsing reset that would refill almost nothing is not claimed
+
+Given an account holds a usable reset lapsing within the expiry horizon
+
+And every window the reset clears is spent by less than the eligibility margin
+
+When a scheduled pass runs
+
+Then the operation claims no reset
+
+## Scenario: A reset lapsing beyond the expiry horizon is not claimed early
+
+Given an account holds a usable reset whose lapse falls beyond the expiry horizon
+
+And no rotation trigger fires on that account
+
+When a scheduled pass runs
+
+Then the operation claims no reset
+
+## Scenario: A refusal-held active account rotates before its lapsing reset is claimed
+
+Given the active account is refusal-held on a short-window refusal
+
+And an eligible candidate exists
+
+And the active account holds a usable reset that clears its short window and lapses within the expiry horizon
+
+When a scheduled pass runs
+
+Then the operation rotates to the candidate on the readings taken before any claim
+
+And it then claims the lapsing reset on the account it left
+
+## Scenario: A refilled protected account is not preferred over an unprotected one
+
+Given a protected account's lapsing reset was claimed on this pass
+
+And the active account must be left and an unprotected candidate is eligible
+
+When the operation selects a destination
+
+Then it selects the unprotected candidate
+
+## Scenario: A retried claim reuses its identifier
+
+Given a claim was sent for an account's reset and its response was lost
+
+When the next pass retries that claim
+
+Then it sends the claim identifier recorded before the first attempt
+
+## Scenario: A concurrent reporting pass cannot discard an unsettled claim identifier
+
+Given a claim identifier was recorded for an unsettled claim
+
+And a concurrent reporting pass rewrites the operation's cache
+
+When the next pass retries the claim
+
+Then it sends the recorded claim identifier
+
+## Scenario: A spend-capped account is not given a reset
+
+Given the active account cannot serve because its monthly spend cap is reached
+
+And its windows are below every rotation threshold
+
+And it holds a usable reset
+
+When a scheduled pass runs
+
+Then the operation claims no reset on the ground of the spend cap
+
+## Scenario: A manual invocation claims no reset
+
+Given the active account holds a usable reset lapsing within the expiry horizon
+
+When an invocation without the scheduled marker runs
+
+Then the operation claims no reset
+
+## Scenario: A provider-refused claim is reported, not failed
+
+Given the provider answers a claim that the reset was already used
+
+When the pass completes
+
+Then the claim line reports that outcome
+
+And the pass exits zero if nothing else failed
+
 ## Scenario: A refusing active account is left whatever its usage reads
 
 Given a tracked session on the host-wide live credential recorded a short-window usage-limit refusal after the active account became active
