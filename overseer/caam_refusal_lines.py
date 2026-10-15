@@ -19,10 +19,11 @@ from typing import Final, cast
 from caam_decision import ProfileUsage, UsageRecord
 from caam_refusal_store import RememberedRefusal
 from caam_refusals import window_label
-from caam_rendering import until
+from caam_rendering import until, with_reasons
 
 __all__: list[str] = [
     "REFUSAL_TRIGGER",
+    "refusal_hold_line",
     "refusal_switch_line",
     "refusal_trigger_line",
 ]
@@ -50,6 +51,23 @@ def refusal_switch_line(
         f"recorded at {_stamp(at=remembered.refusal.recorded_at)}; target has "
         f"{usage.seven_day_remaining:.0f}% week left, resets in "
         f"{until(timestamp=usage.seven_day_resets_at, now=now_dt)})"
+    )
+
+
+def refusal_hold_line(*, active_name: str, cause: str, reasons: tuple[str, ...] = ()) -> str:
+    """The hold line for a refusing account no candidate could replace.
+
+    It states BOTH facts the ratified clause requires -- that the active account
+    is refusing requests, and that no account could be selected -- and then hands
+    over the cause that emptied the candidate set, since every other rule still
+    applied and the operator's next move depends on which one spoke.
+    """
+    return with_reasons(
+        line=(
+            f"hold: {active_name} is refusing requests and no account "
+            f"could be selected -- {cause}"
+        ),
+        reasons=reasons,
     )
 
 
