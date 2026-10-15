@@ -26,7 +26,7 @@ from caam_expiring_quota import (
 )
 from caam_profile_state import caam_vault
 from caam_profiles import active_profile
-from caam_switch import REASON_HOLD_LOCK_HELD, SwitchRequest
+from caam_switch import REASON_HOLD_LOCK_HELD, SwitchRequest, SwitchResult
 
 __all__: list[str] = [
     "DecisionContext",
@@ -135,12 +135,7 @@ def _switch_decision(
             resets_at_value=plan.current.five_hour_resets_at,
         )
         save(state=context.state)
-    result_lines = (
-        (drain_switch_line(active_name=plan.active_name, target=plan.target, now=context.now),)
-        if result.switched and plan.trigger == DRAIN_TRIGGER
-        else result.lines
-    )
-    for line in (plan.decision_line, *result_lines):
+    for line in (plan.decision_line, *_result_lines(plan=plan, result=result, now=context.now)):
         context.stdout(line)
     # Emitted for a HOLD as well as a move: `switched` is the attribute that
     # separates them, and a record only on the moving path would leave the two
@@ -162,6 +157,19 @@ def _switch_decision(
     if result.switched and seams.after_switch is not None:
         seams.after_switch(active_name=plan.target.name)
     return result.exit_code
+
+
+def _result_lines(*, plan: _SwitchPlan, result: SwitchResult, now: float) -> tuple[str, ...]:
+    """The outcome lines, which a trigger with its own switch line replaces.
+
+    Only a move that actually happened earns one: a hold reports the hold, and a
+    failed switch reports the failure, both in the switch's own words.
+    """
+    if not result.switched:
+        return result.lines
+    if plan.trigger == DRAIN_TRIGGER:
+        return (drain_switch_line(active_name=plan.active_name, target=plan.target, now=now),)
+    return result.lines
 
 
 def _active_name(*, home: Path) -> str | None:

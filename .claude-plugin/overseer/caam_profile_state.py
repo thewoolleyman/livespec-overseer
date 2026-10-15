@@ -4,10 +4,13 @@ STATE FILE KEY VOCABULARY. Every top-level key the program writes to
 ``STATE_REL`` is listed here so the next key added does not have to be
 inferred from the ones already there:
 
+    active_since         caam_refusal_store     -- when the active account became active
+    departed_accounts    caam_refusal_store     -- resets last read on accounts left
     last_switch          caam_switch            -- from/to/at of the last switch
     models               caam_sessions          -- the per-session set memo
     profiles             caam_profile_state     -- the usage snapshot cache
     protected_accounts   caam_protected_accounts-- per-account protection floors
+    refusals             caam_refusal_store     -- refusals attributed to an account
     session_models       caam_session_models    -- per-session model exceptions
     short_window_departures caam_expiring_quota -- reset guard after short-window moves
     warm                 caam_warm              -- the keep-warm memo
