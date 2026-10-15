@@ -21,6 +21,7 @@ from caam_decision import (
     five_hour_remaining_floor,
 )
 from caam_refusal_hold import RefusalState, TriggerBinding, refusal_state, trigger_binding
+from caam_refusal_store import RememberedRefusal
 from caam_refusals import WINDOW_FIVE_HOUR
 from caam_scoped_model import scoped_model_pinned
 
@@ -58,8 +59,9 @@ class RotationChoice:
     `target` is None exactly when this pass has already reported a hold and
     `exit_code` is the whole answer; the caller owes nothing further. The other
     fields describe the move: the operator line that states why it is being made,
-    which trigger is making it, and whether the short-window threshold was among
-    those that fired, which the expiring-quota drain remembers.
+    which trigger is making it, the refusal that governed it where one did, and
+    whether the short-window threshold was among those that fired, which the
+    expiring-quota drain remembers.
     """
 
     target: ProfileUsage | None
@@ -67,6 +69,7 @@ class RotationChoice:
     trigger: str = ""
     exit_code: int = 0
     short_window_triggered: bool = False
+    refusal: RememberedRefusal | None = None
 
 
 @dataclass(frozen=True, kw_only=True)

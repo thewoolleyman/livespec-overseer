@@ -268,3 +268,34 @@ def test_scenario_a_refusing_active_account_is_left_whatever_its_usage_reads(
     assert code == 0
     assert harness.switches == ["anthropic-1"]
     assert any("usage-limit refusal" in line for line in lines)
+
+
+def test_scenario_the_switch_line_names_the_refusal_and_when_it_was_recorded(
+    *, tmp_path: Path
+) -> None:
+    """A move made under this trigger must be reported as such.
+
+    The second half -- WHEN the refusal was recorded -- is the load-bearing one
+    for an operator reading the log afterwards: the usage figures in the table
+    beside it disagree with the decision, and that instant is what reconciles
+    them.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="anthropic-3",
+        usages={
+            "anthropic-3": usage(five_hour_remaining=45.0),
+            "anthropic-1": usage(five_hour_remaining=90.0, seven_day_remaining=70.0),
+        },
+    )
+    harness.seed_state(state=active_since(account="anthropic-3", at=NOW - 2 * ONE_HOUR))
+    session = harness.record_refusal(recorded_at=NOW - NINE_MINUTES, reset_at_epoch=NOW + ONE_HOUR)
+    harness.track(sessions=(session,))
+
+    _code, lines = harness.run()
+
+    switched = next(line for line in lines if line.startswith("SWITCHED"))
+    assert "usage-limit refusal" in switched
+    assert "5-hour window" in switched
+    assert stamp(at=NOW - NINE_MINUTES) in switched
+    assert "70% week left" in switched
