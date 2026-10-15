@@ -173,9 +173,12 @@ def deliver(
     if channel is None:
         return _by_paste(request=request)
     sent = channel.send(text=request.text)
+    # An UNCONFIRMED send is the channel's word for the may-have-landed state a paste
+    # reports as an unknown effect, so it rides the SAME flag: the caller's round stays
+    # open with its stamp unchanged, exactly as v059 already requires for a paste.
     return DeliveryOutcome(
         submitted=sent.outcome == _supervisor_channel.CHANNEL_DELIVERED,
-        effect_unknown=False,
+        effect_unknown=sent.outcome == _supervisor_channel.CHANNEL_UNCONFIRMED,
         record=_supervisor_channel.DeliveryRecord(
             message=request.kind,
             channel=channel.name,

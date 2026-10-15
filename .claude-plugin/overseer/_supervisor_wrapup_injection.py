@@ -50,6 +50,7 @@ def _report_undelivered(
     target: str,
     opened_now: bool,
     effect_unknown: bool,
+    path: str,
 ) -> None:
     """A wrap-up whose submission was not confirmed: un-open ONLY a provable failure.
 
@@ -57,6 +58,11 @@ def _report_undelivered(
     petri wrap-up did, and its session wound down and declared — so its stamped round
     stays open and a ``ready`` answering it certifies. Only a provably failed paste is
     rolled back. Either way the bands stay unmarked, so the delivery is retried.
+
+    v060 generalises the same split to a channel: an UNCONFIRMED send is the channel's
+    word for exactly that may-have-landed state, and a pre-transmission refusal is the
+    provable failure. ``path`` names the route and its outcome so the log reports a
+    failed delivery as specifically as it reports a successful one.
     """
     repo, topic = track.repo, track.topic
     if opened_now and not effect_unknown:
@@ -68,10 +74,10 @@ def _report_undelivered(
         session=_supervisor_launch.session_of(sup=sup, track=track),
         pane=target,
         message=(
-            "wrap-up delivery UNCONFIRMED (the paste may have landed); round kept open so "
-            "a ready answering it certifies; will retry"
+            f"wrap-up delivery UNCONFIRMED (it may have landed); round kept open so "
+            f"a ready answering it certifies; will retry ({path})"
             if effect_unknown
-            else "wrap-up injection FAILED (paste did not land); will retry"
+            else f"wrap-up injection FAILED (it did not land); will retry ({path})"
         ),
         condition=(
             "wrapup-delivery-unconfirmed" if effect_unknown else "wrapup-injection-submit-failed"
@@ -270,4 +276,5 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
             target=target,
             opened_now=opened_now,
             effect_unknown=effect_unknown,
+            path=path,
         )
