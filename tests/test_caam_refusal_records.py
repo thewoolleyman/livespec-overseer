@@ -99,6 +99,7 @@ def test_a_rate_limit_reset_is_its_retry_after_interval_from_when_it_was_recorde
         lines=(
             json.dumps(
                 {
+                    "type": "error",
                     "timestamp": stamp(at=RECORDED_AT),
                     "error": {"type": "rate_limit_error", "message": "retry-after: 120"},
                 }
@@ -131,7 +132,16 @@ def test_a_transcript_that_merely_discusses_a_rate_limit_carries_no_refusal(
     """The conjunction that matters: a phrase alone is not an error.
 
     The sessions this operation watches discuss rate limits constantly, and an
-    assistant turn quoting one must never read as having hit one.
+    assistant turn quoting one must never read as having hit one. The SECOND
+    record is the shape that matters most, and it is the one this control used
+    to miss: prose naming the provider's own ``rate_limit_error`` error type.
+    An error marker must be STRUCTURAL -- the envelope's, not the text's --
+    because a marker a sentence can satisfy is no conjunction at all, and the
+    sentence a session is most likely to write about this very module carries
+    it. Its weekly phrasing is deliberate too: a weekly refusal reporting no
+    reset holds its account until the window is observed to replenish, so
+    reading this sentence as a refusal would stand an account down for up to a
+    week.
     """
     session = transcript(
         tmp_path=tmp_path,
@@ -143,6 +153,24 @@ def test_a_transcript_that_merely_discusses_a_rate_limit_carries_no_refusal(
                     "message": {
                         "role": "assistant",
                         "content": "the account hit your session limit last night",
+                    },
+                }
+            ),
+            json.dumps(
+                {
+                    "type": "assistant",
+                    "timestamp": stamp(at=RECORDED_AT),
+                    "message": {
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": (
+                                    "The provider surfaces rate_limit_error when a "
+                                    "weekly limit reached condition occurs."
+                                ),
+                            }
+                        ],
                     },
                 }
             ),
