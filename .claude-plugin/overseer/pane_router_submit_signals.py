@@ -14,6 +14,8 @@ __all__: list[str] = [
     "CapturePredicate",
     "HerdrInput",
     "PromptState",
+    "composer_empty",
+    "delivered",
     "prompt_visible",
     "resolved",
     "submitted",
@@ -61,6 +63,29 @@ def prompt_visible(*, capture: str, text: str) -> bool:
 def submitted(*, capture: str) -> bool:
     """Return true only when runtime activity proves the submitted turn began."""
     return signals.is_busy(capture_text=capture)
+
+
+def composer_empty(*, capture: str) -> bool:
+    """A Claude composer that is present and holds nothing.
+
+    Codex cannot tell its placeholder from typed text in a capture, so a Codex pane is
+    never positively empty here and its delivery is still confirmed only by activity.
+    """
+    return signals.input_box_ready(capture_text=capture) and (
+        signals.input_box_text(capture_text=capture) is None
+    )
+
+
+def delivered(*, capture: str) -> bool:
+    """Delivery is proven by the turn starting OR by the payload having left the input.
+
+    Callers ask this only AFTER the payload was observed in the composer and Enter was
+    sent, so an empty composer means the payload went somewhere: submitted, or queued
+    behind a running turn. Measured 2026-10-15 (SPECIFICATION v059): reading only a
+    busy frame inside a one-second window reported delivered wrap-ups as failed
+    (petri-factory-on-gmktec 08:09Z, gitops-fleet-capacity-monitoring 2026-10-14).
+    """
+    return submitted(capture=capture) or composer_empty(capture=capture)
 
 
 def resolved(

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import _supervisor_launch
 import _supervisor_observe
 import registry
 import signals
@@ -145,6 +146,7 @@ def close_recovered_round(*, request: RecoveryRequest) -> bool:
     registry.clear_injection_stamp(
         repo=request.track.repo, topic=request.track.topic, stamp_path=request.sup.stamp_path
     )
+    _supervisor_launch.release_held_submit(sup=request.sup, track=request.track)
     _ = request.sup.inject.pop(track_key(repo=request.track.repo, topic=request.track.topic), None)
     _log_closure(request=request, final=final)
     return True

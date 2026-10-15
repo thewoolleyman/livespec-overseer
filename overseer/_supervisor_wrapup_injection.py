@@ -40,6 +40,42 @@ def with_compaction_notice(*, latched: bool, message: str) -> str:
     return f"{COMPACTION_WRAPUP_NOTICE}{message}" if latched else message
 
 
+def _report_undelivered(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    target: str,
+    opened_now: bool,
+    effect_unknown: bool,
+) -> None:
+    """A wrap-up whose submission was not confirmed: un-open ONLY a provable failure.
+
+    SPECIFICATION v059: a paste whose effect is unknown may have landed — the 2026-10-15
+    petri wrap-up did, and its session wound down and declared — so its stamped round
+    stays open and a ``ready`` answering it certifies. Only a provably failed paste is
+    rolled back. Either way the bands stay unmarked, so the delivery is retried.
+    """
+    repo, topic = track.repo, track.topic
+    if opened_now and not effect_unknown:
+        # Roll back the just-opened round so the next tick retries cleanly.
+        registry.clear_injection_stamp(repo=repo, topic=topic, stamp_path=sup.stamp_path)
+    sup.alert(
+        repo=repo,
+        topic=topic,
+        session=_supervisor_launch.session_of(sup=sup, track=track),
+        pane=target,
+        message=(
+            "wrap-up delivery UNCONFIRMED (the paste may have landed); round kept open so "
+            "a ready answering it certifies; will retry"
+            if effect_unknown
+            else "wrap-up injection FAILED (paste did not land); will retry"
+        ),
+        condition=(
+            "wrapup-delivery-unconfirmed" if effect_unknown else "wrapup-injection-submit-failed"
+        ),
+    )
+
+
 def armed_bands(*, record: registry.RoundRecord, compaction_latched_at: float | None) -> set[int]:
     """The bands this round counts as notified, as delivery stands RIGHT NOW.
 
@@ -165,9 +201,10 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
             blocker=blocker,
         ),
     )
-    if _supervisor_launch.submit_prompt(
+    submitted, effect_unknown = _supervisor_launch.submit_prompt_outcome(
         sup=sup, target=target, text=message, expect_codex=is_codex
-    ):
+    )
+    if submitted:
         for b in due:
             registry.add_notified_band(repo=repo, topic=topic, band=b, stamp_path=sup.stamp_path)
         if compaction_latched_at is not None:
@@ -182,14 +219,10 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
             )
         sup.log(message=f"injected wrap-up into {repo}::{topic} (ctx {eff_ctx}%, bands {due})")
     else:
-        if opened_now:
-            # Roll back the just-opened round so the next tick retries cleanly.
-            registry.clear_injection_stamp(repo=repo, topic=topic, stamp_path=sup.stamp_path)
-        sup.alert(
-            repo=repo,
-            topic=topic,
-            session=_supervisor_launch.session_of(sup=sup, track=track),
-            pane=target,
-            message="wrap-up injection FAILED (paste did not land); will retry",
-            condition="wrapup-injection-submit-failed",
+        _report_undelivered(
+            sup=sup,
+            track=track,
+            target=target,
+            opened_now=opened_now,
+            effect_unknown=effect_unknown,
         )

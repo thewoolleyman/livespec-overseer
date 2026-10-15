@@ -49,10 +49,14 @@ class PromptSubmitter:
         prompt_visible: pane_router_submit_signals.CapturePredicate,
     ) -> tuple[bool | None, bool]:
         capture = self._observe(session=session, sleep=sleep, accept=prompt_visible)
-        return {
-            True: (None, False),
-            False: (False, state.effect_unknown),
-        }[prompt_visible(capture=capture)]
+        if prompt_visible(capture=capture):
+            return None, False
+        if pane_router_submit_signals.composer_empty(capture=capture):
+            # The payload is not in an empty composer: it never landed. Forget the
+            # attempt so the next request pastes afresh (SPECIFICATION v059).
+            _ = self.states.pop(session, None)
+            return False, False
+        return False, state.effect_unknown
 
     def _clear_submission(self, *, session: str) -> tuple[bool, bool]:
         _ = self.states.pop(session, None)
@@ -180,7 +184,7 @@ class PromptSubmitter:
         active_text = text if existing is None else existing.text
         same_request = active_text == text
         prompt_visible = partial(pane_router_submit_signals.prompt_visible, text=active_text)
-        submitted = pane_router_submit_signals.submitted
+        submitted = pane_router_submit_signals.delivered
         prepared, effect_unknown = self._prepare_prompt(
             session=session,
             text=active_text,

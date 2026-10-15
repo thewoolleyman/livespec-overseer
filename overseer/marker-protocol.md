@@ -674,6 +674,24 @@ act; the next eligible observation opens a fresh round, and a `ready` written in
 answer certifies normally. A round-less `ready` on a track that owes no wind-down is
 left standing and surfaced as before.
 
+**An UNCONFIRMED wrap-up delivery keeps its round open (SPECIFICATION v059).** Every
+opening paste is DELIVERED, FAILED or UNCONFIRMED. DELIVERED: on a pane that was not
+already busy the turn is seen starting after Enter, or the payload was seen in the
+input and the input then emptied. FAILED: the write was refused, or a capture taken
+after the paste and before any Enter shows the input empty. Everything else is
+UNCONFIRMED, and an unavailable capture never makes a paste FAILED. Only FAILED
+un-opens the round; UNCONFIRMED keeps it stamped and open, alerts
+(`wrapup-delivery-unconfirmed`), and is completed on later ticks without re-stamping
+and without re-pasting a payload that may already be queued. The measured case, on
+daemon 5.28.3: the herdr submitter confirmed delivery only by a busy frame inside
+about one second after Enter, so petri-factory-on-gmktec's 08:09Z wrap-up — which
+landed, and which the session answered with `ready` — was logged as a failed paste,
+its round was un-opened, and the restart was refused ("round closed before durable
+binding"). Worse, the failed attempt stayed in the submitter's per-pane memory and
+answered every later paste to that pane, so nothing was pasted there again. A held
+per-pane attempt is now released when it resolves or when its round closes, so the
+resume line after a restart is pasted afresh.
+
 ## The restart mechanics (unchanged trigger, profile-preserving launch)
 
 Once, and only once, the session has declared `ready`, the daemon uses the

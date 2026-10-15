@@ -82,6 +82,17 @@ def session_of(*, sup: Supervisor, track: registry.Track) -> str:
     )
 
 
+def release_held_submit(*, sup: Supervisor, track: registry.Track) -> None:
+    """Release the track pane's held native submit attempt as its round closes.
+
+    SPECIFICATION v059: a held UNCONFIRMED attempt must not outlive its round, or the
+    resume line pasted to the same pane after a restart is suppressed by it.
+    """
+    states = getattr(sup.tmux, "prompt_states", None)
+    if isinstance(states, dict):
+        _ = cast(dict[str, object], states).pop(session_of(sup=sup, track=track), None)
+
+
 def canonical_codex_session_id(*, value: object) -> str | None:
     """Return a canonical UUID or ``None`` (which would open Codex's picker)."""
     if not isinstance(value, str):
@@ -230,6 +241,14 @@ def resend_enter_budgeted(*, sup: Supervisor, target: str, max_enters: int) -> t
 
 
 def submit_prompt(*, sup: Supervisor, target: str, text: str, expect_codex: bool = False) -> bool:
+    return submit_prompt_outcome(sup=sup, target=target, text=text, expect_codex=expect_codex)[0]
+
+
+def submit_prompt_outcome(
+    *, sup: Supervisor, target: str, text: str, expect_codex: bool = False
+) -> tuple[bool, bool]:
+    """``(submitted, effect_unknown)``: whether delivery is confirmed, and if not, whether
+    the write may still have landed (an UNCONFIRMED delivery, never a proven failure)."""
     submit_once = cast(NativeSubmit | None, getattr(sup.tmux, "submit_prompt_once", None))
     if target.startswith(herdr_identity.HERDR_SCHEME) and submit_once is not None:
         submitted, effect_unknown = submit_once(
@@ -240,10 +259,9 @@ def submit_prompt(*, sup: Supervisor, target: str, text: str, expect_codex: bool
         )
         if effect_unknown:
             sup.log(message=f"native prompt effect unknown for pane {target}; refusing replay")
-        return submitted
-    return submit_prompt_result(
-        sup=sup, target=target, text=text, expect_codex=expect_codex
-    ).submitted
+        return submitted, effect_unknown
+    result = submit_prompt_result(sup=sup, target=target, text=text, expect_codex=expect_codex)
+    return result.submitted, False
 
 
 def submit_prompt_result(

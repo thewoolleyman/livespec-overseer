@@ -126,8 +126,9 @@ the daemon restarts the session — which deletes the state file and the round's
 stamp together — so a declaration can never re-trigger, and a stamp can never
 outlive its round. A paste into a busy session is a queued submission. Its
 submission MUST still be confirmed by runtime-appropriate evidence that the
-payload left the input; an unconfirmed submission MUST be handled as a failed
-opening paste. This rule governs DELIVERY only. The restart interlock is
+payload left the input; a submission that cannot be confirmed is classified
+under the delivery outcomes defined below and is un-opened only when it is
+provably FAILED. This rule governs DELIVERY only. The restart interlock is
 unchanged: a `ready` declaration restarts a session only under contracts.md
 §"The restart interlock", including its no-busy gates, so a busy session that
 declared `ready` is never killed mid-work. The recovered-round closure defined
@@ -163,6 +164,36 @@ the mechanical attention surface of contracts.md §"Attention surface". The
 surfacing is REPORT-ONLY: it MUST NOT gate, block, or authorize any act, MUST
 NOT suppress or alter the retry of the undelivered wrap-up, and MUST NOT itself
 delete, rewrite, or re-open the round's durable record.
+
+Every opening paste resolves to exactly one of three outcomes. It is
+DELIVERED when, on a pane that was not already busy, the runtime is observed
+beginning the turn after Enter, or when the payload was observed in the input
+and the input is next observed empty. It is FAILED when the daemon can show
+that the payload never reached the input: the write itself was refused, or an
+observation taken after the paste and before any Enter shows the input empty.
+Every other outcome is UNCONFIRMED, including a payload still standing in the
+input after the bounded submit retries, a write whose effect the daemon could
+not observe, and an observation that could not be taken; an unavailable
+observation never makes a paste FAILED. Only a FAILED paste un-opens the
+round, as above. An UNCONFIRMED paste MUST NOT un-open it: the daemon MUST keep
+the stamped round open, MUST surface the unconfirmed delivery, and MUST retry
+completing the delivery on later observations, so a declaration answering a
+wrap-up that did land certifies against that round. Completing an UNCONFIRMED
+delivery MUST NOT rewrite the round's stamp or raise its certification floor,
+and MUST NOT paste the payload again while it may already be queued: a payload
+standing in the input is submitted, never re-pasted, and a runtime whose empty
+input cannot be proven confirms delivery only by an observed turn start and is
+never re-pasted into while its delivery is unconfirmed. While an UNCONFIRMED
+attempt is held for a pane, no later wrap-up is pasted into that pane, and the
+held attempt stays surfaced. A held attempt MUST be released when a later
+observation resolves it DELIVERED or FAILED, and MUST be released when its
+round closes, so a later paste to that pane — including the resume line after
+a restart — is pasted afresh rather than suppressed by the earlier attempt.
+Keeping an UNCONFIRMED round open carries one accepted residual exposure: a
+`ready` written after the stamp by a session whose paste did not in fact land.
+That exposure is bounded by the stamp-before-paste ordering, which keeps any
+older or inherited declaration from certifying, and by contracts.md §"The
+restart interlock", whose no-busy gates still apply.
 
 A round carries a CERTIFICATION FLOOR, and that floor MAY rise within the round
 — when a declaration expires, per contracts.md §"The restart interlock". A

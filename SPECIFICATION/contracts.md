@@ -388,7 +388,14 @@ that entity's own key.
   confirmed by runtime-appropriate evidence, with a bounded number of
   retries. A paste into a busy session is queued by the runtime; its
   submission MUST be confirmed by evidence that the payload left the input,
-  never by the pane going busy alone.
+  never by the pane going busy alone. On a pane that was not already busy,
+  a turn observed starting after Enter confirms submission; so does a payload
+  that was observed in the input and has left it, leaving the input observed
+  empty. Each opening paste is classified DELIVERED, FAILED or UNCONFIRMED
+  per spec.md §"The supervision round": only a FAILED paste un-opens the
+  round, an UNCONFIRMED one keeps the stamped round open and is completed
+  without re-stamping or re-pasting, and a held per-pane attempt is released
+  when it resolves or when its round closes.
 
 ## The keep-going nudge
 
