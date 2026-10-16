@@ -138,7 +138,7 @@ def release_resolved_hold(
     is_codex: bool,
     pane_busy: bool,
     idle: bool,
-) -> None:
+) -> str | None:
     """Free this track's held delivery once the daemon can read how it ended.
 
     Runs once per tick from the evaluation's reconcile phase, BEFORE the guard
@@ -146,10 +146,16 @@ def release_resolved_hold(
     consult the hold decide on facts gathered in that phase, so a hold released
     afterwards would still read as standing and would withhold a message that is
     owed. Releasing first means this same tick sees the freed track.
+
+    Returns WHICH message a release just made DELIVERED, or None when nothing was
+    released or the release claimed no delivery. Every daemon message owes a
+    "never again" record once it lands, and only the round's half of that is
+    recordable from here (see :func:`_mark_held_delivery_landed`); the caller owns
+    the rest, so it has to be told which message landed rather than inferring it.
     """
     hold = held_delivery(sup=sup, track=track)
     if hold is None:
-        return
+        return None
     release = release_reason(
         hold=hold,
         late_accepted=_late_accepted(sup=sup, track=track, hold=hold, is_codex=is_codex),
@@ -157,7 +163,7 @@ def release_resolved_hold(
         idle=idle,
     )
     if release is None:
-        return
+        return None
     registry.clear_channel_hold(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
     if release.delivered:
         _mark_held_delivery_landed(sup=sup, track=track, hold=hold)
@@ -168,6 +174,7 @@ def release_resolved_hold(
             f"{'DELIVERED' if release.delivered else 'undelivered'})"
         )
     )
+    return hold.message if release.delivered else None
 
 
 def _mark_held_delivery_landed(
@@ -179,6 +186,11 @@ def _mark_held_delivery_landed(
     close: the bands stay unnotified, the same wrap-up is due on the next tick, and
     the daemon re-sends a message it has just been told the session accepted. The
     marking is what converts "released" into "DELIVERED".
+
+    This is the ROUND's half of that record, which is the only half a hold carries
+    the facts for. A keep-going nudge opens no round and answers no band, so it
+    leaves every field here empty and its own never-again record — the
+    `idle-with-context-left` marker — is written by the caller instead.
     """
     for band in hold.bands:
         registry.add_notified_band(

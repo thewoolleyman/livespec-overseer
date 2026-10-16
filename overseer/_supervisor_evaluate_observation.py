@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import _supervisor_channel
 import _supervisor_channel_hold
 import _supervisor_codex_late_adoption
 import _supervisor_compaction
+import _supervisor_nudge
 import _supervisor_observe
 import registry
 import signals
@@ -67,7 +70,9 @@ def reconcile_and_observe(
     4. A HELD channel delivery (v060) whose end the daemon can now read is released.
        It withholds every later daemon message to its session, so a hold released
        after the cascade had already read it would withhold a message that is owed for
-       one more tick.
+       one more tick. It comes LAST because, alone among the four, it decides on the
+       observation — and a release that lands a keep-going nudge writes that nudge's
+       marker, so it returns step 2's observation with the declaration re-read.
 
     All four are the same KIND of work — make durable state agree with what was just
     observed, before anything decides on it — which is why they belong in one step
@@ -82,12 +87,12 @@ def reconcile_and_observe(
             sup=sup, track=track, obs=obs, session=session, pane=pane, act=act
         )
     )
-    if act:
-        _release_resolved_hold(sup=sup, track=track, obs=obs)
-    return obs
+    return _release_resolved_hold(sup=sup, track=track, obs=obs) if act else obs
 
 
-def _release_resolved_hold(*, sup: Supervisor, track: registry.Track, obs: Observation) -> None:
+def _release_resolved_hold(
+    *, sup: Supervisor, track: registry.Track, obs: Observation
+) -> Observation:
     """Free a held delivery, deciding the nudge's episode from more than `idle`.
 
     A held NUDGE is bounded by the idle episode it answered, and that episode is NOT
@@ -95,14 +100,31 @@ def _release_resolved_hold(*, sup: Supervisor, track: registry.Track, obs: Obser
     idle prompt while having plainly left the episode — which is exactly why the busy
     and blocked branches of the cascade both clear the nudge marker to re-arm a later
     one. The same composite bounds the hold.
+
+    Both ENDS of the nudge's episode are wired here for that reason. A release that
+    makes the nudge DELIVERED owes the episode the same `idle-with-context-left`
+    marker a landed paste writes; the hold itself cannot write it, because the marker
+    is the nudge act's bookkeeping rather than the round's.
+
+    Returning a REFRESHED observation is what makes that marker count. It is written
+    after step 2 has already read this tick's declaration, so the cascade would still
+    see an un-nudged episode and send again — re-sending the very message the channel
+    just confirmed the session accepted. Only ``declared`` can have moved: the write
+    is guarded to a track that has declared nothing of its own, and the token it
+    writes is the daemon's own, so ``malformed`` / ``blocked`` / ``acked`` / ``ready``
+    all keep the values the observation derived.
     """
-    _supervisor_channel_hold.release_resolved_hold(
+    delivered = _supervisor_channel_hold.release_resolved_hold(
         sup=sup,
         track=track,
         is_codex=obs.is_codex,
         pane_busy=obs.busy,
         idle=obs.idle and not obs.busy and not obs.gate and not obs.blocked,
     )
+    if delivered != _supervisor_channel.NUDGE_MESSAGE:
+        return obs
+    _supervisor_nudge.record_nudge_episode_answered(sup=sup, track=track)
+    return dataclasses.replace(obs, declared=signals.read_state(repo=track.repo, topic=track.topic))
 
 
 def record_tick_observations(*, request: RecordObservationRequest) -> None:
