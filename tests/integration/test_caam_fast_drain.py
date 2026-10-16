@@ -29,6 +29,7 @@ from pathlib import Path
 import pytest
 from caam_anthropic_loop import Flags
 from caam_anthropic_pass import run_pass
+from caam_burn_rate import SHORT_WINDOW_BASELINE, projection_horizon_s
 from caam_decision import UsageRecord
 from caam_profile_state import STATE_REL
 from caam_switch import REASON_SWITCHED, SwitchRequest, SwitchResult
@@ -350,3 +351,272 @@ def test_a_fast_drain_hold_reports_the_projection_and_that_nothing_could_be_sele
     assert "35% per 30m" in trigger
     assert "projected 5%" in trigger
     assert any(line.startswith("hold:") for line in lines)
+
+
+def stored_baseline(*, harness: RotationHarness) -> dict[str, object]:
+    """The baseline reading the operation's own durable store now holds."""
+    stored = harness.read_state()[SHORT_WINDOW_BASELINE]
+    assert isinstance(stored, dict)
+    return stored
+
+
+def test_scenario_a_slowly_draining_account_holds(*, tmp_path: Path) -> None:
+    """Given the active account's short-window remaining fell from 75% to 65% between
+    a baseline and a reading of the same window one projection horizon apart, and the
+    short-window floor is 15% remaining, when a scheduled pass runs, then the
+    fast-drain trigger does not fire.
+
+    The candidate is deliberately a healthy, eligible one: the pass holds
+    because the PROJECTION is 55% at the end of the horizon, not because there
+    was nowhere to go.
+
+    The replaced baseline is asserted too, because this is the leg of the
+    baseline rule the closely-spaced scenario is the mirror of: a reading at
+    least half a horizon after a valid baseline becomes the new baseline, so the
+    next pass measures from here rather than from a reading two horizons old.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="steady",
+        usages={
+            "steady": usage(five_hour_remaining=75.0),
+            "spare": usage(five_hour_remaining=90.0),
+        },
+        live_plans={"steady": LARGE_PLAN, "spare": LARGE_PLAN},
+    )
+
+    _first_code, _first_lines = harness.run(at=NOW)
+    harness.read(name="steady", record=usage(five_hour_remaining=65.0))
+    code, lines = harness.run(at=NOW + PASS_INTERVAL)
+
+    assert code == 0
+    assert harness.switches == []
+    assert all("projected short-window drain" not in line for line in lines)
+    baseline = stored_baseline(harness=harness)
+    assert baseline["remaining"] == 65.0
+    assert baseline["at"] == NOW + PASS_INTERVAL
+
+
+def test_scenario_closely_spaced_readings_do_not_produce_a_burn_rate(*, tmp_path: Path) -> None:
+    """Given the active account's baseline reading was taken less than half the
+    projection horizon before the current reading, when a pass runs, then the burn
+    rate is unknown and the baseline is not replaced.
+
+    The second reading is a 35-point fall that WOULD fire the trigger at any
+    rate the operation was willing to compute, which is what makes the hold the
+    assertion rather than an accident of healthy figures. Keeping the older
+    baseline is the other half: a pass that replaced it would turn each later
+    pass into another closely spaced pair and never measure a rate at all.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="draining",
+        usages={
+            "draining": usage(five_hour_remaining=75.0),
+            "spare": usage(five_hour_remaining=90.0),
+        },
+        live_plans={"draining": LARGE_PLAN, "spare": LARGE_PLAN},
+    )
+
+    _first_code, _first_lines = harness.run(at=NOW)
+    harness.read(name="draining", record=usage(five_hour_remaining=40.0))
+    code, lines = harness.run(at=NOW + PASS_INTERVAL / 2 - 100.0)
+
+    assert code == 0
+    assert harness.switches == []
+    assert all("projected short-window drain" not in line for line in lines)
+    baseline = stored_baseline(harness=harness)
+    assert baseline["remaining"] == 75.0
+    assert baseline["at"] == NOW
+
+
+def test_scenario_no_burn_rate_is_computed_across_a_short_window_reset(*, tmp_path: Path) -> None:
+    """Given the active account's baseline and current reading report short-window
+    reset times more than one minute apart, when a scheduled pass runs, then the burn
+    rate is unknown and the fast-drain trigger does not fire.
+
+    Two readings of different short windows are not a measurement of anything:
+    the window replenished between them, so the second figure describes a fresh
+    allowance. The fall here is the same 35 points the switch-line scenario
+    rotates on, and the only difference is the reported reset.
+
+    The baseline IS replaced, which is the third leg of the baseline rule: a
+    baseline of another window cannot be measured against at all, so keeping it
+    would leave the account unmeasurable for as long as it stayed.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="draining",
+        usages={
+            "draining": usage(five_hour_remaining=75.0, five_hour_reset_s=3_600.0),
+            "spare": usage(five_hour_remaining=90.0),
+        },
+        live_plans={"draining": LARGE_PLAN, "spare": LARGE_PLAN},
+    )
+
+    _first_code, _first_lines = harness.run(at=NOW)
+    harness.read(
+        name="draining",
+        record=usage(five_hour_remaining=40.0, five_hour_reset_s=3_720.0),
+    )
+    code, lines = harness.run(at=NOW + PASS_INTERVAL)
+
+    assert code == 0
+    assert harness.switches == []
+    assert all("projected short-window drain" not in line for line in lines)
+    assert stored_baseline(harness=harness)["remaining"] == 40.0
+
+
+def test_scenario_no_burn_rate_is_computed_across_a_switch(*, tmp_path: Path) -> None:
+    """Given the active account became active after its baseline reading was taken,
+    when a scheduled pass runs, then the burn rate is unknown and the fast-drain
+    trigger does not fire.
+
+    The operator switches the host by hand between the two passes, so the
+    35-point gap between the remembered reading and the current one spans two
+    DIFFERENT accounts -- most of it spent by the account that is no longer in
+    use. Attributing it to the account now active would rotate the fleet off an
+    account that has barely been touched.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="first",
+        usages={
+            "first": usage(five_hour_remaining=75.0),
+            "second": usage(five_hour_remaining=40.0),
+            "spare": usage(five_hour_remaining=90.0),
+        },
+        live_plans={"first": LARGE_PLAN, "second": LARGE_PLAN, "spare": LARGE_PLAN},
+    )
+
+    _first_code, _first_lines = harness.run(at=NOW)
+    harness.hand_switch(to="second")
+    code, lines = harness.run(at=NOW + PASS_INTERVAL)
+
+    assert code == 0
+    assert harness.switches == []
+    assert all("projected short-window drain" not in line for line in lines)
+
+
+def test_an_activation_recorded_after_the_baseline_leaves_the_burn_rate_unknown(
+    *, tmp_path: Path
+) -> None:
+    """The activation time is the BELT to the baseline's own account name.
+
+    The baseline names this very account, and a fall of 35 points stands against
+    it, so every other condition for a rate is met -- and the rate is still
+    unknown, because the store says this account became active after the reading
+    was taken. contracts.md bounds a concurrent overwrite of the activation time
+    at "one pass with an unknown burn rate", and this is that pass: a
+    re-recorded activation is exactly what it leaves behind.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="draining",
+        usages={
+            "draining": usage(five_hour_remaining=75.0),
+            "spare": usage(five_hour_remaining=90.0),
+        },
+        live_plans={"draining": LARGE_PLAN, "spare": LARGE_PLAN},
+    )
+
+    _first_code, _first_lines = harness.run(at=NOW)
+    state = harness.read_state()
+    state["active_since"] = {"account": "draining", "at": NOW + 600.0}
+    harness.seed_state(state=state)
+    harness.read(name="draining", record=usage(five_hour_remaining=40.0))
+    code, lines = harness.run(at=NOW + PASS_INTERVAL)
+
+    assert code == 0
+    assert harness.switches == []
+    assert all("projected short-window drain" not in line for line in lines)
+
+
+def test_the_fast_drain_trigger_never_fires_without_the_scheduled_marker(*, tmp_path: Path) -> None:
+    """An invocation without the scheduled marker has no interval to project across,
+    and already rotates under contracts.md **Mode resolution**.
+
+    The move itself is the control: the pass DOES rotate, on the operator's
+    explicit request, so a line asserting the fast-drain trigger did not fire is
+    distinguishing the two reasons rather than observing that nothing happened.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="draining",
+        usages={
+            "draining": usage(five_hour_remaining=75.0),
+            "spare": usage(five_hour_remaining=90.0),
+        },
+        live_plans={"draining": LARGE_PLAN, "spare": LARGE_PLAN},
+    )
+
+    _first_code, _first_lines = harness.run(at=NOW)
+    harness.read(name="draining", record=usage(five_hour_remaining=40.0))
+    code, lines = harness.run(at=NOW + PASS_INTERVAL, scheduled=False, force=True)
+
+    assert code == 0
+    assert harness.switches == ["spare"]
+    assert all("projected short-window drain" not in line for line in lines)
+
+
+def test_the_projection_horizon_is_configurable_and_defaults_to_the_schedule_interval(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The horizon defaults to the documented 30-minute schedule interval and is
+    configurable independently of it.
+
+    The same 35-point fall the switch-line scenario rotates on is projected
+    across a FIFTEEN-minute horizon here, which reaches 22.5% -- above the floor
+    -- so the pass holds. Only the knob differs between the two, which is what
+    makes this a measurement of the knob rather than of the figures.
+    """
+    assert projection_horizon_s() == PASS_INTERVAL
+    monkeypatch.setenv("CAAM_ROTATE_PROJECTION_HORIZON_S", "900")
+    assert projection_horizon_s() == 900.0
+    harness = RotationHarness(
+        home=tmp_path,
+        active="draining",
+        usages={
+            "draining": usage(five_hour_remaining=75.0),
+            "spare": usage(five_hour_remaining=90.0),
+        },
+        live_plans={"draining": LARGE_PLAN, "spare": LARGE_PLAN},
+    )
+
+    _first_code, _first_lines = harness.run(at=NOW)
+    harness.read(name="draining", record=usage(five_hour_remaining=40.0))
+    code, lines = harness.run(at=NOW + PASS_INTERVAL)
+
+    assert code == 0
+    assert harness.switches == []
+    assert all("projected short-window drain" not in line for line in lines)
+
+
+def test_a_burn_rate_never_changes_the_operations_own_schedule(*, tmp_path: Path) -> None:
+    """The operation never shortens or otherwise changes its schedule in response to
+    a burn rate.
+
+    Projecting across a whole horizon already moves the fleet one pass early,
+    and the refusal trigger covers an account whose figures lag what it actually
+    spent, so a rate is never a reason to run more often. The pass that rotates
+    on the steepest rate these scenarios state says nothing about a schedule and
+    remembers nothing about one.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="draining",
+        usages={
+            "draining": usage(five_hour_remaining=75.0),
+            "spare": usage(five_hour_remaining=90.0),
+        },
+        live_plans={"draining": LARGE_PLAN, "spare": LARGE_PLAN},
+    )
+
+    _first_code, _first_lines = harness.run(at=NOW)
+    harness.read(name="draining", record=usage(five_hour_remaining=40.0))
+    code, lines = harness.run(at=NOW + PASS_INTERVAL)
+
+    assert code == 0
+    assert harness.switches == ["spare"]
+    assert all("schedule" not in line.lower() for line in lines)
+    assert "schedule" not in json.dumps(harness.read_state()).lower()

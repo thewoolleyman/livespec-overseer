@@ -33,7 +33,13 @@ from datetime import datetime, timezone
 from typing import Final, cast
 
 from caam_burn_rate import projection_horizon_s
-from caam_decision import ProfileUsage, UsageRecord, fmt_duration, until
+from caam_decision import (
+    ProfileUsage,
+    UsageRecord,
+    five_hour_remaining_floor,
+    fmt_duration,
+    until,
+)
 
 __all__: list[str] = [
     "FAST_DRAIN_TRIGGER",
@@ -76,16 +82,19 @@ def fast_drain_projection(
     """The projection this trigger fires on, or None where it does not fire.
 
     An UNKNOWN rate does not fire it, and neither does a non-positive one: a
-    window that is not falling cannot be projected to reach anything.
+    window that is not falling cannot be projected to reach anything. Nor does
+    a rate that leaves the account ABOVE the floor at the end of the horizon --
+    the trigger is about the projection reaching the floor, never about the
+    account falling at all, and firing on any positive rate would move the
+    fleet off every account that is being used.
     """
     if burn is None or burn <= 0:
         return None
     horizon = projection_horizon_s()
-    return ShortWindowProjection(
-        burn=burn,
-        remaining=current.five_hour_remaining - burn * horizon,
-        horizon=horizon,
-    )
+    remaining = current.five_hour_remaining - burn * horizon
+    if remaining > five_hour_remaining_floor():
+        return None
+    return ShortWindowProjection(burn=burn, remaining=remaining, horizon=horizon)
 
 
 def fast_drain_trigger_line(
