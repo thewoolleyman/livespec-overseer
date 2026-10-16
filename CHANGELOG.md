@@ -1,5 +1,21 @@
 # Changelog
 
+## [5.31.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.31.0...v5.31.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **caam:** hold where no candidate can carry the load, unless the active ([d40fe0c](https://github.com/thewoolleyman/livespec-overseer/commit/d40fe0caafbe68fc78a2972726341162737aefac))
+* **caam:** hold where the projection stays above the short-window floor ([a8ccb6c](https://github.com/thewoolleyman/livespec-overseer/commit/a8ccb6cedc3b28d308c853f85f93460df9f5c069))
+* **caam:** leave a candidate the current load would drain unselected ([09d25b1](https://github.com/thewoolleyman/livespec-overseer/commit/09d25b19559dbb04f5d49c09be61923b5dc2352f))
+* **caam:** leave an account projected to reach the short-window floor ([a5c7cb5](https://github.com/thewoolleyman/livespec-overseer/commit/a5c7cb55cc9036b28936436070a75021fd7d53b2))
+* **caam:** leave an account with no usage reading out of the capacity test ([740bbac](https://github.com/thewoolleyman/livespec-overseer/commit/740bbacecdacbd949023ee5039de8d0471a0efaf))
+* **caam:** name the fleet load in the state key vocabulary ([3266d6c](https://github.com/thewoolleyman/livespec-overseer/commit/3266d6cf5d369e23fdd17a1bd18abafbc74299e6))
+* **caam:** report the projection a fast-drain rotation was made on ([435077d](https://github.com/thewoolleyman/livespec-overseer/commit/435077db2d7df82588f9f6c78d2f378f1a404bf8))
+* **caam:** test candidates against the remembered load after a switch ([97b6717](https://github.com/thewoolleyman/livespec-overseer/commit/97b6717d38480f4912ddb5fe3c594e4222689c63))
+* **caam:** test drain candidates against the fleet load ([31e8f44](https://github.com/thewoolleyman/livespec-overseer/commit/31e8f44d1f9414201e6ab81a938df65515c45498))
+* **caam:** weigh an unknown class conservatively as a candidate only ([5ee00ff](https://github.com/thewoolleyman/livespec-overseer/commit/5ee00ffedb4502ebcb287b0cfd48d7dcfbc0c361))
+
 ## [5.31.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.30.0...v5.31.0) (2026-10-16)
 
 
