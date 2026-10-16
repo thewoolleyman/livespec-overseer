@@ -138,6 +138,15 @@ def resolve_arm(*, request: RotationRequest) -> RotationArm:
         now=request.context.now,
     )
     capacity = active_capacity(profiles=request.profiles, active_name=request.active_name)
+    # READ BEFORE THE RECORD, for the same reason the rate above is read before
+    # its own baseline is replaced: the load a pass with no rate falls back to
+    # is the one its PREDECESSOR measured.
+    load = capacity_load(
+        state=request.context.state,
+        burn=burn,
+        capacity=capacity,
+        now=request.context.now,
+    )
     record_fleet_load(
         state=request.context.state,
         burn=burn,
@@ -154,7 +163,7 @@ def resolve_arm(*, request: RotationRequest) -> RotationArm:
             protection_floors=request.protection_floors,
         ),
         burn=burn,
-        load=capacity_load(burn=burn, capacity=capacity),
+        load=load,
     )
 
 

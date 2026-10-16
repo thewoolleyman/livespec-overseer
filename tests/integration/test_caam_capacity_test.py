@@ -221,3 +221,85 @@ def test_capacity_weights_are_configurable_per_provider_and_class(
 
     assert code == 0
     assert harness.switches == ["small-plan"]
+
+
+def test_scenario_the_capacity_test_uses_the_remembered_fleet_load_after_a_switch(
+    *, tmp_path: Path
+) -> None:
+    """Given the active account's burn rate is unknown because it became active since
+    its baseline, and a fleet load was recorded less than twice the projection horizon
+    ago, when the operation applies the capacity test, then it uses that recorded
+    fleet load.
+
+    Three passes, because that is what the situation IS. The second measures a
+    rate on `big` and moves off it; the third runs on `big2`, whose own baseline
+    was taken one pass ago at most, so no rate can be measured for it at all --
+    and the capacity test must still apply, or every pass after a switch would
+    admit a candidate the fleet is about to drain.
+
+    The recorded load is asserted to be UNCHANGED after the third pass. That is
+    the discriminator: the third pass computed no rate of its own, so the only
+    load it could have tested with is the one the second pass left behind.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="big",
+        usages={
+            "big": usage(five_hour_remaining=30.0, seven_day_reset_s=DAY),
+            "small-plan": usage(five_hour_remaining=50.0, seven_day_reset_s=2 * DAY),
+            "big2": usage(five_hour_remaining=90.0, seven_day_reset_s=7 * DAY),
+            "big3": usage(five_hour_remaining=50.0, seven_day_reset_s=8 * DAY),
+        },
+        live_plans={
+            "big": LARGE_PLAN,
+            "small-plan": SMALL_PLAN,
+            "big2": LARGE_PLAN,
+            "big3": LARGE_PLAN,
+        },
+    )
+    assert ranks_first(first="small-plan", second="big3", harness=harness)
+
+    _first_code, _first_lines = harness.run(at=NOW)
+    harness.read(
+        name="big",
+        record=usage(five_hour_remaining=30.0 - HEAVY_FALL, seven_day_reset_s=DAY),
+    )
+    second_code, _second_lines = harness.run(at=NOW + PASS_INTERVAL)
+    harness.read(name="big2", record=usage(five_hour_remaining=15.0, seven_day_reset_s=7 * DAY))
+    third_code, _third_lines = harness.run(at=NOW + 2 * PASS_INTERVAL)
+
+    assert second_code == third_code == 0
+    assert harness.switches == ["big2", "big3"]
+    assert fleet_load_record(harness=harness)["at"] == NOW + PASS_INTERVAL
+
+
+def test_a_remembered_fleet_load_expires_at_twice_the_horizon(*, tmp_path: Path) -> None:
+    """A remembered fleet load is used while it is no older than twice the horizon,
+    and ignored once it is older.
+
+    Both legs run the SAME pass against the SAME seeded load, differing only in
+    when that load was measured, so the boundary is what is measured rather than
+    the figures. Twice the horizon is what makes the test still apply on the
+    pass after a switch; carrying it indefinitely would test today's candidate
+    against work the fleet stopped doing hours ago.
+    """
+    load = HEAVY_FALL * 7.0 / PASS_INTERVAL
+    for measured_at, expected in (
+        (NOW - PASS_INTERVAL, []),
+        (NOW - 2 * PASS_INTERVAL - 1.0, ["small-plan"]),
+    ):
+        harness = RotationHarness(
+            home=tmp_path / f"home-{int(measured_at)}",
+            active="big",
+            usages={
+                "big": usage(five_hour_remaining=15.0, seven_day_reset_s=DAY),
+                "small-plan": usage(five_hour_remaining=50.0, seven_day_reset_s=2 * DAY),
+            },
+            live_plans={"big": LARGE_PLAN, "small-plan": SMALL_PLAN},
+        )
+        harness.seed_state(state={FLEET_LOAD: {"load": load, "at": measured_at}})
+
+        code, _lines = harness.run(at=NOW)
+
+        assert code == 0
+        assert harness.switches == expected
