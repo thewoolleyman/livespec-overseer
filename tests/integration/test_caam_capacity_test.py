@@ -24,10 +24,11 @@ from pathlib import Path
 
 import pytest
 from caam_capacity_load import FLEET_LOAD
-from caam_capacity_weights import ANTHROPIC, capacity_weights
+from caam_capacity_weights import ANTHROPIC, capacity_weight, capacity_weights
 from caam_decision import ProfileUsage, rank_profiles
 from test_caam_fast_drain import (
     LARGE_PLAN,
+    MEDIUM_PLAN,
     NOW,
     PASS_INTERVAL,
     SMALL_PLAN,
@@ -303,3 +304,96 @@ def test_a_remembered_fleet_load_expires_at_twice_the_horizon(*, tmp_path: Path)
 
         assert code == 0
         assert harness.switches == expected
+
+
+def test_scenario_a_candidate_of_unknown_capacity_is_weighted_as_the_smallest_class(
+    *, tmp_path: Path
+) -> None:
+    """Given a candidate whose capacity class cannot be determined, and a fleet load
+    is available, when the operation applies the capacity test, then the candidate is
+    weighted as the smallest capacity class configured for its provider.
+
+    The medium candidate holds the same 60% and IS selected, which is what makes
+    the weighting observable: at the smallest weight the unknown candidate is
+    projected to -10% and excluded, and at the medium weight it would have
+    survived -- so a build that weighted an unreadable plan generously, or
+    skipped the test for it, selects the unknown candidate, which ranks first.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="big",
+        usages={
+            "big": usage(five_hour_remaining=30.0, seven_day_reset_s=DAY),
+            "unknown-plan": usage(five_hour_remaining=60.0, seven_day_reset_s=2 * DAY),
+            "medium-plan": usage(five_hour_remaining=60.0, seven_day_reset_s=3 * DAY),
+        },
+        live_plans={"big": LARGE_PLAN, "unknown-plan": None, "medium-plan": MEDIUM_PLAN},
+    )
+    assert ranks_first(first="unknown-plan", second="medium-plan", harness=harness)
+
+    _first_code, _first_lines = harness.run(at=NOW)
+    harness.read(
+        name="big",
+        record=usage(five_hour_remaining=30.0 - HEAVY_FALL, seven_day_reset_s=DAY),
+    )
+    code, _lines = harness.run(at=NOW + PASS_INTERVAL)
+
+    assert code == 0
+    assert harness.switches == ["medium-plan"]
+
+
+def test_an_unknown_capacity_class_weighs_as_the_smallest_class_configured(
+    *, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The unknown-class weight follows the CONFIGURED smallest class, not a constant.
+
+    Raising every configured weight moves the unknown weight with them, which a
+    hardcoded 1 would not. This is the unit-level half of the scenario above:
+    that one proves the weighting is applied, this one proves which figure it
+    is applied from.
+    """
+    assert capacity_weight(capacity=None) == 1.0
+    monkeypatch.setenv("CAAM_ROTATE_CAPACITY_WEIGHT_ANTHROPIC_SMALL", "3")
+    monkeypatch.setenv("CAAM_ROTATE_CAPACITY_WEIGHT_ANTHROPIC_MEDIUM", "4")
+    monkeypatch.setenv("CAAM_ROTATE_CAPACITY_WEIGHT_ANTHROPIC_LARGE", "9")
+    assert capacity_weight(capacity=None) == 3.0
+
+
+def test_an_active_account_of_unknown_class_contributes_the_candidates_own_weight(
+    *, tmp_path: Path
+) -> None:
+    """An active account whose class cannot be determined is NEUTRAL toward the
+    candidate under test, and such a pass records no fleet load.
+
+    Neutral means each candidate is weighted as ITSELF, so every candidate's
+    projected burn is simply the active account's measured rate -- 30 points per
+    horizon here. The medium candidate at 40% is therefore excluded (it reaches
+    the floor) while the large one at 60% is not, and the medium one RANKS
+    FIRST: a build that weighted the unreadable active account as the smallest
+    class instead would halve the medium candidate's share to 15 points, admit
+    it at 25%, and select it.
+
+    Recording that rate as a FLEET load would be recording something that is not
+    one -- a rate measured against a weight nobody knows -- so the pass records
+    nothing, and the next pass falls back to whatever an earlier measured pass
+    left rather than to this.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="mystery",
+        usages={
+            "mystery": usage(five_hour_remaining=45.0, seven_day_reset_s=DAY),
+            "medium-plan": usage(five_hour_remaining=40.0, seven_day_reset_s=2 * DAY),
+            "roomy": usage(five_hour_remaining=60.0, seven_day_reset_s=3 * DAY),
+        },
+        live_plans={"mystery": None, "medium-plan": MEDIUM_PLAN, "roomy": LARGE_PLAN},
+    )
+    assert ranks_first(first="medium-plan", second="roomy", harness=harness)
+
+    _first_code, _first_lines = harness.run(at=NOW)
+    harness.read(name="mystery", record=usage(five_hour_remaining=15.0, seven_day_reset_s=DAY))
+    code, _lines = harness.run(at=NOW + PASS_INTERVAL)
+
+    assert code == 0
+    assert harness.switches == ["roomy"]
+    assert FLEET_LOAD not in harness.read_state()
