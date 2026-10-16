@@ -197,10 +197,10 @@ def test_a_channel_that_cannot_speak_for_the_held_message_gives_no_late_answer(
         name = "a-different-channel"
         addressed_identity = "claude:s:t"
 
-        def send(self, *, text):  # pragma: no cover - never sent through here
+        def send(self, *, text):
             raise AssertionError("the release must not send anything")
 
-        def late_acceptance(self) -> bool:  # pragma: no cover - must never be asked
+        def late_acceptance(self) -> bool:
             raise AssertionError("a channel that did not carry the message is not asked")
 
     for provider in (lambda **_: OtherChannel(), lambda **_: None):
