@@ -151,6 +151,8 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
         kind=_supervisor_channel.WRAPUP_MESSAGE,
         is_codex=is_codex,
         pane_busy=pane_busy,
+        bands=tuple(due),
+        compaction_latched_at=compaction_latched_at,
         reread=reread,
     )
     # The binding proof is part of the act's immediate pre-delivery re-read, so it runs

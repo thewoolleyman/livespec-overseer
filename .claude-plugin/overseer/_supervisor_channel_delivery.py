@@ -72,6 +72,11 @@ class DeliveryRequest:
     # later release can tell a turn that STARTED after the send — evidence the session
     # took the message — from one that was already in flight and proves nothing.
     pane_busy: bool = False
+    # What a release that makes this delivery DELIVERED must then mark on its round.
+    # The act knows them and a later release cannot re-derive them, so they ride the
+    # hold; a keep-going nudge answers no band and leaves them empty.
+    bands: tuple[int, ...] = ()
+    compaction_latched_at: float | None = None
     # Present only for an act that DEFINES a pre-paste re-read, which today is the
     # wrap-up alone. Absent, a refused channel is simply reported and retried on a
     # later observation: the contract makes the fallback a MAY, and a fallback with
@@ -247,6 +252,8 @@ def deliver(
             channel=channel.name,
             identity=channel.addressed_identity,
             pane_was_busy=request.pane_busy,
+            bands=request.bands,
+            compaction_latched_at=request.compaction_latched_at,
         )
     # An UNCONFIRMED send is the channel's word for the may-have-landed state a paste
     # reports as an unknown effect, so it rides the SAME flag: the caller's round stays
