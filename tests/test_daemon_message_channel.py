@@ -358,3 +358,122 @@ def test_a_failed_channel_attempt_and_its_fallback_paste_are_both_named(*, tmp_p
     expected = "wrap-up via channel test-channel: failed, then paste: delivered"
     assert view.delivery_path == expected
     assert expected in err.getvalue()
+
+
+def test_an_unconfirmed_delivery_is_never_sent_again_by_either_path(*, tmp_path, monkeypatch):
+    """DoD 10: a send that may already have landed is held, not repeated — not
+    through the channel that swallowed it and not by typing it into the pane."""
+    monkeypatch.chdir(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
+    clock = {"t": 1000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
+    channel = RecordingChannel(
+        addressed_identity=f"claude:{session}:{session}", outcome="unconfirmed"
+    )
+    offer(monkeypatch=monkeypatch, channel=channel)
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        sup.evaluate(track=track, act=True)
+        assert len(channel.sent) == 1
+        clock["t"] += 60.0
+        sup.evaluate(track=track, act=True)
+        clock["t"] += 60.0
+        sup.evaluate(track=track, act=True)
+
+    assert len(channel.sent) == 1
+    assert wrapup_count(fake=fake) == 0
+
+
+def test_no_later_daemon_message_reaches_a_session_while_a_delivery_is_held(
+    *, tmp_path, monkeypatch
+):
+    """DoD 11: the hold is against the SESSION, not against one message — a later
+    wrap-up band is withheld too, by either path, until the hold is released."""
+    monkeypatch.chdir(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
+    clock = {"t": 1000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
+    channel = RecordingChannel(
+        addressed_identity=f"claude:{session}:{session}", outcome="unconfirmed"
+    )
+    offer(monkeypatch=monkeypatch, channel=channel)
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        sup.evaluate(track=track, act=True)
+        assert len(channel.sent) == 1
+        # The session keeps burning context, so a LOWER escalation band comes due.
+        fake.panes[session] = idle_capture(ctx=20)
+        clock["t"] += 600.0
+        sup.evaluate(track=track, act=True)
+
+    assert len(channel.sent) == 1
+    assert wrapup_count(fake=fake) == 0
+
+
+def test_a_malformed_hold_record_reads_as_no_hold(*, tmp_path):
+    """Fail-soft toward NO hold: an unreadable record must not wedge a track's
+    daemon messages forever, so the delivery it guarded is re-attempted."""
+    import json
+    from pathlib import Path
+
+    assert (Path(__file__).parents[1] / "overseer" / "_registry_channel_hold.py").is_file()
+
+    import _registry_channel_hold
+
+    stamp_path = tmp_path / "stamps.json"
+    stamp_path.write_text(
+        json.dumps({"/repo\ttopic": {"channel_hold": {"message": 7, "channel": "c"}}}),
+        encoding="utf-8",
+    )
+
+    assert (
+        _registry_channel_hold.read_channel_hold(repo="/repo", topic="topic", stamp_path=stamp_path)
+        is None
+    )
+
+
+def test_an_unconfirmed_nudge_is_held_and_never_re_nudged(*, tmp_path, monkeypatch):
+    """DoD 10 and 11 reach the NUDGE path too, which is easy to leave unguarded.
+
+    The nudge writes its `idle-with-context-left` marker only on a delivery that
+    LANDED, so an unconfirmed one leaves the episode unmarked and the nudge due
+    again on the very next tick — the one shape that re-sends a message which may
+    already be sitting in the session's input. The hold is what stops it, and it
+    has to be consulted by the nudge act and not only by the wrap-up.
+    """
+    import _supervisor_config
+
+    monkeypatch.chdir(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
+    clock = {"t": 1000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
+    sup.claude_status_by_session = {session: "idle"}
+    channel = RecordingChannel(
+        addressed_identity=f"claude:{session}:{session}", outcome="unconfirmed"
+    )
+    offer(monkeypatch=monkeypatch, channel=channel)
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        sup.evaluate(track=track, act=True)  # stamps the continuous-idle clock
+        clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1
+        sup.evaluate(track=track, act=True)
+        assert len(channel.sent) == 1
+        clock["t"] += 60.0
+        sup.evaluate(track=track, act=True)
+        clock["t"] += 60.0
+        sup.evaluate(track=track, act=True)
+
+    assert len(channel.sent) == 1
+    assert nudge_count(fake=fake) == 0

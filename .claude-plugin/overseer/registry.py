@@ -45,6 +45,9 @@ siblings cannot stay underscore-named once it moves out of one file.
 
 from __future__ import annotations
 
+from _registry_channel_hold import ChannelHold as ChannelHold
+from _registry_channel_hold import read_channel_hold as read_channel_hold
+from _registry_channel_hold import record_channel_hold as record_channel_hold
 from _registry_codex_restart import CodexFreshRestart as CodexFreshRestart
 from _registry_codex_restart import (
     mark_codex_fresh_restart_resume_submitted as mark_codex_fresh_restart_resume_submitted,
@@ -126,6 +129,7 @@ __all__: list[str] = [
     "DEFAULT_STORE_PATH",
     "DEFAULT_WATCH_SET_PATH",
     "NO_CONTEXT_COMPACTION",
+    "ChannelHold",
     "CodexFreshRestart",
     "ContextCompaction",
     "MappingEntry",
@@ -156,6 +160,7 @@ __all__: list[str] = [
     "mark_expiry_notice_sent",
     "norm",
     "plan_liveness_topic",
+    "read_channel_hold",
     "read_codex_fresh_restart",
     "read_injection_stamp",
     "read_launch_statusline_baseline",
@@ -168,6 +173,7 @@ __all__: list[str] = [
     "read_round_record",
     "read_shell_episode",
     "read_valid_mapping",
+    "record_channel_hold",
     "record_codex_fresh_restart",
     "record_context_compaction",
     "record_derived_epic",
