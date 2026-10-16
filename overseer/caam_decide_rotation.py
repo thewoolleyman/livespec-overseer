@@ -14,9 +14,11 @@ because the reason a candidate set came out empty is known only here.
 TRIGGER PRECEDENCE is read off this module's shape. The refusal trigger and its
 dimension govern wherever it fires, because a refusal is ground truth about an
 allowance while every other trigger reads a report about one; every threshold
-and the forced pass share that same arm, which the binding parameterises; and
-the expiring-quota drain remains the lowest, reachable only where nothing else
-fired at all.
+and the forced pass share that same arm, which the binding parameterises; the
+fast-drain trigger governs only where none of those fired, and shares the same
+arm again because it compares candidates on the same short-window dimension;
+and the expiring-quota drain remains the lowest, reachable only where nothing
+else fired at all.
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ from caam_decide_report import hold_allowed
 from caam_decide_triggered import triggered_choice
 from caam_decision import triggered
 from caam_expiring_quota import DRAIN_TRIGGER, drain_target, drain_trigger_line
+from caam_fast_drain import fast_drain_projection
 from caam_rotation_arm import (
     RotationArm,
     RotationChoice,
@@ -51,6 +54,15 @@ def rotation_choice(*, request: RotationRequest) -> RotationChoice:
         scoped_pin=arm.scoped_pin,
     )
     if request.context.flags.force or threshold_triggered or arm.refusal.holds_active:
+        return triggered_choice(request=request, arm=arm)
+    # The fast-drain trigger, which governs only where none of those fired. It
+    # never fires on an invocation without the scheduled marker, which already
+    # rotates under contracts.md **Mode resolution** and has no interval at all
+    # to project across.
+    projection = (
+        fast_drain_projection(burn=arm.burn, current=request.current) if request.scheduled else None
+    )
+    if projection is not None:
         return triggered_choice(request=request, arm=arm)
     return _drain_choice(request=request, arm=arm)
 

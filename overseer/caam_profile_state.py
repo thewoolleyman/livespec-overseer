@@ -13,6 +13,7 @@ inferred from the ones already there:
     protected_accounts   caam_protected_accounts-- per-account protection floors
     refusals             caam_refusal_store     -- refusals attributed to an account
     session_models       caam_session_models    -- per-session model exceptions
+    short_window_baseline caam_burn_rate        -- the reading a burn rate is measured from
     short_window_departures caam_expiring_quota -- reset guard after short-window moves
     warm                 caam_warm              -- the keep-warm memo
 
