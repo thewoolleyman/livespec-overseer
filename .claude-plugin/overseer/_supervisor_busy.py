@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import _supervisor_attention
 import _supervisor_liveness
-import _supervisor_nudge
+import _supervisor_nudge_marker
 import _supervisor_state
 import registry
 import signals
@@ -99,7 +99,7 @@ def busy(*, request: BusyRequest) -> BusyDecision:
         # settle gates already prevent a mid-work restart, and max-age bounds staleness.
         # The session took a turn — clear any idle-with-context-left nudge marker
         # so the NEXT idle-with-context episode re-nudges (re-arm on non-idle).
-        _supervisor_nudge.clear_idle_nudge_state(sup=request.sup, track=request.track)
+        _supervisor_nudge_marker.clear_idle_nudge_state(sup=request.sup, track=request.track)
     return BusyDecision(
         note=note,
         ready=ready,

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import _supervisor_attention
 import _supervisor_liveness
-import _supervisor_nudge
+import _supervisor_nudge_marker
 import registry
 import signals
 from _supervisor_records import InjectState
@@ -73,7 +73,7 @@ def blocked_human(*, request: BlockedRequest) -> BlockedDecision:
         # armed for the next genuinely idle, settled tick.
         # A gate / block is also "non-idle" — drop a stale nudge marker (safe: the
         # helper re-reads and leaves a session-written `blocked` untouched).
-        _supervisor_nudge.clear_idle_nudge_state(sup=request.sup, track=request.track)
+        _supervisor_nudge_marker.clear_idle_nudge_state(sup=request.sup, track=request.track)
         detail = request.blocked if request.blocked else "structured gate on pane"
         if blocked_attention is not None:
             active_conditions.update(blocked_attention.active_conditions)

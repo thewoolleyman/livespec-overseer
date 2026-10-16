@@ -10,7 +10,7 @@ import _supervisor_channel
 import _supervisor_channel_hold
 import _supervisor_codex_late_adoption
 import _supervisor_compaction
-import _supervisor_nudge
+import _supervisor_nudge_marker
 import _supervisor_observe
 import registry
 import signals
@@ -123,7 +123,7 @@ def _release_resolved_hold(
     )
     if delivered != _supervisor_channel.NUDGE_MESSAGE:
         return obs
-    _supervisor_nudge.record_nudge_episode_answered(sup=sup, track=track)
+    _supervisor_nudge_marker.record_nudge_episode_answered(sup=sup, track=track)
     return dataclasses.replace(obs, declared=signals.read_state(repo=track.repo, topic=track.topic))
 
 

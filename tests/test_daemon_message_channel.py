@@ -477,3 +477,75 @@ def test_an_unconfirmed_nudge_is_held_and_never_re_nudged(*, tmp_path, monkeypat
 
     assert len(channel.sent) == 1
     assert nudge_count(fake=fake) == 0
+
+
+def _nudged_log(*, tmp_path, monkeypatch, channel):
+    """Drive one idle episode to its keep-going nudge; return the daemon's stderr."""
+    import _supervisor_config
+
+    monkeypatch.chdir(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
+    clock = {"t": 1000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
+    sup.claude_status_by_session = {session: "idle"}
+    if channel is not None:
+        offer(monkeypatch=monkeypatch, channel=channel(session))
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    sup.evaluate(track=track, act=True)  # stamps the continuous-idle clock
+    clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        _ = sup.evaluate(track=track, act=True)
+    return err.getvalue(), fake
+
+
+def test_a_nudge_delivered_through_a_channel_names_that_channel(*, tmp_path, monkeypatch):
+    """DoD 3 is stated over A DAEMON MESSAGE, and the nudge is the other one.
+
+    The wrap-up's log line already names its route. The nudge's did not, so half
+    the messages this contract governs travelled by a path no operator could read
+    back — and the hold and fallback behaviour they would be debugging differs by
+    exactly that path.
+    """
+    log, fake = _nudged_log(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        channel=lambda session: RecordingChannel(addressed_identity=f"claude:{session}:{session}"),
+    )
+
+    assert "keep-going nudge via channel test-channel: delivered" in log
+    assert nudge_count(fake=fake) == 0
+
+
+def test_a_pasted_nudge_names_the_paste(*, tmp_path, monkeypatch):
+    """DoD 5, the nudge half: the route is named even when it is the ordinary one."""
+    log, fake = _nudged_log(tmp_path=tmp_path, monkeypatch=monkeypatch, channel=None)
+
+    assert "keep-going nudge via paste: delivered" in log
+    assert nudge_count(fake=fake) == 1
+
+
+def test_a_held_nudge_is_reported_as_held_rather_than_as_a_failed_paste(*, tmp_path, monkeypatch):
+    """The one alert an operator sees on the hold path must not misdescribe it.
+
+    A channel send that came back UNCONFIRMED pasted nothing and will NEVER be sent
+    again — it is held. Reporting it as a paste that "did not land" and "will retry"
+    names the wrong route AND the wrong disposition, which is exactly the pair of
+    facts an operator needs to decide whether to go and look.
+    """
+    log, fake = _nudged_log(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        channel=lambda session: RecordingChannel(
+            addressed_identity=f"claude:{session}:{session}", outcome="unconfirmed"
+        ),
+    )
+
+    assert "keep-going nudge via channel test-channel: unconfirmed" in log
+    assert "UNCONFIRMED" in log
+    assert "paste did not land" not in log
+    assert nudge_count(fake=fake) == 0
