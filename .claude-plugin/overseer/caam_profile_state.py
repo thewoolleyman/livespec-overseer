@@ -49,6 +49,7 @@ __all__: list[str] = [
     "profile_names",
     "save_state",
     "state_path",
+    "usage_credential_path",
 ]
 
 _TOOL: Final = "claude"
@@ -86,6 +87,26 @@ def live_creds_path(*, home: Path) -> Path:
 
 def state_path(*, home: Path) -> Path:
     return home / STATE_REL
+
+
+def usage_credential_path(*, name: str, active_name: str | None, home: Path) -> Path:
+    """THE credential this pass exercises for one account's reads.
+
+    The ACTIVE account is reached through the host's live credential, because
+    that is the file the host is actually spending against; every other account
+    is reached through its own stored vault snapshot.
+
+    It is a named function rather than two inline derivations because the
+    specification requires the capacity read to be made with "the same
+    credential the pass uses for that account's usage". Two copies of the rule
+    could drift, and the direction they would drift in is the one that reads
+    plausible: a capacity source reaching for the live credential every time
+    reports the active account's plan for the whole vault.
+    """
+
+    if name == active_name:
+        return live_creds_path(home=home)
+    return caam_vault(home=home) / name / ".credentials.json"
 
 
 def cache_max_age_s() -> float:
@@ -170,7 +191,6 @@ def _poll_profile(*, name: str, context: _PollContext) -> ProfileUsage:
         name=name,
         active_name=context.active_name,
         home=context.home,
-        vault=context.vault,
         now=context.now,
         fetcher=context.fetcher,
     )
@@ -210,17 +230,13 @@ def _fetch_profile_usage(
     name: str,
     active_name: str | None,
     home: Path,
-    vault: Path,
     now: float,
     fetcher: UsageFetcher,
 ) -> tuple[UsageRecord | None, str | None]:
-    if name == active_name:
-        return fetcher(creds_path=live_creds_path(home=home), now=now)
-
-    snapshot = vault / name / ".credentials.json"
-    if not snapshot.exists():
+    credential = usage_credential_path(name=name, active_name=active_name, home=home)
+    if name != active_name and not credential.exists():
         return None, "no snapshot"
-    return fetcher(creds_path=snapshot, now=now)
+    return fetcher(creds_path=credential, now=now)
 
 
 def _cache_record(*, usage: UsageRecord, now: float) -> dict[str, object]:

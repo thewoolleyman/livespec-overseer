@@ -22,6 +22,8 @@ from _caam_switch_host import caam_activate
 from caam_anthropic_decide import SwitchAccount, UsageFetcher
 from caam_anthropic_finish import LineWriter, SaveState
 from caam_anthropic_status import EnforceModels
+from caam_capacity import CapacitySource
+from caam_capacity_source import read_rate_limit_tier
 from caam_enforcement import enforce_models as default_enforce_models
 from caam_pass_refusals import TrackedSessionSource, tracked_session_source
 from caam_profile_state import save_state as default_save_state
@@ -84,6 +86,7 @@ def default_agent_runner(
 @dataclass(frozen=True, kw_only=True)
 class PassSeams:
     fetcher: UsageFetcher
+    capacity_source: CapacitySource
     save_state: SaveState
     switch_account: SwitchAccount
     enforce_models: EnforceModels
@@ -103,6 +106,9 @@ def pass_seams(*, overrides: dict[str, object]) -> PassSeams:
     agent_runner = cast(AgentRunner | None, overrides.get("agent_runner"))
     return PassSeams(
         fetcher=cast(UsageFetcher, overrides.get("fetcher", fetch_usage)),
+        capacity_source=cast(
+            CapacitySource, overrides.get("capacity_source", read_rate_limit_tier)
+        ),
         save_state=cast(SaveState, overrides.get("save_state", default_save_state)),
         switch_account=cast(SwitchAccount, overrides.get("switch_account", default_switch_account)),
         enforce_models=cast(EnforceModels, overrides.get("enforce_models", default_enforce_models)),

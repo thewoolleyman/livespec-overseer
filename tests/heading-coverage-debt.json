@@ -1626,27 +1626,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: The account table shows each account's capacity class",
-    "work_item": "overseer-wzw2zw",
-    "first_seen": "2026-10-15"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A plan change shows without a fresh login",
-    "work_item": "overseer-wzw2zw",
-    "first_seen": "2026-10-15"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: An unreadable plan shows unknown",
-    "work_item": "overseer-wzw2zw",
-    "first_seen": "2026-10-15"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: The account table shows each account's resets",
     "work_item": "overseer-33kyxp",
     "first_seen": "2026-10-15"
