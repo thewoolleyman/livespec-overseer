@@ -3130,89 +3130,89 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An account projected to reach the floor before the next pass is left",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_fast_drain.test_scenario_an_account_projected_to_reach_the_floor_before_the_next_pass_is_left",
     "work_item": "overseer-ivpkrf",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this fast-drain-trigger scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-ivpkrf owns landing it."
+    "reason": "Integration-tier: two passes one projection horizon apart, driven through the shipped rotation pass at controlled clock offsets, so the burn rate is MEASURED across two readings rather than injected. The active account falls 32% -> 17% and is left, because the projection it is on reaches the short-window floor before the next pass would run."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A slowly draining account holds",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_fast_drain.test_scenario_a_slowly_draining_account_holds",
     "work_item": "overseer-ivpkrf",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this fast-drain-trigger scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-ivpkrf owns landing it."
+    "reason": "Integration-tier: the other half of the trigger, and the one that keeps it from over-applying. The same two-pass shape measures a rate that leaves the projection above the floor across the horizon, so the pass holds -- a build that fired on any positive rate would rotate here."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Closely spaced readings do not produce a burn rate",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_fast_drain.test_scenario_closely_spaced_readings_do_not_produce_a_burn_rate",
     "work_item": "overseer-ivpkrf",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this fast-drain-trigger scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-ivpkrf owns landing it."
+    "reason": "Integration-tier: two readings less than half a horizon apart leave the rate UNKNOWN and the trigger unfired, and the baseline is asserted NOT replaced -- which is the half that keeps a closely spaced pass from amplifying one percentage step into a large rate."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: No burn rate is computed across a short-window reset",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_fast_drain.test_scenario_no_burn_rate_is_computed_across_a_short_window_reset",
     "work_item": "overseer-ivpkrf",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this fast-drain-trigger scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-ivpkrf owns landing it."
+    "reason": "Integration-tier: the two readings report short-window resets more than a minute apart, so they describe different windows and the fall between them is a replenishment rather than a burn. The rate is unknown and the baseline IS replaced."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: No burn rate is computed across a switch",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_fast_drain.test_scenario_no_burn_rate_is_computed_across_a_switch",
     "work_item": "overseer-ivpkrf",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this fast-drain-trigger scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-ivpkrf owns landing it."
+    "reason": "Integration-tier: the account became active after its baseline was taken, so the fall between the two readings is across two ACCOUNTS. The rate is unknown, which is what stops the pass after a switch from reading its predecessor's spend as the successor's."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A small candidate that the current load would drain is not selected",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_capacity_test.test_scenario_a_small_candidate_that_the_current_load_would_drain_is_not_selected",
     "work_item": "overseer-ivpkrf",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this capacity-test scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-ivpkrf owns landing it."
+    "reason": "Integration-tier: a large candidate holds the SAME 50% short-window remaining and is selected instead, so this measures capacity rather than percentages -- the two are indistinguishable on every figure the ranking reads, and the small one ranks FIRST, so a build ignoring the capacity test selects it."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A small candidate is selectable under light load",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_capacity_test.test_scenario_a_small_candidate_is_selectable_under_light_load",
     "work_item": "overseer-ivpkrf",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this capacity-test scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-ivpkrf owns landing it."
+    "reason": "Integration-tier: the same 50% reading and the same weights as the exclusion scenario, differing only in the LOAD, so what the clause bounds is shown to be what an account can carry rather than how large its plan is. The ordinary threshold fires here rather than the fast-drain trigger, because the test applies to every selection."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The capacity test uses the remembered fleet load after a switch",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_capacity_test.test_scenario_the_capacity_test_uses_the_remembered_fleet_load_after_a_switch",
     "work_item": "overseer-ivpkrf",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this capacity-test scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-ivpkrf owns landing it."
+    "reason": "Integration-tier: three passes, because that is what the situation is. The third runs on an account that became active one pass ago, so no rate can be measured for it at all, and the recorded load is asserted UNCHANGED afterwards -- the discriminator that the load it tested with is the one its predecessor left behind."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A candidate of unknown capacity is weighted as the smallest class",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_capacity_test.test_scenario_a_candidate_of_unknown_capacity_is_weighted_as_the_smallest_class",
     "work_item": "overseer-ivpkrf",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this capacity-test scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-ivpkrf owns landing it."
+    "reason": "Integration-tier: the candidate's live plan read fails, which is the shape an unknown class arrives in. A medium candidate holding the same 60% IS selected, so the weighting is observable: at the smallest weight the unknown candidate is excluded, at the medium weight it would have survived, and it ranks first either way."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The capacity test is released for a refusing account when no candidate passes it",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_capacity_test.test_scenario_the_capacity_test_is_released_for_a_refusing_account",
     "work_item": "overseer-ivpkrf",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this capacity-test scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-ivpkrf owns landing it."
+    "reason": "Integration-tier: the one case the ratified clause stands aside for, and it is conditioned on the refusal rather than on the emptiness. Of two small candidates failing the test identically, the sooner weekly reset wins, which is what makes 'ranked by Ranking unchanged' observable rather than assumed."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The capacity test holds when it excludes every candidate and the active account is not refusing",
-    "test": "TODO",
+    "test": "tests.integration.test_caam_capacity_test.test_scenario_the_capacity_test_holds_when_it_excludes_every_candidate",
     "work_item": "overseer-ivpkrf",
-    "reason": "An integration-tier test over the shipped rotation pass is owed for this capacity-test scenario (SPECIFICATION v056, plan caam-mixed-plan-capacity); work item overseer-ivpkrf owns landing it."
+    "reason": "Integration-tier: the control for the release above -- same exclusion, no refusal, so the pass HOLDS. The assertion is on the LINE, because the table printed beside it shows the candidate at a healthy 50% and explains neither the hold nor the move that did not happen; only the projection reconciles them."
   },
   {
     "spec_root": "SPECIFICATION",

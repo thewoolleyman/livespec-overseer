@@ -221,6 +221,97 @@ window's reset last read on an account just departed belongs to that account,
 because concurrent sessions keep spending a departed credential for a while after
 a switch.
 
+### Projected Short-Window Drain
+
+A percentage threshold cannot protect an account that falls faster than the gap
+between two passes. Measured 2026-10-13 on host hp: an account on the $20 plan
+fell about 70 short-window points per 30-minute pass where it had fallen about
+10 on the $200 plan, and on 2026-10-15 the Anthropic session limit ended five
+factory runs under an account the loop rotated off 20 minutes too late. A pass
+that reads 32 percent remaining and holds because 32 is above 15 has not
+measured anything about where 32 is going.
+
+So a scheduled pass also projects. It measures the active account's short-window
+BURN RATE across two readings and rotates when the projected remaining -- the
+current reading less the rate multiplied by the projection horizon -- is at or
+below `CAAM_ROTATE_FIVE_HOUR_REMAINING`, even while every reading is still above
+it. An account whose projection stays above the floor across the horizon holds.
+
+`CAAM_ROTATE_PROJECTION_HORIZON_S` sets the horizon, default `1800` -- the
+documented 30-minute interval of this operation's own schedule, because the
+question the trigger asks is whether the account survives until the next pass.
+It is the only knob this trigger adds, and the operation never shortens or
+otherwise changes its schedule in response to a burn rate: the horizon is what
+the projection measures ACROSS, not a request for more passes.
+
+The rate is UNKNOWN, and this trigger cannot fire, whenever the two readings
+cannot be compared: less than half a horizon apart, reporting short-window
+resets more than a minute apart (two different windows, so the fall between them
+is a replenishment), or straddling a switch, where the account became active
+after its own baseline was taken. The baseline reading is kept until a reading at
+least half a horizon after it, so closely spaced passes measure across the older
+baseline rather than amplifying one percentage step into a large rate. The
+trigger never fires on an invocation without the scheduled marker, which has no
+interval to project across.
+
+Its trigger line names `projected short-window drain` with the current
+percentage, the fall per horizon and the projected remaining at the end of it.
+Its switch line names the same projection -- the burn rate and the projected
+remaining -- beside the destination's short-window figures. Read both against the
+table printed above: those figures are above the floor, which is the whole point,
+and the projection is what reconciles them with the move.
+
+### Carrying The Current Load
+
+An account the fleet drains within one horizon is not a destination, it is the
+next pass's problem. So every selection this operation makes -- under every
+trigger, the expiring-quota drain included, and on an invocation without the
+scheduled marker -- also projects each CANDIDATE forward and excludes anyone the
+projection leaves at or below `CAAM_ROTATE_FIVE_HOUR_REMAINING`.
+
+The FLEET LOAD is the active account's burn rate multiplied by its own capacity
+weight, recorded with the instant it was measured. A candidate's share of it is
+that load divided by the candidate's weight. Where the rate is unknown the last
+recorded load is used for as long as it is no older than twice the horizon, so
+the test still applies on the pass after a switch; where no load is available at
+all the test excludes nobody, because failing closed would strand the fleet on an
+exhausted account on exactly the pass that knows least about demand.
+
+The weights are per provider and capacity class:
+`CAAM_ROTATE_CAPACITY_WEIGHT_ANTHROPIC_SMALL`, `..._MEDIUM` and `..._LARGE`,
+defaulting to `1`, `2` and `7`. The large default is the measured ratio rather
+than the nominal plan multiplier -- about seven to one against a nominal twenty
+-- which is why every one of them is a knob: a ratio measured once, on two
+accounts, on one day, is evidence rather than a constant. A candidate whose class
+is `unknown` is weighted as the smallest class configured for its provider, which
+is the strict direction. An active account whose own class is unknown has no
+weight to measure a load with, so such a pass records none and the candidate
+under test contributes its own weight instead.
+
+Nothing here changes RANKING, which stays soonest weekly reset first with no
+capacity term in it. The test is an eligibility rule that happens to read a
+weight: it only ever removes candidates from the ranked set, and it never
+reorders what survives.
+
+Where a trigger other than the drain has fired and the test excludes every
+candidate that survived the other rules, the pass HOLDS and reports that no
+candidate can carry the current load until the next pass. Report that line as
+printed: the table beside it shows every one of those candidates healthy and
+above its floor, so nothing else in the output explains either the hold or the
+move that did not happen. Where the DRAIN finds no candidate for this reason the
+pass simply holds as for any absent drain candidate, with no line of its own.
+
+The one case the test stands aside for is a REFUSING active account. An account
+that is refusing serves nothing at all, while an account the load drains before
+the next pass still serves until then -- so where a refusal holds the active
+account and nothing passes the test, the test is RELEASED and the pass selects
+among the failing candidates by the unchanged ranking. It is released, not
+relaxed: the release is conditioned on the refusal rather than on the emptiness,
+and every other rule still applies beneath it. A refusal-held pass also records
+no fleet load, because an account serving a fraction of what the fleet asks of it
+falls more slowly than the demand, and that figure would stand in for up to twice
+the horizon.
+
 ### Expiring Weekly Quota Drain
 
 A scheduled pass that has no forced or threshold-triggered rotation drains quota
@@ -230,7 +321,8 @@ successfully on this pass, it has weekly allowance remaining, and its readable
 weekly reset is at least one minute sooner than the active account's. The destination
 must also clear `CAAM_ROTATE_WEEKLY_RESERVE`, its own protection floor, and the
 observed `CAAM_ROTATE_FIVE_HOUR_REMAINING` balance by at least
-`CAAM_ROTATE_MIN_HEADROOM_GAIN`. This comparison uses the observed short-window
+`CAAM_ROTATE_MIN_HEADROOM_GAIN`, and must pass the capacity test above, exactly as
+under any other trigger. This comparison uses the observed short-window
 balance; it does not project a future five-hour balance. While a Fable pin applies,
 the destination must clear `CAAM_ROTATE_FABLE_REMAINING` by that same margin.
 
@@ -242,8 +334,9 @@ left, even when another trigger fired too. Scheduled drains cannot return to tha
 account until the recorded reset passes. If no reset was reported, its observed
 short-window balance must reach 100 percent before it can receive a drain.
 
-This is the lowest-precedence rotation path: any force or ordinary quota trigger
-governs instead, and an invocation without the scheduled marker does not drain. Its
+This is the lowest-precedence rotation path: a usage-limit refusal, any force or
+ordinary quota trigger, and the projected short-window drain each govern instead,
+and an invocation without the scheduled marker does not drain. Its
 trigger and successful switch lines name `expiring weekly quota`; the switch line
 also reports the destination's weekly percent remaining and time to weekly reset.
 The drain adds no configuration knobs.
