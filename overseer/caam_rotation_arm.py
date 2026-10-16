@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 from caam_anthropic_finish import SaveState
 from caam_burn_rate import burn_rate, replace_baseline
+from caam_capacity_load import CapacityLoad, active_capacity, capacity_load, record_fleet_load
 from caam_decide_context import DecisionContext
 from caam_decision import (
     ActiveAccount,
@@ -98,12 +99,19 @@ class RotationArm:
     baseline the next pass measures from is written as this one measures -- so
     it must happen exactly once per pass, for the same reason the refusal
     standing must.
+
+    `load` is what the capacity test projects onto each candidate, or None where
+    this pass has no load at all. It rides here rather than being derived per
+    arm because it is READ-AND-RECORD against the same store, and because every
+    arm applies the same test: the ratified clause governs every selection the
+    operation makes.
     """
 
     scoped_pin: bool
     refusal: RefusalState
     bound: TriggerBinding
     burn: float | None
+    load: CapacityLoad | None
 
 
 def resolve_arm(*, request: RotationRequest) -> RotationArm:
@@ -129,6 +137,13 @@ def resolve_arm(*, request: RotationRequest) -> RotationArm:
         current=request.current,
         now=request.context.now,
     )
+    capacity = active_capacity(profiles=request.profiles, active_name=request.active_name)
+    record_fleet_load(
+        state=request.context.state,
+        burn=burn,
+        capacity=capacity,
+        now=request.context.now,
+    )
     return RotationArm(
         scoped_pin=scoped_model_pinned(state=request.context.state),
         refusal=refusal,
@@ -139,6 +154,7 @@ def resolve_arm(*, request: RotationRequest) -> RotationArm:
             protection_floors=request.protection_floors,
         ),
         burn=burn,
+        load=capacity_load(burn=burn, capacity=capacity),
     )
 
 

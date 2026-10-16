@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from _caam_rotation_span import switch_trigger
 from caam_candidate_diagnosis import CandidatePopulation
+from caam_capacity_select import capacity_selection
 from caam_decide_report import (
     hold_no_candidate,
     hold_reasons,
@@ -78,7 +79,14 @@ def triggered_choice(
         dimension=arm.bound.dimension,
         protection_floors=request.protection_floors,
     )
-    ranked = rank_profiles(profiles=eligible.profiles, scoped_pin=arm.scoped_pin)
+    # The capacity test runs AFTER the ranking rather than inside it: ranking is
+    # a perishability order with no capacity term in it, and the test is an
+    # eligibility rule that happens to read a capacity weight. Filtering a
+    # ranked tuple preserves the order the ranking chose.
+    ranked = capacity_selection(
+        profiles=rank_profiles(profiles=eligible.profiles, scoped_pin=arm.scoped_pin),
+        load=arm.load,
+    )
     pin_unsatisfiable = scoped_alone and none_holds_scoped_above_reserve(
         profiles=ranked, reserve=scoped_reserve()
     )
