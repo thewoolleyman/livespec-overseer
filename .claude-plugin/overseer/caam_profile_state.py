@@ -6,6 +6,7 @@ inferred from the ones already there:
 
     active_since         caam_refusal_store     -- when the active account became active
     departed_accounts    caam_refusal_store     -- resets last read on accounts left
+    fleet_load           caam_capacity_load     -- the load the capacity test projects
     lapsed_refusals      caam_refusal_lapse     -- the floor a lapsed refusal leaves
     last_switch          caam_switch            -- from/to/at of the last switch
     models               caam_sessions          -- the per-session set memo
