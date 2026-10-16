@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 import _supervisor_channel
 import _supervisor_channel_delivery
+import _supervisor_channel_hold
 import _supervisor_launch
 import _supervisor_state
 import registry
@@ -137,8 +138,18 @@ def nudge_idle_with_context(
 
     ``is_codex`` selects the runtime-appropriate submit verification (a Codex submit is
     confirmed by the pane going busy, not by a cleared ``❯`` box).
+
+    A HELD channel delivery withholds this nudge entirely (v060). That guard belongs
+    here and not only in the wrap-up, and the reason is specific to this act: the
+    marker below is written only when a delivery LANDS, so an unconfirmed nudge leaves
+    the episode unmarked and the nudge due again on the very next tick — the one shape
+    that re-sends a message which may already be sitting in the session's input.
     """
     repo, topic = track.repo, track.topic
+    held = _supervisor_channel_hold.held_delivery(sup=sup, track=track)
+    if held is not None:
+        _supervisor_channel_hold.surface_hold(sup=sup, track=track, hold=held, pane=target)
+        return
     if isinstance(track, registry.SupervisorSeat):
         message = supervisor_idle_nudge_message(
             remaining=eff_ctx,
