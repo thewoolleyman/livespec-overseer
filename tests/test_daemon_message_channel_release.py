@@ -241,3 +241,85 @@ def test_a_held_nudge_is_released_when_its_idle_episode_ends(*, tmp_path, monkey
     assert len(channel.sent) == 1
     assert nudge_count(fake=fake) == 0
     assert wrapup_count(fake=fake) == 0
+
+
+def _nudge_held_by(*, sup, track, clock, channel):
+    """Drive the idle episode until its keep-going nudge is held unconfirmed."""
+    import _supervisor_config
+
+    sup.evaluate(track=track, act=True)  # stamps the continuous-idle clock
+    clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1
+    sup.evaluate(track=track, act=True)
+    assert len(channel.sent) == 1
+
+
+def test_a_held_nudge_released_as_delivered_marks_its_idle_episode(*, tmp_path, monkeypatch):
+    """A nudge released as DELIVERED owes the marker a landed paste would have written.
+
+    The wrap-up's "never again" record is its notified bands, which
+    `_mark_held_delivery_landed` already writes. The nudge's is the
+    `idle-with-context-left` marker, and without it the freed track re-enters the
+    idle branch in the very tick the channel confirmed the message — unmarked, so it
+    is nudged again, and again on every tick after that.
+    """
+    import signals
+
+    monkeypatch.chdir(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
+    clock = {"t": 1000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
+    sup.claude_status_by_session = {session: "idle"}
+    channel = HeldChannel(addressed_identity=f"claude:{session}:{session}")
+    offer(monkeypatch=monkeypatch, channel=channel)
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        _nudge_held_by(sup=sup, track=track, clock=clock, channel=channel)
+        channel.accepted_late = True
+        for _ in range(4):
+            clock["t"] += 60.0
+            sup.evaluate(track=track, act=True)
+
+    assert _hold_of(sup=sup, repo=repo, topic=topic) is None
+    assert len(channel.sent) == 1
+    assert nudge_count(fake=fake) == 0
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None and state.token == signals.STATE_IDLE_WITH_CONTEXT_LEFT
+
+
+def test_releasing_a_held_nudge_never_overwrites_a_session_declaration(*, tmp_path, monkeypatch):
+    """The control for the marker write, and the reason it is guarded at all.
+
+    A landed paste writes the marker from inside the idle branch, which is reached
+    only when the session has declared nothing. A release runs in the tick's
+    PROLOGUE instead, so the session may have declared `ready` since the nudge was
+    sent — and the one token the daemon writes to itself must never clobber one of
+    the four the session owns.
+    """
+    import signals
+
+    monkeypatch.chdir(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
+    clock = {"t": 1000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
+    sup.claude_status_by_session = {session: "idle"}
+    channel = HeldChannel(addressed_identity=f"claude:{session}:{session}")
+    offer(monkeypatch=monkeypatch, channel=channel)
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        _nudge_held_by(sup=sup, track=track, clock=clock, channel=channel)
+        declare(repo=repo, topic=topic, value="ready", mtime=clock["t"])
+        channel.accepted_late = True
+        clock["t"] += 60.0
+        sup.evaluate(track=track, act=True)
+
+    assert _hold_of(sup=sup, repo=repo, topic=topic) is None
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None and state.token == "ready"

@@ -34,6 +34,7 @@ __all__: list[str] = [
     "clear_idle_nudge_state",
     "nudge_charter_authorized_picker_stall",
     "nudge_idle_with_context",
+    "record_nudge_episode_answered",
     "write_idle_nudge_state",
 ]
 
@@ -52,6 +53,26 @@ def write_idle_nudge_state(*, sup: Supervisor, track: registry.Track) -> None:
         _ = path.write_text(signals.STATE_IDLE_WITH_CONTEXT_LEFT + "\n", encoding="utf-8")
     except OSError as exc:
         sup.log(message=f"could not write idle-nudge marker for {track.repo}::{track.topic}: {exc}")
+
+
+def record_nudge_episode_answered(*, sup: Supervisor, track: registry.Track) -> None:
+    """Mark the episode a RELEASED keep-going nudge answered, as a landed paste does.
+
+    The wrap-up's never-again record is its notified bands, which the hold itself
+    carries and :mod:`_supervisor_channel_hold` writes. The nudge's is this marker,
+    and a hold released as DELIVERED owes it exactly as a landed paste does —
+    without it the freed track re-enters the idle branch with the episode unmarked
+    and is nudged AGAIN on the very tick the channel confirmed the first one.
+
+    Guarded, where the paste path has no need to be: a release runs in the tick's
+    PROLOGUE rather than inside the idle branch, so the session may have declared
+    `ready` / `blocked` / `winding-down` / `done` since the nudge was sent, and the
+    one token the daemon writes to itself must never overwrite one it does not own.
+    """
+    current = signals.read_state(repo=track.repo, topic=track.topic)
+    if current is not None and signals.valid_session_token(token=current.token):
+        return
+    write_idle_nudge_state(sup=sup, track=track)
 
 
 def clear_idle_nudge_state(*, sup: Supervisor, track: registry.Track) -> None:
