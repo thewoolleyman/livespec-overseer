@@ -6,6 +6,15 @@ that states the reason. The refusal trigger supplies all three through the arm's
 binding, where the active account's headroom is already taken as zero, so
 nothing below this point needs to know that a refusal is what fired.
 
+The fast-drain trigger shares it too, and shares MORE of it than the others:
+it compares candidates on the same short-window dimension the binding already
+names, and it relaxes no rule, so only the three facts it states in its own
+words differ -- the line that says why the pass is leaving, the trigger name
+the switch record carries, and the projection its switch line states. A
+`projection` here is therefore both those words and the fact that the
+fast-drain trigger is what GOVERNED, which the caller has already decided by
+precedence before it calls.
+
 What does differ is how a HOLD reads. A refusing account with no replacement is
 a different situation from an ordinary empty candidate set -- the fleet is
 sitting on an account that serves nothing -- so it gets its own line.
@@ -24,6 +33,7 @@ from caam_decide_report import (
     with_note,
 )
 from caam_decision import eligible_profiles, rank_profiles, scoped_reserve
+from caam_fast_drain import FAST_DRAIN_TRIGGER, ShortWindowProjection, fast_drain_trigger_line
 from caam_refusal_lines import REFUSAL_TRIGGER, refusal_exclusion_reason, refusal_trigger_line
 from caam_rotation_arm import (
     RotationArm,
@@ -40,7 +50,12 @@ __all__: list[str] = [
 ]
 
 
-def triggered_choice(*, request: RotationRequest, arm: RotationArm) -> RotationChoice:
+def triggered_choice(
+    *,
+    request: RotationRequest,
+    arm: RotationArm,
+    projection: ShortWindowProjection | None = None,
+) -> RotationChoice:
     # Provenance, not just capability: the hold below is licensed only where
     # the pin is the WHOLE reason this pass is leaving. A forced pass is
     # leaving because the operator said so, which is a reason of its own, and a
@@ -55,7 +70,7 @@ def triggered_choice(*, request: RotationRequest, arm: RotationArm) -> RotationC
             scoped_pin=arm.scoped_pin,
         )
     )
-    decision_line = _decision_line(request=request, arm=arm)
+    decision_line = _decision_line(request=request, arm=arm, projection=projection)
     eligible = eligible_profiles(
         profiles=arm_candidates(request=request, arm=arm),
         active=arm_active_account(request=request, arm=arm),
@@ -100,15 +115,27 @@ def triggered_choice(*, request: RotationRequest, arm: RotationArm) -> RotationC
         decision_line=with_note(line=decision_line, note=eligible.note),
         # The dimension that BOUND is what made this pass leave, and it is
         # known only here -- the switch itself never sees why it was asked.
-        trigger=_switch_trigger_name(request=request, arm=arm),
-        short_window_triggered=short_window_triggered(request=request, arm=arm),
+        trigger=_switch_trigger_name(request=request, arm=arm, projection=projection),
+        short_window_triggered=short_window_triggered(
+            request=request, arm=arm, projection=projection
+        ),
         refusal=arm.refusal.active,
+        projection=projection,
     )
 
 
-def _decision_line(*, request: RotationRequest, arm: RotationArm) -> str:
+def _decision_line(
+    *,
+    request: RotationRequest,
+    arm: RotationArm,
+    projection: ShortWindowProjection | None,
+) -> str:
     if arm.refusal.active is not None:
         return refusal_trigger_line(remembered=arm.refusal.active)
+    if projection is not None:
+        return fast_drain_trigger_line(
+            active_name=request.active_name, current=request.current, projection=projection
+        )
     return trigger_line(
         flags=request.context.flags,
         label=arm.bound.label,
@@ -118,9 +145,16 @@ def _decision_line(*, request: RotationRequest, arm: RotationArm) -> str:
     )
 
 
-def _switch_trigger_name(*, request: RotationRequest, arm: RotationArm) -> str:
+def _switch_trigger_name(
+    *,
+    request: RotationRequest,
+    arm: RotationArm,
+    projection: ShortWindowProjection | None,
+) -> str:
     if arm.refusal.holds_active:
         return REFUSAL_TRIGGER
+    if projection is not None:
+        return FAST_DRAIN_TRIGGER
     return switch_trigger(force=request.context.flags.force, dimension=arm.bound.dimension)
 
 
