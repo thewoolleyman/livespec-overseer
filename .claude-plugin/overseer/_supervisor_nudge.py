@@ -3,9 +3,10 @@
 A private collaborator of :mod:`supervisor`; see that module's header for the whole
 split. Both surfaces exist for a session that is NOT in trouble the daemon can fix
 by restarting it: one keeps an idle session going, the other escalates a session
-that has stopped answering as its context runs out. The nudge marker's own
-write/clear pair lives here too, since it is what makes the nudge single-shot per
-idle episode.
+that has stopped answering as its context runs out. The marker that makes the
+keep-going nudge single-shot per idle episode lives in
+:mod:`_supervisor_nudge_marker`, because a RELEASED channel hold writes it too and
+that release is driven from the reconcile phase rather than from this act.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ import _supervisor_channel
 import _supervisor_channel_delivery
 import _supervisor_channel_hold
 import _supervisor_launch
-import _supervisor_state
+import _supervisor_nudge_marker
 import registry
 import signals
 from _supervisor_prompts import (
@@ -31,74 +32,9 @@ if TYPE_CHECKING:
 
 __all__: list[str] = [
     "alert_non_responder",
-    "clear_idle_nudge_state",
     "nudge_charter_authorized_picker_stall",
     "nudge_idle_with_context",
-    "record_nudge_episode_answered",
-    "write_idle_nudge_state",
 ]
-
-
-def write_idle_nudge_state(*, sup: Supervisor, track: registry.Track) -> None:
-    """Write the daemon-owned ``idle-with-context-left`` marker to the state file.
-
-    Called ONLY after the nudge paste lands, and ONLY when the file had no session
-    declaration (guarded in :meth:`evaluate`), so it can never overwrite a ``ready`` /
-    ``blocked`` / ``winding-down``. It edge-triggers the single-prompt-per-episode rule
-    and drives the row's ``idle-with-context-left`` status.
-    """
-    path = signals.state_path(repo=track.repo, topic=track.topic)
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        _ = path.write_text(signals.STATE_IDLE_WITH_CONTEXT_LEFT + "\n", encoding="utf-8")
-    except OSError as exc:
-        sup.log(message=f"could not write idle-nudge marker for {track.repo}::{track.topic}: {exc}")
-
-
-def record_nudge_episode_answered(*, sup: Supervisor, track: registry.Track) -> None:
-    """Mark the episode a RELEASED keep-going nudge answered, as a landed paste does.
-
-    The wrap-up's never-again record is its notified bands, which the hold itself
-    carries and :mod:`_supervisor_channel_hold` writes. The nudge's is this marker,
-    and a hold released as DELIVERED owes it exactly as a landed paste does —
-    without it the freed track re-enters the idle branch with the episode unmarked
-    and is nudged AGAIN on the very tick the channel confirmed the first one.
-
-    Guarded, where the paste path has no need to be: a release runs in the tick's
-    PROLOGUE rather than inside the idle branch, so the session may have declared
-    `ready` / `blocked` / `winding-down` / `done` since the nudge was sent, and the
-    one token the daemon writes to itself must never overwrite one it does not own.
-    """
-    current = signals.read_state(repo=track.repo, topic=track.topic)
-    if current is not None and signals.valid_session_token(token=current.token):
-        return
-    write_idle_nudge_state(sup=sup, track=track)
-
-
-def clear_idle_nudge_state(*, sup: Supervisor, track: registry.Track) -> None:
-    """Clear the ``idle-with-context-left`` marker when the session leaves the idle
-    episode (it went non-idle / took a turn) — re-arming a fresh nudge next episode.
-
-    Re-reads the file immediately before replacing it and writes a diagnostic ONLY if
-    it is still the daemon's own marker, so a ``ready`` / ``blocked`` the session wrote
-    in the same tick is never clobbered. Unlike :meth:`_clear_state` it touches neither
-    the injection stamp nor the in-memory inject state — the nudge opens no round.
-    """
-    current = signals.read_state(repo=track.repo, topic=track.topic)
-    if current is None or current.token != signals.STATE_IDLE_WITH_CONTEXT_LEFT:
-        return
-    if _supervisor_state.write_state_diagnostic(
-        sup=sup,
-        track=track,
-        token=signals.STATE_IDLE_NUDGE_CLEARED,
-        detail="session left idle episode; idle-with-context-left marker cleared",
-    ):
-        sup.log(
-            message=(
-                f"cleared idle-with-context-left marker for {track.repo}::{track.topic} "
-                "(session left idle episode)"
-            )
-        )
 
 
 def _deliver_nudge(
@@ -108,15 +44,20 @@ def _deliver_nudge(
     target: str,
     message: str,
     is_codex: bool,
-) -> bool | None:
+) -> _supervisor_channel_delivery.DeliveryOutcome | None:
     """Deliver the keep-going nudge by its supported channel, else by the paste.
 
     SPECIFICATION v060, contracts.md, the daemon-message delivery channel: choosing
-    the channel changes HOW the nudge is delivered, never WHETHER it is — so this
-    returns the same "did it land?" boolean the paste always returned, and the
-    caller's marker write and failure alert are untouched by the route. The nudge
-    opens no round, so the identity the act targets is the pane's currently proven
-    one rather than a round-open identity.
+    the channel changes HOW the nudge is delivered, never WHETHER it is — so the
+    caller's marker write is driven by the same "did it land?" answer the paste
+    always gave. The whole outcome reaches it rather than that one flag, because
+    the contract also makes the caller REPORT the route and say whether the message
+    is retried or held, and neither of those is readable from "did it land?".
+    ``None`` is the third answer: an act cancelled for this tick, which delivered
+    nothing by either path and so has no outcome to report at all.
+
+    The nudge opens no round, so the identity the act targets is the pane's
+    currently proven one rather than a round-open identity.
     """
     request = _supervisor_channel_delivery.DeliveryRequest(
         sup=sup,
@@ -134,9 +75,7 @@ def _deliver_nudge(
     )
     if cancelled:
         return None
-    delivered = _supervisor_channel_delivery.deliver(request=request, channel=channel)
-    _ = _supervisor_channel_delivery.record_delivery(sup=sup, track=track, record=delivered.record)
-    return delivered.submitted
+    return _supervisor_channel_delivery.deliver(request=request, channel=channel)
 
 
 def nudge_idle_with_context(
@@ -149,13 +88,18 @@ def nudge_idle_with_context(
     is_codex: bool = False,
 ) -> None:
     """Send the single "keep going" nudge to an idle session that still has context
-    left, and — only if the paste lands — write the ``idle-with-context-left`` marker
-    so it fires at most ONCE per idle episode.
+    left, and — only if the delivery lands — write the ``idle-with-context-left``
+    marker so it fires at most ONCE per idle episode.
 
     The inverse of :meth:`_maybe_inject`: it fires ABOVE the threshold to keep a session
     from stopping early, not below it to wind one down. The marker is written AFTER a
-    successful submit (as ``_maybe_inject`` marks its bands only on success), so a
-    failed paste re-nudges next tick rather than silently marking the episode handled.
+    successful delivery (as ``_maybe_inject`` marks its bands only on success), so a
+    failed one re-nudges next tick rather than silently marking the episode handled.
+
+    Whichever route carried it is NAMED, on the row and in the daemon log, success or
+    failure alike (v060). The contract states that over a daemon message rather than
+    over the wrap-up, and an operator reading back a nudge that did not land cannot
+    otherwise tell a refused channel from a paste that failed to submit.
 
     ``is_codex`` selects the runtime-appropriate submit verification (a Codex submit is
     confirmed by the pane going busy, not by a cleared ``❯`` box).
@@ -196,21 +140,55 @@ def nudge_idle_with_context(
         # was pasted, so there is no delivery to report as failed and no marker to
         # write: the episode stays un-nudged and the next observation re-evaluates it.
         return
-    if delivered:
-        write_idle_nudge_state(sup=sup, track=track)
+    path = _supervisor_channel_delivery.record_delivery(
+        sup=sup, track=track, record=delivered.record
+    )
+    if delivered.submitted:
+        _supervisor_nudge_marker.write_idle_nudge_state(sup=sup, track=track)
         sup.log(
             message=f"nudged idle-with-context-left {repo}::{topic} "
-            f"(ctx {eff_ctx}% > threshold {threshold}%)"
+            f"(ctx {eff_ctx}% > threshold {threshold}%; {path})"
         )
     else:
-        sup.alert(
-            repo=repo,
-            topic=topic,
-            session=_supervisor_launch.session_of(sup=sup, track=track),
-            pane=target,
-            message="idle-with-context-left nudge FAILED (paste did not land); will retry",
-            condition="idle-nudge-submit-failed",
-        )
+        _report_undelivered_nudge(sup=sup, track=track, target=target, outcome=delivered, path=path)
+
+
+def _report_undelivered_nudge(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    target: str,
+    outcome: _supervisor_channel_delivery.DeliveryOutcome,
+    path: str,
+) -> None:
+    """Report a nudge that did not land, by the route it took and its disposition.
+
+    The two endings are not the same story and must not read as one. A provable
+    non-delivery — a refused channel, a paste that did not submit — is retried on a
+    later observation. An UNCONFIRMED channel send may already be sitting in the
+    session's input, so it is HELD: never sent again by either path, and withholding
+    every later daemon message to that session until it is released. Reporting the
+    second as the first told an operator to expect a retry that will never come, and
+    named a paste that never happened.
+    """
+    sup.alert(
+        repo=track.repo,
+        topic=track.topic,
+        session=_supervisor_launch.session_of(sup=sup, track=track),
+        pane=target,
+        message=(
+            f"idle-with-context-left nudge UNCONFIRMED (it may have landed); held, "
+            f"and nothing later is delivered to this session until it is released "
+            f"({path})"
+            if outcome.effect_unknown
+            else f"idle-with-context-left nudge FAILED (it did not land); " f"will retry ({path})"
+        ),
+        condition=(
+            "idle-nudge-delivery-unconfirmed"
+            if outcome.effect_unknown
+            else "idle-nudge-submit-failed"
+        ),
+    )
 
 
 def nudge_charter_authorized_picker_stall(

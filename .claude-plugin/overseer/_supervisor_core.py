@@ -83,7 +83,7 @@ import _supervisor_discovery
 import _supervisor_evaluate
 import _supervisor_launch
 import _supervisor_lifecycle
-import _supervisor_nudge
+import _supervisor_nudge_marker
 import _supervisor_observe
 import _supervisor_otel_seam
 import _supervisor_recovery
@@ -440,8 +440,8 @@ class Supervisor:
         )
 
     def _write_idle_nudge_state(self, *, track: registry.Track) -> None:
-        """See :func:`_supervisor_nudge.write_idle_nudge_state`."""
-        _supervisor_nudge.write_idle_nudge_state(sup=self, track=track)
+        """See :func:`_supervisor_nudge_marker.write_idle_nudge_state`."""
+        _supervisor_nudge_marker.write_idle_nudge_state(sup=self, track=track)
 
     def evaluate(self, *, track: registry.Track, act: bool) -> RowView:
         """See :func:`_supervisor_evaluate.evaluate`."""

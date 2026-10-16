@@ -12,7 +12,7 @@ import contextlib
 import io as _io
 
 import _supervisor_config
-import _supervisor_nudge
+import _supervisor_nudge_marker
 import _supervisor_records
 import _supervisor_state
 import pytest
@@ -157,12 +157,12 @@ def test_idle_nudge_clear_diagnostic_failure_does_not_log_a_clear(*, tmp_path, m
     declare(repo=repo, topic=topic, value=signals.STATE_IDLE_WITH_CONTEXT_LEFT)
     sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux())
     monkeypatch.setattr(
-        _supervisor_nudge._supervisor_state, "write_state_diagnostic", lambda **_kw: False
+        _supervisor_nudge_marker._supervisor_state, "write_state_diagnostic", lambda **_kw: False
     )
     err = _io.StringIO()
 
     with contextlib.redirect_stderr(err):
-        _supervisor_nudge.clear_idle_nudge_state(
+        _supervisor_nudge_marker.clear_idle_nudge_state(
             sup=sup, track=mapped_track(repo=repo, topic=topic, session="sesA")
         )
 
