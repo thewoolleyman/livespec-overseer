@@ -10,26 +10,60 @@ below the short-window floor is excluded.
 
 IT NARROWS, IT NEVER RELAXES. Every candidate it is handed has already survived
 every other rule, and it only ever removes rows from that set.
+
+THE ONE CASE IT STANDS ASIDE FOR IS STATED BY THE RATIFIED CLAUSE rather than
+inferred: a REFUSING active account serves nothing at all, while an account the
+load drains before the next pass still serves until then -- so where a refusal
+holds the active account and nothing passes the test, the test is RELEASED and
+the pass selects among the failing candidates by the unchanged ranking. Note
+what that is conditioned on: the refusal, not the emptiness. An ordinary pass
+whose every candidate fails HOLDS, and it needs a line of its own to say so,
+because the table printed beside it shows every one of those candidates above
+its floor -- which is the whole point of projecting.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import cast
 
 from caam_burn_rate import projection_horizon_s
 from caam_capacity_load import CapacityLoad
 from caam_capacity_weights import capacity_weight
 from caam_decision import ProfileUsage, UsageRecord, five_hour_remaining_floor
+from caam_rendering import with_reasons
 
 __all__: list[str] = [
+    "CapacitySelection",
+    "capacity_hold_line",
     "capacity_selection",
 ]
 
 
+@dataclass(frozen=True, kw_only=True)
+class CapacitySelection:
+    """What the capacity test left a pass to select from.
+
+    `profiles` is that set in the order it was handed: the admitted subset, or
+    every candidate unchanged where the test was released, or empty.
+
+    `excluded_every` is the one fact the emptiness cannot carry on its own. A
+    set that was ALREADY empty when the test ran reads identically afterwards,
+    and only one of the two is a capacity hold -- the other is an empty
+    candidate set, whose own line names the gate that emptied it.
+    """
+
+    profiles: tuple[ProfileUsage, ...]
+    excluded_every: bool = False
+
+
 def capacity_selection(
-    *, profiles: tuple[ProfileUsage, ...], load: CapacityLoad | None
-) -> tuple[ProfileUsage, ...]:
-    """The candidates that can carry this load, in the order they were handed.
+    *,
+    profiles: tuple[ProfileUsage, ...],
+    load: CapacityLoad | None,
+    refusal_held: bool,
+) -> CapacitySelection:
+    """Apply the test to a ranked candidate set, releasing it where ratified.
 
     With NO load the whole set is returned untouched. Failing closed instead
     would strand the fleet on an exhausted account on the one pass that knows
@@ -37,8 +71,30 @@ def capacity_selection(
     host whose demand nothing has yet measured.
     """
     if load is None:
-        return profiles
-    return tuple(profile for profile in profiles if _carries(profile=profile, load=load))
+        return CapacitySelection(profiles=profiles)
+    admitted = tuple(profile for profile in profiles if _carries(profile=profile, load=load))
+    # `not profiles` is what keeps an ALREADY-empty set out of the capacity
+    # hold: there was no candidate for this test to exclude, so the pass owes
+    # the empty-candidate-set diagnosis rather than a statement about the load.
+    if admitted or not profiles:
+        return CapacitySelection(profiles=admitted)
+    if refusal_held:
+        return CapacitySelection(profiles=profiles)
+    return CapacitySelection(profiles=(), excluded_every=True)
+
+
+def capacity_hold_line(*, reasons: tuple[str, ...] = ()) -> str:
+    """The hold line for a pass whose every candidate the current load would drain.
+
+    It states the load rather than the candidate set, because the set is not
+    what went wrong: every account in it cleared every margin, and every figure
+    in the table printed above reads healthy. The projection is the only thing
+    that reconciles the hold with those figures.
+    """
+    return with_reasons(
+        line="hold: no candidate can carry the current load until the next pass",
+        reasons=reasons,
+    )
 
 
 def _carries(*, profile: ProfileUsage, load: CapacityLoad) -> bool:

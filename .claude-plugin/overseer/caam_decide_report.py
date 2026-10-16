@@ -17,6 +17,7 @@ from collections.abc import Mapping
 
 from caam_anthropic_finish import SaveState, finish
 from caam_candidate_diagnosis import CandidatePopulation, no_candidate_cause
+from caam_capacity_select import capacity_hold_line
 from caam_decide_context import DecisionContext, Flags
 from caam_decision import (
     ProfileUsage,
@@ -43,6 +44,7 @@ __all__: list[str] = [
     "dry_run",
     "hold_allowed",
     "hold_no_candidate",
+    "hold_no_capacity",
     "hold_reasons",
     "hold_refusing",
     "hold_unsatisfiable_pin",
@@ -91,6 +93,27 @@ def hold_no_candidate(
         reasons=reasons,
     )
     return _report(context=context, save_state=save_state, lines=(decision_line, line))
+
+
+def hold_no_capacity(
+    *,
+    context: DecisionContext,
+    save_state: SaveState,
+    decision_line: str,
+    reasons: tuple[str, ...] = (),
+) -> int:
+    """Hold where candidates exist and the current load would drain every one.
+
+    Distinct from the no-candidate hold because the candidate set is not what
+    went wrong: every account in it cleared every margin, which is why no cause
+    is derived for this line. What the operator needs is the projection, and the
+    line that carries it lives beside the test that made it.
+    """
+    return _report(
+        context=context,
+        save_state=save_state,
+        lines=(decision_line, capacity_hold_line(reasons=reasons)),
+    )
 
 
 def hold_refusing(

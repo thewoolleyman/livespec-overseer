@@ -27,6 +27,7 @@ from caam_candidate_diagnosis import CandidatePopulation
 from caam_capacity_select import capacity_selection
 from caam_decide_report import (
     hold_no_candidate,
+    hold_no_capacity,
     hold_reasons,
     hold_refusing,
     hold_unsatisfiable_pin,
@@ -83,10 +84,12 @@ def triggered_choice(
     # a perishability order with no capacity term in it, and the test is an
     # eligibility rule that happens to read a capacity weight. Filtering a
     # ranked tuple preserves the order the ranking chose.
-    ranked = capacity_selection(
+    selection = capacity_selection(
         profiles=rank_profiles(profiles=eligible.profiles, scoped_pin=arm.scoped_pin),
         load=arm.load,
+        refusal_held=arm.refusal.holds_active,
     )
+    ranked = selection.profiles
     pin_unsatisfiable = scoped_alone and none_holds_scoped_above_reserve(
         profiles=ranked, reserve=scoped_reserve()
     )
@@ -100,6 +103,19 @@ def triggered_choice(
             holding=arm.refusal.holding, active_name=request.active_name
         ),
     )
+    # Ahead of the empty-set hold, which this case would otherwise fall into
+    # wearing the wrong diagnosis: the set was NOT empty, and every account in
+    # it cleared every gate that hold's cause reports on.
+    if selection.excluded_every:
+        return RotationChoice(
+            target=None,
+            exit_code=hold_no_capacity(
+                context=request.context,
+                save_state=request.save_state,
+                decision_line=decision_line,
+                reasons=reasons,
+            ),
+        )
     if not ranked:
         return RotationChoice(
             target=None,

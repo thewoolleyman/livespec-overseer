@@ -397,3 +397,115 @@ def test_an_active_account_of_unknown_class_contributes_the_candidates_own_weigh
     assert code == 0
     assert harness.switches == ["roomy"]
     assert FLEET_LOAD not in harness.read_state()
+
+
+def test_scenario_the_capacity_test_holds_when_it_excludes_every_candidate(
+    *, tmp_path: Path
+) -> None:
+    """Given the active account has triggered rotation at its short-window floor, and
+    the capacity test excludes every candidate, when a scheduled pass runs, then the
+    operation holds and reports that no candidate can carry the current load until the
+    next pass.
+
+    Moving onto an account the fleet would drain within the horizon buys nothing
+    -- the pass after this one would have to move again, off an account that is
+    by then refusing -- so the operation stays where it is and says why. The
+    report is the assertion, because the table printed beside it shows a healthy
+    50% on the candidate and explains neither the hold nor the move that did not
+    happen.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="big",
+        usages={
+            "big": usage(five_hour_remaining=25.0, seven_day_reset_s=DAY),
+            "small-plan": usage(five_hour_remaining=50.0, seven_day_reset_s=2 * DAY),
+        },
+        live_plans={"big": LARGE_PLAN, "small-plan": SMALL_PLAN},
+    )
+
+    _first_code, _first_lines = harness.run(at=NOW)
+    harness.read(name="big", record=usage(five_hour_remaining=15.0, seven_day_reset_s=DAY))
+    code, lines = harness.run(at=NOW + PASS_INTERVAL)
+
+    assert code == 0
+    assert harness.switches == []
+    assert any(
+        "no candidate can carry the current load until the next pass" in line for line in lines
+    )
+
+
+def test_scenario_the_capacity_test_is_released_for_a_refusing_account(*, tmp_path: Path) -> None:
+    """Given the active account is refusing requests for a usage limit, and every
+    candidate that survives the other rules fails the capacity test, when a scheduled
+    pass runs, then the operation selects among those candidates by soonest weekly
+    reset.
+
+    An account that is REFUSING serves nothing at all, while an account the load
+    drains before the next pass still serves until then -- so holding here would
+    trade a working account for an hour of nothing. The release is the one case
+    the ratified clause states, and the ranking it selects by is the unchanged
+    one: of two small candidates failing the test identically, the sooner weekly
+    reset wins, which is what makes the "ranked by **Ranking** unchanged" half
+    observable rather than assumed.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="big",
+        usages={
+            "big": usage(five_hour_remaining=60.0, seven_day_reset_s=DAY),
+            "small-plan": usage(five_hour_remaining=50.0, seven_day_reset_s=2 * DAY),
+            "small-plan-2": usage(five_hour_remaining=50.0, seven_day_reset_s=3 * DAY),
+        },
+        live_plans={"big": LARGE_PLAN, "small-plan": SMALL_PLAN, "small-plan-2": SMALL_PLAN},
+    )
+    harness.seed_state(state={FLEET_LOAD: {"load": HEAVY_FALL * 7.0 / PASS_INTERVAL, "at": NOW}})
+    harness.remember_refusal(
+        account="big", recorded_at=NOW - 60.0, resets_at_epoch=NOW + 10 * PASS_INTERVAL
+    )
+
+    code, _lines = harness.run(at=NOW)
+
+    assert code == 0
+    assert harness.switches == ["small-plan"]
+
+
+def test_a_refusal_held_active_account_records_no_fleet_load(*, tmp_path: Path) -> None:
+    """An account that is refusing spends nothing, so its rate is not the fleet's.
+
+    Every other condition for recording a load holds here: the rate is measured
+    across two readings of one short window on one account, and that account's
+    capacity class was read. What makes the figure unusable is the refusal --
+    the account is serving a fraction of what the fleet is asking of it, so its
+    fall understates the demand -- and a load recorded from it would stand in for
+    up to twice the horizon, admitting candidates the real demand would drain.
+
+    The pass itself holds, because the only other account has no weekly
+    allowance; what is asserted is the store.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="big",
+        usages={
+            "big": usage(five_hour_remaining=60.0, seven_day_reset_s=DAY),
+            "spent": usage(
+                five_hour_remaining=90.0, seven_day_remaining=0.0, seven_day_reset_s=2 * DAY
+            ),
+        },
+        live_plans={"big": LARGE_PLAN, "spent": LARGE_PLAN},
+    )
+    harness.seed_state(state={})
+    harness.remember_refusal(
+        account="big", recorded_at=NOW - 60.0, resets_at_epoch=NOW + 10 * PASS_INTERVAL
+    )
+
+    _first_code, _first_lines = harness.run(at=NOW)
+    harness.read(
+        name="big",
+        record=usage(five_hour_remaining=60.0 - HEAVY_FALL, seven_day_reset_s=DAY),
+    )
+    code, _lines = harness.run(at=NOW + PASS_INTERVAL)
+
+    assert code == 0
+    assert harness.switches == []
+    assert FLEET_LOAD not in harness.read_state()
