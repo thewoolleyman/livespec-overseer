@@ -279,3 +279,74 @@ def test_scenario_an_account_projected_to_reach_the_floor_before_the_next_pass_i
     assert first_code == second_code == 0
     assert any(line.startswith("hold:") for line in first_lines)
     assert harness.switches == ["spare"]
+
+
+def test_a_fast_drain_switch_line_states_the_burn_rate_and_the_projected_remaining(
+    *, tmp_path: Path
+) -> None:
+    """A move made on the fast-drain trigger is reported as such: the switch line
+    names the projected short-window drain as the reason, and states the burn rate
+    and the projected remaining at the end of the horizon.
+
+    This is the half of the scenario above that the table printed beside it
+    CANNOT explain. Every figure in that table is healthy -- 40% of the short
+    window left, well clear of a 15% floor -- so a switch line that only named a
+    dimension would read as contradicting it. The rate and the projection are
+    what reconcile the decision with the figures.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="draining",
+        usages={
+            "draining": usage(five_hour_remaining=75.0),
+            "spare": usage(five_hour_remaining=90.0),
+        },
+        live_plans={"draining": LARGE_PLAN, "spare": LARGE_PLAN},
+    )
+
+    _first_code, _first_lines = harness.run(at=NOW)
+    harness.read(name="draining", record=usage(five_hour_remaining=40.0))
+    code, lines = harness.run(at=NOW + PASS_INTERVAL)
+
+    assert code == 0
+    assert harness.switches == ["spare"]
+    switched = next(line for line in lines if line.startswith("SWITCHED"))
+    assert "projected short-window drain" in switched
+    # A fall of 35 points across one horizon, leaving 5 points at the end of it.
+    assert "35% per 30m" in switched
+    assert "projected 5%" in switched
+
+
+def test_a_fast_drain_hold_reports_the_projection_and_that_nothing_could_be_selected(
+    *, tmp_path: Path
+) -> None:
+    """Where no candidate survives the other rules, the pass holds and reports that
+    the active account is projected to reach the short-window floor and that no
+    account could be selected.
+
+    The only other account has no weekly allowance left, so it is disqualified by
+    a rule the fast-drain trigger does not relax. Both halves of the report are
+    asserted, because a hold naming only an empty candidate set beside a table
+    showing 40% of the short window left explains neither.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="draining",
+        usages={
+            "draining": usage(five_hour_remaining=75.0),
+            "spent": usage(five_hour_remaining=90.0, seven_day_remaining=0.0),
+        },
+        live_plans={"draining": LARGE_PLAN, "spent": LARGE_PLAN},
+    )
+
+    _first_code, _first_lines = harness.run(at=NOW)
+    harness.read(name="draining", record=usage(five_hour_remaining=40.0))
+    code, lines = harness.run(at=NOW + PASS_INTERVAL)
+
+    assert code == 0
+    assert harness.switches == []
+    trigger = next(line for line in lines if line.startswith("trigger: projected"))
+    assert "projected short-window drain" in trigger
+    assert "35% per 30m" in trigger
+    assert "projected 5%" in trigger
+    assert any(line.startswith("hold:") for line in lines)

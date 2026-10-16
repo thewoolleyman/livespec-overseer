@@ -63,7 +63,7 @@ def rotation_choice(*, request: RotationRequest) -> RotationChoice:
         fast_drain_projection(burn=arm.burn, current=request.current) if request.scheduled else None
     )
     if projection is not None:
-        return triggered_choice(request=request, arm=arm)
+        return triggered_choice(request=request, arm=arm, projection=projection)
     return _drain_choice(request=request, arm=arm)
 
 
@@ -93,5 +93,7 @@ def _drain_choice(*, request: RotationRequest, arm: RotationArm) -> RotationChoi
         target=target,
         decision_line=drain_trigger_line(target=target, now=request.context.now),
         trigger=DRAIN_TRIGGER,
-        short_window_triggered=short_window_triggered(request=request, arm=arm),
+        # No projection reaches this arm: the drain is only ever entered where
+        # the fast-drain trigger did not fire.
+        short_window_triggered=short_window_triggered(request=request, arm=arm, projection=None),
     )

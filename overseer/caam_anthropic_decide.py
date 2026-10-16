@@ -24,6 +24,7 @@ from caam_expiring_quota import (
     drain_switch_line,
     remember_short_window_departure,
 )
+from caam_fast_drain import ShortWindowProjection, fast_drain_switch_line
 from caam_profile_state import caam_vault
 from caam_profiles import active_profile
 from caam_refusal_lines import refusal_switch_line
@@ -83,6 +84,7 @@ def decide(
             trigger=choice.trigger,
             short_window_triggered=choice.short_window_triggered,
             refusal=choice.refusal,
+            projection=choice.projection,
         ),
         seams=seams,
     )
@@ -103,6 +105,11 @@ class _SwitchPlan:
     # itself -- which composes the ordinary line -- has never been told why it
     # was asked.
     refusal: RememberedRefusal | None
+    # The projection the fast-drain trigger fired on, where that trigger
+    # governed. Carried for the same reason, and for one more: every figure the
+    # table shows is above its floor on such a pass, so the rate and the
+    # projected remaining are the only things that reconcile the two.
+    projection: ShortWindowProjection | None
 
 
 def _switch_decision(
@@ -175,6 +182,15 @@ def _result_lines(*, plan: _SwitchPlan, result: SwitchResult, now: float) -> tup
     """
     if not result.switched:
         return result.lines
+    if plan.projection is not None:
+        return (
+            fast_drain_switch_line(
+                active_name=plan.active_name,
+                target=plan.target,
+                projection=plan.projection,
+                now=now,
+            ),
+        )
     if plan.trigger == DRAIN_TRIGGER:
         return (drain_switch_line(active_name=plan.active_name, target=plan.target, now=now),)
     if plan.refusal is not None:

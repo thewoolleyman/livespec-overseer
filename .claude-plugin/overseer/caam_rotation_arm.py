@@ -22,6 +22,7 @@ from caam_decision import (
     UsageRecord,
     five_hour_remaining_floor,
 )
+from caam_fast_drain import ShortWindowProjection
 from caam_refusal_hold import (
     RefusalState,
     TriggerBinding,
@@ -68,7 +69,8 @@ class RotationChoice:
     `target` is None exactly when this pass has already reported a hold and
     `exit_code` is the whole answer; the caller owes nothing further. The other
     fields describe the move: the operator line that states why it is being made,
-    which trigger is making it, the refusal that governed it where one did, and
+    which trigger is making it, the refusal that governed it where one did, the
+    projection the fast-drain trigger fired on where that is what fired, and
     whether the short-window threshold was among those that fired, which the
     expiring-quota drain remembers.
     """
@@ -79,6 +81,11 @@ class RotationChoice:
     exit_code: int = 0
     short_window_triggered: bool = False
     refusal: RememberedRefusal | None = None
+    # The projection that fired the fast-drain trigger, where that trigger is
+    # what GOVERNED this move. Carried for the same reason the refusal is: the
+    # switch line owes the operator the rate and the projected remaining, and
+    # the switch itself has never been told why it was asked.
+    projection: ShortWindowProjection | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -144,16 +151,26 @@ def arm_active_account(*, request: RotationRequest, arm: RotationArm) -> ActiveA
     return ActiveAccount(name=request.active_name, usage=arm.bound.usage, scoped_pin=arm.scoped_pin)
 
 
-def short_window_triggered(*, request: RotationRequest, arm: RotationArm) -> bool:
-    """Whether the short-window threshold was among the triggers that fired.
+def short_window_triggered(
+    *,
+    request: RotationRequest,
+    arm: RotationArm,
+    projection: ShortWindowProjection | None,
+) -> bool:
+    """Whether this pass is making a SHORT-WINDOW move.
 
     Read on EVERY arm, the drain included, because the expiring-quota drain's
     condition (f) remembers the account a short-window move departed from
     whatever else was true of that pass. A move made under the refusal trigger
     on a short-window refusal counts as a short-window move for that condition,
-    which is why this is a disjunction rather than a choice between the two: a
-    weekly refusal does not stop the short-window threshold from having fired.
+    and so does one made under the fast-drain trigger -- which is why this is a
+    disjunction rather than a choice between them: a weekly refusal does not
+    stop the short-window threshold from having fired, and a fast-drain move is
+    a short-window move while every short-window READING is still above its
+    floor.
     """
+    if projection is not None:
+        return True
     refused = arm.refusal.active
     if refused is not None and refused.refusal.window == WINDOW_FIVE_HOUR:
         return True

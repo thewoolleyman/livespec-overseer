@@ -17,20 +17,30 @@ actually spent.
 Its precedence is the lowest but one, stated under spec.md **Trigger
 precedence**: the refusal trigger and every other trigger govern ahead of it,
 and only the expiring-quota drain is lower.
+
+ITS LINES LIVE HERE, beside the trigger, exactly as the expiring-quota drain's
+and the refusal trigger's do: a trigger's own vocabulary belongs to the trigger.
+They are the load-bearing half of this clause for anyone reading the log
+afterwards, because the table printed beside the decision DISAGREES with it --
+every figure in that table is above its floor, which is the whole point -- and
+the rate and the projection are what reconcile the two.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Final
+from datetime import datetime, timezone
+from typing import Final, cast
 
 from caam_burn_rate import projection_horizon_s
-from caam_decision import UsageRecord
+from caam_decision import ProfileUsage, UsageRecord, fmt_duration, until
 
 __all__: list[str] = [
     "FAST_DRAIN_TRIGGER",
     "ShortWindowProjection",
     "fast_drain_projection",
+    "fast_drain_switch_line",
+    "fast_drain_trigger_line",
 ]
 
 FAST_DRAIN_TRIGGER: Final = "projected-short-window-drain"
@@ -49,6 +59,16 @@ class ShortWindowProjection:
     remaining: float
     horizon: float
 
+    @property
+    def per_horizon(self) -> float:
+        """The burn rate in short-window points per projection horizon.
+
+        The unit every surface STATES the rate in, derived here rather than at
+        each one: points per second is the unit a rate is measured in and reads
+        as zero at every rate an operator cares about.
+        """
+        return self.burn * self.horizon
+
 
 def fast_drain_projection(
     *, burn: float | None, current: UsageRecord
@@ -66,3 +86,41 @@ def fast_drain_projection(
         remaining=current.five_hour_remaining - burn * horizon,
         horizon=horizon,
     )
+
+
+def fast_drain_trigger_line(
+    *, active_name: str, current: UsageRecord, projection: ShortWindowProjection
+) -> str:
+    """Why this pass is leaving, in the figures the table cannot supply."""
+    return (
+        "trigger: projected short-window drain -- "
+        f"{active_name} has {current.five_hour_remaining:.0f}% 5-hour left, "
+        f"falling {projection.per_horizon:.0f}% per {_horizon(projection=projection)}, "
+        f"projected {projection.remaining:.0f}% at the end of the horizon -- "
+        "comparing candidates on five_hour"
+    )
+
+
+def fast_drain_switch_line(
+    *,
+    active_name: str,
+    target: ProfileUsage,
+    projection: ShortWindowProjection,
+    now: float,
+) -> str:
+    """The switch line for a move made on this trigger, with its own reason."""
+    usage = cast(UsageRecord, target.usage)
+    now_dt = datetime.fromtimestamp(now, tz=timezone.utc)
+    return (
+        f"SWITCHED {active_name} -> {target.name} "
+        "(projected short-window drain; burn "
+        f"{projection.per_horizon:.0f}% per {_horizon(projection=projection)}, "
+        f"projected {projection.remaining:.0f}% at the end of the horizon; target has "
+        f"{usage.five_hour_remaining:.0f}% 5-hour left, resets in "
+        f"{until(timestamp=usage.five_hour_resets_at, now=now_dt)})"
+    )
+
+
+def _horizon(*, projection: ShortWindowProjection) -> str:
+    """The horizon the rate is stated per, in the shape every duration is shown in."""
+    return fmt_duration(seconds=projection.horizon)
