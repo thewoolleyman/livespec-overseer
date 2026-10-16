@@ -126,15 +126,24 @@ def record_fleet_load(
     state: dict[str, object],
     burn: float | None,
     capacity: AccountCapacity | None,
+    refusal_held: bool,
     now: float,
 ) -> None:
     """Remember this pass's fleet load, where the ratified rule allows it to.
 
     Recorded with the INSTANT it was measured, because what a later pass may do
     with it depends on how old it is rather than on the figure alone.
+
+    Three things withhold the record, and each is a case where the figure would
+    be a statement about something other than the fleet's demand: an UNKNOWN
+    rate (no measurement was made), an unreadable active CLASS (nothing to
+    divide the rate by), and a REFUSAL holding the active account -- an account
+    that is refusing serves a fraction of what the fleet asks of it, so its fall
+    understates the demand, and this figure stands in for up to twice the
+    horizon.
     """
     weight = _active_weight(capacity=capacity)
-    if burn is None or weight is None:
+    if burn is None or weight is None or refusal_held:
         return
     state[FLEET_LOAD] = {"load": burn * weight, "at": now}
 

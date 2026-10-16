@@ -151,6 +151,7 @@ def resolve_arm(*, request: RotationRequest) -> RotationArm:
         state=request.context.state,
         burn=burn,
         capacity=capacity,
+        refusal_held=refusal.holds_active,
         now=request.context.now,
     )
     return RotationArm(
