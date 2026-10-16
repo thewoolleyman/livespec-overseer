@@ -19,6 +19,7 @@ __all__: list[str] = [
 ]
 
 JSON_FLAG_BY_COMMAND: Final[dict[str, str]] = {
+    "acquire": "--acquisition-json",
     "target": "--target-json",
     "provision": "--request-json",
     "report": "--report-json",
