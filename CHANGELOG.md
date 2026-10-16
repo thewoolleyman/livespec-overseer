@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.30.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.29.1...v5.30.0) (2026-10-16)
+
+
+### Features
+
+* **caam:** read each account's capacity class live from the provider ([e62f75d](https://github.com/thewoolleyman/livespec-overseer/commit/e62f75d86d9c992605140f21ea9ea01cd45ff56f))
+* **caam:** show each account's capacity class in the account table ([30c1c02](https://github.com/thewoolleyman/livespec-overseer/commit/30c1c028e4cdfd35042d322f981d24b2db6b62e5))
+
 ## [5.29.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.29.0...v5.29.1) (2026-10-15)
 
 
