@@ -46,6 +46,7 @@ siblings cannot stay underscore-named once it moves out of one file.
 from __future__ import annotations
 
 from _registry_channel_hold import ChannelHold as ChannelHold
+from _registry_channel_hold import clear_channel_hold as clear_channel_hold
 from _registry_channel_hold import read_channel_hold as read_channel_hold
 from _registry_channel_hold import record_channel_hold as record_channel_hold
 from _registry_codex_restart import CodexFreshRestart as CodexFreshRestart
@@ -146,6 +147,7 @@ __all__: list[str] = [
     "archived_or_gone",
     "atomic_write",
     "audit_null_epics",
+    "clear_channel_hold",
     "clear_injection_stamp",
     "clear_picker_stall_episode",
     "clear_shell_episode",

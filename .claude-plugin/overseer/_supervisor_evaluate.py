@@ -17,7 +17,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import _supervisor_codex_late_adoption
 import _supervisor_evaluate_active
 import _supervisor_evaluate_attention
 import _supervisor_evaluate_idle
@@ -25,7 +24,6 @@ import _supervisor_evaluate_notes
 import _supervisor_evaluate_observation
 import _supervisor_evaluate_target
 import _supervisor_liveness
-import _supervisor_observe
 import _supervisor_progress
 import _supervisor_restart_attention
 import _supervisor_stall_watch
@@ -77,29 +75,19 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
     track, repo, topic = resolved.track, resolved.repo, resolved.topic
     session, key, target = resolved.session, resolved.key, resolved.pane
 
-    # Phase 0 — RECONCILE. A fresh-Codex restart whose bounded live-adoption proof ran
-    # out left its round open and its declaration armed; if discovery now reports the
-    # very successor that restart recorded launching, the round is COMPLETED here.
-    # It must happen before the observation below rather than as a cascade leg: the
-    # cascade decides on facts gathered at that line, so a declaration consumed
-    # afterwards would still read as armed and could drive a second respawn that kills
-    # the successor. Reconciling first means this same tick observes the closed round.
-    _ = _supervisor_codex_late_adoption.reconcile_late_codex_successor(
-        sup=sup, track=track, session=session, target=target, act=act
-    )
-
-    # Phase 1 — OBSERVE. Every fact the guard cascade below decides on is
-    # gathered in one place, so the cascade reads as a single top-to-bottom
-    # precedence order. Unpacked into locals so each guard reads the same way
-    # it always has.
-    obs = _supervisor_observe.observe(sup=sup, track=track, session=session, target=target, key=key)
-    _supervisor_evaluate_observation.record_tick_observations(
-        request=_supervisor_evaluate_observation.RecordObservationRequest(
-            sup=sup, track=track, obs=obs, session=session, pane=target, act=act
-        )
+    # Phase 0+1 — RECONCILE AND OBSERVE. The prologue is one named step
+    # (`_supervisor_evaluate_observation.reconcile_and_observe`): it completes a
+    # late-proven Codex successor, gathers every fact the cascade below decides on,
+    # persists what it observed, and releases a held channel delivery whose end it can
+    # now read. All of it must precede the cascade, because the cascade decides on
+    # exactly these facts — see that function for why the order inside it is load-bearing.
+    # Unpacked into locals below so each guard reads the way it always has.
+    obs = _supervisor_evaluate_observation.reconcile_and_observe(
+        sup=sup, track=track, session=session, pane=target, key=key, act=act
     )
     capture, busy, gate, idle = obs.capture, obs.busy, obs.gate, obs.idle
     codex_fallback = obs.codex_fallback
+
     claude_status, eff_ctx, istate = obs.claude_status, obs.eff_ctx, obs.istate
     ctx_stale_age = obs.ctx_stale_age
     declared, malformed, blocked, ready = (

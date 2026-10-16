@@ -5,7 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import _supervisor_channel_hold
+import _supervisor_codex_late_adoption
 import _supervisor_compaction
+import _supervisor_observe
 import registry
 import signals
 from _supervisor_records import Observation
@@ -16,6 +19,7 @@ if TYPE_CHECKING:
 __all__: list[str] = [
     "COMPACTION_LATCHED_CONDITION",
     "RecordObservationRequest",
+    "reconcile_and_observe",
     "record_tick_observations",
 ]
 
@@ -34,6 +38,71 @@ class RecordObservationRequest:
     session: str
     pane: str
     act: bool
+
+
+def reconcile_and_observe(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    session: str,
+    pane: str,
+    key: tuple[str, str],
+    act: bool,
+) -> Observation:
+    """Bring durable per-track state into agreement with this tick, then observe it.
+
+    The evaluation's whole PROLOGUE, as one named step, so the cascade that follows is
+    the only thing left in :mod:`_supervisor_evaluate` and still reads top-to-bottom in
+    one pass. Three reconciliations and one observation, and the ORDER is the design:
+
+    1. A fresh-Codex restart whose bounded live-adoption proof ran out is completed if
+       discovery now reports the successor it recorded launching. It must precede the
+       observation: the cascade decides on the facts gathered below, so a declaration
+       consumed afterwards would still read as armed and could drive a second respawn
+       that kills the very successor this just proved.
+    2. The observation itself — every fact the cascade decides on, gathered in one
+       place.
+    3. What the tick observed is persisted (the live identity a later dead-track
+       recovery reads; the context-generation record a bounced daemon reads).
+    4. A HELD channel delivery (v060) whose end the daemon can now read is released.
+       It withholds every later daemon message to its session, so a hold released
+       after the cascade had already read it would withhold a message that is owed for
+       one more tick.
+
+    All four are the same KIND of work — make durable state agree with what was just
+    observed, before anything decides on it — which is why they belong in one step
+    rather than scattered through the cascade as legs that return nothing.
+    """
+    _ = _supervisor_codex_late_adoption.reconcile_late_codex_successor(
+        sup=sup, track=track, session=session, target=pane, act=act
+    )
+    obs = _supervisor_observe.observe(sup=sup, track=track, session=session, target=pane, key=key)
+    record_tick_observations(
+        request=RecordObservationRequest(
+            sup=sup, track=track, obs=obs, session=session, pane=pane, act=act
+        )
+    )
+    if act:
+        _release_resolved_hold(sup=sup, track=track, obs=obs)
+    return obs
+
+
+def _release_resolved_hold(*, sup: Supervisor, track: registry.Track, obs: Observation) -> None:
+    """Free a held delivery, deciding the nudge's episode from more than `idle`.
+
+    A held NUDGE is bounded by the idle episode it answered, and that episode is NOT
+    the pane's ``idle`` capture: a session that declares ``blocked`` keeps rendering an
+    idle prompt while having plainly left the episode — which is exactly why the busy
+    and blocked branches of the cascade both clear the nudge marker to re-arm a later
+    one. The same composite bounds the hold.
+    """
+    _supervisor_channel_hold.release_resolved_hold(
+        sup=sup,
+        track=track,
+        is_codex=obs.is_codex,
+        pane_busy=obs.busy,
+        idle=obs.idle and not obs.busy and not obs.gate and not obs.blocked,
+    )
 
 
 def record_tick_observations(*, request: RecordObservationRequest) -> None:
