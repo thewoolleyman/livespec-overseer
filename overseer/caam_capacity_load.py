@@ -20,6 +20,15 @@ two accounts, so the rate is unknown by the very rule that keeps a fall from
 being misattributed. The last measured load stands in for it, bounded at twice
 the projection horizon: twice is what covers the pass after a switch whatever
 the horizon is set to.
+
+AN UNREADABLE ACTIVE CLASS YIELDS NO FLEET LOAD AT ALL, and the reason is that
+there is nothing to divide by. The ratified clause makes such an account
+contribute the weight of the candidate under test, which cancels the division
+and leaves the measured rate itself as every candidate's projected burn -- so
+the comparison is the one measurement this pass actually has, rather than a
+product of it with a guess. Nothing is recorded either: a rate divided by no
+weight is a statement about one account, and a later pass would read it as the
+fleet's demand for up to twice the horizon.
 """
 
 from __future__ import annotations
@@ -30,7 +39,7 @@ from typing import Final
 import jsonio
 from caam_burn_rate import projection_horizon_s
 from caam_capacity import AccountCapacity
-from caam_capacity_weights import capacity_weight
+from caam_capacity_weights import capacity_weight, capacity_weights
 from caam_decision import ProfileUsage
 
 __all__: list[str] = [
@@ -56,12 +65,22 @@ class CapacityLoad:
     `load` is a FLEET load -- the rate an account of unit weight would fall at
     under the work the fleet is currently doing -- so one candidate's own
     projected burn is it divided by that candidate's capacity weight.
+
+    `unweighted` says the ACTIVE account's class could not be read, in which
+    case the figure carried is not a fleet load at all but the measured rate
+    itself: the ratified clause has such an account contribute the weight of
+    the candidate under test, so the division cancels. The FACT is carried
+    rather than a per-candidate figure, which keeps the one division in the one
+    place that performs it.
     """
 
     load: float
+    unweighted: bool = False
 
     def projected_burn(self, *, weight: float) -> float:
         """How fast this work would drain a candidate of the given weight."""
+        if self.unweighted:
+            return self.load
         return self.load / weight
 
 
@@ -96,7 +115,10 @@ def capacity_load(
     """
     if burn is None:
         return _remembered_load(state=state, now=now)
-    return CapacityLoad(load=burn * capacity_weight(capacity=capacity))
+    weight = _active_weight(capacity=capacity)
+    if weight is None:
+        return CapacityLoad(load=burn, unweighted=True)
+    return CapacityLoad(load=burn * weight)
 
 
 def record_fleet_load(
@@ -111,9 +133,24 @@ def record_fleet_load(
     Recorded with the INSTANT it was measured, because what a later pass may do
     with it depends on how old it is rather than on the figure alone.
     """
-    if burn is None:
+    weight = _active_weight(capacity=capacity)
+    if burn is None or weight is None:
         return
-    state[FLEET_LOAD] = {"load": burn * capacity_weight(capacity=capacity), "at": now}
+    state[FLEET_LOAD] = {"load": burn * weight, "at": now}
+
+
+def _active_weight(*, capacity: AccountCapacity | None) -> float | None:
+    """The ACTIVE account's capacity weight, or None where its class is unknown.
+
+    Distinct from `capacity_weight`, which answers for a CANDIDATE and therefore
+    has to answer with a number: a candidate of unknown class is weighted
+    conservatively, while an unknown active account has no weight at all, and
+    collapsing the two directions onto one function is what would make an
+    unreadable plan silently conservative on the wrong side of the comparison.
+    """
+    if capacity is None or capacity.capacity_class not in capacity_weights():
+        return None
+    return capacity_weight(capacity=capacity)
 
 
 def _remembered_load(*, state: dict[str, object], now: float) -> CapacityLoad | None:
