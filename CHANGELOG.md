@@ -1,5 +1,31 @@
 # Changelog
 
+## [5.31.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.30.0...v5.31.0) (2026-10-16)
+
+
+### Features
+
+* **overseer:** cancel the act when a channel's addressed identity is unproven ([1850c37](https://github.com/thewoolleyman/livespec-overseer/commit/1850c3779d8bbba080ae282705dce65933a5e064))
+* **overseer:** deliver a wrap-up through a supported session channel ([7c4669c](https://github.com/thewoolleyman/livespec-overseer/commit/7c4669c8328e537500d681ce20f188e497e11740))
+* **overseer:** deliver the keep-going nudge through a supported channel ([126a797](https://github.com/thewoolleyman/livespec-overseer/commit/126a797c6f224f9b135ef3eceb70fc9208518d25))
+* **overseer:** fall back to the guarded paste when a channel refuses ([fbd5663](https://github.com/thewoolleyman/livespec-overseer/commit/fbd56637c898652297a1ba0b49b5483bd5129c93))
+* **overseer:** hold an unconfirmed channel delivery against every later message ([9e85797](https://github.com/thewoolleyman/livespec-overseer/commit/9e857973e6865bbb057b2dd28978bcc17eaaea7a))
+* **overseer:** hold an unconfirmed channel delivery's round open and stamped ([13a87fa](https://github.com/thewoolleyman/livespec-overseer/commit/13a87fa9c824dfd7a4a8bbbc40a591100e106542))
+* **overseer:** name both the failed channel attempt and its fallback paste ([21d3a4a](https://github.com/thewoolleyman/livespec-overseer/commit/21d3a4a089969975008cf0afa20b9b4d8fb499e9))
+* **overseer:** name the channel as a daemon message's delivery path ([4fca50d](https://github.com/thewoolleyman/livespec-overseer/commit/4fca50dd77724b579429c1873d817c327a51f1de))
+* **overseer:** release a held channel delivery when its fate becomes readable ([e761c21](https://github.com/thewoolleyman/livespec-overseer/commit/e761c21cc43bf1020a40e7cf9df2bbd4c944f0bc))
+
+
+### Bug Fixes
+
+* **overseer:** mark the idle episode a released nudge answered ([1e058f3](https://github.com/thewoolleyman/livespec-overseer/commit/1e058f3e44f5ff65b86c95cf94e3496b381b22cf))
+* **overseer:** name the keep-going nudge's delivery path ([f5e2fa3](https://github.com/thewoolleyman/livespec-overseer/commit/f5e2fa3b903d436f72e43af15acb33aba21465d3))
+
+
+### Refactoring
+
+* **overseer:** extract the wrap-up act's round bookkeeping ([c52d533](https://github.com/thewoolleyman/livespec-overseer/commit/c52d533224137a2b331ddfba20f6dd4b1c66b110))
+
 ## [5.30.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.29.1...v5.30.0) (2026-10-16)
 
 
