@@ -45,6 +45,7 @@ __all__: list[str] = [
     "Activation",
     "DepartedEntry",
     "RememberedRefusal",
+    "activation_at",
     "departed_entries",
     "keep_refusals",
     "record_activation",
@@ -127,6 +128,20 @@ def record_activation(
     state[_ACTIVE_SINCE] = {"account": active_name, "at": now}
     _keep_departed(state=state, active_name=active_name, now=now)
     return Activation(at=now, fresh=True)
+
+
+def activation_at(*, state: dict[str, object]) -> float | None:
+    """When the active account was last observed to become active, if it is known.
+
+    The INSTANT alone, for a reader that already knows which account the pass is
+    about: ``record_activation`` runs before every decision and rewrites the
+    record wherever it named another account, so the stored instant cannot be
+    read off an account other than the current one. The short-window burn rate
+    reads it to tell a fall this account spent from one measured across a
+    switch.
+    """
+    stored = jsonio.as_object(value=state.get(_ACTIVE_SINCE)) or {}
+    return jsonio.as_float(value=stored.get("at"))
 
 
 def departed_entries(*, state: dict[str, object], active_name: str) -> tuple[DepartedEntry, ...]:

@@ -14,6 +14,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from caam_anthropic_finish import SaveState
+from caam_burn_rate import burn_rate, replace_baseline
 from caam_decide_context import DecisionContext
 from caam_decision import (
     ActiveAccount,
@@ -82,11 +83,20 @@ class RotationChoice:
 
 @dataclass(frozen=True, kw_only=True)
 class RotationArm:
-    """The terms every arm shares, resolved once for the pass."""
+    """The terms every arm shares, resolved once for the pass.
+
+    `burn` is the active account's short-window burn rate in points per second,
+    or None where the ratified rule makes it UNKNOWN. It is resolved here with
+    the rest because it is READ-AND-REPLACE against the durable store -- the
+    baseline the next pass measures from is written as this one measures -- so
+    it must happen exactly once per pass, for the same reason the refusal
+    standing must.
+    """
 
     scoped_pin: bool
     refusal: RefusalState
     bound: TriggerBinding
+    burn: float | None
 
 
 def resolve_arm(*, request: RotationRequest) -> RotationArm:
@@ -95,6 +105,21 @@ def resolve_arm(*, request: RotationRequest) -> RotationArm:
         state=request.context.state,
         profiles=request.profiles,
         active_name=request.active_name,
+        now=request.context.now,
+    )
+    # MEASURED BEFORE THE BASELINE IS REPLACED. A pass that remembered its own
+    # reading first would measure every fall against that reading, which is a
+    # fall of zero over no elapsed time on every pass the fleet ever runs.
+    burn = burn_rate(
+        state=request.context.state,
+        active_name=request.active_name,
+        current=request.current,
+        now=request.context.now,
+    )
+    replace_baseline(
+        state=request.context.state,
+        active_name=request.active_name,
+        current=request.current,
         now=request.context.now,
     )
     return RotationArm(
@@ -106,6 +131,7 @@ def resolve_arm(*, request: RotationRequest) -> RotationArm:
             active_name=request.active_name,
             protection_floors=request.protection_floors,
         ),
+        burn=burn,
     )
 
 
