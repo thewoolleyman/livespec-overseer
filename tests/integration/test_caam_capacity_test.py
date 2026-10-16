@@ -509,3 +509,71 @@ def test_a_refusal_held_active_account_records_no_fleet_load(*, tmp_path: Path) 
     assert code == 0
     assert harness.switches == []
     assert FLEET_LOAD not in harness.read_state()
+
+
+def drain_vault(*, home: Path) -> RotationHarness:
+    """A vault whose RANKING-first drain candidate the current load would drain.
+
+    The active account is healthy on every threshold and its weekly window
+    resets LAST, so nothing but the drain has any reason to fire. Both
+    candidates hold the same 50% short-window and differ only in capacity class
+    and weekly reset, so the ranking prefers the small one -- which is what
+    makes the capacity test observable here rather than assumed.
+
+    The active account's 40% is above the 15% floor, so no threshold fires, and
+    below the candidates' 50%, so a FORCED pass has headroom to gain over it.
+    Both legs need that: a forced pass selects only a candidate that improves on
+    the dimension it is leaving, so an active account healthier than the whole
+    vault would hold on an empty candidate set and prove nothing about capacity.
+    """
+    harness = RotationHarness(
+        home=home,
+        active="big",
+        usages={
+            "big": usage(five_hour_remaining=40.0, seven_day_reset_s=7 * DAY),
+            "small-plan": usage(five_hour_remaining=50.0, seven_day_reset_s=DAY),
+            "big-plan": usage(five_hour_remaining=50.0, seven_day_reset_s=2 * DAY),
+        },
+        live_plans={"big": LARGE_PLAN, "small-plan": SMALL_PLAN, "big-plan": LARGE_PLAN},
+    )
+    harness.seed_state(state={FLEET_LOAD: {"load": HEAVY_FALL * 7.0 / PASS_INTERVAL, "at": NOW}})
+    return harness
+
+
+def test_the_capacity_test_applies_to_the_drain_and_without_the_scheduled_marker(
+    *, tmp_path: Path
+) -> None:
+    """The capacity test governs EVERY selection, not only the ones a trigger made.
+
+    The ratified clause names two selections explicitly, and neither reaches the
+    arm the other does: the expiring-quota drain is the lowest-precedence arm,
+    entered only where nothing else fired at all, and an invocation without the
+    scheduled marker never enters the drain. So both are driven here, against
+    one vault whose ranking-first candidate the load would drain.
+
+    The drain leg asserts the drain is what FIRED, because the discriminator is
+    not the switch alone: a build that skipped the test here would still land a
+    switch, on `small-plan`. The unscheduled leg asserts the drain did NOT fire,
+    which is what makes it a separate selection rather than the same one again.
+
+    Seeded rather than measured, because what is under test is which SELECTIONS
+    consult the load -- the two passes a measurement needs are driven by the
+    scenarios above, and running them here would only move the drain out of
+    reach by rotating off the active account first.
+    """
+    scheduled = drain_vault(home=tmp_path / "scheduled")
+    assert ranks_first(first="small-plan", second="big-plan", harness=scheduled)
+
+    drain_code, drain_lines = scheduled.run(at=NOW)
+
+    assert drain_code == 0
+    assert scheduled.switches == ["big-plan"]
+    assert any("expiring weekly quota" in line for line in drain_lines)
+
+    unscheduled = drain_vault(home=tmp_path / "unscheduled")
+
+    forced_code, forced_lines = unscheduled.run(at=NOW, scheduled=False, force=True)
+
+    assert forced_code == 0
+    assert unscheduled.switches == ["big-plan"]
+    assert all("expiring weekly quota" not in line for line in forced_lines)

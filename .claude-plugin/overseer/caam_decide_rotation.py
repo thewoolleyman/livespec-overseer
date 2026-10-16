@@ -23,6 +23,7 @@ else fired at all.
 
 from __future__ import annotations
 
+from caam_capacity_select import capacity_selection
 from caam_decide_report import hold_allowed
 from caam_decide_triggered import triggered_choice
 from caam_decision import triggered
@@ -68,11 +69,26 @@ def rotation_choice(*, request: RotationRequest) -> RotationChoice:
 
 
 def _drain_choice(*, request: RotationRequest, arm: RotationArm) -> RotationChoice:
-    """The lowest-precedence arm: drain weekly quota that expires sooner, or hold."""
+    """The lowest-precedence arm: drain weekly quota that expires sooner, or hold.
+
+    The capacity test narrows the candidate SET rather than vetting the
+    destination, because the ratified clause makes it one of the conditions a
+    DRAIN CANDIDATE satisfies -- so a candidate the current load would drain is
+    not one, and a pass the test leaves without any holds exactly as it holds
+    for any absent drain candidate, owing no capacity line of its own.
+
+    `refusal_held` is threaded rather than passed as False: the release is a
+    property of the active account's standing, not of which arm is asking, and
+    a refusal reaching this arm at all would mean the precedence above changed.
+    """
     target = None
     if request.scheduled:
         target = drain_target(
-            profiles=arm_candidates(request=request, arm=arm),
+            profiles=capacity_selection(
+                profiles=arm_candidates(request=request, arm=arm),
+                load=arm.load,
+                refusal_held=arm.refusal.holds_active,
+            ).profiles,
             active=arm_active_account(request=request, arm=arm),
             protection_floors=request.protection_floors,
             state=request.context.state,
