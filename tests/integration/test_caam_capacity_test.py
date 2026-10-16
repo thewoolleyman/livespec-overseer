@@ -540,6 +540,48 @@ def drain_vault(*, home: Path) -> RotationHarness:
     return harness
 
 
+def test_a_dark_account_is_not_a_candidate_the_capacity_test_can_speak_about(
+    *, tmp_path: Path
+) -> None:
+    """An account whose usage read FAILED carries no short-window reading, so the
+    capacity test neither projects it nor aborts the pass over it.
+
+    The drain arm hands the test the raw selectable set, which is the one place a
+    row with no reading reaches it: every other arm has already dropped such a
+    row on the eligibility rules, so the test's own handling of one is reachable
+    only here. A projection needs a short-window remaining to subtract from, and
+    a dark row has none -- it is not an account the load would drain, it is an
+    account this pass knows nothing about.
+
+    The switch is the assertion rather than merely the exit code. It proves three
+    distinct things the hold alone would conflate: the pass was not aborted, the
+    dark row did not empty the candidate set into a capacity hold, and the live
+    candidate was still projected and admitted on its own reading. The dark row
+    is the RANKING-first one, so it is also the row a build that treated "no
+    reading" as "nothing to subtract, therefore it carries anything" would move
+    onto -- the drain's own live-row rule is what drops it, and that rule is only
+    ever reached by a test that leaves the row alone.
+    """
+    harness = RotationHarness(
+        home=tmp_path,
+        active="big",
+        usages={
+            "big": usage(five_hour_remaining=40.0, seven_day_reset_s=7 * DAY),
+            "dark": usage(five_hour_remaining=90.0, seven_day_reset_s=DAY),
+            "big-plan": usage(five_hour_remaining=50.0, seven_day_reset_s=2 * DAY),
+        },
+        live_plans={"big": LARGE_PLAN, "dark": SMALL_PLAN, "big-plan": LARGE_PLAN},
+        failed_profiles={"dark"},
+    )
+    harness.seed_state(state={FLEET_LOAD: {"load": LIGHT_FALL * 7.0 / PASS_INTERVAL, "at": NOW}})
+
+    code, lines = harness.run(at=NOW)
+
+    assert code == 0
+    assert harness.switches == ["big-plan"]
+    assert any("expiring weekly quota" in line for line in lines)
+
+
 def test_the_capacity_test_applies_to_the_drain_and_without_the_scheduled_marker(
     *, tmp_path: Path
 ) -> None:

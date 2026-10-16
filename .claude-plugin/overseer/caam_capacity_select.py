@@ -25,12 +25,11 @@ its floor -- which is the whole point of projecting.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import cast
 
 from caam_burn_rate import projection_horizon_s
 from caam_capacity_load import CapacityLoad
 from caam_capacity_weights import capacity_weight
-from caam_decision import ProfileUsage, UsageRecord, five_hour_remaining_floor
+from caam_decision import ProfileUsage, five_hour_remaining_floor
 from caam_rendering import with_reasons
 
 __all__: list[str] = [
@@ -103,8 +102,21 @@ def _carries(*, profile: ProfileUsage, load: CapacityLoad) -> bool:
     The comparison is the floor's own: at or below it excludes, strictly above
     admits, exactly as the trigger that reads the same floor on the active
     account does.
+
+    A row whose usage read FAILED is left alone, because the projection has
+    nothing to subtract from: this test narrows on EVIDENCE, and "no reading"
+    is not a statement that the load would drain the account, it is the absence
+    of any statement about the account at all. Such a row reaches here only on
+    the drain arm, which hands over the raw selectable set and drops a dark row
+    on its own live-row rule a step later; every other arm's eligibility rules
+    have already dropped it. Excluding it here would reach that step with the
+    row gone and could empty the set into a CAPACITY hold -- reporting a load
+    nobody measured against it as the reason -- so the rule that owns the row
+    keeps it.
     """
-    usage = cast(UsageRecord, profile.usage)
+    usage = profile.usage
+    if usage is None:
+        return True
     burn = load.projected_burn(weight=capacity_weight(capacity=profile.capacity))
     projected = usage.five_hour_remaining - burn * projection_horizon_s()
     return projected > five_hour_remaining_floor()
