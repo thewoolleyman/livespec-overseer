@@ -1762,54 +1762,5 @@
     "heading": "## Daemon message delivery channel",
     "work_item": "overseer-uepcr6",
     "first_seen": "2026-10-15"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A done session that resumes generating keeps its declaration",
-    "work_item": "overseer-jfp23f",
-    "first_seen": "2026-10-19"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A done track receives no act on any path",
-    "work_item": "overseer-jfp23f",
-    "first_seen": "2026-10-19"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: An archived plan's row is collected once its session is gone",
-    "work_item": "overseer-jfp23f",
-    "first_seen": "2026-10-19"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: An archived plan moved back out of the archive is supervised again",
-    "work_item": "overseer-jfp23f",
-    "first_seen": "2026-10-19"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: An archived plan whose session still exists receives nothing",
-    "work_item": "overseer-jfp23f",
-    "first_seen": "2026-10-19"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A done track whose session clears its own declaration is supervised again",
-    "work_item": "overseer-jfp23f",
-    "first_seen": "2026-10-19"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: An archived plan showing a picker is surfaced but not acted on",
-    "work_item": "overseer-jfp23f",
-    "first_seen": "2026-10-19"
   }
 ]
