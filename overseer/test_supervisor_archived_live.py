@@ -1,15 +1,21 @@
-"""Beside-tests — plan ARCHIVAL does not end supervision of a session that is still live.
+"""Beside-tests — plan ARCHIVAL keeps a live session's ROW, and nothing else.
 
 Maintainer ruling 2026-09-12: archival ends live-plan DISCOVERY; it does not end
 supervision of a session that is still running. `create-agent-cockpit-repo` stayed a
 live tmux/agent session after its plan was archived, but archive-only discovery took it
 out of the daemon snapshot AND out of the mapping — so the running session had no
-tracked row, and the daemon could no longer read its context, inject a wind-down, or
-complete a ready-gated restart.
+tracked row at all.
 
-This module owns the PER-HARNESS supervision half of that ruling: a Claude and a Codex
-archived-live track each carried through a whole ready-gated restart. When the mapping
-and its derivable sidecars may finally go — and how retention is reported once — is
+SPECIFICATION v061 kept the VISIBILITY half of that ruling and reversed its supervision
+half: an archived plan whose recorded session still exists is a DONE track, retained so
+the maintainer can read its wrap-up and acted on in no way whatever. An earlier cut of
+this module carried each harness through a whole ready-gated RESTART of such a track;
+that is exactly what the rule now forbids, so both tests assert the retained row and
+the absence of the act instead.
+
+This module owns the PER-HARNESS half: a Claude and a Codex archived-live track each
+retained across the archival with its declaration untouched. When the mapping and its
+derivable sidecars may finally go — and how retention is reported once — is
 `tests/test_archived_live_cleanup.py`.
 
 These tests drive the PUBLIC daemon surface (`tick`) rather than the retention predicate
@@ -126,47 +132,55 @@ def _mapped_codex_supervisor(*, tmp_path):
     return repo, topic, session, fake, sup
 
 
-def test_claude_archived_live_track_completes_a_ready_gated_restart(*, tmp_path):
-    """The whole reported failure, end to end: a mapped Claude track is wrapped up, its
-    plan is archived MID-ROUND, and the `ready` it then declares must still restart it —
-    from the row's own epic locator, which archival does not touch."""
+def test_claude_archived_live_track_keeps_its_row_and_is_never_restarted(*, tmp_path):
+    """The reported failure's surviving half, end to end: a mapped Claude track is
+    wrapped up and its plan is archived MID-ROUND. The row, the mapping and the snapshot
+    entry must all survive the archival — that is what retention is for — while the
+    `ready` the session then declares authorizes nothing, because v061 makes an
+    archived-live track a done track that receives no act."""
     repo, topic, _session, fake, sup = _mapped_claude_supervisor(tmp_path=tmp_path)
 
     with contextlib.redirect_stderr(_io.StringIO()):
         warned = sup.tick(act=True)
     assert [(row.topic, row.status) for row in warned] == [(topic, "warned")]
+    assert any(TEST_EPIC in text for text in fake.paste_texts())  # launch profile intact
+    pastes_before_archive = len(fake.paste_texts())
 
     _archive_plan(repo=repo, topic=topic)
-    arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
+    marker = arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
     with contextlib.redirect_stderr(_io.StringIO()):
-        restarted = sup.tick(act=True)
+        retained = sup.tick(act=True)
 
-    assert [(row.topic, row.status) for row in restarted] == [(topic, "restarting")]
+    assert [(row.topic, row.status) for row in retained] == [(topic, "done")]
     assert [row["topic"] for row in _snapshot_rows(sup=sup)] == [topic]
     assert _snapshot_rows(sup=sup)[0]["archived_live"] is True
-    assert any(TEST_EPIC in text for text in fake.paste_texts())  # launch profile intact
+    assert not fake.has(method="respawn")
+    assert len(fake.paste_texts()) == pastes_before_archive
+    assert marker.read_text().strip() == "ready"  # the declaration is left alone
 
 
-def test_codex_archived_live_track_completes_a_ready_gated_restart(*, tmp_path):
-    """The Codex twin. A different harness, the same ruling: the runtime is what keeps a
-    row supervised, and the daemon must not lose a live Codex session to `git mv`."""
+def test_codex_archived_live_track_keeps_its_row_and_is_never_restarted(*, tmp_path):
+    """The Codex twin. A different harness, the same two rules: the runtime is what keeps
+    a row retained, and the daemon must not drive the retained track."""
     repo, topic, session, fake, sup = _mapped_codex_supervisor(tmp_path=tmp_path)
     fake.on_paste = lambda target, _text: fake.panes.__setitem__(target, codex_busy_capture(ctx=40))
 
     with contextlib.redirect_stderr(_io.StringIO()):
         warned = sup.tick(act=True)
     assert [(row.topic, row.runtime, row.status) for row in warned] == [(topic, "codex", "warned")]
+    pastes_before_archive = len(fake.paste_texts())
 
     fake.panes[session] = codex_idle_capture(ctx=40, topic=topic)
     _archive_plan(repo=repo, topic=topic)
-    arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
+    marker = arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
     with contextlib.redirect_stderr(_io.StringIO()):
-        restarted = sup.tick(act=True)
+        retained = sup.tick(act=True)
 
-    assert [(row.topic, row.runtime, row.status) for row in restarted] == [
-        (topic, "codex", "restarting")
-    ]
+    assert [(row.topic, row.runtime, row.status) for row in retained] == [(topic, "codex", "done")]
     assert _snapshot_rows(sup=sup)[0]["archived_live"] is True
+    assert not fake.has(method="respawn")
+    assert len(fake.paste_texts()) == pastes_before_archive
+    assert marker.read_text().strip() == "ready"
 
 
 def test_archived_live_successor_stays_supervised_until_its_runtime_exits(*, tmp_path):

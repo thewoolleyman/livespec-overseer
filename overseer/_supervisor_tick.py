@@ -46,7 +46,7 @@ def run_tick(*, sup: Supervisor, act: bool = True) -> list[RowView]:
         # cascade's own `done` leg, because the acts the rule forbids also run AROUND
         # that leg — the prologue's resume retry, held-delivery release and
         # compaction-latch record all precede every guard.
-        done_track = _supervisor_done_track.is_done_track(track=track)
+        done_track = _supervisor_done_track.is_done_track(sup=sup, track=track)
         row = sup.evaluate(track=track, act=act and not done_track)
         if not act:
             row = _supervisor_mapping_health.apply_mapping_health(
@@ -56,7 +56,14 @@ def run_tick(*, sup: Supervisor, act: bool = True) -> list[RowView]:
         # row is in this tick's set at all, not a judgment the cascade makes about the
         # track. `build_rows` above refreshed the set both acting and read-only, so the
         # `list` table and the daemon's snapshot mark the same rows.
-        views.append(_supervisor_archived_live.mark_row(row=row, retained=sup.archived_live))
+        row = _supervisor_archived_live.mark_row(row=row, retained=sup.archived_live)
+        # Projected LAST, so it answers for a track that is done by ARCHIVAL as well as
+        # by its own declaration: the cascade classified the archived one from whatever
+        # its state file happened to hold, which the ratified rule says is not what its
+        # row reports.
+        if done_track:
+            row = _supervisor_done_track.quiet_done_row(row=row)
+        views.append(row)
         supervisor_view = _supervisor_pair.evaluate_supervisor_pair(sup=sup, track=track, act=act)
         if supervisor_view is not None:
             views.append(supervisor_view)
