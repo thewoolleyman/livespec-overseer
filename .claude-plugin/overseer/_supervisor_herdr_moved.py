@@ -43,6 +43,26 @@ def _same_herdr_instance(*, recorded: str | None, live: str) -> bool:
     )
 
 
+def _restarted_herdr_server(*, sup: Supervisor, recorded: str | None, live: str) -> bool:
+    """Whether the live pane is on a RESTARTED server of the recorded herdr socket.
+
+    A host reboot brings herdr back as a new generation on the SAME socket and resumes
+    each pane's agent (overseer-rwrkkr). That is not a namesake only while the recorded
+    generation is provably gone: its server pid no longer runs with the recorded start
+    time. A recorded generation that still runs is a second live server, and keeps
+    refusing.
+    """
+    old = herdr_identity.decode_target(value=recorded or "").herdr
+    new = herdr_identity.decode_target(value=live).herdr
+    return (
+        old is not None
+        and new is not None
+        and old.socket_path == new.socket_path
+        and (old.server_pid, old.server_starttime) != (new.server_pid, new.server_starttime)
+        and sup.starttime_of(pid=old.server_pid) != old.server_starttime
+    )
+
+
 def _live_identity(*, sup: Supervisor, session: str, topic: str) -> str | None:
     identity = sup.claude_identity_by_session.get((session, topic))
     if identity is not None:
@@ -57,11 +77,19 @@ def repoint_moved_session(
     """Re-point a mapped row to the pane its live named session now occupies.
 
     A legacy tmux row may move to any session; a herdr row only within its own herdr
-    instance. The moved session's live identity is recorded with it, so the
-    recorded-identity gate accepts the pane it now runs in.
+    instance, or onto the restarted server of its own socket once the recorded
+    generation is gone and no unfinished daemon replacement owns the track. The moved
+    session's live identity is recorded with it, so the recorded-identity gate accepts
+    the pane it now runs in.
     """
-    movable = _legacy_unqualified_target(value=recorded) or _same_herdr_instance(
-        recorded=recorded, live=live
+    restarted = _restarted_herdr_server(sup=sup, recorded=recorded, live=live)
+    if restarted:
+        track = _mapped_track(sup=sup, repo=repo, topic=topic)
+        restarted = track is not None and not _replacement_open(track=track)
+    movable = (
+        _legacy_unqualified_target(value=recorded)
+        or _same_herdr_instance(recorded=recorded, live=live)
+        or restarted
     )
     if (
         not movable
@@ -71,13 +99,26 @@ def repoint_moved_session(
         )
     ):
         return False
-    sup.log(message=f"re-pointed {repo}::{topic} tmux {recorded} → {live}")
+    reason = " after a herdr server restart" if restarted else ""
+    sup.log(message=f"re-pointed {repo}::{topic} tmux {recorded} → {live}{reason}")
     identity = _live_identity(sup=sup, session=live, topic=topic)
     if identity is not None:
         _ = registry.record_observed_session_identity(
             repo=repo, topic=topic, session_identity=identity, store_path=sup.store_path
         )
     return True
+
+
+def _mapped_track(*, sup: Supervisor, repo: str, topic: str) -> registry.Track | None:
+    key = (registry.norm(repo=repo), topic)
+    return next(
+        (
+            track
+            for track in registry.read_valid_mapping(store_path=sup.store_path)
+            if (registry.norm(repo=track.repo), track.topic) == key
+        ),
+        None,
+    )
 
 
 def _replacement_open(*, track: registry.Track) -> bool:

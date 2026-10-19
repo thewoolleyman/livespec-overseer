@@ -198,7 +198,10 @@ OWNED_SHELL_MODE = "non_login"
 # The ONLY variables removed from the launched server's copied child environment.
 # `$ENV` is a POSIX shell's INTERACTIVE startup file, which `non_login` does not
 # disable — see `owned_environment` for the measurement.
-EXCLUDED_CHILD_VARIABLES = ("ENV",)
+# `HERDR_STARTUP_CWD` is set by herdr on the panes it relaunches when it restores a session
+# (observed after the 2026-10-19 host reboot), and an owned server that inherits it opens a
+# startup workspace of its own, so the fixture's pane set gains a stray `w1:p1`.
+EXCLUDED_CHILD_VARIABLES = ("ENV", "HERDR_STARTUP_CWD")
 
 
 @dataclass(frozen=True, kw_only=True)
