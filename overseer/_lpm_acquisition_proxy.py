@@ -24,6 +24,7 @@ from _lpm_browser_requests import (
     response_frame_for,
 )
 from _lpm_observations import ObservationOutcome
+from _lpm_proxy_results import closed_result
 
 __all__: list[str] = [
     "PRIVATE_EXECUTION_TOOLS",
@@ -100,7 +101,11 @@ class AcquisitionProxy:
             outcome = self.control.dispatch(frame=frame)
             if outcome.response is None:
                 return self._stopped(reason="flow-unavailable")
-            _ = self.channel.send(frame=response_frame_for(response=outcome.response))
+            result = closed_result(response=outcome.response)
+            if result is None:
+                return self._stopped(reason="flow-unavailable")
+            if not self.channel.send(frame=response_frame_for(response=result)):
+                return self._stopped(reason="flow-unavailable")
             if outcome.stop_reason is not None:
                 return self._stopped(reason=outcome.stop_reason)
 
