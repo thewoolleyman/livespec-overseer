@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import importlib
 import io as _io
 
@@ -186,13 +187,21 @@ def test_scenario_a_done_session_that_resumes_generating_keeps_its_declaration(*
 
     fake.serve(session=session, repo=repo, capture=busy_capture(ctx=35))
     clock["t"] = 1001.0 + _supervisor_config.MARKER_VOID_GRACE + 1
-    view = sup.evaluate(track=track, act=True)
+    # The void wrote in TWO places — a `done-voided` state diagnostic over the
+    # declaration, and a `voided done declaration for ...` daemon event — so the
+    # diagnostics stream is captured as well as the file. Byte-identity alone proves
+    # only that the FILE was spared.
+    diagnostics = _io.StringIO()
+    with contextlib.redirect_stderr(diagnostics):
+        view = sup.evaluate(track=track, act=True)
 
     assert view.status == signals.STATE_DONE
     assert state_file.read_bytes() == state_before
     state = signals.read_state(repo=str(repo), topic=topic)
     assert state is not None
     assert state.token == signals.STATE_DONE
+    assert signals.STATE_DONE_VOIDED not in diagnostics.getvalue()
+    assert "voided" not in diagnostics.getvalue()
     assert (
         registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
         == round_before
