@@ -1,5 +1,21 @@
 # Changelog
 
+## [5.32.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.31.1...v5.32.0) (2026-10-19)
+
+
+### Features
+
+* **lpm:** return only closed secret-free proxy results ([61f69cf](https://github.com/thewoolleyman/livespec-overseer/commit/61f69cffc5f522f2ac70778f6f6a057458961914))
+* **lpm:** serve the seventeen private execution tools ([5daabc3](https://github.com/thewoolleyman/livespec-overseer/commit/5daabc3004d7d9bbdd8040c44c408c7049eadafe))
+
+
+### Bug Fixes
+
+* **lpm:** close the private channel on a malformed frame ([0bcfb51](https://github.com/thewoolleyman/livespec-overseer/commit/0bcfb51809e5859fe909cd423b41b13ab800fd2e))
+* **lpm:** end the invocation on an imposed step-limit refusal ([96a94e4](https://github.com/thewoolleyman/livespec-overseer/commit/96a94e4ace07e66fba95b5185f7d59b91da6a9aa))
+* **lpm:** stop every performer port when the proxy stops ([db36249](https://github.com/thewoolleyman/livespec-overseer/commit/db3624905349fb25407e737414ded6b3cbaf2bb8))
+* **supervisor:** re-adopt a herdr session relaunched by hand in another pane ([4a417ff](https://github.com/thewoolleyman/livespec-overseer/commit/4a417ffde5bdc73090d9a5630bd5377127c63fa7))
+
 ## [5.31.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.31.0...v5.31.1) (2026-10-16)
 
 
