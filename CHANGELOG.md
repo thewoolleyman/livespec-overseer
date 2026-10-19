@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.32.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.32.0...v5.32.1) (2026-10-19)
+
+
+### Bug Fixes
+
+* **supervisor:** re-adopt live tracks resumed under a restarted herdr server ([7411bf2](https://github.com/thewoolleyman/livespec-overseer/commit/7411bf291443878a2d6b1904af3e6662bea472c7))
+
 ## [5.32.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.31.1...v5.32.0) (2026-10-19)
 
 
