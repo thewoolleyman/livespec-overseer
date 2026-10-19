@@ -56,6 +56,10 @@ class ExecutionPerformers(Protocol):
         """Perform one already-validated private execution action."""
         ...
 
+    def shutdown(self) -> None:
+        """Stop and reap every performer process these ports started."""
+        ...
+
 
 class Clock(Protocol):
     def __call__(self) -> float:
@@ -85,12 +89,20 @@ class AcquisitionProxy:
     """Serve exactly the seventeen private execution tools over one private channel."""
 
     channel: PrivateChannel
+    performers: ExecutionPerformers
     control: BrowserControl
     worker_deadline: float
     clock: Clock
 
     def serve(self) -> ProxyOutcome:
-        """Serve one outstanding request at a time until a stop condition ends the loop."""
+        """Serve requests until a stop condition ends the loop, leaving nothing running."""
+        try:
+            return self._serve_frames()
+        finally:
+            self.performers.shutdown()
+            self.channel.close()
+
+    def _serve_frames(self) -> ProxyOutcome:
         while True:
             remaining = self.worker_deadline - self.clock()
             if remaining <= 0:
@@ -120,7 +132,6 @@ class AcquisitionProxy:
         return None if payload is None else prefix + payload
 
     def _stopped(self, *, reason: str) -> ProxyOutcome:
-        self.channel.close()
         return ProxyOutcome(stop_reason=reason, consumed_steps=self.control.consumed_steps)
 
 
@@ -135,6 +146,7 @@ def private_acquisition_proxy(
     """Compose one proxy over its private channel and its injected performer ports."""
     return AcquisitionProxy(
         channel=channel,
+        performers=performers,
         control=BrowserControl(
             step_limit=bounds.step_limit,
             allowed_origins=bounds.allowed_origins,
