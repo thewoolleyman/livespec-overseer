@@ -54,6 +54,12 @@ def is_done_track(*, sup: Supervisor, track: registry.Track) -> bool:
 def quiet_done_row(*, row: RowView) -> RowView:
     """Project a done track onto the quiet terminal ``done`` status.
 
+    Live gate evidence still outranks ``done`` for REPORTING, so a row whose pane shows
+    an open structured picker is left exactly as the cascade classified it: a human is
+    being waited on whatever the track declared, and for an archived track that gate is
+    the ONLY thing that can make it attention at all. Report-only, though — the caller
+    has already withheld ``act``, so surfacing it delivers nothing.
+
     A NOTE that would otherwise carry the row into ``NEEDS YOU`` is dropped with it.
     That is not cosmetic tidying: an archived plan's state file can hold anything its
     session last wrote — nothing, a stale declaration, or a malformed value — and the
@@ -63,6 +69,8 @@ def quiet_done_row(*, row: RowView) -> RowView:
     (plan research 001): an archived, finished track sitting red in the operator's
     attention block over a value nobody is going to act on.
     """
+    if row.picker_open:
+        return row
     quiet = dataclasses.replace(row, status=signals.STATE_DONE)
     if not needs_attention(row=quiet):
         return quiet
