@@ -558,8 +558,8 @@ in prose.
 One further nudge exists, and it is aimed at the PAIR. When a worker and its
 supervisor have BOTH shown no observable progress continuously past a
 bounded floor, and NEITHER presents a human wait — no structured gate, no
-runtime report of waiting on a human, no standing `blocked:`, and no standing
-`done` — and the
+runtime report of waiting on a human, no standing `blocked:`, and neither is a
+done track per §"The terminal declaration" — and the
 supervisor has no open round and no fresh wind-down acknowledgement, the
 daemon MUST paste ONE nudge into the SUPERVISOR, because the supervisor owns
 direction for the pair. The message MUST name the stall and its duration,
@@ -803,40 +803,67 @@ send it the keep-going nudge, and MUST NOT report it as not responding. Unlike
 `winding-down`, `done` has no freshness window: it does not go stale with age,
 and no amount of time alone resumes the escalation.
 
-A track holding `done` MUST NOT be an attention member through any REPORT-ONLY
+A DONE TRACK is a track holding a standing `done` declaration, or a plan track
+whose plan directory is archived (or gone) while its recorded session still
+exists (running or exited), per §"Track discovery and the mapping store". The
+daemon MUST perform NO
+act on a done track: it MUST NOT paste, type, or deliver any daemon message to
+it by any transport (a wrap-up at any band, a keep-going or pair-stall nudge, a
+notice, a resume or a resume retry, a compaction-latch wrap-up, or the release
+of a held delivery), MUST NOT send it any keystroke, and MUST NOT restart,
+respawn, or replace its session. The daemon MUST NOT close, kill, or archive a
+done track's session or pane: it stays open so the maintainer can read its
+wrap-up. Every observation of a done track is read-only, exactly as the `list`
+path is: the daemon MUST NOT write, delete, void, or expire that track's state
+file, and MUST NOT close, delete, or advance its round record; its own event
+log and the edge-triggered bookkeeping of its alerts remain permitted. A done
+track is therefore spent zero model turns by the daemon for as long as it
+stays done. This prohibition takes precedence over every clause of this
+specification and of contracts.md that would otherwise authorize or require
+an act on a done track, or a write to its state file or round record.
+
+A done track MUST NOT be an attention member through any REPORT-ONLY
 member of §"Fail-soft posture" — the low-context shield, the busy-shield
 no-progress member, the stale-context-knowledge member, the standing
 declaration that cannot certify, and the declaration standing on a track never
 in a round — nor through the non-responding, escalation-exhausted, or gone
 session members: its inability to certify, and its silence, are its meaning,
-not a dead end. Every OTHER member still applies regardless of `done`: a
-malformed or path-aliased state value, a restart whose resume has not yet
-submitted, a wait-inventory mismatch, and live gate evidence. A path-aliased
-`done` is not a `done` declaration at all; it is treated as no declaration and
-surfaced, exactly as any other aliased value.
+not a dead end. For a track that is done by its own declaration, every OTHER
+member still applies: a malformed or path-aliased state value, a restart whose
+resume has not yet submitted, a wait-inventory mismatch, and live gate
+evidence. A path-aliased `done` is not a `done` declaration at all; it is
+treated as no declaration and surfaced, exactly as any other aliased value. A
+track that is done because its plan is archived is an attention member ONLY
+through live gate evidence: whatever its state file holds — nothing, a stale
+declaration, or a malformed or path-aliased value — it renders the quiet
+`done` row.
 
-`done` is voided by exactly the evidence that voids a `blocked:` declaration
-and by nothing else: the session observed actively GENERATING — not merely
-running a background command at its prompt — past the same two-minute grace
-measured from the declaration's own modification time, where the latest pane
-input was not injected by a peer. Generating is incompatible with having
-finished; it means the session was handed more work. The void clears the
-DECLARATION ONLY: the daemon MUST delete the state file, and MUST NOT raise a certification floor, delete the round's
-durable record, reset its notified bands, or otherwise close the round. After
-a void the track is supervised exactly as an undeclared track is, so a resumed
-session at or below its wind-down threshold receives the ordinary wrap-up.
+The daemon MUST NOT void, delete, overwrite, or expire a `done` declaration on
+any evidence — not on observed generation, not on background activity, not on
+idleness, and not on age. A session that resumes generating while holding
+`done` keeps its declaration and its track stays done.
 
-A session that is handed new work after declaring `done` MUST clear its own
-`done` declaration — by deleting or overwriting its own state file — BEFORE
-resuming that work, so no window exists in which it is working while still
-asserting it wants nothing. The daemon-side void is the backstop for a session
-that does not.
+A done track is RE-OPENED only explicitly, and only once it holds no standing
+`done` declaration AND its plan directory is not archived. Its session (or the
+maintainer) clears a `done` by deleting the session's own state file or
+overwriting it with a value other than `done`. A
+plan directory moved back out of `plan/archive/` therefore re-opens its track
+only if the track holds no `done`, per §"Track discovery and the mapping
+store". A session that is handed new work
+after declaring `done` MUST clear its own `done` declaration BEFORE resuming
+that work, so no window exists in which it is working while still asserting it
+wants nothing. Once re-opened, the track is supervised exactly as an
+undeclared track is, from its round's existing state: the re-open MUST NOT
+raise a certification floor, delete the round's durable record, or reset its
+notified bands.
 
-Live gate evidence still outranks `done`: a session showing an open
-structured picker is waiting on a human whatever it declared, and MUST be
-surfaced as such.
+Live gate evidence still outranks `done` for REPORTING: a done track whose pane
+shows an open structured picker is waiting on a human whatever it declared, and
+MUST be surfaced as a blocked attention member rather than the quiet row.
+Surfacing it is report-only: the daemon MUST NOT act on that track while it
+remains done.
 
-The operator surface MUST render a track holding `done` as a QUIET row — a
+The operator surface MUST render a done track as a QUIET row — a
 distinct `done` status that is NOT an attention member, does not count toward
 the attention badge, and is never rendered as broken — both while its session
 is still running and after its session has exited. An exited session holding
@@ -910,10 +937,20 @@ certifying a supervisor's resume artifact, never re-deriving an id — which
 is why the id is recorded at track assignment by a surface that MAY read
 plan-tree text as evidence, and merely consumed by the daemon thereafter. Everything
 else is recomputed from live state, so the list can never go stale. Rows
-whose plan has been archived or deleted are garbage-collected — with two
-protections: an ACTIVE plan always wins over a same-named archived copy, and
-a repository whose root is transiently unreachable is never mistaken for a
-deleted plan.
+whose plan has been archived or deleted are garbage-collected once their
+recorded session no longer exists — with two protections: an ACTIVE plan
+always wins over a same-named archived copy, and a repository whose root is
+transiently unreachable is never mistaken for a deleted plan. While a
+previously-mapped PLAN row's directory is archived or gone but its recorded
+session still exists (running or exited), the row and its mapping are RETAINED, and the track
+stays in the displayed list, so the maintainer can read the session's
+wrap-up. Retention is for visibility only: such a track is a done track per
+§"The terminal declaration", receives no act of any kind, and renders as the
+quiet `done` row whatever its state file holds, per §"The terminal
+declaration". Moving the plan's directory back out of `plan/archive/`
+re-opens the track unless it holds `done`, and it is supervised again from
+the next observation; the daemon keys on the directory alone, and whoever
+moves it back MUST reopen its epic, per the archival rules below.
 
 Whoever archives a plan MUST leave NOTHING at its live path `plan/<topic>/`.
 A stub, a terminal marker, a forwarding note, or any other residue there is

@@ -197,17 +197,25 @@ When the daemon observes the track
 
 Then no keep-going nudge is sent
 
-## Scenario: A done session that resumes generating has its declaration voided
+## Scenario: A done track receives no act on any path
+
+Given a track holding `done` whose round has a band due, whose compaction latch would fire, whose pending resume would be retried, and which has a held channel delivery
+
+When the daemon observes the track over a full supervision cycle
+
+Then no paste, message, keystroke, restart, or replacement is delivered to it
+
+And its session and pane remain open
+
+## Scenario: A done session that resumes generating keeps its declaration
 
 Given a track holding a `done` declaration older than the two-minute grace
 
 When the daemon observes the session actively generating on input that was not peer-injected
 
-Then the declaration is voided without raising a certification floor or closing the round
+Then the declaration stands and its state file is untouched
 
-And its state file is deleted
-
-And the track is thereafter supervised as an undeclared track
+And the track stays done and receives no act
 
 ## Scenario: A done declaration survives a background command
 
@@ -229,6 +237,34 @@ And neither is reported as a gone session
 
 And the exited track's row says its session has exited
 
+## Scenario: An archived plan whose session still exists receives nothing
+
+Given a mapped plan track whose directory has been moved to `plan/archive/` while its recorded session still exists, with nothing declared and its remaining context below its threshold
+
+When the daemon observes the track over a full supervision cycle
+
+Then its row and mapping are retained and it renders the quiet `done` status outside NEEDS YOU
+
+And no paste, message, keystroke, restart, or replacement is delivered to it
+
+And its session and pane remain open
+
+## Scenario: An archived plan moved back out of the archive is supervised again
+
+Given an archived plan track whose recorded session still exists, with nothing declared
+
+When its plan directory is moved back to `plan/<topic>/`
+
+Then the track is discovered as an active plan on the next observation and supervised as an undeclared track
+
+## Scenario: An archived plan's row is collected once its session is gone
+
+Given an archived plan track whose recorded session no longer exists
+
+When the daemon runs its archive cleanup
+
+Then the row and its mapping are garbage-collected
+
 ## Scenario: Live gate evidence outranks a done declaration
 
 Given a track holding `done` whose pane shows an open structured picker
@@ -239,6 +275,16 @@ Then the track is a blocked attention member
 
 And it is not rendered as the quiet `done` row
 
+## Scenario: An archived plan showing a picker is surfaced but not acted on
+
+Given an archived plan track whose recorded session still exists and whose pane shows an open structured picker
+
+When the daemon observes the track
+
+Then the track is a blocked attention member
+
+And no paste, message, keystroke, restart, or replacement is delivered to it
+
 ## Scenario: A done session handed new work clears its own declaration first
 
 Given a session holding `done` in its own state file
@@ -246,6 +292,16 @@ Given a session holding `done` in its own state file
 When it is handed new work
 
 Then it deletes or overwrites its own state file before doing any of that work
+
+## Scenario: A done track whose session clears its own declaration is supervised again
+
+Given a track holding `done` whose round has a band due
+
+When its session deletes its own state file
+
+Then the track is supervised as an undeclared track on the next observation
+
+And its round's certification floor and notified bands are unchanged
 
 ## Scenario: A done worker does not trigger the pair-stall nudge
 
