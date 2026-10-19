@@ -18,7 +18,7 @@ declaration, in the grammar `<token>` or `<token>: <detail>`.
 | `winding-down` | session | "I received the wrap-up and am wrapping up now." Written IMMEDIATELY on receipt, before anything else. |
 | `ready` | session | "I am at a clean stopping point — restart me." The SOLE restart authorization. |
 | `blocked: <one-line reason>` | session | "I need a human decision I cannot make myself." Surfaced with coordinates; never restarted, never keystroked. |
-| `done` (optionally `done: <one-line summary>`) | session | "My work is complete; I want nothing further; do not restart me." The terminal declaration (spec.md §"The terminal declaration"). Never a restart authorization; suppresses every wrap-up and the keep-going nudge while it stands. |
+| `done` (optionally `done: <one-line summary>`) | session | "My work is complete; I want nothing further; do not restart me." The terminal declaration (spec.md §"The terminal declaration"). Never a restart authorization; while it stands the track is a done track and receives no act of any kind (spec.md §"The terminal declaration"). |
 | `idle-with-context-left` | daemon | The daemon's own once-per-episode nudge marker. Authorizes nothing. |
 | (per entity) | — | A supervisor pair member keeps its OWN state file at `<repo>/tmp/overseer/<topic>-supervisor/.overseer-state`, with the same grammar, the same writers, and the same rules as a worker's. |
 
@@ -86,15 +86,10 @@ Contract rules:
   certification floor: a `blocked:` token can never certify a restart under
   any circumstances, so a floor raised on its account would be a durable
   write with no authorization consequence.
-- `DONE` VOIDING, independent of the ready-side expiry and governed by the
-  same evidence as `blocked:`-side voiding. A `done` declaration MUST be
-  voided only when the session is observed actively GENERATING past the
-  two-minute grace measured from the declaration's own modification time,
-  where the latest pane input was not peer-injected, and MUST NOT be voided
-  on a background-command observation, an idle observation, or its age
-  alone. The void clears the DECLARATION ONLY: the daemon MUST delete the
-  state file and MUST NOT delete the round's sidecar key, MUST NOT reset its notified bands, MUST NOT otherwise
-  close the round, and MUST NOT raise the certification floor.
+- NO `DONE` VOIDING. The daemon MUST NOT void, delete, or overwrite a `done`
+  declaration on any observation — generating, background command, idle, or
+  age. Only the session's own write (or the maintainer's) clears it, per
+  spec.md §"The terminal declaration".
 - A `done` declaration has no freshness window. It MUST NOT be expired,
   staled, or treated as absent on account of its age.
 - A fresh `winding-down` acknowledgement is honored for fifteen minutes;
@@ -167,7 +162,10 @@ additionally subject to a fifth, topic-conditional check:
      restart and without the missing-artifact wording that would
      otherwise read as an anomaly; a distinctly-named, non-blocking-facing
      condition is surfaced instead, and the row is not left to alert on
-     it again.
+     it again. A track whose plan is archived while its session still
+     exists is a done track (spec.md §"The terminal declaration") and never
+     reaches this check, because no act is taken on it; this outcome
+     applies only to a track that is not a done track.
    - A genuinely live plan directory with the binder simply absent: this
      stays the anomalous case. The check continues to BLOCK the restart
      with the missing-artifact condition, and the round stays open,
@@ -740,8 +738,8 @@ same coordinates and the same edge-triggering; the report-only members MUST NOT 
 supervisor pair member needs no membership entry of its own — as a
 supervised entity it enters attention through the same statuses as any
 other. Discovered-but-unassigned plans are deliberately NOT attention —
-startable is not stuck. A track holding a `done` declaration, whether its
-session is running or has exited, is NOT a member as a non-responding track,
+startable is not stuck. A done track (spec.md §"The terminal declaration"),
+whether its session is running or has exited, is NOT a member as a non-responding track,
 a gone session, an escalation-exhausted track, or through any REPORT-ONLY
 member of spec.md §"Fail-soft posture" (the low-context shield, the
 busy-shield no-progress member, the stale-context-knowledge member, the
@@ -749,8 +747,9 @@ standing declaration that cannot certify, and the declaration standing on a
 track never in a round); it renders the quiet `done` status instead. A
 malformed or path-aliased state value, a restart whose resume has not yet
 submitted, a wait-inventory mismatch, and live gate evidence (a blocked
-member) remain members regardless of `done`; a path-aliased `done` is not a
-`done` declaration. The attention count is also badged onto the daemon's
+member) remain members of a track done by its own declaration; a
+path-aliased `done` is not a `done` declaration. A track done because its plan
+is archived is a member only through live gate evidence. The attention count is also badged onto the daemon's
 window name, and the badge MUST clear when the count returns to zero — an
 indicator that can only be set is one more stale surface.
 

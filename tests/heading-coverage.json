@@ -2840,9 +2840,10 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A done session that resumes generating has its declaration voided",
-    "test": "tests.integration.test_done_terminal_declaration.test_scenario_a_done_session_that_resumes_generating_has_its_declaration_voided",
-    "reason": "Integration-tier: old done plus resumed generation becomes the done-voided diagnostic and ordinary working supervision while the delivered round remains byte-for-byte unchanged."
+    "heading": "## Scenario: A done session that resumes generating keeps its declaration",
+    "test": "TODO",
+    "reason": "The prior pin asserted the now-removed daemon-side void; the implementation slice under plan overseer-ignore-done-plans replaces it with an integration test proving the declaration stands and no act is delivered.",
+    "work_item": "overseer-jfp23f"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -3552,5 +3553,53 @@
     "test": "TODO",
     "work_item": "overseer-uepcr6",
     "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uepcr6 with the implementation; ratified 2026-10-15 under the daemon-message-channel-delivery revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A done track receives no act on any path",
+    "test": "TODO",
+    "work_item": "overseer-jfp23f",
+    "reason": "Owned by the implementation slice under plan overseer-ignore-done-plans; the evidence must drive the daemon's evaluate cascade at integration tier and count delivered acts."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An archived plan's row is collected once its session is gone",
+    "test": "TODO",
+    "work_item": "overseer-jfp23f",
+    "reason": "Owned by the implementation slice under plan overseer-ignore-done-plans; the evidence must drive the daemon's evaluate cascade at integration tier and count delivered acts."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An archived plan moved back out of the archive is supervised again",
+    "test": "TODO",
+    "work_item": "overseer-jfp23f",
+    "reason": "Owned by the implementation slice under plan overseer-ignore-done-plans; the evidence must drive the daemon's evaluate cascade at integration tier and count delivered acts."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An archived plan whose session still exists receives nothing",
+    "test": "TODO",
+    "work_item": "overseer-jfp23f",
+    "reason": "Owned by the implementation slice under plan overseer-ignore-done-plans; the evidence must drive the daemon's evaluate cascade at integration tier and count delivered acts."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A done track whose session clears its own declaration is supervised again",
+    "test": "TODO",
+    "work_item": "overseer-jfp23f",
+    "reason": "Owned by the implementation slice under plan overseer-ignore-done-plans; the evidence must drive the daemon's evaluate cascade at integration tier and count delivered acts."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An archived plan showing a picker is surfaced but not acted on",
+    "test": "TODO",
+    "work_item": "overseer-jfp23f",
+    "reason": "Owned by the implementation slice under plan overseer-ignore-done-plans; the evidence must drive the daemon's evaluate cascade at integration tier and count delivered acts."
   }
 ]
