@@ -164,9 +164,12 @@ def test_scenario_a_done_declaration_suppresses_every_wrapup(*, tmp_path) -> Non
     )
 
 
-def test_scenario_a_done_session_that_resumes_generating_has_its_declaration_voided(
-    *, tmp_path
-) -> None:
+def test_scenario_a_done_session_that_resumes_generating_keeps_its_declaration(*, tmp_path) -> None:
+    """SPECIFICATION v061 removed the generation-based void outright rather than
+    narrowing it. Generation cannot tell a session's own self-paced wakeup from a
+    maintainer handing it new work, and every void measured on the live fleet
+    (plan research 001) was a self-wakeup — after which the track was supervised as
+    undeclared and spent a model turn on a finished plan."""
     repo, topic = make_plan(tmp_path=tmp_path, repo_name="generating")
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
@@ -175,8 +178,9 @@ def test_scenario_a_done_session_that_resumes_generating_has_its_declaration_voi
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
     track = mapped_track(repo=repo, topic=topic, session=session)
     assert sup.evaluate(track=track, act=True).status == "warned"
-    declare(repo=repo, topic=topic, value="done: release complete", mtime=1001.0)
-    round_before_void = registry.read_round_record(
+    state_file = declare(repo=repo, topic=topic, value="done: release complete", mtime=1001.0)
+    state_before = state_file.read_bytes()
+    round_before = registry.read_round_record(
         repo=str(repo), topic=topic, stamp_path=sup.stamp_path
     )
 
@@ -184,14 +188,14 @@ def test_scenario_a_done_session_that_resumes_generating_has_its_declaration_voi
     clock["t"] = 1001.0 + _supervisor_config.MARKER_VOID_GRACE + 1
     view = sup.evaluate(track=track, act=True)
 
-    assert view.status == "working"
+    assert view.status == signals.STATE_DONE
+    assert state_file.read_bytes() == state_before
     state = signals.read_state(repo=str(repo), topic=topic)
     assert state is not None
-    assert state.token == signals.STATE_DONE_VOIDED
-    assert "release complete" in state.detail
+    assert state.token == signals.STATE_DONE
     assert (
         registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-        == round_before_void
+        == round_before
     )
 
 
