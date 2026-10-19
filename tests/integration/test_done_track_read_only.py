@@ -27,10 +27,15 @@ from test_supervisor_builders import (
     make_supervisor,
     mapped_track,
     unsubmitted_resume_capture,
+    write_session,
 )
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
+
+# The live Claude process the fixture registry describes.
+SESSION_PID = 200
+SESSION_PROC_START = "pt"
 
 
 def archive_plan(*, repo, topic):
@@ -41,17 +46,30 @@ def archive_plan(*, repo, topic):
 
 
 def mapped_plan_track(*, tmp_path, repo_name, capture, now=1000.0):
-    """A mapped Claude plan track a whole acting ``tick`` can drive."""
+    """A mapped Claude plan track a whole acting ``tick`` can drive.
+
+    The Claude session registry is REAL here rather than pre-seeded on the Supervisor:
+    ``build_rows`` recomputes ``claude_status_by_session`` from ``sessions_dir`` at the
+    top of every tick, so a pre-seeded map is overwritten and a track with no live
+    Claude status never reaches the wrap-up branch these tests have to suppress.
+    """
     repo, topic = make_plan(tmp_path=tmp_path, repo_name=repo_name)
     session = registry.tmux_id(repo=str(repo), topic=topic)
+    sessions_dir = tmp_path / repo_name / "sessions"
+    sessions_dir.mkdir(parents=True)
+    write_session(sessions_dir=sessions_dir, pid=SESSION_PID, name=topic, cwd=repo)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=capture)
+    fake.pane_pids = {100: session}
     sup = make_supervisor(
         tmp_path=tmp_path / repo_name,
         fake=fake,
         watch_repos=[str(repo)],
         own_pane="%7",
         now=lambda: now,
+        sessions_dir=sessions_dir,
+        ppid_of=lambda *, pid: {SESSION_PID: 100}.get(pid),
+        starttime_of=lambda *, pid: {SESSION_PID: SESSION_PROC_START}.get(pid),
     )
     registry.append_mapping(
         track=mapped_track(repo=repo, topic=topic, session=session),
@@ -61,9 +79,14 @@ def mapped_plan_track(*, tmp_path, repo_name, capture, now=1000.0):
     return repo, topic, session, fake, sup
 
 
-def live_identity(*, session, topic):
-    """The live Claude identity the beside-test double reports for a served session."""
-    return f"claude:{session}:{topic}"
+def live_identity(*, topic):
+    """The identity the daemon derives for the fixture's registry-backed session.
+
+    `claude:<pid>:<procStart>:<topic>`, taken from the registry file the fixture writes.
+    A round or a resume-pending record keyed on anything else is a PREDECESSOR's, which
+    the daemon treats as a stale round rather than as the live one under test.
+    """
+    return f"claude:{SESSION_PID}:{SESSION_PROC_START}:{topic}"
 
 
 def test_scenario_a_done_track_receives_no_act_on_any_path(*, tmp_path):
@@ -74,7 +97,7 @@ def test_scenario_a_done_track_receives_no_act_on_any_path(*, tmp_path):
         repo_name="stranded",
         capture=unsubmitted_resume_capture(ctx=10, repo=str(tmp_path / "stranded")),
     )
-    identity = live_identity(session=session, topic=topic)
+    identity = live_identity(topic=topic)
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=900.0, session_identity=identity, stamp_path=sup.stamp_path
     )
@@ -110,6 +133,9 @@ def test_scenario_a_done_track_receives_no_act_on_any_path(*, tmp_path):
         registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
         == round_before
     )
+    # The retry leg was ELIGIBLE and skipped, not satisfied: the round is still
+    # resume-pending, which is what a consumed declaration would have cleared.
+    assert registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
 
 
 def test_scenario_an_archived_plan_whose_session_still_exists_receives_nothing(*, tmp_path):
@@ -184,3 +210,44 @@ def test_a_declared_done_track_showing_a_picker_is_surfaced_but_not_acted_on(*, 
     assert not fake.has(method="keys")
     assert not fake.has(method="respawn")
     assert state.read_bytes() == state_before
+
+
+def test_scenario_a_done_track_whose_session_clears_its_own_declaration_is_supervised_again(
+    *, tmp_path
+):
+    """Re-opening is explicit and costs the round nothing: the floor the next `ready`
+    must beat does not move, and the bands already notified are not reset."""
+    repo, topic, session, fake, sup = mapped_plan_track(
+        tmp_path=tmp_path, repo_name="reopened", capture=idle_capture(ctx=40)
+    )
+    state = declare(repo=repo, topic=topic, value="done: release complete", mtime=950.0)
+    registry.write_injection_stamp(
+        repo=str(repo),
+        topic=topic,
+        ts=900.0,
+        session_identity=live_identity(topic=topic),
+        stamp_path=sup.stamp_path,
+    )
+    for band in (50, 40):
+        registry.add_notified_band(
+            repo=str(repo), topic=topic, band=band, stamp_path=sup.stamp_path
+        )
+    round_before = registry.read_round_record(
+        repo=str(repo), topic=topic, stamp_path=sup.stamp_path
+    )
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        done_views = sup.tick(act=True)
+    assert next(view for view in done_views if view.topic == topic).status == signals.STATE_DONE
+
+    state.unlink()
+    with contextlib.redirect_stderr(_io.StringIO()):
+        reopened = sup.tick(act=True)
+
+    row = next(view for view in reopened if view.topic == topic)
+    assert row.status == "warned"
+    assert (
+        registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        == round_before
+    )
+    assert fake.paste_texts() == []
