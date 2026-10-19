@@ -47,7 +47,8 @@ def run_tick(*, sup: Supervisor, act: bool = True) -> list[RowView]:
         # that leg — the prologue's resume retry, held-delivery release and
         # compaction-latch record all precede every guard.
         done_track = _supervisor_done_track.is_done_track(sup=sup, track=track)
-        row = sup.evaluate(track=track, act=act and not done_track)
+        track_act = act and not done_track
+        row = sup.evaluate(track=track, act=track_act)
         if not act:
             row = _supervisor_mapping_health.apply_mapping_health(
                 track=track, row=row, null_added_at_keys=null_added_at_keys
@@ -64,7 +65,13 @@ def run_tick(*, sup: Supervisor, act: bool = True) -> list[RowView]:
         if done_track:
             row = _supervisor_done_track.quiet_done_row(row=row)
         views.append(row)
-        supervisor_view = _supervisor_pair.evaluate_supervisor_pair(sup=sup, track=track, act=act)
+        # The pair pass takes the SAME withholding, because it runs outside the cascade
+        # entirely: a done worker's seat would otherwise have its own round opened and a
+        # wind-down pasted into its pane, and the pair-stall ladder would nudge it. The
+        # seat stays VISIBLE either way — only the driving stops.
+        supervisor_view = _supervisor_pair.evaluate_supervisor_pair(
+            sup=sup, track=track, act=track_act
+        )
         if supervisor_view is not None:
             views.append(supervisor_view)
             _supervisor_pair.evaluate_pair_stall(
@@ -72,7 +79,7 @@ def run_tick(*, sup: Supervisor, act: bool = True) -> list[RowView]:
                 track=track,
                 worker_view=views[-2],
                 supervisor_view=supervisor_view,
-                act=act,
+                act=track_act,
             )
     views.extend(_supervisor_discovery.unindexed_codex_rows(sup=sup))
     currency = sup.currency_row()
