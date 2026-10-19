@@ -528,12 +528,17 @@ keep-going nudge" above):
   authorizes a restart, never expires with age, suppresses every wrap-up and
   keep-going nudge, and renders as the quiet `done` status whether its session is
   live or has exited. A live structured picker still outranks it and renders
-  `blocked:human`. If the same session resumes generating on non-peer input after
-  `MARKER_VOID_GRACE`, the daemon replaces only the declaration with the
-  `done-voided` diagnostic; it raises no certification floor and leaves the open
-  round, notified bands, and compaction latch untouched. A background command at
-  the prompt, an idle observation, or age alone never voids it. A session handed
-  new work must remove its own `done` before resuming.
+  `blocked:human`. **Nothing the daemon can observe retires it (SPECIFICATION
+  v061):** not resumed generation, not a background command at the prompt, not an
+  idle observation, and not age. Every observation of the track is read-only —
+  the daemon writes, deletes, voids and expires nothing, and the open round, its
+  notified bands and the compaction latch are all left exactly as the session
+  left them. A session handed new work must remove its own `done` before
+  resuming; that, or its plan directory being moved back out of `plan/archive/`,
+  is the only way the track is re-opened. (An earlier daemon DID void a `done`
+  on observed generation, writing a `done-voided` diagnostic in its place. That
+  is removed. The token survives as read vocabulary only, so a diagnostic an
+  older daemon left on disk still parses as a valid daemon-written value.)
 
 The normal restart-requesting sequence is therefore **two writes**: `winding-down`
 the moment the wrap-up lands, then `ready` (or `blocked: …`) when the session

@@ -10,7 +10,6 @@ import _supervisor_attention
 import _supervisor_blocked
 import _supervisor_busy
 import _supervisor_busy_delivery
-import _supervisor_declaration_voiding
 import registry
 import signals
 from _supervisor_records import InjectState, Observation
@@ -71,15 +70,11 @@ def _done_declared(*, request: ActiveRequest) -> bool:
 
 def active_decision(*, request: ActiveRequest) -> ActiveDecision | None:
     active_conditions: set[str] = set()
-    done_stands = _done_declared(request=request)
-    if done_stands and request.act and request.declared is not None:
-        done_stands = _supervisor_declaration_voiding.void_stale_done(
-            sup=request.sup,
-            track=request.track,
-            state=request.declared,
-            generating=request.attention.generating,
-        )
-    if done_stands and not request.gate:
+    # The terminal declaration has no expiry and no evidence-based void (SPECIFICATION
+    # v061): neither observed generation, nor background activity, nor idleness, nor age
+    # retires it. A session handed new work clears its own `done` first, which is the
+    # only thing that ends it short of its plan being un-archived.
+    if _done_declared(request=request) and not request.gate:
         return ActiveDecision(
             status=signals.STATE_DONE,
             note=request.declared.detail if request.declared is not None else None,

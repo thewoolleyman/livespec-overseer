@@ -281,9 +281,11 @@ ACKs) `→ restarting` (session declares `ready`) `→` a fresh `working` after 
 respawn — each arrow driven by the SESSION's own declaration, never a daemon
 guess. A session whose work is finished instead declares `done`, a quiet terminal
 leaf that holds the round and compaction latch untouched and never restarts, warns,
-nudges, or enters attention; an open structured picker still outranks it. Old `done`
-is voided only when non-peer-injected generation resumes, after which ordinary
-supervision resumes. `unassigned` / `session_gone` / `live_outside_tmux` are structural pre-checks
+nudges, or enters attention; an open structured picker still outranks it. **Nothing
+the daemon can observe voids a `done` (SPECIFICATION v061)** — not generation, not
+background activity, not idleness, not age; only the session clearing its own state
+file, or its plan being moved back out of `plan/archive/`, re-opens the track.
+`unassigned` / `session_gone` / `live_outside_tmux` are structural pre-checks
 (no live managed pane to read); `settling` is a one-tick "wait and re-read". The
 diagram is drawn Claude-first, but **a Codex track is a full citizen
 (maintainer-declared 2026-07-17)** and flows through the SAME branches with
@@ -810,11 +812,36 @@ for the marker's edge-triggered lifecycle.
    age expiry, and renders as the quiet green `done` row for either a live or exited
    session. The row never joins `ATTENTION_STATUSES`; only an open structured picker can
    make the same track `blocked:human`. A standing `done` freezes the delivered round,
-   notified bands and compaction latch. `_supervisor_declaration_voiding` replaces it
-   with `done-voided` only after `MARKER_VOID_GRACE` when the session is observed
-   generating on input that was not peer-injected. Shell-busy background work, idle,
-   and age alone do not void it, and voiding raises no certification floor. The session
-   must clear its own `done` before accepting new work.
+   notified bands and compaction latch. The session must clear its own `done` before
+   accepting new work.
+
+   **A DONE TRACK IS WIDER THAN A DONE DECLARATION, AND THE GATE IS NOT IN THE CASCADE
+   (SPECIFICATION v061).** A done track is a track holding a standing `done` OR a plan
+   track whose plan directory is archived while its recorded session still exists, and
+   the daemon performs NO act on one: every observation is read-only exactly as the
+   `list` path is, so its state file and round record are never written either.
+   `_supervisor_done_track.is_done_track` answers the question and
+   `_supervisor_tick.run_tick` asks it ONCE per track, BEFORE the evaluation, passing
+   `act=False` into `sup.evaluate` and both `_supervisor_pair` calls. **Do not move that
+   gate into the `done` leg of the cascade.** The acts the rule forbids run AROUND that
+   leg, not inside it: the self-healing resume retry, the held-delivery release and the
+   compaction-latch record are all in the evaluation's PROLOGUE, ahead of every guard,
+   and the pair pass runs after the cascade has already returned. Withholding `act` from
+   the whole evaluation is the one place that reaches all of them.
+   `_supervisor_done_track.quiet_done_row` then projects the row, dropping a note that
+   would otherwise carry an archived track into `NEEDS YOU` through the
+   `BAD state file` match.
+
+   **Two things this REVERSED, both deliberately.** The generation-based void is GONE —
+   `_supervisor_declaration_voiding.void_stale_done` and the `done-voided` write with it
+   — because generation cannot tell a session's own self-paced wakeup from a maintainer
+   handing it new work, and every void measured on the live fleet was a self-wakeup
+   (`plan/overseer-ignore-done-plans/research/001-baseline-measurement.md`). The
+   `signals.STATE_DONE_VOIDED` token survives as READ vocabulary only, so a diagnostic an
+   older daemon left on disk still parses. And the supervision half of the 2026-09-12
+   archived-live ruling is withdrawn: `_supervisor_archived_live` still RETAINS the row
+   and its mapping so the maintainer can read the wrap-up, but a retained track is no
+   longer driven — it is not wrapped up, nudged, or restarted on a `ready` it declares.
 10. **The DAEMON owns "what needs attention"; the bottom pane must never be a status
     display (maintainer-declared 2026-07-14).** Current state is rendered ONLY by the
     daemon — the table plus its `NEEDS YOU` block (`Supervisor._attention_lines`,
