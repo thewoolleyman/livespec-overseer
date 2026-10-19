@@ -251,3 +251,47 @@ def test_scenario_a_done_track_whose_session_clears_its_own_declaration_is_super
         == round_before
     )
     assert fake.paste_texts() == []
+
+
+def test_scenario_an_archived_plan_moved_back_out_of_the_archive_is_supervised_again(*, tmp_path):
+    """The daemon keys on the DIRECTORY alone, so moving a plan back to `plan/<topic>/`
+    re-opens its track — provided it holds no `done` of its own."""
+    repo, topic, _session, fake, sup = mapped_plan_track(
+        tmp_path=tmp_path, repo_name="unarchived", capture=idle_capture(ctx=40)
+    )
+    archive_plan(repo=repo, topic=topic)
+    with contextlib.redirect_stderr(_io.StringIO()):
+        archived = sup.tick(act=True)
+    assert next(view for view in archived if view.topic == topic).status == signals.STATE_DONE
+    assert fake.paste_texts() == []
+
+    _ = shutil.move(str(repo / "plan" / "archive" / topic), str(repo / "plan" / topic))
+    with contextlib.redirect_stderr(_io.StringIO()):
+        reopened = sup.tick(act=True)
+
+    row = next(view for view in reopened if view.topic == topic)
+    assert row.status == "warned"
+    assert row.archived_live is False
+    assert len(fake.paste_texts()) == 1  # the wind-down its band had made due
+
+
+def test_scenario_an_archived_plans_row_is_collected_once_its_session_is_gone(*, tmp_path):
+    """Retention ends with the runtime, not with the archival: once the recorded session
+    is gone the row leaves the table and its mapping is garbage-collected."""
+    repo, topic, session, fake, sup = mapped_plan_track(
+        tmp_path=tmp_path, repo_name="collected", capture=idle_capture(ctx=80)
+    )
+    archive_plan(repo=repo, topic=topic)
+    with contextlib.redirect_stderr(_io.StringIO()):
+        retained = sup.tick(act=True)
+    assert [view.topic for view in retained] == [topic]
+    assert [track.topic for track in registry.read_valid_mapping(store_path=sup.store_path)] == [
+        topic
+    ]
+
+    assert fake.kill_session(session=session) is True
+    with contextlib.redirect_stderr(_io.StringIO()):
+        collected = sup.tick(act=True)
+
+    assert collected == []
+    assert registry.read_valid_mapping(store_path=sup.store_path) == []
