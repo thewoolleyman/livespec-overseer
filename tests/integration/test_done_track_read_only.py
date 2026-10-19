@@ -17,6 +17,7 @@ import contextlib
 import io as _io
 import shutil
 
+import _supervisor_config
 import registry
 import signals
 import supervisor
@@ -27,6 +28,7 @@ from test_supervisor_builders import (
     make_supervisor,
     mapped_track,
     unsubmitted_resume_capture,
+    write_fresh_supervisor_state,
     write_session,
 )
 from test_supervisor_fakes import FakeTmux
@@ -295,3 +297,65 @@ def test_scenario_an_archived_plans_row_is_collected_once_its_session_is_gone(*,
 
     assert collected == []
     assert registry.read_valid_mapping(store_path=sup.store_path) == []
+
+
+def paired_done_worker(*, tmp_path, now):
+    """A mapped worker track beside a LIVE attended supervisor seat, both idle.
+
+    BOTH halves are in the Claude session registry, which is what makes the seat's own
+    wind-down reachable: the threshold branch re-observes the pane immediately before
+    pasting and settles for `settling` when it cannot prove the live session identity,
+    so a seat with no registry entry is never acted on for reasons that have nothing to
+    do with its worker being done.
+    """
+    repo, topic = make_plan(tmp_path=tmp_path, repo_name="done-pair")
+    (repo / "plan" / topic / "supervisor-handoff.md").write_text("supervise this\n")
+    worker_session = registry.tmux_id(repo=str(repo), topic=topic)
+    supervisor_session = signals.supervisor_entity_topic(topic=worker_session)
+    sessions_dir = tmp_path / "pair" / "sessions"
+    sessions_dir.mkdir(parents=True)
+    write_session(sessions_dir=sessions_dir, pid=SESSION_PID, name=topic, cwd=repo)
+    write_session(sessions_dir=sessions_dir, pid=201, name=supervisor_session, cwd=repo)
+    fake = FakeTmux()
+    fake.serve(session=worker_session, repo=repo, capture=idle_capture(ctx=40))
+    fake.serve(session=supervisor_session, repo=repo, capture=idle_capture(ctx=40))
+    fake.pane_pids = {100: worker_session, 101: supervisor_session}
+    sup = make_supervisor(
+        tmp_path=tmp_path / "pair",
+        fake=fake,
+        watch_repos=[str(repo)],
+        own_pane="%7",
+        now=now,
+        sessions_dir=sessions_dir,
+        ppid_of=lambda *, pid: {SESSION_PID: 100, 201: 101}.get(pid),
+        starttime_of=lambda *, pid: {SESSION_PID: SESSION_PROC_START, 201: "pt"}.get(pid),
+    )
+    registry.append_mapping(
+        track=mapped_track(repo=repo, topic=topic, session=worker_session),
+        store_path=sup.store_path,
+        added_at="2026-10-19T00:00:00Z",
+    )
+    write_fresh_supervisor_state(repo=repo, topic=supervisor_session)
+    return sup, fake, repo, topic, supervisor_session
+
+
+def test_the_supervisor_of_a_done_worker_is_neither_wound_down_nor_nudged(*, tmp_path):
+    """The pair pass runs AFTER the cascade has already returned, so the cascade's own
+    `done` leg cannot reach it: both `_supervisor_pair` calls have to be told the track
+    is done too. The seat stays VISIBLE — it is simply not driven."""
+    clock = {"t": 1000.0}
+    sup, fake, repo, topic, supervisor_session = paired_done_worker(
+        tmp_path=tmp_path, now=lambda: clock["t"]
+    )
+    _ = declare(repo=repo, topic=topic, value="done: release complete", mtime=950.0)
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        views = sup.tick(act=True)
+        clock["t"] += _supervisor_config.PAIR_STALL_AFTER + 1
+        views = sup.tick(act=True)
+
+    assert next(view for view in views if view.topic == topic).status == signals.STATE_DONE
+    assert any(view.topic == supervisor_session for view in views)
+    assert fake.paste_texts() == []
+    assert not fake.has(method="keys")
+    assert not fake.has(method="respawn")
