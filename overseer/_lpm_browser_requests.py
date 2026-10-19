@@ -10,6 +10,7 @@ from _lpm_canonical import canonical_json_bytes, parse_canonical_json
 
 __all__: list[str] = [
     "FRAME_PREFIX_BYTES",
+    "MAX_FRAME_PAYLOAD_BYTES",
     "PRIVATE_EXECUTION_TOOLS",
     "BrowserRequest",
     "browser_request_allowed",
@@ -19,7 +20,7 @@ __all__: list[str] = [
 ]
 
 FRAME_PREFIX_BYTES: Final = 4
-_MAX_FRAME: Final = 16_777_216
+MAX_FRAME_PAYLOAD_BYTES: Final = 16_777_216
 _MAX_SCROLL_PIXELS: Final = 10_000
 _MAX_TEXT_BYTES: Final = 4096
 _MAX_WAIT_SECONDS: Final = 30
@@ -82,7 +83,7 @@ def browser_request_from_frame(*, frame: bytes) -> BrowserRequest | None:
         int.from_bytes(frame[:FRAME_PREFIX_BYTES], "big") if len(frame) >= FRAME_PREFIX_BYTES else 0
     )
     payload = frame[FRAME_PREFIX_BYTES:] if len(frame) >= FRAME_PREFIX_BYTES else b""
-    if not 1 <= declared <= _MAX_FRAME or declared != len(payload):
+    if not 1 <= declared <= MAX_FRAME_PAYLOAD_BYTES or declared != len(payload):
         return None
     try:
         text = payload.decode("utf-8")
