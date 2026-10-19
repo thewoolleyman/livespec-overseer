@@ -8,6 +8,7 @@ import _supervisor_archived_live
 import _supervisor_attention
 import _supervisor_discovery
 import _supervisor_dispatch_quiet
+import _supervisor_done_track
 import _supervisor_epic_heal
 import _supervisor_mapping_health
 import _supervisor_pair
@@ -40,7 +41,13 @@ def run_tick(*, sup: Supervisor, act: bool = True) -> list[RowView]:
         # heals, so it too stays plan-file-free. Bounded to one anchor read per null row.
         tracks = _supervisor_epic_heal.heal_derivable_epics(sup=sup, rows=tracks)
     for track in tracks:
-        row = sup.evaluate(track=track, act=act)
+        # SPECIFICATION v061: every observation of a DONE track is read-only, exactly as
+        # the `list` path is. The withholding happens HERE rather than inside the
+        # cascade's own `done` leg, because the acts the rule forbids also run AROUND
+        # that leg — the prologue's resume retry, held-delivery release and
+        # compaction-latch record all precede every guard.
+        done_track = _supervisor_done_track.is_done_track(track=track)
+        row = sup.evaluate(track=track, act=act and not done_track)
         if not act:
             row = _supervisor_mapping_health.apply_mapping_health(
                 track=track, row=row, null_added_at_keys=null_added_at_keys
