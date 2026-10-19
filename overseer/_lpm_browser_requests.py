@@ -9,13 +9,16 @@ from typing import Final, cast
 from _lpm_canonical import canonical_json_bytes, parse_canonical_json
 
 __all__: list[str] = [
+    "FRAME_PREFIX_BYTES",
+    "PRIVATE_EXECUTION_TOOLS",
     "BrowserRequest",
     "browser_request_allowed",
     "browser_request_from_frame",
     "frame_for",
+    "response_frame_for",
 ]
 
-_FRAME_PREFIX_BYTES: Final = 4
+FRAME_PREFIX_BYTES: Final = 4
 _MAX_FRAME: Final = 16_777_216
 _MAX_SCROLL_PIXELS: Final = 10_000
 _MAX_TEXT_BYTES: Final = 4096
@@ -45,6 +48,7 @@ _SIGNATURES: Final[dict[str, dict[str, type[object]]]] = {
     "capture-token": {"source_handle": str},
     "discard-capture": {"capture_handle": str},
 }
+PRIVATE_EXECUTION_TOOLS: Final = tuple(_SIGNATURES)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -60,17 +64,24 @@ def frame_for(*, tool: str, arguments: dict[str, object]) -> bytes:
     payload = canonical_json_bytes(
         value={"version": 1, "tool": tool, "arguments": arguments}
     ).unwrap()
-    return len(payload).to_bytes(_FRAME_PREFIX_BYTES, "big") + payload
+    return _length_prefixed(payload=payload)
+
+
+def response_frame_for(*, response: dict[str, object]) -> bytes:
+    """Encode one closed secret-free result frame for the private proxy channel."""
+    return _length_prefixed(payload=canonical_json_bytes(value=response).unwrap())
+
+
+def _length_prefixed(*, payload: bytes) -> bytes:
+    return len(payload).to_bytes(FRAME_PREFIX_BYTES, "big") + payload
 
 
 def browser_request_from_frame(*, frame: bytes) -> BrowserRequest | None:
     """Return a request only after the complete frame and canonical object validate."""
     declared = (
-        int.from_bytes(frame[:_FRAME_PREFIX_BYTES], "big")
-        if len(frame) >= _FRAME_PREFIX_BYTES
-        else 0
+        int.from_bytes(frame[:FRAME_PREFIX_BYTES], "big") if len(frame) >= FRAME_PREFIX_BYTES else 0
     )
-    payload = frame[_FRAME_PREFIX_BYTES:] if len(frame) >= _FRAME_PREFIX_BYTES else b""
+    payload = frame[FRAME_PREFIX_BYTES:] if len(frame) >= FRAME_PREFIX_BYTES else b""
     if not 1 <= declared <= _MAX_FRAME or declared != len(payload):
         return None
     try:
