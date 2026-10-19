@@ -19,6 +19,7 @@ from typing import Protocol
 from _lpm_browser_control import BrowserControl
 from _lpm_browser_requests import (
     FRAME_PREFIX_BYTES,
+    MAX_FRAME_PAYLOAD_BYTES,
     PRIVATE_EXECUTION_TOOLS,
     response_frame_for,
 )
@@ -105,12 +106,14 @@ class AcquisitionProxy:
         prefix = self.channel.receive(count=FRAME_PREFIX_BYTES, timeout_seconds=timeout_seconds)
         if prefix is None:
             return None
-        payload = self.channel.receive(
-            count=int.from_bytes(prefix, "big"), timeout_seconds=timeout_seconds
-        )
+        declared = int.from_bytes(prefix, "big")
+        if not 1 <= declared <= MAX_FRAME_PAYLOAD_BYTES:
+            return None
+        payload = self.channel.receive(count=declared, timeout_seconds=timeout_seconds)
         return None if payload is None else prefix + payload
 
     def _stopped(self, *, reason: str) -> ProxyOutcome:
+        self.channel.close()
         return ProxyOutcome(stop_reason=reason, consumed_steps=self.control.consumed_steps)
 
 
