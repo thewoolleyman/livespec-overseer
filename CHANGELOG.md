@@ -1,5 +1,16 @@
 # Changelog
 
+## [5.33.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.32.1...v5.33.0) (2026-10-19)
+
+
+### Features
+
+* **supervisor:** a done declaration survives resumed generation ([0d17b31](https://github.com/thewoolleyman/livespec-overseer/commit/0d17b31ec6ff725765320765487100a28ebedbfb))
+* **supervisor:** a done track receives no act on any path ([9e55207](https://github.com/thewoolleyman/livespec-overseer/commit/9e552070fa8d7b41e6db6bf40705db2c77ab7dfe))
+* **supervisor:** live gate evidence still outranks a done track's quiet row ([78a7cbe](https://github.com/thewoolleyman/livespec-overseer/commit/78a7cbe41bfab79925019be1e49d593165f867d9))
+* **supervisor:** run an archived-live plan track read-only as a quiet done row ([bb69c49](https://github.com/thewoolleyman/livespec-overseer/commit/bb69c49852270416e8a89c7015625be7dc7570dd))
+* **supervisor:** the supervisor of a done worker is not driven either ([db50594](https://github.com/thewoolleyman/livespec-overseer/commit/db505941f245f25bb4ff604d821d5dded862d295))
+
 ## [5.32.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.32.0...v5.32.1) (2026-10-19)
 
 
