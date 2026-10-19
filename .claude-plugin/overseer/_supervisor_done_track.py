@@ -1,4 +1,4 @@
-"""_supervisor_done_track — which tracks the daemon may not act on.
+"""_supervisor_done_track — which tracks the daemon may not act on, and how they render.
 
 SPECIFICATION v061, spec.md, the terminal declaration: a DONE TRACK is a track holding
 a standing ``done`` declaration, or a plan track whose plan directory is archived while
@@ -18,19 +18,52 @@ of them at once.
 
 from __future__ import annotations
 
+import dataclasses
+from typing import TYPE_CHECKING
+
 import registry
 import signals
+from _supervisor_view import RowView, needs_attention
 
-__all__: list[str] = ["is_done_track"]
+if TYPE_CHECKING:
+    from _supervisor_core import Supervisor
+
+__all__: list[str] = ["is_done_track", "quiet_done_row"]
 
 
-def is_done_track(*, track: registry.Track) -> bool:
+def is_done_track(*, sup: Supervisor, track: registry.Track) -> bool:
     """Whether this track is DONE, and so must be observed read-only this tick.
+
+    Two independent ways in, and the ARCHIVAL one is asked first because it holds
+    whatever the state file says: ``sup.archived_live`` is this tick's retention set,
+    refreshed by the discovery pass that ran just above the caller, so a plan whose
+    directory has gone to ``plan/archive/`` while its recorded session still exists is
+    already in it.
 
     The declaration is read from the track's own canonical state path, exactly as the
     cascade reads it, so the two cannot reach opposite answers about the same file. A
-    malformed or absent value is not a ``done`` declaration and does not make a track
-    done.
+    malformed or absent value is not a ``done`` declaration and does not make an
+    unarchived track done.
     """
+    if (registry.norm(repo=track.repo), track.topic) in sup.archived_live:
+        return True
     state = signals.read_state(repo=track.repo, topic=track.topic)
     return state is not None and state.token == signals.STATE_DONE
+
+
+def quiet_done_row(*, row: RowView) -> RowView:
+    """Project a done track onto the quiet terminal ``done`` status.
+
+    A NOTE that would otherwise carry the row into ``NEEDS YOU`` is dropped with it.
+    That is not cosmetic tidying: an archived plan's state file can hold anything its
+    session last wrote — nothing, a stale declaration, or a malformed value — and the
+    ratified rule is that such a track is an attention member ONLY through live gate
+    evidence. A `BAD state file` note left on the row would make it one through the
+    note instead, which is the shape measured on `caam-mixed-plan-capacity`
+    (plan research 001): an archived, finished track sitting red in the operator's
+    attention block over a value nobody is going to act on.
+    """
+    quiet = dataclasses.replace(row, status=signals.STATE_DONE)
+    if not needs_attention(row=quiet):
+        return quiet
+    return dataclasses.replace(quiet, note=None)

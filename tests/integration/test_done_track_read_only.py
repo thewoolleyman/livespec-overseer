@@ -15,12 +15,14 @@ from __future__ import annotations
 
 import contextlib
 import io as _io
+import shutil
 
 import registry
 import signals
 import supervisor
 from test_supervisor_builders import (
     declare,
+    idle_capture,
     make_plan,
     make_supervisor,
     mapped_track,
@@ -29,6 +31,13 @@ from test_supervisor_builders import (
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
+
+
+def archive_plan(*, repo, topic):
+    """`git mv plan/<topic> plan/archive/<topic>` — the move that ends discovery."""
+    archive = repo / "plan" / "archive"
+    archive.mkdir(parents=True, exist_ok=True)
+    _ = shutil.move(str(repo / "plan" / topic), str(archive / topic))
 
 
 def mapped_plan_track(*, tmp_path, repo_name, capture, now=1000.0):
@@ -101,3 +110,31 @@ def test_scenario_a_done_track_receives_no_act_on_any_path(*, tmp_path):
         registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
         == round_before
     )
+
+
+def test_scenario_an_archived_plan_whose_session_still_exists_receives_nothing(*, tmp_path):
+    """Retention is for VISIBILITY only. An archived plan whose recorded session is
+    still live is a done track: it is observed read-only and renders the quiet `done`
+    row outside the attention set, whatever its own state file holds."""
+    repo, topic, session, fake, sup = mapped_plan_track(
+        tmp_path=tmp_path, repo_name="archived", capture=idle_capture(ctx=40)
+    )
+    # A MALFORMED value, deliberately: a track that is done because its plan is
+    # archived is an attention member only through live gate evidence, so the
+    # `BAD state file` note must not put this row in NEEDS YOU either.
+    state = declare(repo=repo, topic=topic, value="working", mtime=950.0)
+    archive_plan(repo=repo, topic=topic)
+    state_before = state.read_bytes()
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        views = sup.tick(act=True)
+
+    row = next(view for view in views if view.topic == topic)
+    assert row.status == signals.STATE_DONE
+    assert row.archived_live is True
+    assert supervisor.needs_attention(row=row) is False
+    assert fake.paste_texts() == []
+    assert not fake.has(method="keys")
+    assert not fake.has(method="respawn")
+    assert fake.session_exists(session=session) is True
+    assert state.read_bytes() == state_before
