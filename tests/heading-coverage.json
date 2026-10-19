@@ -2841,8 +2841,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A done session that resumes generating keeps its declaration",
-    "test": "TODO",
-    "reason": "The prior pin asserted the now-removed daemon-side void; the implementation slice under plan overseer-ignore-done-plans replaces it with an integration test proving the declaration stands and no act is delivered.",
+    "test": "tests.integration.test_done_terminal_declaration.test_scenario_a_done_session_that_resumes_generating_keeps_its_declaration",
+    "reason": "Integration-tier: observes a done session actively generating past the two-minute grace and proves the state file is byte-for-byte unchanged, no done-voided diagnostic is written, and the row stays done.",
     "work_item": "overseer-jfp23f"
   },
   {
@@ -3558,48 +3558,48 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A done track receives no act on any path",
-    "test": "TODO",
-    "work_item": "overseer-jfp23f",
-    "reason": "Owned by the implementation slice under plan overseer-ignore-done-plans; the evidence must drive the daemon's evaluate cascade at integration tier and count delivered acts."
+    "test": "tests.integration.test_done_track_read_only.test_scenario_a_done_track_receives_no_act_on_any_path",
+    "reason": "Integration-tier: drives one acting tick on a done track whose band is due, whose pending resume would be retried and whose compaction latch would fire, counting every paste, keystroke, restart and state-file write as zero.",
+    "work_item": "overseer-jfp23f"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An archived plan's row is collected once its session is gone",
-    "test": "TODO",
-    "work_item": "overseer-jfp23f",
-    "reason": "Owned by the implementation slice under plan overseer-ignore-done-plans; the evidence must drive the daemon's evaluate cascade at integration tier and count delivered acts."
+    "test": "tests.integration.test_done_track_read_only.test_scenario_an_archived_plans_row_is_collected_once_its_session_is_gone",
+    "reason": "Integration-tier: proves retention ends with the RUNTIME rather than the archival — once the recorded session is gone the row leaves the table and its mapping entry is garbage-collected.",
+    "work_item": "overseer-jfp23f"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An archived plan moved back out of the archive is supervised again",
-    "test": "TODO",
-    "work_item": "overseer-jfp23f",
-    "reason": "Owned by the implementation slice under plan overseer-ignore-done-plans; the evidence must drive the daemon's evaluate cascade at integration tier and count delivered acts."
+    "test": "tests.integration.test_done_track_read_only.test_scenario_an_archived_plan_moved_back_out_of_the_archive_is_supervised_again",
+    "reason": "Integration-tier: moves a plan directory back out of plan/archive/ and proves the track is rediscovered as active and receives the wind-down its band had already made due — the daemon keys on the DIRECTORY alone.",
+    "work_item": "overseer-jfp23f"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An archived plan whose session still exists receives nothing",
-    "test": "TODO",
-    "work_item": "overseer-jfp23f",
-    "reason": "Owned by the implementation slice under plan overseer-ignore-done-plans; the evidence must drive the daemon's evaluate cascade at integration tier and count delivered acts."
+    "test": "tests.integration.test_done_track_read_only.test_scenario_an_archived_plan_whose_session_still_exists_receives_nothing",
+    "reason": "Integration-tier: drives one acting tick on an archived-live plan track holding a malformed state file below its threshold, and proves the quiet done row renders outside the attention set with no paste, keystroke, restart or replacement.",
+    "work_item": "overseer-jfp23f"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A done track whose session clears its own declaration is supervised again",
-    "test": "TODO",
-    "work_item": "overseer-jfp23f",
-    "reason": "Owned by the implementation slice under plan overseer-ignore-done-plans; the evidence must drive the daemon's evaluate cascade at integration tier and count delivered acts."
+    "test": "tests.integration.test_done_track_read_only.test_scenario_a_done_track_whose_session_clears_its_own_declaration_is_supervised_again",
+    "reason": "Integration-tier: deletes the track's own done state file and proves the next acting tick supervises it as undeclared while the round it rejoins is the one it left — certification floor and notified bands unchanged.",
+    "work_item": "overseer-jfp23f"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An archived plan showing a picker is surfaced but not acted on",
-    "test": "TODO",
-    "work_item": "overseer-jfp23f",
-    "reason": "Owned by the implementation slice under plan overseer-ignore-done-plans; the evidence must drive the daemon's evaluate cascade at integration tier and count delivered acts."
+    "test": "tests.integration.test_done_track_read_only.test_scenario_an_archived_plan_showing_a_picker_is_surfaced_but_not_acted_on",
+    "reason": "Integration-tier: an archived-live track sitting on an open structured picker renders as a blocked:human attention member — live gate evidence outranks the quiet row — and still receives no act, because surfacing it is report-only.",
+    "work_item": "overseer-jfp23f"
   }
 ]
