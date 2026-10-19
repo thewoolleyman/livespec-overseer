@@ -138,3 +138,49 @@ def test_scenario_an_archived_plan_whose_session_still_exists_receives_nothing(*
     assert not fake.has(method="respawn")
     assert fake.session_exists(session=session) is True
     assert state.read_bytes() == state_before
+
+
+def picker_capture(*, ctx):
+    """A pane sitting on an open structured picker — live gate evidence."""
+    return f"Choose the next action\n❯ 1. Publish\n  2. Wait\n  Ctx: {ctx}% left\n"
+
+
+def test_scenario_an_archived_plan_showing_a_picker_is_surfaced_but_not_acted_on(*, tmp_path):
+    """Live gate evidence outranks `done` for REPORTING and for reporting only: the row
+    is a blocked attention member, and still nothing is delivered to the pane."""
+    repo, topic, _session, fake, sup = mapped_plan_track(
+        tmp_path=tmp_path, repo_name="archived-picker", capture=picker_capture(ctx=72)
+    )
+    archive_plan(repo=repo, topic=topic)
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        views = sup.tick(act=True)
+
+    row = next(view for view in views if view.topic == topic)
+    assert row.status == "blocked:human"
+    assert row.archived_live is True
+    assert supervisor.needs_attention(row=row) is True
+    assert fake.paste_texts() == []
+    assert not fake.has(method="keys")
+    assert not fake.has(method="respawn")
+
+
+def test_a_declared_done_track_showing_a_picker_is_surfaced_but_not_acted_on(*, tmp_path):
+    """The declaration arm of the same rule: a track that is done by its own `done` and
+    is sitting on a picker reports `blocked:human` without being acted on either."""
+    repo, topic, _session, fake, sup = mapped_plan_track(
+        tmp_path=tmp_path, repo_name="done-picker", capture=picker_capture(ctx=72)
+    )
+    state = declare(repo=repo, topic=topic, value="done: release complete", mtime=950.0)
+    state_before = state.read_bytes()
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        views = sup.tick(act=True)
+
+    row = next(view for view in views if view.topic == topic)
+    assert row.status == "blocked:human"
+    assert supervisor.needs_attention(row=row) is True
+    assert fake.paste_texts() == []
+    assert not fake.has(method="keys")
+    assert not fake.has(method="respawn")
+    assert state.read_bytes() == state_before
