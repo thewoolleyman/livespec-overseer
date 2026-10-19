@@ -204,6 +204,11 @@ def reconcile_bare_shell(
     if transaction is None:
         return None
     if transaction.get("target") != target:
+        # A completed replacement is terminal: it owns nothing, so the record left behind
+        # for a pane the session has since moved away from must not stall the track in
+        # its new pane (overseer-bce3). Only an unfinished one still refuses here.
+        if transaction.get("phase") == "completed":
+            return None
         return _row(
             track=track,
             status="replacement-failed",
