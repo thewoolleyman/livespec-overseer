@@ -101,6 +101,8 @@ class AcquisitionProxy:
             if outcome.response is None:
                 return self._stopped(reason="flow-unavailable")
             _ = self.channel.send(frame=response_frame_for(response=outcome.response))
+            if outcome.stop_reason is not None:
+                return self._stopped(reason=outcome.stop_reason)
 
     def _next_frame(self, *, timeout_seconds: float) -> bytes | None:
         prefix = self.channel.receive(count=FRAME_PREFIX_BYTES, timeout_seconds=timeout_seconds)
