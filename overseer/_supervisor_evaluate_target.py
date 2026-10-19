@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, cast
 
+import _supervisor_herdr_moved
 import _supervisor_herdr_stall
 import _supervisor_launch
 import _supervisor_observe
@@ -102,6 +103,20 @@ def _resolve_herdr_target(
     refuses_recorded_target = session.startswith(
         herdr_identity.HERDR_SCHEME
     ) and _carries_claude_identity(track=track)
+    relaunched = (
+        _supervisor_herdr_moved.relaunched_identity(sup=sup, track=track, session=session)
+        if current is None and refuses_recorded_target
+        else None
+    )
+    if relaunched is not None:
+        if act:
+            _ = registry.record_observed_session_identity(
+                repo=track.repo,
+                topic=track.topic,
+                session_identity=relaunched,
+                store_path=sup.store_path,
+            )
+        return replace(track, observed_session_identity=relaunched), session, session, False
     if current is None:
         return track, session, None, refuses_recorded_target
     if current == session:

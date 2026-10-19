@@ -6,9 +6,9 @@ import collections
 import os
 from typing import TYPE_CHECKING
 
+import _supervisor_herdr_moved
 import claude_sessions
 import codex_sessions
-import herdr_identity
 import pane_router
 import registry
 import signals
@@ -133,10 +133,6 @@ def _mapped_tmux_by_track(*, sup: Supervisor) -> dict[tuple[str, str], str | Non
     return {(registry.norm(repo=track.repo), track.topic): track.tmux for track in mapping}
 
 
-def _legacy_unqualified_target(*, value: str | None) -> bool:
-    return isinstance(value, str) and bool(herdr_identity.decode_target(value=value).tmux_session)
-
-
 def adopt_sessions(*, sup: Supervisor, watch: list[str]) -> list[registry.Track]:
     """Adopt live Claude sessions whose registry name matches an active plan topic.
 
@@ -218,16 +214,10 @@ def adopt_sessions(*, sup: Supervisor, watch: list[str]) -> list[registry.Track]
             # so a steady-state tick (tmux unchanged) never touches the store, and
             # idempotent (`repoint_tmux` no-ops + returns False when unchanged). SKIP
             # when ambiguous (>1 live session for this track) so it cannot flip-flop.
-            recorded_target = existing[key]
-            if (
-                _legacy_unqualified_target(value=recorded_target)
-                and (repo, topic) not in ambiguous
-                and recorded_target != session
-                and registry.repoint_tmux(
-                    repo=repo, topic=topic, new_tmux=session, store_path=sup.store_path
-                )
+            # A herdr row moves only within its own herdr instance (overseer-bce3).
+            if (repo, topic) not in ambiguous and _supervisor_herdr_moved.repoint_moved_session(
+                sup=sup, repo=repo, topic=topic, recorded=existing[key], live=session
             ):
-                sup.log(message=f"re-pointed {repo}::{topic} tmux {recorded_target} → {session}")
                 existing[key] = session
             continue
         track = registry.PlanTrack(
