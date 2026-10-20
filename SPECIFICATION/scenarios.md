@@ -5316,3 +5316,15 @@ And no paste follows in the same act
 When the daemon records the outcome
 
 Then the round is un-opened and the track's row and the daemon log record the failed channel delivery
+
+## Scenario: A shipped launcher runs its own plugin's package, not the caller's checkout
+
+Given a livespec-overseer checkout whose overseer/version.json differs from the installed plugin's version
+
+When a shipped launcher runs with its current directory inside that checkout
+
+Then it imports the overseer package from its own plugin root and starts the daemon from that plugin version's runtime
+
+And the checkout's overseer package is never imported
+
+And a launcher whose own plugin root cannot be resolved refuses before starting anything, naming the missing root

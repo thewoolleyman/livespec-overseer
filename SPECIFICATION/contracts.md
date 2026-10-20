@@ -680,6 +680,19 @@ daemon is surface-only (per spec.md §"Surface-only startup").
   refuses if another daemon instance already holds the singleton lock for
   the same mapping store.
 
+Every shipped launcher (`overseer-start`, `overseerd`, and each other
+executable under the plugin's `bin/`) MUST import the `overseer` package from
+the plugin root it ships in, and `overseer-start` MUST start the daemon from
+the runtime of THAT plugin root's own recorded version. A launcher MUST NOT
+import an `overseer` package that the caller's current working directory,
+`PYTHONPATH`, or another checkout would otherwise place ahead of its own
+plugin root, so a launcher run with its current directory inside a
+livespec-overseer checkout whose `overseer/version.json` differs from the
+plugin's still runs the plugin's own package and version. A launcher whose own
+plugin root cannot be resolved MUST refuse before starting anything, naming
+the missing root, rather than fall back to an importable package found
+elsewhere.
+
 ## Bootstrap preconditions
 
 The two-pane bootstrap is invoked BY the operator surface from inside the

@@ -3601,5 +3601,13 @@
     "test": "tests.integration.test_done_track_read_only.test_scenario_an_archived_plan_showing_a_picker_is_surfaced_but_not_acted_on",
     "reason": "Integration-tier: an archived-live track sitting on an open structured picker renders as a blocked:human attention member — live gate evidence outranks the quiet row — and still receives no act, because surfacing it is report-only.",
     "work_item": "overseer-jfp23f"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A shipped launcher runs its own plugin's package, not the caller's checkout",
+    "test": "TODO",
+    "work_item": "overseer-uzvcbn.2",
+    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uzvcbn.2 with the launcher fix: run each shipped launcher with its cwd inside a checkout whose overseer/version.json differs from the plugin's and prove the plugin's own package and version run; ratified 2026-10-20 under the shipped-launchers-run-their-own-plugin-package revise (spec-first)."
   }
 ]
