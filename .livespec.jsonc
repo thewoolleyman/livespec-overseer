@@ -354,7 +354,18 @@
         "fix": 3600,
         "review_fix": 7200
       },
-      // CURRENT factory agent policy (2026-10-19, coordinator ruling R261,
+      // CURRENT factory agent policy (2026-10-20, coordinator ruling R267,
+      // maintainer direction to use all available tokens holistically):
+      // implement and fix stay codex-acp / gpt-5.6-terra / high with their
+      // claude-opus-5 fallback. Every other node is back on its pre-R261 Claude
+      // tier with its R261 Codex model as the fallback, so each run draws on
+      // both pools: dod_gate, review_fix, proof_capture, proof_verify and review
+      // on claude-opus-5 high (Terra high fallback); pr on claude-sonnet-4-6
+      // high and disposition on claude-sonnet-4-6 medium (Luna low fallback).
+      // The R261 node_timeouts above stay, since implement and fix remain
+      // Codex-primary and every node timeout feeds the Codex credential floor.
+      //
+      // R261 factory agent policy (2026-10-19, coordinator ruling R261,
       // maintainer direction: "switch factory nodes to codex corresponding models
       // and use those available tokens"): every node is Codex-primary, tier for
       // tier, with its previous Claude model kept as the fallback. The seven
@@ -408,15 +419,15 @@
         }
       },
       "acp_nodes": {
-        "dod_gate": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high", "fallbacks": [{ "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" }] },
+        "dod_gate": { "agent": "claude-acp", "model": "claude-opus-5", "effort": "high", "fallbacks": [{ "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high" }] },
         "implement": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high", "fallbacks": [{ "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" }] },
         "fix": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high", "fallbacks": [{ "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" }] },
-        "review_fix": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high", "fallbacks": [{ "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" }] },
-        "proof_capture": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high", "fallbacks": [{ "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" }] },
-        "proof_verify": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high", "fallbacks": [{ "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" }] },
-        "review": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high", "fallbacks": [{ "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" }] },
-        "pr": { "agent": "codex-acp", "model": "gpt-5.6-luna", "effort": "low", "fallbacks": [{ "agent": "claude-acp", "model": "claude-sonnet-4-6", "effort": "high" }] },
-        "disposition": { "agent": "codex-acp", "model": "gpt-5.6-luna", "effort": "low", "fallbacks": [{ "agent": "claude-acp", "model": "claude-sonnet-4-6", "effort": "medium" }] }
+        "review_fix": { "agent": "claude-acp", "model": "claude-opus-5", "effort": "high", "fallbacks": [{ "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high" }] },
+        "proof_capture": { "agent": "claude-acp", "model": "claude-opus-5", "effort": "high", "fallbacks": [{ "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high" }] },
+        "proof_verify": { "agent": "claude-acp", "model": "claude-opus-5", "effort": "high", "fallbacks": [{ "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high" }] },
+        "review": { "agent": "claude-acp", "model": "claude-opus-5", "effort": "high", "fallbacks": [{ "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high" }] },
+        "pr": { "agent": "claude-acp", "model": "claude-sonnet-4-6", "effort": "high", "fallbacks": [{ "agent": "codex-acp", "model": "gpt-5.6-luna", "effort": "low" }] },
+        "disposition": { "agent": "claude-acp", "model": "claude-sonnet-4-6", "effort": "medium", "fallbacks": [{ "agent": "codex-acp", "model": "gpt-5.6-luna", "effort": "low" }] }
       },
       "prepare_toolchain": {
         "mise": ["sh", "-c", "mise trust && env -u GITHUB_TOKEN -u GH_TOKEN -u GITHUB_API_TOKEN mise install --quiet"],
