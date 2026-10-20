@@ -6,4 +6,9 @@ PLUGIN_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 
 export PYTHONPATH="$PLUGIN_ROOT${PYTHONPATH:+:$PYTHONPATH}"
 
-exec python3 -m overseer.daemon "$@"
+# NOT `python3 -m overseer.daemon`: `-m` puts the CALLER's current directory at
+# sys.path[0], ahead of PYTHONPATH, so running this from inside a
+# livespec-overseer checkout imports THAT checkout's overseer package instead of
+# this plugin's. Running a file inside the plugin puts the plugin's own
+# directory there instead. See overseer/launch.py.
+exec python3 "$PLUGIN_ROOT/overseer/launch.py" overseer.daemon "$@"
