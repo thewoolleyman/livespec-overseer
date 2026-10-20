@@ -7,7 +7,7 @@ import json
 from dataclasses import dataclass, replace
 from pathlib import Path
 from types import SimpleNamespace
-from typing import IO, cast
+from typing import IO, Any, cast
 
 import _supervisor_herdr_replacement
 import _supervisor_state
@@ -41,6 +41,18 @@ class _World:
     fake: FakeTmux
     snapshot: dict[str, SimpleNamespace]
     observed_at_signal: dict[str, object]
+
+
+def _live_server_supervisor(**kwargs: Any) -> supervisor.Supervisor:
+    """A supervisor whose fixture herdr server (pid 700) is a LIVE generation.
+
+    A replacement recorded on a server generation that no longer runs is retired
+    (overseer-nztq44), so a fixture that models a live server must say so rather than
+    leave the host's real `/proc` to answer for pid 700.
+    """
+    sup = make_supervisor(**kwargs)
+    sup.starttime_of = lambda *, pid: "server-start" if pid == 700 else None
+    return sup
 
 
 def _target(*, tmp_path: Path) -> str:
@@ -134,7 +146,7 @@ def _armed_world(*, tmp_path: Path) -> tuple[_World, supervisor.Supervisor, regi
         observed_at_signal={},
     )
     _configure_fake(world=world)
-    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 1002.0)
+    sup = _live_server_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 1002.0)
     identity = f"claude:201:runtime-start:{topic}"
     sup.claude_identity_by_session[(target, topic)] = identity
     sup.claude_names_by_session[target] = {topic}
@@ -377,7 +389,7 @@ def test_recreated_supervisor_recovers_only_a_never_attempted_launch(
     first.evaluate(track=track, act=True)
     world.snapshot["value"] = _idle_snapshot()
     world.fake.cmds[world.target] = "bash"
-    recreated = make_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1003.0)
+    recreated = _live_server_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1003.0)
 
     recreated.evaluate(track=track, act=True)
 
@@ -464,7 +476,7 @@ def test_recreated_public_tick_refuses_a_live_or_unreadable_recorded_predecessor
     world.snapshot["value"] = _idle_snapshot()
     world.fake.cmds[world.target] = "bash"
     world.fake.calls.clear()
-    recreated = make_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1003.0)
+    recreated = _live_server_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1003.0)
     monkeypatch.setattr(recreated, "build_rows", lambda *, act: [track])
 
     def observe_predecessor(*, pid: int) -> str | None:
@@ -519,7 +531,7 @@ def test_public_tick_never_acts_on_an_unusable_bare_shell_transaction(
     world.fake.cmds[world.target] = "bash"
     world.fake.calls.clear()
     counts["signal"] = 0
-    recreated = make_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1003.0)
+    recreated = _live_server_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1003.0)
     monkeypatch.setattr(recreated, "build_rows", lambda *, act: [track])
 
     try:
@@ -639,7 +651,7 @@ def test_recreated_tick_resumes_only_an_exact_fresh_successor(
 ) -> None:
     world, track, counts = _launched_unknown_world(tmp_path=tmp_path)
     identity = _install_successor(world=world, successor_case=successor_case)
-    recreated = make_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1003.0)
+    recreated = _live_server_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1003.0)
     recreated.claude_identity_by_session[(world.target, world.topic)] = identity
     recreated.claude_names_by_session[world.target] = {world.topic}
     recreated.refresh_claude_status = lambda: None
@@ -679,7 +691,7 @@ def test_recreated_tick_retries_only_enter_for_the_exact_pending_resume(*, tmp_p
         return True
 
     world.fake.send_keys = leave_resume_pending
-    first = make_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1003.0)
+    first = _live_server_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1003.0)
     first.claude_identity_by_session[(world.target, world.topic)] = identity
     first.claude_names_by_session[world.target] = {world.topic}
     first.evaluate(track=track, act=True)
@@ -687,7 +699,7 @@ def test_recreated_tick_retries_only_enter_for_the_exact_pending_resume(*, tmp_p
     pending = json.loads(record_path.read_text(encoding="utf-8"))
     calls_before_recreation = len(world.fake.calls)
     world.fake.send_keys = original_send_keys
-    recreated = make_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1004.0)
+    recreated = _live_server_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1004.0)
     recreated.claude_identity_by_session[(world.target, world.topic)] = identity
     recreated.claude_names_by_session[world.target] = {world.topic}
 
@@ -707,7 +719,7 @@ def test_completed_replacement_fences_failed_cleanup_then_allows_a_fresh_round(
 ) -> None:
     world, track, counts = _launched_unknown_world(tmp_path=tmp_path)
     identity = _install_successor(world=world, successor_case="fresh-runtime-child")
-    recreated = make_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1004.0)
+    recreated = _live_server_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1004.0)
     recreated.claude_identity_by_session[(world.target, world.topic)] = identity
     recreated.claude_names_by_session[world.target] = {world.topic}
     real_write = _supervisor_state.write_state_diagnostic
@@ -749,7 +761,7 @@ def test_tmux_pre_effect_failure_stays_retryable_and_native_herdr_is_explicit(
     tmux = FakeTmux()
     tmux.serve(session="legacy", repo=repo, capture=idle_capture(ctx=10))
     tmux.respawn_ok = False
-    sup = make_supervisor(tmp_path=tmp_path / "tmux", fake=tmux, now=lambda: 1002.0)
+    sup = _live_server_supervisor(tmp_path=tmp_path / "tmux", fake=tmux, now=lambda: 1002.0)
     identity = f"claude:123:456:{topic}"
     sup.claude_identity_by_session[("legacy", topic)] = identity
     sup.claude_names_by_session["legacy"] = {topic}
@@ -846,7 +858,7 @@ def test_successor_resume_completes_when_the_row_still_records_the_predecessor(
     stale = replace(track, observed_session_identity=predecessor_identity)
     registry.append_mapping(track=stale, store_path=tmp_path / "map.jsonl")
     successor_identity = _install_successor(world=world, successor_case="fresh-runtime-child")
-    recreated = make_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1003.0)
+    recreated = _live_server_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1003.0)
     recreated.claude_identity_by_session[(world.target, world.topic)] = successor_identity
     recreated.claude_names_by_session[world.target] = {world.topic}
     recreated.refresh_claude_status = lambda: None
@@ -888,7 +900,7 @@ def test_stalled_herdr_replacement_alerts_once_naming_its_phase_and_reason(
     _ = _install_successor(world=world, successor_case="fresh-runtime-child")
     if stall == "pane-unavailable":
         world.fake.sessions.remove(world.target)
-    recreated = make_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1003.0)
+    recreated = _live_server_supervisor(tmp_path=tmp_path, fake=world.fake, now=lambda: 1003.0)
     recreated.claude_names_by_session[world.target] = {world.topic}
     recreated.refresh_claude_status = lambda: None
     _ = capsys.readouterr()

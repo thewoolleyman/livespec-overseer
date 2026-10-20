@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
-from typing import cast
+from typing import Any, cast
 
 import _herdr_replacement_authorization
 import _herdr_replacement_process
@@ -33,6 +33,18 @@ from test_supervisor_builders import (
     make_supervisor,
     mapped_track,
 )
+
+
+def _live_server_supervisor(**kwargs: Any) -> supervisor.Supervisor:
+    """A supervisor whose fixture herdr server (pid 700) is a LIVE generation.
+
+    A replacement recorded on a server generation that no longer runs is retired
+    (overseer-nztq44), so a fixture that models a live server must say so rather than
+    leave the host's real `/proc` to answer for pid 700.
+    """
+    sup = make_supervisor(**kwargs)
+    sup.starttime_of = lambda *, pid: "server-start" if pid == 700 else None
+    return sup
 
 
 def _target(*, tmp_path: Path) -> str:
@@ -107,7 +119,7 @@ def _world(*, tmp_path: Path) -> tuple[supervisor.Supervisor, FakeTmux, registry
     target = _target(tmp_path=tmp_path)
     fake = FakeTmux()
     fake.serve(session=target, repo=repo, capture=idle_capture(ctx=100), cmd="node")
-    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 1003.0)
+    sup = _live_server_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 1003.0)
     track = mapped_track(repo=repo, topic=topic, session=target)
     return sup, fake, track, target
 
