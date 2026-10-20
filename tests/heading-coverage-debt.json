@@ -1762,5 +1762,12 @@
     "heading": "## Daemon message delivery channel",
     "work_item": "overseer-uepcr6",
     "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A shipped launcher runs its own plugin's package, not the caller's checkout",
+    "work_item": "overseer-uzvcbn.2",
+    "first_seen": "2026-10-20"
   }
 ]
