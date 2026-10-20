@@ -1769,5 +1769,12 @@
     "heading": "## Scenario: A shipped launcher runs its own plugin's package, not the caller's checkout",
     "work_item": "overseer-uzvcbn.2",
     "first_seen": "2026-10-20"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "constraints.md",
+    "heading": "## Factory routing",
+    "work_item": "overseer-knslqg",
+    "first_seen": "2026-10-20"
   }
 ]

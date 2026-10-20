@@ -21,8 +21,8 @@ What each file governs:
   credential consumer protocol.
 - `constraints.md` — the observable architecture boundaries: the declared
   Linux-plus-tmux-or-herdr requirement, the standard-library-only rule, the
-  determinism boundary, filesystem boundaries, atomicity, and acting
-  safety.
+  determinism boundary, filesystem boundaries, atomicity, acting safety,
+  and factory routing.
 - `non-functional-requirements.md` — the contributor-facing invariants:
   hermetic beside-tests, the pinned fleet enforcement gates, and the
   disciplines that keep the protocol and its tests in lockstep.
