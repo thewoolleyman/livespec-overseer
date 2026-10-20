@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.33.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.33.1...v5.33.2) (2026-10-20)
+
+
+### Bug Fixes
+
+* **supervisor:** repoint the archived-live research reference at plan/archive/ ([1f2dd46](https://github.com/thewoolleyman/livespec-overseer/commit/1f2dd46163528b7b48c93ee28e1f90aacc25ea41))
+
 ## [5.33.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.33.0...v5.33.1) (2026-10-20)
 
 
