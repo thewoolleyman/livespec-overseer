@@ -159,13 +159,57 @@ def is_busy(*, capture_text: str) -> bool:
 # picker MUST suppress injection or the paste would type into the `1/2` chooser.
 # Best-effort; documented markers.
 _GATE_CURSOR_RE = re.compile(r"[❯›]\s*\d+\.")
+# A numbered option line of a picker's OWN option block, cursored or not (`❯ 1. …`,
+# `› 2. …`, `  3. …`). The block is the structure a live picker has; a line count is not,
+# which is why the gate region is widened across the block (see `_gate_region`).
+_GATE_OPTION_RE = re.compile(r"^\s*(?:[❯›]\s*)?\d+\.(?:\s|$)")
 _GATE_TAIL_LINES = 8
+
+
+def _widens_gate_region(*, line: str) -> bool:
+    """True if ``line`` is still inside a picker's option block.
+
+    Either another numbered option, or an indented description / continuation of the
+    option above it. A flush-left non-option line ENDS the block: it is the picker's own
+    question, or ordinary transcript prose.
+    """
+    return bool(_GATE_OPTION_RE.match(line)) or line[:1].isspace()
+
+
+def _gate_region(*, lines: list[str]) -> list[str]:
+    """The pane tail, WIDENED upward across a numbered picker's own option block.
+
+    `_GATE_TAIL_LINES` alone misses a picker whose cursor sits further above the bottom
+    than the window reaches. Measured 2026-10-14 on 5.28.3 (`overseer-xe2mka`): a
+    five-option AskUserQuestion picker whose every option carried a description line,
+    with the picker footer below them, put the selected `❯ 1.` ELEVEN non-empty lines up
+    — line 41 of 51 — so the eight-line window covered only options 3-5, two rules and
+    `Enter to select · ↑/↓ to navigate · Esc to cancel`. The waiting session published
+    `settling` with `picker_open: false`, and the picker-stall promotion could never
+    fire for such a picker.
+
+    Widening is attempted ONLY when the tail ITSELF already holds an option line. Absent
+    one there is no live picker block to widen to, so scrollback can never be dragged
+    into the region — which is what keeps the `overseer-i6eu2k` quotation case out
+    (a pane merely QUOTING picker markers is also held out, before this runs, by
+    :func:`_input_box_present`). Given an option line in the tail the walk is deliberately
+    not bounded by a second line count: the flush-left stop IS the bound, and inside a
+    tail that already shows a live picker a widened read can only agree with the gate
+    that is open.
+    """
+    start = max(0, len(lines) - _GATE_TAIL_LINES)
+    if not any(_GATE_OPTION_RE.match(line) for line in lines[start:]):
+        return lines[start:]
+    while start and _widens_gate_region(line=lines[start - 1]):
+        start -= 1
+    return lines[start:]
 
 
 def is_structured_gate(*, capture_text: str) -> bool:
     """True if the pane shows a structured permission-prompt / picker gate.
 
-    Best-effort. Keyed on the pane tail, where live pickers render, using two
+    Best-effort. Keyed on the pane's GATE REGION — the tail widened across a picker's
+    own option block (:func:`_gate_region`), where a live picker renders — using two
     low-false-positive markers: a ``❯ N.`` numbered
     cursor option, or the literal permission question ``Do you want to
     proceed`` (case-insensitive). Used to SUPPRESS injection — never keystroke
@@ -175,10 +219,9 @@ def is_structured_gate(*, capture_text: str) -> bool:
     if _input_box_present(text=text):
         return False
     lines = [line for line in text.splitlines() if line.strip()]
-    tail = "\n".join(lines[-_GATE_TAIL_LINES:])
-    if _GATE_CURSOR_RE.search(tail):
+    if _GATE_CURSOR_RE.search("\n".join(_gate_region(lines=lines))):
         return True
-    return "do you want to proceed" in tail.lower()
+    return "do you want to proceed" in "\n".join(lines[-_GATE_TAIL_LINES:]).lower()
 
 
 # The live idle input box is an available `❯` prompt line sandwiched between
