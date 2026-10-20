@@ -338,13 +338,33 @@
       // fit one hour. `fix` completed in 2769293 ms (77% of its old ceiling)
       // in the same run. The Dispatcher derives its subprocess ceiling from
       // these values, so no other setting moves with them.
+      //
+      // LOWERED 2026-10-19 (coordinator ruling R261, maintainer direction to
+      // run the factory on the Codex allowance): `fix` 7200 -> 3600 and
+      // `review_fix` 14400 -> 7200, matching livespec-orchestrator-beads-fabro.
+      // Every node timeout feeds the Codex credential-lifetime floor, and at
+      // 7200/14400 that floor was 884100 s, longer than a fresh ten-day Codex
+      // token (864000 s), so a Codex-primary node here could never be admitted.
+      // The values below bring it to 833700 s. This knowingly gives up part
+      // of the 2026-10-11 headroom measured above; the coordinator ruled the
+      // risk worth taking over keeping the factory on Claude.
       "node_timeouts": {
         "implement": 14400,
         "janitor": 3600,
-        "fix": 7200,
-        "review_fix": 14400
+        "fix": 3600,
+        "review_fix": 7200
       },
-      // Factory agent policy: every factory node runs a Claude adapter. The
+      // CURRENT factory agent policy (2026-10-19, coordinator ruling R261,
+      // maintainer direction: "switch factory nodes to codex corresponding models
+      // and use those available tokens"): every node is Codex-primary, tier for
+      // tier, with its previous Claude model kept as the fallback. The seven
+      // Opus-tier work nodes run codex-acp / gpt-5.6-terra / high; pr and
+      // disposition run codex-acp / gpt-5.6-luna / low. Both models answered a
+      // live ACP turn on the factory's Codex (ChatGPT) account that day; the
+      // node_timeouts above were lowered so the Codex credential floor fits a
+      // fresh token. The paragraph below records the policy this replaced.
+      //
+      // PREVIOUS factory agent policy: every factory node runs a Claude adapter. The
       // seven work nodes (dod_gate, implement, fix, review_fix, proof_capture,
       // proof_verify, review) run claude-acp / claude-opus-5 at high; the
       // scripted pr route runs claude-sonnet-4-6 at high and disposition at
@@ -362,16 +382,41 @@
       // agent-full-access. A structured adapter replaces the workflow default's
       // environment completely, so no model or effort variables are inherited.
       // Do not use the retired dispatcher.codex_models shorthand.
+      // Codex model prices for the cost report: the published Standard,
+      // short-context USD per 1M tokens (developers.openai.com/api/docs/models/,
+      // verified 2026-10-19), cache writes at 1.25x input.
+      "model_catalog": {
+        "openai/gpt-5.6-terra": {
+          "display_name": "GPT-5.6 Terra",
+          "pricing": {
+            "model": "gpt-5.6-terra",
+            "input_usd_per_million": 2.0,
+            "output_usd_per_million": 12.0,
+            "cache_write_usd_per_million": 2.5,
+            "cache_read_usd_per_million": 0.2
+          }
+        },
+        "openai/gpt-5.6-luna": {
+          "display_name": "GPT-5.6 Luna",
+          "pricing": {
+            "model": "gpt-5.6-luna",
+            "input_usd_per_million": 0.2,
+            "output_usd_per_million": 1.2,
+            "cache_write_usd_per_million": 0.25,
+            "cache_read_usd_per_million": 0.02
+          }
+        }
+      },
       "acp_nodes": {
-        "dod_gate": { "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" },
-        "implement": { "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" },
-        "fix": { "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" },
-        "review_fix": { "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" },
-        "proof_capture": { "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" },
-        "proof_verify": { "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" },
-        "review": { "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" },
-        "pr": { "agent": "claude-acp", "model": "claude-sonnet-4-6", "effort": "high" },
-        "disposition": { "agent": "claude-acp", "model": "claude-sonnet-4-6", "effort": "medium" }
+        "dod_gate": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high", "fallbacks": [{ "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" }] },
+        "implement": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high", "fallbacks": [{ "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" }] },
+        "fix": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high", "fallbacks": [{ "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" }] },
+        "review_fix": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high", "fallbacks": [{ "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" }] },
+        "proof_capture": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high", "fallbacks": [{ "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" }] },
+        "proof_verify": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high", "fallbacks": [{ "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" }] },
+        "review": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high", "fallbacks": [{ "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" }] },
+        "pr": { "agent": "codex-acp", "model": "gpt-5.6-luna", "effort": "low", "fallbacks": [{ "agent": "claude-acp", "model": "claude-sonnet-4-6", "effort": "high" }] },
+        "disposition": { "agent": "codex-acp", "model": "gpt-5.6-luna", "effort": "low", "fallbacks": [{ "agent": "claude-acp", "model": "claude-sonnet-4-6", "effort": "medium" }] }
       },
       "prepare_toolchain": {
         "mise": ["sh", "-c", "mise trust && env -u GITHUB_TOKEN -u GH_TOKEN -u GITHUB_API_TOKEN mise install --quiet"],
