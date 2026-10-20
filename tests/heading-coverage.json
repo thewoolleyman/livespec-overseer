@@ -3606,9 +3606,9 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A shipped launcher runs its own plugin's package, not the caller's checkout",
-    "test": "TODO",
+    "test": "tests.integration.test_shipped_launcher_plugin_package.test_scenario_a_shipped_launcher_runs_its_own_plugins_package_not_the_callers_checkout",
     "work_item": "overseer-uzvcbn.2",
-    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uzvcbn.2 with the launcher fix: run each shipped launcher with its cwd inside a checkout whose overseer/version.json differs from the plugin's and prove the plugin's own package and version run; ratified 2026-10-20 under the shipped-launchers-run-their-own-plugin-package revise (spec-first)."
+    "reason": "Integration-tier: stages a plugin tree beside a decoy livespec-overseer checkout whose overseer/version.json is one version behind it, copies the real shipped bin/ launchers into the plugin, and runs them with the current directory inside the decoy — proving the plugin's own overseer package is imported, the plugin version's runtime prefix is the one resolved, and the checkout's package never wins. Its siblings in the same module cover the rest of the scenario: the overseerd family and every other shipped launcher, the control that the module launch shape really does let the checkout win, and the refusal naming an unresolvable plugin root."
   },
   {
     "spec_root": "SPECIFICATION",
