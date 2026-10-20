@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import _herdr_replacement_store
+import _supervisor_herdr_dead_generation
 import _supervisor_herdr_recovery
 import _supervisor_launch
 import registry
@@ -51,7 +52,16 @@ def reconcile_and_alert(
     `alert` is the tick's own `act`, so the read-only `list` path never alerts, while an
     acting tick that can only reconcile read-only (its pane is gone) still does. The
     alert is edge-triggered by `Supervisor.alert`, so an unchanged stall reports once.
+
+    An acting tick first retires a record whose server generation is provably gone
+    (overseer-nztq44): nothing it names can be acted on again, so it would otherwise
+    refuse the track forever. That runs on `alert`, not `act`, because a track still
+    naming the dead generation reaches here only through the read-only reconcile.
     """
+    if alert:
+        _ = _supervisor_herdr_dead_generation.retire_dead_generation(
+            sup=sup, track=track, target=target
+        )
     row = _supervisor_herdr_recovery.reconcile_bare_shell(
         sup=sup, track=track, target=target, act=act
     )
