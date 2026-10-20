@@ -27,9 +27,9 @@ retention this module performs is still exactly as load-bearing — the maintain
 be able to READ the finished session's wrap-up, and a dropped row shows nothing — but do
 not read the ruling above as licence to drive a retained track. What the measured
 `create-agent-cockpit-repo` incident proved is that the ROW must survive the archival;
-what the live fleet then proved (`plan/overseer-ignore-done-plans/research/
-001-baseline-measurement.md`) is that driving the survivor spends model turns on finished
-plans.
+what the live fleet then proved
+(`plan/archive/overseer-ignore-done-plans/research/001-baseline-measurement.md`) is that
+driving the survivor spends model turns on finished plans.
 
 Free functions taking the ``Supervisor`` as a parameter; ``Supervisor`` is imported under
 ``TYPE_CHECKING`` only, so the annotation resolves for pyright-strict while no runtime

@@ -836,7 +836,7 @@ for the marker's edge-triggered lifecycle.
    `_supervisor_declaration_voiding.void_stale_done` and the `done-voided` write with it
    — because generation cannot tell a session's own self-paced wakeup from a maintainer
    handing it new work, and every void measured on the live fleet was a self-wakeup
-   (`plan/overseer-ignore-done-plans/research/001-baseline-measurement.md`). The
+   (`plan/archive/overseer-ignore-done-plans/research/001-baseline-measurement.md`). The
    `signals.STATE_DONE_VOIDED` token survives as READ vocabulary only, so a diagnostic an
    older daemon left on disk still parses. And the supervision half of the 2026-09-12
    archived-live ruling is withdrawn: `_supervisor_archived_live` still RETAINS the row
