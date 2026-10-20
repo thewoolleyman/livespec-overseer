@@ -3609,5 +3609,13 @@
     "test": "TODO",
     "work_item": "overseer-uzvcbn.2",
     "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uzvcbn.2 with the launcher fix: run each shipped launcher with its cwd inside a checkout whose overseer/version.json differs from the plugin's and prove the plugin's own package and version run; ratified 2026-10-20 under the shipped-launchers-run-their-own-plugin-package revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "constraints.md",
+    "heading": "## Factory routing",
+    "test": "TODO",
+    "work_item": "overseer-knslqg",
+    "reason": "Owed integration-tier test, to be written by overseer-knslqg, the registry-switch work-item of plan petri-factory-on-gmktec (epic bd-ib-fyozyd): load the committed .livespec.jsonc and prove every dispatcher.factories entry is registry-backed with no server or docker_host and that dispatcher.default_factory is legacy; ratified 2026-10-20 under the factory-routing revise (spec-first)."
   }
 ]

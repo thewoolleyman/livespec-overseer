@@ -37,6 +37,14 @@
       { "name": "thewoolleyman-factory-bot[bot]", "email": "283469463+thewoolleyman-factory-bot[bot]@users.noreply.github.com" }
     ]
   },
+  // Cross-repository citations the spec may make (doctor-no-cross-spec-reference).
+  // constraints.md §"Factory routing" cites livespec-dev-tooling's
+  // §"Fabro factory registry". The entry is the BARE heading form: a
+  // file-qualified entry is validated against a local sibling clone that CI
+  // runners do not have.
+  "external_references": {
+    "livespec-dev-tooling": ["§\"Fabro factory registry\""]
+  },
   "template": "livespec",
   "spec_root": "SPECIFICATION",
   "implementation": { "plugin": "livespec-orchestrator-beads-fabro" },
