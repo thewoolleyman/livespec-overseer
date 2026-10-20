@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.33.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.33.0...v5.33.1) (2026-10-20)
+
+
+### Bug Fixes
+
+* **supervisor:** retire a herdr replacement left open on a dead server generation ([abf5417](https://github.com/thewoolleyman/livespec-overseer/commit/abf541796c19049915ad9734ac58f545e89291fd))
+
 ## [5.33.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.32.1...v5.33.0) (2026-10-19)
 
 
