@@ -105,15 +105,25 @@ def _capture_module() -> ModuleType:
 
 
 def live_idle_capture() -> str | None:
-    """One live idle capture from the capture recipe's own disposable tmux session.
+    """The live PANE EVIDENCE from the capture recipe's own disposable tmux session.
 
     Deliberately the capture script's implementation rather than a second copy
     of it: the evidence this check accepts for an unregistered build has to be
     the same evidence `just capture-claude-idle-canary` would store as that
     build's fixture, and two copies of the capture would be free to drift.
+
+    And deliberately the attempt's `pane_text` rather than its storable `text`.
+    The capture script only ever offers a `text` its own `capture_is_ready` —
+    the same `is_idle_input` AND `input_box_ready` conjunction `_fixture_is_valid`
+    re-applies — has already accepted, so judging that field would be a
+    tautology: the rejection branch below could never fire on a real host, and
+    a build whose idle input box the detector genuinely cannot read would time
+    out and be reported as a missing fixture. That is the one case this canary
+    exists to catch, dressed as the registry lag it is not. `pane_text` carries
+    what the pane actually rendered, unjudged, so the predicates below decide.
     """
-    text: str | None = _capture_module().live_idle_capture().text
-    return text
+    pane_text: str | None = _capture_module().live_idle_capture().pane_text
+    return pane_text
 
 
 def _live_capture_is_valid(*, capture: str, version: str) -> bool:
@@ -145,8 +155,8 @@ def _unregistered_build_outcome(*, version: str) -> int:
       diagnosis rather than being dressed up as routine registry lag — pointing
       an operator at the capture recipe would be the wrong instruction, since a
       fixture the detector cannot read fixes nothing;
-    - no capture can be OBTAINED: there is no evidence either way, and the gate
-      must never pass on none, so today's refusal stands unchanged.
+    - no pane text can be OBTAINED at all: there is no evidence either way, and
+      the gate must never pass on none, so today's refusal stands unchanged.
     """
     capture = live_idle_capture()
     if capture is None:

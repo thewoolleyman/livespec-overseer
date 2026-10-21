@@ -95,18 +95,23 @@ def capture_is_ready(*, capture: str) -> bool:
     )
 
 
-def _await_idle_capture(*, session: str) -> str | None:
-    deadline = time.monotonic() + _CAPTURE_TIMEOUT_SECONDS
-    while time.monotonic() < deadline:
-        capture = _tmux_capture(session=session)
-        if capture_is_ready(capture=capture):
-            return capture.rstrip() + "\n"
-        time.sleep(_POLL_SECONDS)
-    return None
-
-
 class IdleCaptureAttempt:
-    """One disposable-session capture attempt: the pane text, or why there is none.
+    """One disposable-session capture attempt: what the pane showed, and what is storable.
+
+    THREE fields rather than two, because "no storable capture" has two causes
+    its callers must tell apart:
+
+    - `text` is a capture this attempt judged READY — the only thing that may
+      ever be stored as a fixture, so an unreadable pane cannot leak into the
+      regression corpus;
+    - `pane_text` is the last NON-EMPTY pane text seen, ready or not. It is the
+      evidence the canary CHECK judges for itself, and the only way that check
+      can distinguish a pane the detector could not read (a real detector
+      failure) from a session that rendered nothing at all (no evidence either
+      way). Without it the check sees only `text`, which this module never
+      offers unless the detector already accepted it, so its rejection branch
+      would be unreachable on every real host;
+    - `failure` is why there is no ready capture, which `main` reports.
 
     DELIBERATELY NOT a `@dataclass(frozen=True, kw_only=True)`, which is this
     repo's normal shape for a record like this — do not "upgrade" it back. This
@@ -118,12 +123,36 @@ class IdleCaptureAttempt:
     screening for the `KW_ONLY` sentinel, so under that loader the decorator
     raises `AttributeError` on a `None` module at class-definition time and the
     whole script becomes unimportable. A plain keyword-only `__init__` carries
-    the same two read-only-by-convention fields and loads anywhere.
+    the same read-only-by-convention fields and loads anywhere.
     """
 
-    def __init__(self, *, text: str | None, failure: str | None) -> None:
+    def __init__(self, *, text: str | None, pane_text: str | None, failure: str | None) -> None:
         self.text = text
+        self.pane_text = pane_text
         self.failure = failure
+
+
+def _await_idle_capture(*, session: str) -> IdleCaptureAttempt:
+    deadline = time.monotonic() + _CAPTURE_TIMEOUT_SECONDS
+    pane_text: str | None = None
+    while time.monotonic() < deadline:
+        capture = _tmux_capture(session=session)
+        if capture.strip():
+            pane_text = capture.rstrip() + "\n"
+        if capture_is_ready(capture=capture):
+            return IdleCaptureAttempt(text=pane_text, pane_text=pane_text, failure=None)
+        time.sleep(_POLL_SECONDS)
+    if pane_text is None:
+        return IdleCaptureAttempt(
+            text=None,
+            pane_text=None,
+            failure="the canary session rendered no pane text in time",
+        )
+    return IdleCaptureAttempt(
+        text=None,
+        pane_text=pane_text,
+        failure="the idle detector could not read the pane text the canary session rendered",
+    )
 
 
 def live_idle_capture() -> IdleCaptureAttempt:
@@ -138,14 +167,13 @@ def live_idle_capture() -> IdleCaptureAttempt:
     """
     session = f"claude-idle-canary-{os.getpid()}"
     if not _start_canary_session(session=session):
-        return IdleCaptureAttempt(text=None, failure="tmux canary session did not start")
+        return IdleCaptureAttempt(
+            text=None, pane_text=None, failure="tmux canary session did not start"
+        )
     try:
-        capture = _await_idle_capture(session=session)
+        return _await_idle_capture(session=session)
     finally:
         _kill_canary_session(session=session)
-    if capture is None:
-        return IdleCaptureAttempt(text=None, failure="idle prompt did not render in time")
-    return IdleCaptureAttempt(text=capture, failure=None)
 
 
 def main() -> int:
