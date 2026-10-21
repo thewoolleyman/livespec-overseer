@@ -2740,6 +2740,14 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A Codex herdr replacement delivers the resume line after an unconfirmable rename",
+    "test": "TODO",
+    "work_item": "overseer-uzvcbn.5",
+    "reason": "Ratified by the herdr-held-attempt-scope revision; overseer-uzvcbn.5 ships the integration-tier pinning test that drives a herdr Codex replacement past an unconfirmable rename to a delivered resume line."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A replacement prerequisite failure preserves every live session",
     "test": "tests.integration.test_supervisor_herdr_replacement.test_replacement_prerequisite_failure_never_signals",
     "reason": "Parameterized integrated replacement proof injects lock failure, state-write failure, interlock change, process-generation reuse and an exec-replaced root shell. Every case observes zero termination signals and a surfaced refusal, so every live process is preserved.",

@@ -182,13 +182,26 @@ wrap-up that did land certifies against that round. Completing an UNCONFIRMED
 delivery MUST NOT rewrite the round's stamp or raise its certification floor,
 and MUST NOT paste the payload again while it may already be queued: a payload
 standing in the input is submitted, never re-pasted, and a runtime whose empty
-input cannot be proven confirms delivery only by an observed turn start and is
-never re-pasted into while its delivery is unconfirmed. While an UNCONFIRMED
-attempt is held for a pane, no later wrap-up is pasted into that pane, and the
-held attempt stays surfaced. A held attempt MUST be released when a later
-observation resolves it DELIVERED or FAILED, and MUST be released when its
-round closes, so a later paste to that pane — including the resume line after
-a restart — is pasted afresh rather than suppressed by the earlier attempt.
+input cannot be proven confirms delivery only by an observed turn start and
+never has that payload pasted into it again while that payload's delivery is
+unconfirmed. While an UNCONFIRMED wrap-up or expiry-notice paste is held for a
+pane, no other daemon payload is pasted into that pane, with the two exceptions
+below, and the held attempt stays surfaced; an UNCONFIRMED channel delivery is
+held as contracts.md §"Daemon message delivery channel" defines. A
+daemon-authored payload that asks the runtime for no turn, such as the `/rename`
+command that names a fresh Codex successor after its topic, MUST NOT be held as
+an UNCONFIRMED delivery and MUST NOT suppress a later paste: the daemon MUST
+prove its outcome by that payload's own evidence (for a Codex rename, the
+durable session-index record binding the successor's rollout to the topic),
+never by an observed turn start. When that evidence does not appear within the
+replacement's bounded wait, the replacement MUST keep the ready declaration,
+MUST surface the unnamed successor, and MUST NOT deliver the resume line. A held
+attempt MUST NOT suppress the resume line a replacement delivers to its proven
+successor; that resume line is pasted afresh, and its delivery is confirmed by
+the successor's observed turn start. A held attempt MUST be released when a
+later observation resolves it DELIVERED or FAILED, and MUST be released when its
+round closes, so a later paste to that pane — including the resume line after a
+restart — is pasted afresh rather than suppressed by the earlier attempt.
 Keeping an UNCONFIRMED round open carries one accepted residual exposure: a
 `ready` written after the stamp by a session whose paste did not in fact land.
 That exposure is bounded by the stamp-before-paste ordering, which keeps any

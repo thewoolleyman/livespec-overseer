@@ -4241,6 +4241,18 @@ And a never-attempted launch may continue only after revalidating the same idle 
 
 And a verified successor receives only the existing guarded resume-submission continuation
 
+
+## Scenario: A Codex herdr replacement delivers the resume line after an unconfirmable rename
+
+Given a Codex track on the herdr backend whose fresh-session ready declaration authorized a replacement
+And the daemon has launched a fresh Codex successor in the recorded pane and submitted /rename <topic> to it
+And the rename started no turn, so its delivery cannot be confirmed by a turn start
+When the session index records the successor's rollout under the topic
+Then the daemon treats the successor as named, without holding the rename as an UNCONFIRMED delivery
+And it pastes the replacement's resume line into the successor's pane
+And it confirms that delivery only when the successor's turn starts
+And the replacement reaches phase completed and consumes the ready declaration
+
 ## Scenario: A replacement prerequisite failure preserves every live session
 
 Given a herdr replacement whose state write or lock fails, whose immediate predecessor or restart-interlock recheck fails, or whose agent replaced the root shell so no distinct live retained shell exists
