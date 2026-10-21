@@ -61,12 +61,20 @@ def _live_coordinate(*, sup: Supervisor, track: registry.Track) -> str | None:
     return found[0] if len(found) == 1 else None
 
 
-def rebound_codex_coordinate(*, sup: Supervisor, track: registry.Track, session: str) -> str | None:
+def rebound_codex_coordinate(
+    *, sup: Supervisor, track: registry.Track, session: str, act: bool
+) -> str | None:
     """The live coordinate this row's dead tmux locator should name, or None.
 
     Returns None — leaving the stored coordinate exactly as it stands — for a stored
     herdr target, a row recording no Codex identity, a row whose recorded identity no
     live pane resolves to, and a row whose live pane is already the coordinate it stores.
+
+    The STORE WRITE and its log line are gated on ``act``; the resolved coordinate is
+    returned either way. The read-only `list` path classifies without mutating, and it
+    still has to tell the truth about the track — it is the surface an operator reads
+    before deciding whether to touch anything — so resolving in memory and writing only
+    on an acting tick is what keeps both halves of that true.
     """
     if herdr_identity.decode_target(value=session).herdr is not None:
         return None
@@ -77,13 +85,14 @@ def rebound_codex_coordinate(*, sup: Supervisor, track: registry.Track, session:
     coordinate = _live_coordinate(sup=sup, track=track)
     if coordinate is None or coordinate == session:
         return None
-    _ = registry.repoint_tmux(
-        repo=track.repo,
-        topic=track.topic,
-        new_tmux=coordinate,
-        store_path=sup.store_path,
-    )
-    sup.log(message=f"rebound {track.repo}::{track.topic} tmux {session} → {coordinate}")
+    if act:
+        _ = registry.repoint_tmux(
+            repo=track.repo,
+            topic=track.topic,
+            new_tmux=coordinate,
+            store_path=sup.store_path,
+        )
+        sup.log(message=f"rebound {track.repo}::{track.topic} tmux {session} → {coordinate}")
     return coordinate
 
 
