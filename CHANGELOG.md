@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.33.4](https://github.com/thewoolleyman/livespec-overseer/compare/v5.33.3...v5.33.4) (2026-10-21)
+
+
+### Bug Fixes
+
+* **overseer:** anchor the widened gate region on the picker's own footer ([f6d14e9](https://github.com/thewoolleyman/livespec-overseer/commit/f6d14e97fc4a7b0f21d876e8c6696e12a6041b5c))
+* **overseer:** read a tall picker as a live structured gate ([b57a4c1](https://github.com/thewoolleyman/livespec-overseer/commit/b57a4c1da419ed6cabe45398f6e77f331aed014d))
+
 ## [5.33.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.33.2...v5.33.3) (2026-10-21)
 
 
