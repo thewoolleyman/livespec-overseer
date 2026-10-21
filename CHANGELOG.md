@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.33.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.33.2...v5.33.3) (2026-10-21)
+
+
+### Bug Fixes
+
+* **launcher:** a shipped launcher runs its own plugin's package ([568d57d](https://github.com/thewoolleyman/livespec-overseer/commit/568d57d064cf12b4090466cf74c331e4ad628968))
+
 ## [5.33.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.33.1...v5.33.2) (2026-10-20)
 
 
