@@ -26,6 +26,7 @@ from __future__ import annotations
 import contextlib
 import importlib
 import io
+import json
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
@@ -54,6 +55,7 @@ OPERATOR_PANE_PID = 7002
 
 SESSION_ID = "01a0f0d2-8ae8-7ec3-9c29-5ff9bef058f2"
 OPERATOR_SESSION_ID = "019f0000-0000-7000-8000-000000000001"
+SUCCESSOR_SESSION_ID = "01a0ffff-ffff-7fff-8fff-ffffffffffff"
 DEAD_TMUX = "factory-test-first-enforcement"
 
 _SCHEMA = "CREATE TABLE threads (id TEXT PRIMARY KEY, model TEXT, cwd TEXT)"
@@ -159,11 +161,13 @@ class World:
     store: Path
 
 
-def make_world(*, tmp_path, rows=None, cwds=None, panes=None):
+def make_world(*, tmp_path, rows=None, cwds=None, panes=None, indexed=None):
     """The measured topology, with every Codex host coupling injected.
 
     `rows` overrides the mapping store's contents, `cwds` the carriers' cwds and `panes`
     the pane-pid map, so a test can drive one refusal without re-stating the whole host.
+    `indexed` gives the TRACKED carrier a rollout fd of its own, named in the Codex
+    index — the pre-0.159 topology, which the ordinary indexed join answers for.
     """
     repo, topic = make_plan(tmp_path=tmp_path, topic="topic")
     other_repo, _other_topic = make_plan(tmp_path=tmp_path, repo_name="operator", topic="operator")
@@ -192,13 +196,19 @@ def make_world(*, tmp_path, rows=None, cwds=None, panes=None):
             OPERATOR_PANE_PID: OPERATOR_COORDINATE,
         }
     )
-    # Only the app-server holds rollout fds, and it holds BOTH live sessions'.
+    # Only the app-server holds rollout fds, and it holds BOTH live sessions' — unless a
+    # test opts the tracked carrier back into holding its own, indexed rollout.
     fd_targets = {
         APP_SERVER_PID: [
             rollout(codex_home=home, session_id=SESSION_ID),
             rollout(codex_home=home, session_id=OPERATOR_SESSION_ID),
         ]
     }
+    if indexed is not None:
+        fd_targets[TRACKED_PID] = [rollout(codex_home=home, session_id=indexed)]
+        (home / "session_index.jsonl").write_text(
+            json.dumps({"id": indexed, "thread_name": "topic"}) + "\n", encoding="utf-8"
+        )
     carrier_cwds = (
         cwds
         if cwds is not None
@@ -458,6 +468,30 @@ def test_a_track_with_no_rebindable_pane_still_reports_session_gone(*, tmp_path)
 
     assert not isinstance(outcome, _supervisor_evaluate_target.EvaluateTarget)
     assert outcome.status == "session-gone"
+
+
+# --- assertion 4: no pane matching the recorded identity leaves the row alone --------
+
+
+def test_a_live_pane_whose_resolved_identity_differs_never_moves_the_row(*, tmp_path):
+    """A same-topic pane is not evidence; the RECORDED identity is what has to match.
+
+    This is the shape a Codex restart leaves behind: the index now names a NEW rollout
+    for the same topic while the row still records the predecessor. Following that would
+    bind the row to a session it never observed — and adoption's own re-point already
+    handles a live INDEXED session correctly, on evidence this rebind does not have.
+    """
+    _module = codex_rebind()
+    successor = tmp_path / "successor"
+    successor.mkdir()
+    world = make_world(tmp_path=successor, indexed=SUCCESSOR_SESSION_ID)
+
+    outcome, log = resolve(world=world, act=True)
+
+    assert world.sup.live_codex[(TRACKED_COORDINATE, "topic")].session_id == SUCCESSOR_SESSION_ID
+    assert row_of(store=world.store).tmux == DEAD_TMUX
+    assert "rebound" not in log
+    assert not isinstance(outcome, _supervisor_evaluate_target.EvaluateTarget)
 
 
 # --- carrier_session_id: the database and home resolution ----------------------------
