@@ -97,3 +97,56 @@ def test_a_committed_server_still_wins_over_the_supplied_registry(*, tmp_path):
         liveness.factory_server(repo=repo, factory="petri", registry_path=registry_path)
         == "https://committed.example:32276"
     )
+
+
+def refuse_to_run(args, **kwargs):
+    _ = kwargs
+    raise AssertionError(f"fabro must not be queried without a resolved server: {args!r}")
+
+
+def verdict_or_failure(*, call):
+    """The liveness verdict, or a sentinel naming an exception it raised instead.
+
+    A registry read that RAISES is the failure this test exists to rule out, so it
+    is reported as a verdict rather than allowed to abort the comparison — every
+    unusable registry must come back as "cannot answer".
+    """
+    try:
+        return call()
+    except (OSError, ValueError) as failed:
+        return f"raised {type(failed).__name__}"
+
+
+def test_an_unusable_supplied_registry_reports_that_the_factory_cannot_answer(*, tmp_path):
+    repo = registry_backed_repo(tmp_path=tmp_path)
+    unreadable = tmp_path / "unreadable-registry"
+    unreadable.mkdir()
+    cases = {
+        "absent": tmp_path / "absent" / "fabro-factories.json",
+        "unreadable": unreadable,
+        "malformed": write_registry(path=tmp_path / "malformed.json", text="{"),
+        "not-an-object": write_registry(path=tmp_path / "list.json", text="[]"),
+        "another-factory": write_registry(
+            path=tmp_path / "other.json", text='{"legacy": {"server": "https://legacy.example"}}'
+        ),
+        "entry-not-an-object": write_registry(path=tmp_path / "entry.json", text='{"petri": []}'),
+        "server-not-a-string": write_registry(
+            path=tmp_path / "server.json", text='{"petri": {"server": 32276}}'
+        ),
+    }
+
+    verdicts = {
+        name: verdict_or_failure(
+            call=lambda path=path: liveness.remote_factory_run_present_with(
+                repo=repo,
+                record={"dispatch_factory": "petri", "work_item_id": "overseer-glundr"},
+                target_id="dispatch-1",
+                run=refuse_to_run,
+                registry_path=path,
+            )
+        )
+        for name, path in cases.items()
+    }
+
+    assert verdicts == dict.fromkeys(cases, None)
+    assert False not in verdicts.values()
