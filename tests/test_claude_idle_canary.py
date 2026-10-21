@@ -222,10 +222,59 @@ def test_the_check_reads_its_live_capture_from_the_capture_script() -> None:
     """
     canary = _load_canary()
     canary._capture_module = lambda: SimpleNamespace(
-        live_idle_capture=lambda: SimpleNamespace(text="pane\n", failure=None)
+        live_idle_capture=lambda: SimpleNamespace(text="pane\n", pane_text="pane\n", failure=None)
     )
 
     assert canary.live_idle_capture() == "pane\n"
+
+
+def test_the_check_reads_pane_text_the_capture_script_refused_to_store() -> None:
+    """The check judges what the pane RENDERED, not only what was storable.
+
+    The capture script offers two different things: `text`, a capture it has
+    already judged ready to become a fixture, and `pane_text`, whatever the
+    pane last rendered. Reading `text` would make the check's rejection branch
+    unreachable by construction — the capture script never hands back text its
+    own predicates refused — so every host whose idle box the detector cannot
+    read would arrive as "no capture obtainable" and be reported as registry
+    lag. The check reads the pane evidence and applies the predicates itself.
+    """
+    canary = _load_canary()
+    canary._capture_module = lambda: SimpleNamespace(
+        live_idle_capture=lambda: SimpleNamespace(
+            text=None, pane_text="unreadable pane\n", failure="not an idle box"
+        )
+    )
+
+    assert canary.live_idle_capture() == "unreadable pane\n"
+
+
+def test_an_unregistered_build_the_detector_rejects_stops_the_line_through_the_real_seam() -> None:
+    """The DETECTOR_FAILURE outcome, reached the way a real host reaches it.
+
+    Its sibling above injects `live_idle_capture` directly, which proves the
+    message but not that any host can ever produce it. This one goes through
+    the capture-script seam the check actually consumes, with the attempt shape
+    a timed-out live capture of an unreadable pane produces, and so is the
+    regression test for the three-way separation collapsing back to two.
+    """
+    canary = _load_canary()
+    assert _UNREGISTERED not in {path.stem for path in _FIXTURE_DIR.glob("*.txt")}
+    canary._capture_module = lambda: SimpleNamespace(
+        live_idle_capture=lambda: SimpleNamespace(
+            text=None,
+            pane_text=busy_capture(ctx=None),
+            failure="the idle detector could not read the pane text the canary session rendered",
+        )
+    )
+    err = _io.StringIO()
+
+    with contextlib.redirect_stderr(err):
+        exit_code = canary.main(argv=["check"], run=_fake_version_run(version=_UNREGISTERED))
+
+    assert exit_code == 1
+    assert "CLAUDE_IDLE_CANARY_DETECTOR_FAILURE" in err.getvalue(), err.getvalue()
+    assert "CLAUDE_IDLE_CANARY_MISSING_FIXTURE" not in err.getvalue()
 
 
 def test_the_check_loads_the_real_capture_script_module() -> None:
@@ -396,17 +445,8 @@ def test_capture_script_ignores_kill_errors() -> None:
     capture_canary._kill_canary_session(session="s")
 
 
-def test_capture_script_awaits_ready_capture(*, monkeypatch) -> None:
-    capture_canary = _load_capture_canary()
-
-    capture_canary._tmux_capture = lambda *, session: idle_capture(ctx=73).rstrip()
-    monkeypatch.setattr(capture_canary.time, "monotonic", lambda: 1.0)
-
-    assert capture_canary._await_idle_capture(session="s") == idle_capture(ctx=73)
-
-
-def test_capture_script_times_out_waiting_for_idle(*, monkeypatch) -> None:
-    capture_canary = _load_capture_canary()
+def _one_poll_clock(*, capture_canary, monkeypatch) -> None:
+    """Wind the capture script's clock so exactly one poll runs, then the deadline passes."""
     clock = {"now": 0.0}
 
     def fake_monotonic():
@@ -417,11 +457,62 @@ def test_capture_script_times_out_waiting_for_idle(*, monkeypatch) -> None:
         assert seconds == 1.0
 
     capture_canary._CAPTURE_TIMEOUT_SECONDS = 2.0
-    capture_canary._tmux_capture = lambda *, session: "busy"
     monkeypatch.setattr(capture_canary.time, "monotonic", fake_monotonic)
     monkeypatch.setattr(capture_canary.time, "sleep", fake_sleep)
 
-    assert capture_canary._await_idle_capture(session="s") is None
+
+def test_capture_script_awaits_ready_capture(*, monkeypatch) -> None:
+    capture_canary = _load_capture_canary()
+
+    capture_canary._tmux_capture = lambda *, session: idle_capture(ctx=73).rstrip()
+    monkeypatch.setattr(capture_canary.time, "monotonic", lambda: 1.0)
+
+    attempt = capture_canary._await_idle_capture(session="s")
+
+    assert attempt.text == idle_capture(ctx=73)
+    assert attempt.pane_text == idle_capture(ctx=73)
+    assert attempt.failure is None
+
+
+def test_capture_script_carries_back_pane_text_the_detector_could_not_read(*, monkeypatch) -> None:
+    """A timed-out attempt still reports WHAT the pane rendered, when it rendered anything.
+
+    This is the discriminator the canary's three-way outcome rests on, and
+    without it the separation collapses to two. The poll loop exits early only
+    on a capture `capture_is_ready` accepted — the same conjunction the check
+    re-applies — so an attempt that offered nothing but its storable capture
+    could never describe a pane the detector FAILED on. Every such host would
+    simply time out and be reported as a missing fixture, which is exactly the
+    misdiagnosis the canary exists to prevent. The unready pane text comes back
+    as pane evidence while `text` stays `None`, so nothing can store it.
+    """
+    capture_canary = _load_capture_canary()
+    _one_poll_clock(capture_canary=capture_canary, monkeypatch=monkeypatch)
+    capture_canary._tmux_capture = lambda *, session: busy_capture(ctx=None)
+
+    attempt = capture_canary._await_idle_capture(session="s")
+
+    assert attempt.text is None
+    assert attempt.pane_text == busy_capture(ctx=None)
+    assert attempt.failure is not None
+
+
+def test_capture_script_reports_a_pane_that_rendered_nothing_as_no_evidence(*, monkeypatch) -> None:
+    """A session that rendered NO pane text at all is the other timeout, and stays distinct.
+
+    There is nothing here for the detector to be judged against, so this
+    attempt must not carry pane evidence — it is the case where the canary
+    genuinely knows neither way and its caller must keep refusing.
+    """
+    capture_canary = _load_capture_canary()
+    _one_poll_clock(capture_canary=capture_canary, monkeypatch=monkeypatch)
+    capture_canary._tmux_capture = lambda *, session: "   \n"
+
+    attempt = capture_canary._await_idle_capture(session="s")
+
+    assert attempt.text is None
+    assert attempt.pane_text is None
+    assert attempt.failure is not None
 
 
 def test_capture_script_live_capture_returns_the_pane_text_it_captured() -> None:
@@ -433,12 +524,15 @@ def test_capture_script_live_capture_returns_the_pane_text_it_captured() -> None
     """
     capture_canary = _load_capture_canary()
     capture_canary._start_canary_session = lambda *, session: True
-    capture_canary._await_idle_capture = lambda *, session: "pane\n"
+    capture_canary._await_idle_capture = lambda *, session: capture_canary.IdleCaptureAttempt(
+        text="pane\n", pane_text="pane\n", failure=None
+    )
     capture_canary._kill_canary_session = lambda *, session: None
 
     attempt = capture_canary.live_idle_capture()
 
     assert attempt.text == "pane\n"
+    assert attempt.pane_text == "pane\n"
     assert attempt.failure is None
 
 
@@ -471,14 +565,43 @@ def test_capture_script_main_reports_idle_timeout() -> None:
     killed: list[str] = []
     capture_canary._installed_version = lambda: "2.1.238"
     capture_canary._start_canary_session = lambda *, session: True
-    capture_canary._await_idle_capture = lambda *, session: None
+    capture_canary._await_idle_capture = lambda *, session: capture_canary.IdleCaptureAttempt(
+        text=None, pane_text=None, failure="the canary session rendered no pane text in time"
+    )
     capture_canary._kill_canary_session = lambda *, session: killed.append(session)
 
     with contextlib.redirect_stderr(err):
         assert capture_canary.main() == 1
 
     assert killed == [f"claude-idle-canary-{capture_canary.os.getpid()}"]
-    assert "idle prompt did not render in time" in err.getvalue()
+    assert "rendered no pane text in time" in err.getvalue()
+
+
+def test_capture_script_main_refuses_to_store_pane_text_the_detector_rejected(*, tmp_path) -> None:
+    """Carrying unready pane evidence must NOT make it storable as a fixture.
+
+    The registry is the regression corpus, so only a capture the detector
+    accepted may enter it. `main` keys on the storable capture rather than on
+    the pane evidence precisely so the discriminator the CHECK needs cannot
+    leak an unreadable pane into the registry the check is judged against.
+    """
+    capture_canary = _load_capture_canary()
+    err = _io.StringIO()
+    repo_root = tmp_path / "repo"
+    capture_canary._REPO_ROOT = repo_root
+    capture_canary._FIXTURE_DIR = repo_root / "fixtures"
+    capture_canary._installed_version = lambda: "2.1.238"
+    capture_canary._start_canary_session = lambda *, session: True
+    capture_canary._await_idle_capture = lambda *, session: capture_canary.IdleCaptureAttempt(
+        text=None, pane_text=busy_capture(ctx=None), failure="not an idle input box"
+    )
+    capture_canary._kill_canary_session = lambda *, session: None
+
+    with contextlib.redirect_stderr(err):
+        assert capture_canary.main() == 1
+
+    assert not (repo_root / "fixtures").exists()
+    assert "not an idle input box" in err.getvalue()
 
 
 def test_capture_script_main_writes_versioned_fixture(*, tmp_path) -> None:
@@ -489,7 +612,9 @@ def test_capture_script_main_writes_versioned_fixture(*, tmp_path) -> None:
     capture_canary._FIXTURE_DIR = repo_root / "fixtures"
     capture_canary._installed_version = lambda: "2.1.238"
     capture_canary._start_canary_session = lambda *, session: True
-    capture_canary._await_idle_capture = lambda *, session: "capture\n"
+    capture_canary._await_idle_capture = lambda *, session: capture_canary.IdleCaptureAttempt(
+        text="capture\n", pane_text="capture\n", failure=None
+    )
     capture_canary._kill_canary_session = lambda *, session: None
 
     with contextlib.redirect_stdout(out):
