@@ -98,11 +98,20 @@ def registry_factory_server(*, registry_path: Path, factory: str) -> str | None:
     """Resolve a registry-backed factory's server address by factory name.
 
     The registry is a JSON object mapping factory name to ``{server, optional
-    docker_host}``. A registry that declares no such factory, or an entry with no
-    string ``server``, yields ``None`` — which the caller must report as "the
-    factory cannot answer", never as "no run exists".
+    docker_host}``. A registry that is absent, unreadable, malformed, or that
+    declares no such factory, yields ``None`` — which the caller must report as
+    "the factory cannot answer", never as "no run exists". Fail-soft rather than
+    raising, because no sandbox carries the host file at all.
     """
-    payload = jsonio.as_object(value=json.loads(registry_path.read_text(encoding="utf-8"))) or {}
+    try:
+        text = registry_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    payload = jsonio.as_object(value=value) or {}
     entry = jsonio.as_object(value=payload.get(factory)) or {}
     return string_field(record=entry, key="server")
 
