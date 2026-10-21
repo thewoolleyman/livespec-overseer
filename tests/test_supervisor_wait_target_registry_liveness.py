@@ -150,3 +150,44 @@ def test_an_unusable_supplied_registry_reports_that_the_factory_cannot_answer(*,
 
     assert verdicts == dict.fromkeys(cases, None)
     assert False not in verdicts.values()
+
+
+def test_an_object_shaped_dispatch_factory_is_read_by_name_and_recorded_server(*, tmp_path):
+    """The dispatcher records `dispatch_factory` as an object on some runs.
+
+    `livespec-orchestrator-beads-fabro` writes `{"name": ..., "server": ...}`
+    there (e.g. on `bd-ib-wkfwtx`). Reading that with `string_field` yielded None,
+    which the reader treated as "this record names no factory" and answered NO RUN
+    for a live run — the unsafe direction, and without querying fabro at all.
+    """
+    repo = registry_backed_repo(tmp_path=tmp_path)
+    registry_path = write_registry(
+        path=tmp_path / "fabro-factories.json",
+        text='{"petri": {"server": "https://petri.example:32276"}}',
+    )
+    commands: list[list[str]] = []
+
+    def run(args, **kwargs):
+        commands.append(args)
+        _ = kwargs
+        return Completed(returncode=0, stdout=_PETRI_RUNNING)
+
+    def present(*, dispatch_factory):
+        return liveness.remote_factory_run_present_with(
+            repo=repo,
+            record={"dispatch_factory": dispatch_factory, "work_item_id": "overseer-glundr"},
+            target_id="dispatch-1",
+            run=run,
+            registry_path=registry_path,
+        )
+
+    recorded = present(dispatch_factory={"name": "petri", "server": "https://noted.example:32276"})
+    by_name = present(dispatch_factory={"name": "petri"})
+    nameless = present(dispatch_factory={})
+
+    assert (recorded, by_name) == (True, True)
+    assert nameless is False
+    assert commands == [
+        ["fabro", "ps", "-a", "--json", "--server", "https://noted.example:32276"],
+        ["fabro", "ps", "-a", "--json", "--server", "https://petri.example:32276"],
+    ]

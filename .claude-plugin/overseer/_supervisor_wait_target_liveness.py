@@ -177,6 +177,20 @@ def active_process(*, process_record: dict[str, object]) -> bool:
     return True
 
 
+def dispatch_factory_target(*, record: dict[str, object]) -> tuple[str | None, str | None]:
+    """A record's dispatch factory name, and the server its dispatch recorded.
+
+    `dispatch_factory` is recorded either as a bare factory name or as an object
+    carrying ``name`` and the ``server`` the dispatch resolved for it. Reading only
+    the string form yielded ``None`` for the object shape, which the caller read as
+    "this record names no factory" and answered NO RUN for a live run.
+    """
+    recorded = jsonio.as_object(value=record.get("dispatch_factory"))
+    if recorded is None:
+        return string_field(record=record, key="dispatch_factory"), None
+    return string_field(record=recorded, key="name"), string_field(record=recorded, key="server")
+
+
 def remote_factory_run_present_with(
     *,
     repo: Path,
@@ -186,10 +200,12 @@ def remote_factory_run_present_with(
     registry_path: Path = _FACTORY_REGISTRY_PATH,
 ) -> bool | None:
     """Return remote liveness, or ``None`` when the factory cannot answer."""
-    dispatch_factory = string_field(record=record, key="dispatch_factory")
-    if dispatch_factory is None:
+    dispatch_factory, recorded_server = dispatch_factory_target(record=record)
+    if dispatch_factory is None and recorded_server is None:
         return False
-    server = factory_server(repo=repo, factory=dispatch_factory, registry_path=registry_path)
+    server = recorded_server or factory_server(
+        repo=repo, factory=dispatch_factory, registry_path=registry_path
+    )
     if server is None:
         return None
     try:
