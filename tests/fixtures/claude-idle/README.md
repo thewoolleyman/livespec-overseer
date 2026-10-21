@@ -30,3 +30,24 @@ capture or a constructed rendering.
 Do not recapture `2.1.235.txt` or `2.1.237.txt`; those installed builds are no
 longer available on the host. Add new installed builds by capturing a new
 version-keyed `*.txt` fixture, not by editing older provenance.
+
+An installed build with no fixture here NO LONGER FAILS the gate on its own.
+Every row above from `2.1.246.txt` onward records the same episode — a host
+Claude Code auto-update turning every overseer gate red at once, pre-push and
+the post-merge janitor alike, for an environment property no diff under test
+caused. So `scripts/claude-idle-canary.py check` now treats a missing fixture as
+REGISTRY LAG rather than as detector breakage: for an unregistered build it
+takes one live capture from the same disposable session
+`just capture-claude-idle-canary` uses and judges it by the same predicates a
+registered fixture is judged by. A capture the detector ACCEPTS exits 0 with a
+`CLAUDE_IDLE_CANARY_UNREGISTERED` advisory; a capture it REJECTS still exits 1
+with `CLAUDE_IDLE_CANARY_DETECTOR_FAILURE`, which is the real stop-the-line; and
+a build for which no capture can be obtained at all still exits 1 with
+`CLAUDE_IDLE_CANARY_MISSING_FIXTURE`, because the gate must never pass on no
+evidence.
+
+Capturing the fixture remains the way to REGISTER a build, and the advisory asks
+for exactly that. Nothing about this directory's role changes: these files are
+the regression corpus every captured build is permanently checked against, a
+live advisory is not a substitute for one, and `just capture-claude-idle-canary`
+is still the one command that adds a version to the registry.

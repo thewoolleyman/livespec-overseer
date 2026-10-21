@@ -136,29 +136,44 @@ def _unregistered_build_outcome(*, version: str) -> int:
     A missing fixture file is REGISTRY LAG, and the registry lags on every host
     Claude Code auto-update. The property this canary actually protects is that
     the detector still recognizes the installed build's idle input box, so the
-    live capture is what separates the two: a capture the detector accepts means
-    supervision is intact and the gap is only unrecorded, which is an advisory.
-    Where no capture can be obtained there is no evidence either way, and the
-    gate must never pass on none — today's refusal stands.
+    live capture is what separates the two, into three outcomes:
+
+    - the detector ACCEPTS the capture: supervision is intact and the gap is
+      only unrecorded, so the gate passes with an advisory;
+    - the detector REJECTS it: supervision cannot see this host's idle input box
+      and that is the real stop-the-line, so it keeps the loud DETECTOR_FAILURE
+      diagnosis rather than being dressed up as routine registry lag — pointing
+      an operator at the capture recipe would be the wrong instruction, since a
+      fixture the detector cannot read fixes nothing;
+    - no capture can be OBTAINED: there is no evidence either way, and the gate
+      must never pass on none, so today's refusal stands unchanged.
     """
     capture = live_idle_capture()
-    if capture is not None and _live_capture_is_valid(capture=capture, version=version):
+    if capture is None:
         _write_stderr(
             text=(
-                f"CLAUDE_IDLE_CANARY_UNREGISTERED: installed Claude Code {version} has no "
-                "registered idle fixture, but the detector recognizes its live idle input "
-                "box; run `just capture-claude-idle-canary` to register it\n"
+                "CLAUDE_IDLE_CANARY_MISSING_FIXTURE: installed Claude Code "
+                f"{version} has no idle fixture and no live idle capture could be "
+                "obtained; run `just capture-claude-idle-canary`\n"
             )
         )
-        return 0
+        return 1
+    if not _live_capture_is_valid(capture=capture, version=version):
+        _write_stderr(
+            text=(
+                "CLAUDE_IDLE_CANARY_DETECTOR_FAILURE: the idle detector does not "
+                f"recognize the live idle input box of installed Claude Code {version}\n"
+            )
+        )
+        return 1
     _write_stderr(
         text=(
-            "CLAUDE_IDLE_CANARY_MISSING_FIXTURE: installed Claude Code "
-            f"{version} has no idle fixture and no live idle capture could be "
-            "obtained; run `just capture-claude-idle-canary`\n"
+            f"CLAUDE_IDLE_CANARY_UNREGISTERED: installed Claude Code {version} has no "
+            "registered idle fixture, but the detector recognizes its live idle input "
+            "box; run `just capture-claude-idle-canary` to register it\n"
         )
     )
-    return 1
+    return 0
 
 
 def _check(*, run: CommandRunner) -> int:
