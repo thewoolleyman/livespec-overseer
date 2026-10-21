@@ -1599,10 +1599,17 @@ for the marker's edge-triggered lifecycle.
     onto `sys.path` so `import supervisor` (and supervisor's siblings) resolve
     from any cwd. This is the ONLY thing the `/overseer` skill launches in the top
     pane. The installed `.claude-plugin/bin/overseerd` launcher ends by `exec`ing
-    `python3 -m overseer.daemon "$@"`, so a healthy daemon's process title is the
-    Python module invocation, not `overseerd`; `pgrep -af overseerd` can return
-    empty while the singleton daemon is alive. Check for `python3 -m overseer.daemon`,
-    the singleton lock, and the growing daemon log instead.
+    `python3 "$PLUGIN_ROOT/overseer/launch.py" overseer.daemon "$@"`, so a healthy
+    daemon's process title is that launcher file with the module name as a bare
+    argument, not `overseerd`; `pgrep -af overseerd` can return
+    empty while the singleton daemon is alive. Check for `overseer.daemon` (which
+    `pgrep -af` still finds in the launcher's argv),
+    the singleton lock, and the growing daemon log instead. **The launcher used to
+    `exec python3 -m overseer.daemon`, and `-m` is exactly what was wrong with it**
+    (`overseer-uzvcbn.2`): it put the CALLER's directory at `sys.path[0]`, ahead of
+    `PYTHONPATH`, so a launcher run from inside a livespec-overseer checkout imported
+    that checkout's `overseer` package instead of its own plugin's. Do not grep for
+    the `-m` form — no live process carries it.
   - **`supervisor.py`** — a **plain module** (NO shebang, NOT executable). It is the
     FAÇADE over `_supervisor_core` (which holds the `Supervisor` class) and holds
     `build_supervisor()` + `run_daemon()` + the one-shot track-management CLI
