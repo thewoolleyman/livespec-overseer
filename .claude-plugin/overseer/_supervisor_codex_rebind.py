@@ -36,8 +36,21 @@ __all__: list[str] = ["rebound_codex_coordinate"]
 
 
 def _live_coordinate(*, sup: Supervisor, track: registry.Track) -> str | None:
-    """The coordinate of the live Codex pane this track's topic resolves to, if unique."""
-    found = [coordinate for coordinate, topic in sup.live_codex if topic == track.topic]
+    """The coordinate of the live pane running the exact session this row RECORDED.
+
+    The topic alone is not evidence, and following it was a real defect: a restarted
+    Codex session leaves the index naming a NEW rollout under the same topic while the
+    row still records the predecessor, so a topic match bound the row to a session it had
+    never observed. Adoption's own re-point already follows a live INDEXED session, on
+    evidence this rebind does not have, so the two do not compete.
+    """
+    recorded = track.observed_session_identity
+    found = [
+        coordinate
+        for (coordinate, topic), live in sup.live_codex.items()
+        if topic == track.topic
+        and f"{_supervisor_codex_identity.CODEX_IDENTITY_PREFIX}{live.session_id}" == recorded
+    ]
     return found[0] if len(found) == 1 else None
 
 
@@ -45,8 +58,8 @@ def rebound_codex_coordinate(*, sup: Supervisor, track: registry.Track, session:
     """The live coordinate this row's dead tmux locator should name, or None.
 
     Returns None — leaving the stored coordinate exactly as it stands — for a stored
-    herdr target, a row recording no Codex identity, a row no live pane answers for, and
-    a row whose live pane is already the coordinate it stores.
+    herdr target, a row recording no Codex identity, a row whose recorded identity no
+    live pane resolves to, and a row whose live pane is already the coordinate it stores.
     """
     if herdr_identity.decode_target(value=session).herdr is not None:
         return None
