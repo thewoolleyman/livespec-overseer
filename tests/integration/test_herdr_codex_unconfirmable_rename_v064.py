@@ -411,6 +411,40 @@ def test_a_refused_rename_paste_sends_no_enter_and_still_keeps_ready(*, tmp_path
     assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
 
 
+def test_a_held_unconfirmed_wrapup_never_suppresses_the_proven_successors_resume(
+    *, tmp_path: Path
+) -> None:
+    """v064's SECOND exception, and the one the first cut of this fix left out.
+
+    The replacement's own wind-down is the paste that most often ends UNCONFIRMED on a
+    Codex pane, so a held attempt is the ORDINARY state a replacement starts from — and
+    the round that would release it (`complete_replacement_round`) only runs once the
+    resume has already succeeded. Held, it answered this request with the stale wrap-up
+    and the resume line was never pasted at all: the identical symptom this item exists
+    to eliminate, reached through the other held payload.
+
+    What the held attempt describes is a composer the PREDECESSOR took with it. The
+    successor is a different process generation in the retained pane, which is what
+    `_prove_successor` has already established by the time the resume is due, so the
+    line is pasted afresh and confirmed by the successor's own observed turn start.
+    """
+    repo, topic, target, pane, sup, track, record_path = _replacement_world(tmp_path=tmp_path)
+    pane.prompt_states[target] = pane_router_submit_signals.PromptState(
+        text=WRAPUP, phase="await-enter", effect_unknown=True
+    )
+
+    view, _log = _reconcile(sup=sup, track=track, target=target)
+
+    assert view is not None
+    assert view.note == "durable Herdr replacement phase: completed"
+    assert _phase(record_path=record_path) == "completed"
+    assert pane.pastes == [f"/rename {topic}", RESUME]
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
+    assert pane.busy is True
+    # The released attempt is not re-held either: the resume resolved DELIVERED.
+    assert pane.prompt_states == {}
+
+
 def test_a_held_unconfirmed_wrapup_is_followed_by_no_later_wrapup_or_nudge(
     *, tmp_path: Path
 ) -> None:

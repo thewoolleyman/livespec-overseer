@@ -98,9 +98,26 @@ def release_held_submit(*, sup: Supervisor, track: registry.Track) -> None:
     SPECIFICATION v059: a held UNCONFIRMED attempt must not outlive its round, or the
     resume line pasted to the same pane after a restart is suppressed by it.
     """
+    release_pane_held_submit(sup=sup, target=session_of(sup=sup, track=track))
+
+
+def release_pane_held_submit(*, sup: Supervisor, target: str) -> None:
+    """Forget whatever native submit attempt is held for ONE pane coordinate.
+
+    SPECIFICATION v064: a held attempt MUST NOT suppress the resume line a replacement
+    delivers to its PROVEN successor — that line is pasted afresh, and its delivery is
+    confirmed by the successor's observed turn start. A held attempt describes a
+    composer the predecessor took with it, so re-driving its text answers the resume
+    request with the wrong payload and the resume line is never pasted at all.
+
+    This is the pane-scoped half of :func:`release_held_submit`, for a caller that
+    holds the resolved pane rather than the track and must release the attempt BEFORE
+    its round closes. Every payload with no such proof of its own keeps the held-attempt
+    suppression unchanged.
+    """
     states = getattr(sup.tmux, "prompt_states", None)
     if isinstance(states, dict):
-        _ = cast(dict[str, object], states).pop(session_of(sup=sup, track=track), None)
+        _ = cast(dict[str, object], states).pop(target, None)
 
 
 def canonical_codex_session_id(*, value: object) -> str | None:

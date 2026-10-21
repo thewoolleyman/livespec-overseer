@@ -169,6 +169,13 @@ def _resume_successor(
             return "named Codex successor input is not ready"
         current["phase"] = "resume-attempted"
         _herdr_replacement_store.durable_write(path=record_path, value=current)
+        # v064: the SECOND exception to held-paste suppression. The successor is proven
+        # by here, so a held attempt can only describe the composer its predecessor took
+        # with it — and held, it answered this request from that stale payload and left
+        # the resume line unpasted, with nothing to recover it: the round that releases a
+        # held attempt closes only after the resume has already succeeded. Released, the
+        # line is pasted afresh and confirmed by the successor's own turn start.
+        _supervisor_launch.release_pane_held_submit(sup=sup, target=target)
         if not _supervisor_launch.submit_prompt(
             sup=sup, target=target, text=resume, expect_codex=True
         ):
