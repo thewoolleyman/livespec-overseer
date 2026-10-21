@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.33.7](https://github.com/thewoolleyman/livespec-overseer/compare/v5.33.6...v5.33.7) (2026-10-21)
+
+
+### Bug Fixes
+
+* **overseer:** keep the Codex rebind's store write on the acting tick only ([6a1f780](https://github.com/thewoolleyman/livespec-overseer/commit/6a1f7807590179551694e27ddfa6734a78eeb2ee))
+* **overseer:** rebind a dead tmux coordinate to its live Codex pane ([47ce23c](https://github.com/thewoolleyman/livespec-overseer/commit/47ce23c6b8e53154d7e567fcd5ce5590f6efb196))
+* **overseer:** rebind only to the pane whose identity the row recorded ([6754d10](https://github.com/thewoolleyman/livespec-overseer/commit/6754d1067623eee66a5c84c3c8c7f32f16b450a1))
+* **overseer:** report an unidentifiable Codex pane as its own status ([1301a56](https://github.com/thewoolleyman/livespec-overseer/commit/1301a56da78341f699bbcf8671a63921e01d4f4a))
+* **overseer:** resolve Codex identity without a held-open rollout ([c8f57e4](https://github.com/thewoolleyman/livespec-overseer/commit/c8f57e4112e68fef059a388610c670cd56ae41f6))
+* **overseer:** supervise a rebound Codex track as its live session ([8ae5083](https://github.com/thewoolleyman/livespec-overseer/commit/8ae50839dca04b3c57e81b0167e6dccd443c865c))
+
 ## [5.33.6](https://github.com/thewoolleyman/livespec-overseer/compare/v5.33.5...v5.33.6) (2026-10-21)
 
 
