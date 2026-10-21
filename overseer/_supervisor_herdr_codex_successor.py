@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING, cast
 
 import _herdr_replacement_process
 import _herdr_replacement_store
+import _supervisor_herdr_codex_naming
 import _supervisor_herdr_codex_retry
 import _supervisor_herdr_completion
 import _supervisor_launch
-import codex_sessions
 import registry
 import signals
 from _supervisor_codex_successor import rename_command
@@ -19,13 +19,6 @@ if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
 __all__: list[str] = ["continue_codex_successor"]
-
-
-def _rollout_named(*, sup: Supervisor, track: registry.Track, rollout: str) -> bool:
-    indexed = codex_sessions.latest_session_for_thread_name(
-        thread_name=track.topic, codex_home=sup.codex_home
-    )
-    return indexed == rollout
 
 
 def _prove_successor(
@@ -70,7 +63,7 @@ def _rename_successor(
     rollout: str,
 ) -> str | None:
     if current.get("phase") == "rename-attempted":
-        if not _rollout_named(sup=sup, track=track, rollout=rollout):
+        if not _supervisor_herdr_codex_naming.rollout_named(sup=sup, track=track, rollout=rollout):
             _, reason = _supervisor_herdr_codex_retry.retry_pending(
                 sup=sup,
                 target=target,
@@ -79,7 +72,9 @@ def _rename_successor(
                 key="rename",
             )
             sup.refresh_codex_sessions()
-            if not _rollout_named(sup=sup, track=track, rollout=rollout):
+            if not _supervisor_herdr_codex_naming.rollout_named(
+                sup=sup, track=track, rollout=rollout
+            ):
                 return reason
     else:
         capture = sup.tmux.capture_pane(session=target)
@@ -90,15 +85,17 @@ def _rename_successor(
         current["rename"] = rename_command(topic=track.topic)
         current["phase"] = "rename-attempted"
         _herdr_replacement_store.durable_write(path=record_path, value=current)
-        _ = _supervisor_launch.submit_prompt(
+        # The rename asks the runtime for no turn, so it is submitted WITHOUT holding a
+        # per-pane attempt and proven by its own durable index record; holding it is what
+        # suppressed every later payload to this pane, the resume line included.
+        if not _supervisor_herdr_codex_naming.name_fresh_successor(
             sup=sup,
+            track=track,
             target=target,
             text=current["rename"],
-            expect_codex=True,
-        )
-        sup.refresh_codex_sessions()
-        if not _rollout_named(sup=sup, track=track, rollout=rollout):
-            return "fresh Codex rename submission was not durably observed"
+            rollout=rollout,
+        ):
+            return "fresh Codex successor was never named for this plan topic"
     current["phase"] = "successor-observed"
     _herdr_replacement_store.durable_write(path=record_path, value=current)
     return None
