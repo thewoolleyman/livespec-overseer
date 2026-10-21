@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.33.8](https://github.com/thewoolleyman/livespec-overseer/compare/v5.33.7...v5.33.8) (2026-10-21)
+
+
+### Bug Fixes
+
+* **overseer:** deliver the herdr Codex resume after an unconfirmable rename ([d56ee1e](https://github.com/thewoolleyman/livespec-overseer/commit/d56ee1eadd2b2e81c1fe03a48adb4af98b4d8f9b))
+
 ## [5.33.7](https://github.com/thewoolleyman/livespec-overseer/compare/v5.33.6...v5.33.7) (2026-10-21)
 
 
