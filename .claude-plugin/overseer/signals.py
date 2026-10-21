@@ -160,24 +160,49 @@ def is_busy(*, capture_text: str) -> bool:
 # Best-effort; documented markers.
 _GATE_CURSOR_RE = re.compile(r"[❯›]\s*\d+\.")
 # A numbered option line of a picker's OWN option block, cursored or not (`❯ 1. …`,
-# `› 2. …`, `  3. …`). The block is the structure a live picker has; a line count is not,
-# which is why the gate region is widened across the block (see `_gate_region`).
+# `› 2. …`, `  3. …`). It is the block, not a line count, that the gate region is widened
+# across (see `_gate_region`) — but an `N.`-shaped line is NOT by itself evidence that a
+# picker is open, which is why the widening is anchored on the footer below.
 _GATE_OPTION_RE = re.compile(r"^\s*(?:[❯›]\s*)?\d+\.(?:\s|$)")
+# A live picker's own FOOTER: the key-hint line it renders directly BELOW its option
+# block, and the STRUCTURAL anchor `_gate_region` widens from. Two measured shapes, the
+# same pair the fleet's watcher-wake study measured
+# (`tests/prompts/test_watcher_wake_discriminates.py`): a line carrying nothing but the
+# key (`Enter to select`), or a separator-joined run of `<key> to <verb>` clauses one of
+# which names Enter (`Enter to select · ↑/↓ to navigate · Esc to cancel`, measured
+# 2026-10-14 on the AskUserQuestion picker; `Use ↑/↓ to select, Enter to confirm`, the
+# permission dialog). BOTH halves of the second shape are load-bearing: the clauses must
+# be SEPARATOR-joined, since prose reaches two of them on its own (`I would have to press
+# Enter to select` holds `have to press` beside `Enter to select`), and one must name
+# ENTER, the key that ANSWERS a picker, since prose equally reaches `… to <verb>, …
+# to <verb>`.
+_GATE_FOOTER_BARE_RE = re.compile(r"^\s*Enter to [a-z]+\s*$")
+_GATE_FOOTER_ENTER_RE = re.compile(r"\bEnter to [a-z]+\b")
+_GATE_FOOTER_SHAPE_RE = re.compile(r"\S+ to [a-z]+(?:,| [^ a-zA-Z0-9]+) +\S+ to [a-z]+")
 _GATE_TAIL_LINES = 8
 
 
-def _widens_gate_region(*, line: str) -> bool:
-    """True if ``line`` is still inside a picker's option block.
+def _is_gate_footer(*, line: str) -> bool:
+    """True if ``line`` is a live picker's own key-hint footer."""
+    if _GATE_FOOTER_BARE_RE.match(line):
+        return True
+    if not _GATE_FOOTER_ENTER_RE.search(line):
+        return False
+    return _GATE_FOOTER_SHAPE_RE.search(line) is not None
 
-    Either another numbered option, or an indented description / continuation of the
-    option above it. A flush-left non-option line ENDS the block: it is the picker's own
-    question, or ordinary transcript prose.
+
+def _in_option_block(*, line: str) -> bool:
+    """True if ``line`` is still inside the picker block above a footer.
+
+    A numbered option, a rule the picker draws around that block, or an indented
+    description / continuation of the option above it. A flush-left non-option,
+    non-rule line ENDS the block: it is the picker's own question, or transcript prose.
     """
-    return bool(_GATE_OPTION_RE.match(line)) or line[:1].isspace()
+    return bool(_GATE_OPTION_RE.match(line)) or _is_border(line=line) or line[:1].isspace()
 
 
 def _gate_region(*, lines: list[str]) -> list[str]:
-    """The pane tail, WIDENED upward across a numbered picker's own option block.
+    """The pane tail, widened upward across the block of a picker whose FOOTER it shows.
 
     `_GATE_TAIL_LINES` alone misses a picker whose cursor sits further above the bottom
     than the window reaches. Measured 2026-10-14 on 5.28.3 (`overseer-xe2mka`): a
@@ -188,32 +213,39 @@ def _gate_region(*, lines: list[str]) -> list[str]:
     `settling` with `picker_open: false`, and the picker-stall promotion could never
     fire for such a picker.
 
-    Widening is attempted ONLY when the tail ITSELF already holds an option line. Absent
-    one there is no live picker block to widen to, so scrollback can never be dragged
-    into the region — which is what keeps the `overseer-i6eu2k` quotation case out
-    (a pane merely QUOTING picker markers is also held out, before this runs, by
-    :func:`_input_box_present`). Given an option line in the tail the walk is deliberately
-    not bounded by a second line count: the flush-left stop IS the bound, and inside a
-    tail that already shows a live picker a widened read can only agree with the gate
-    that is open.
+    So the widening is keyed on the picker's own STRUCTURE: it is attempted only when the
+    tail shows a picker FOOTER (:func:`_is_gate_footer`), and it walks up from that footer
+    across the block below the last rule (:func:`_in_option_block`), which the rules the
+    measured pane renders between its options and its footer are deliberately part of.
+    Both ends are structural, so the walk needs no second line count.
+
+    **An `N.`-shaped line in the tail is NOT the anchor, and must not become one again.**
+    An ordinary agent turn prints an indented numbered plan, and an indented block
+    supplies no flush-left line to stop an upward walk, so keying the entry on a numbered
+    line dragged a QUOTED cursor into the region — re-opening the `overseer-i6eu2k`
+    quotation false positive exactly where :func:`_input_box_present` cannot hold it out:
+    on Codex, which renders no `❯` box at all, and on a Claude pane whose picker displaced
+    it. A numbered plan carries no picker footer; a live picker always does.
     """
-    start = max(0, len(lines) - _GATE_TAIL_LINES)
-    if not any(_GATE_OPTION_RE.match(line) for line in lines[start:]):
-        return lines[start:]
-    while start and _widens_gate_region(line=lines[start - 1]):
+    tail = max(0, len(lines) - _GATE_TAIL_LINES)
+    footer = next((at for at in range(tail, len(lines)) if _is_gate_footer(line=lines[at])), None)
+    if footer is None:
+        return lines[tail:]
+    start = footer
+    while start and _in_option_block(line=lines[start - 1]):
         start -= 1
-    return lines[start:]
+    return lines[min(start, tail) :]
 
 
 def is_structured_gate(*, capture_text: str) -> bool:
     """True if the pane shows a structured permission-prompt / picker gate.
 
-    Best-effort. Keyed on the pane's GATE REGION — the tail widened across a picker's
-    own option block (:func:`_gate_region`), where a live picker renders — using two
-    low-false-positive markers: a ``❯ N.`` numbered
-    cursor option, or the literal permission question ``Do you want to
-    proceed`` (case-insensitive). Used to SUPPRESS injection — never keystroke
-    into a gate (adversarial-review blocker #6).
+    Best-effort, keyed on the pane tail where a live picker renders, using two
+    low-false-positive markers: a ``❯ N.`` numbered cursor option, read across the GATE
+    REGION — the tail widened up the option block of a picker whose footer that tail
+    shows (:func:`_gate_region`) — or the literal permission question ``Do you want to
+    proceed`` (case-insensitive) in the tail itself. Used to SUPPRESS injection — never
+    keystroke into a gate (adversarial-review blocker #6).
     """
     text = strip_ansi(text=capture_text)
     if _input_box_present(text=text):
