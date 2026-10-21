@@ -46,6 +46,10 @@ __all__: list[str] = [
 # and the operator decides whether to restart or unassign it. `not-claude` is gone.
 ATTENTION_STATUSES = (
     "blocked:human",
+    # A live Codex pane in the track's repo that the identity chain could not resolve.
+    # It is attention because the daemon can neither drive the track nor say it is gone,
+    # and only a human can tell the two apart (`overseer-iffpgw`).
+    "codex-unidentified",
     "codex-unindexed",
     "currency-blocked",
     "ctx-stale",
@@ -115,6 +119,9 @@ _STATUS_COLOR = {
     "dispatch-quiet-with-waiters": _ANSI_YELLOW,
     "escalation-exhausted": _ANSI_YELLOW,
     "blocked:human": _ANSI_YELLOW,
+    # Yellow, not red: nothing is known to be lost. The daemon has a live Codex pane it
+    # cannot NAME, which is the opposite claim from `session-gone`.
+    "codex-unidentified": _ANSI_YELLOW,
     "codex-unindexed": _ANSI_YELLOW,
     "currency-blocked": _ANSI_YELLOW,
     "ctx-stale": _ANSI_YELLOW,

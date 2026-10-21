@@ -64,7 +64,21 @@ def _unresolved_target(
     The transaction names the exact backend generation and pane, which
     `reconcile_bare_shell` verifies before acting, so it is reconciled with this tick's
     real `act` rather than read-only.
+
+    Before any of that, the unidentifiable-Codex condition is ruled out, because every
+    route below ends in a claim about the track's session and that condition supports
+    none of them: a live Codex pane in this repo whose identity could not be resolved
+    means the daemon cannot SAY, which is the opposite of `session-gone`.
     """
+    if _supervisor_codex_rebind.unidentified_codex_pane(sup=sup, track=track):
+        return RowView(
+            topic=track.topic,
+            repo=track.repo,
+            tmux=None,
+            ctx=None,
+            status="codex-unidentified",
+            note=_supervisor_codex_rebind.UNIDENTIFIED_NOTE,
+        )
     if refuses_recorded_target and sup.tmux.session_exists(session=session):
         recovery = _supervisor_herdr_stall.reconcile_and_alert(
             sup=sup,
