@@ -4,11 +4,14 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import re
 import subprocess
 import sys
+import tempfile
 from collections.abc import Callable, Sequence
 from pathlib import Path
+from types import ModuleType
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _OVERSEER_DIR = _REPO_ROOT / "overseer"
@@ -19,10 +22,12 @@ import signals  # noqa: E402
 
 __all__: list[str] = [
     "installed_claude_version",
+    "live_idle_capture",
     "main",
 ]
 
 _FIXTURE_DIR = _REPO_ROOT / "tests" / "fixtures" / "claude-idle"
+_CAPTURE_SCRIPT = _REPO_ROOT / "scripts" / "capture-claude-idle-canary.py"
 _VERSION_RE = re.compile(r"\b(\d+\.\d+\.\d+)\b")
 _COMMAND_TIMEOUT_SECONDS = 5.0
 
@@ -89,6 +94,73 @@ def _fixtures_are_valid() -> bool:
     return bool(paths) and all(_fixture_is_valid(path=path) for path in paths)
 
 
+def _capture_module() -> ModuleType:
+    """The capture script, loaded by path because its filename is not importable."""
+    spec = importlib.util.spec_from_file_location("capture_claude_idle_canary", _CAPTURE_SCRIPT)
+    if spec is None or spec.loader is None:  # pragma: no cover
+        raise AssertionError(_CAPTURE_SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def live_idle_capture() -> str | None:
+    """One live idle capture from the capture recipe's own disposable tmux session.
+
+    Deliberately the capture script's implementation rather than a second copy
+    of it: the evidence this check accepts for an unregistered build has to be
+    the same evidence `just capture-claude-idle-canary` would store as that
+    build's fixture, and two copies of the capture would be free to drift.
+    """
+    text: str | None = _capture_module().live_idle_capture().text
+    return text
+
+
+def _live_capture_is_valid(*, capture: str, version: str) -> bool:
+    """Judge a LIVE capture by exactly the registered-fixture predicates.
+
+    Written to a temp file so it runs through `_fixture_is_valid` itself rather
+    than through a restatement of it — the registered corpus and the live probe
+    must agree on what "the detector still sees the idle input box" means, or
+    the gate stops standing for anything.
+    """
+    with tempfile.TemporaryDirectory() as directory:
+        probe = Path(directory) / f"{version}.txt"
+        probe.write_text(capture, encoding="utf-8")
+        return _fixture_is_valid(path=probe)
+
+
+def _unregistered_build_outcome(*, version: str) -> int:
+    """Judge an installed build that has no registered fixture.
+
+    A missing fixture file is REGISTRY LAG, and the registry lags on every host
+    Claude Code auto-update. The property this canary actually protects is that
+    the detector still recognizes the installed build's idle input box, so the
+    live capture is what separates the two: a capture the detector accepts means
+    supervision is intact and the gap is only unrecorded, which is an advisory.
+    Where no capture can be obtained there is no evidence either way, and the
+    gate must never pass on none — today's refusal stands.
+    """
+    capture = live_idle_capture()
+    if capture is not None and _live_capture_is_valid(capture=capture, version=version):
+        _write_stderr(
+            text=(
+                f"CLAUDE_IDLE_CANARY_UNREGISTERED: installed Claude Code {version} has no "
+                "registered idle fixture, but the detector recognizes its live idle input "
+                "box; run `just capture-claude-idle-canary` to register it\n"
+            )
+        )
+        return 0
+    _write_stderr(
+        text=(
+            "CLAUDE_IDLE_CANARY_MISSING_FIXTURE: installed Claude Code "
+            f"{version} has no idle fixture and no live idle capture could be "
+            "obtained; run `just capture-claude-idle-canary`\n"
+        )
+    )
+    return 1
+
+
 def _check(*, run: CommandRunner) -> int:
     if not _fixtures_are_valid():  # pragma: no cover
         _write_stderr(text="CLAUDE_IDLE_CANARY_DETECTOR_FAILURE: registered idle fixture failed\n")
@@ -98,13 +170,7 @@ def _check(*, run: CommandRunner) -> int:
         _write_stderr(text="CLAUDE_IDLE_CANARY_SKIPPED: claude --version is unavailable on PATH\n")
         return 0
     if version not in _registered_versions():
-        _write_stderr(
-            text=(
-                "CLAUDE_IDLE_CANARY_MISSING_FIXTURE: installed Claude Code "
-                f"{version} has no idle fixture; run `just capture-claude-idle-canary`\n"
-            )
-        )
-        return 1
+        return _unregistered_build_outcome(version=version)
     _write_stdout(text=f"claude idle canary ok for Claude Code {version}\n")
     return 0
 
