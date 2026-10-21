@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.33.5](https://github.com/thewoolleyman/livespec-overseer/compare/v5.33.4...v5.33.5) (2026-10-21)
+
+
+### Bug Fixes
+
+* **liveness:** fail soft when the factory registry cannot answer ([966fa22](https://github.com/thewoolleyman/livespec-overseer/commit/966fa229e5cea9a8737e7c0a645992ebeb991efa))
+* **liveness:** read an object-shaped dispatch_factory by name ([a9a5b5c](https://github.com/thewoolleyman/livespec-overseer/commit/a9a5b5ce44c4f5de35246ef13bc9b8173ced9bcc))
+* **liveness:** resolve a registry-backed factory's server by name ([9e69a1a](https://github.com/thewoolleyman/livespec-overseer/commit/9e69a1a00641a7e69b7ac34c5b2d7e6bd86ad0ce))
+
 ## [5.33.4](https://github.com/thewoolleyman/livespec-overseer/compare/v5.33.3...v5.33.4) (2026-10-21)
 
 
