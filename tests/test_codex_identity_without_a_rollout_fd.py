@@ -423,6 +423,43 @@ def test_a_live_pane_already_at_the_recorded_coordinate_rebinds_nothing(*, tmp_p
     assert "rebound" not in log
 
 
+# --- assertion 3: the rebound track is supervised, not reported session-gone ---------
+
+
+def test_the_rebound_track_is_supervised_as_its_live_session(*, tmp_path):
+    """Rebinding the ROW is only half the fix; this tick must supervise the live pane.
+
+    A rebind that only rewrote the store would leave the track reading `session-gone`
+    for the rest of the tick that fixed it, which is the status the operator was
+    complaining about in the first place.
+    """
+    _module = codex_rebind()
+    world = make_world(tmp_path=tmp_path)
+
+    outcome, _log = resolve(world=world, act=True)
+
+    assert isinstance(outcome, _supervisor_evaluate_target.EvaluateTarget)
+    assert outcome.pane == TRACKED_COORDINATE
+    assert outcome.session == TRACKED_COORDINATE
+    assert outcome.track.tmux == TRACKED_COORDINATE
+
+
+def test_a_track_with_no_rebindable_pane_still_reports_session_gone(*, tmp_path):
+    """The control: nothing about the refusal path changed."""
+    _module = codex_rebind()
+    unknown = tmp_path / "unknown"
+    unknown.mkdir()
+    world = make_world(
+        tmp_path=unknown,
+        rows=[(unknown / "repo", "topic", DEAD_TMUX, "codex:019f1111-1111-7111-8111-111111111111")],
+    )
+
+    outcome, _log = resolve(world=world, act=True)
+
+    assert not isinstance(outcome, _supervisor_evaluate_target.EvaluateTarget)
+    assert outcome.status == "session-gone"
+
+
 # --- carrier_session_id: the database and home resolution ----------------------------
 
 
