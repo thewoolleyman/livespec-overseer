@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, cast
 
+import _supervisor_codex_rebind
 import _supervisor_herdr_moved
 import _supervisor_herdr_stall
 import _supervisor_launch
@@ -196,6 +197,11 @@ def resolve_evaluate_target(
     # legacy existence path because there is no process generation available to
     # validate; `_unproven_herdr_target` then requires the pane to name the topic.
     if target is None and (refuses_recorded_target or not sup.tmux.session_exists(session=session)):
+        # A row assigned before the herdr cutover still names a retired TMUX session,
+        # so the coordinate is dead while the track is not. Rebind it to the pane whose
+        # resolved Codex identity is the one this row recorded, before concluding
+        # anything about the track's session.
+        _ = _supervisor_codex_rebind.rebound_codex_coordinate(sup=sup, track=track, session=session)
         # The mapped TMUX session is gone — but the work may not be. A Claude
         # session for the same plan can keep running in a NON-tmux terminal (a bare
         # SSH shell), which the tmux-only daemon cannot capture, inject, or respawn.
