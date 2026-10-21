@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.33.6](https://github.com/thewoolleyman/livespec-overseer/compare/v5.33.5...v5.33.6) (2026-10-21)
+
+
+### Bug Fixes
+
+* **canary:** carry back the pane text the idle detector could not read ([cc71589](https://github.com/thewoolleyman/livespec-overseer/commit/cc715890bcc6bc64fbcc5f8249289d2eaeef4ae3))
+* **canary:** name a rejected live capture a detector failure, not a gap ([8e1840e](https://github.com/thewoolleyman/livespec-overseer/commit/8e1840ea1c5b325375da5a9e2ee4ce4aab99903d))
+* **canary:** pass an unregistered build the detector recognizes live ([dfdb0fe](https://github.com/thewoolleyman/livespec-overseer/commit/dfdb0fe1fae650d2527ed106bd723c125f8c4495))
+
 ## [5.33.5](https://github.com/thewoolleyman/livespec-overseer/compare/v5.33.4...v5.33.5) (2026-10-21)
 
 
