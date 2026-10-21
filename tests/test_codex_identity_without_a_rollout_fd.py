@@ -23,11 +23,14 @@ collection error that would only prove the module unimportable.
 
 from __future__ import annotations
 
+import contextlib
 import importlib
+import io
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
+import _supervisor_evaluate_target
 import codex_sessions
 import herdr_identity
 import registry
@@ -74,6 +77,30 @@ def codex_runtime_model():
         module, "read_state_database_repository"
     ), "_codex_runtime_model.read_state_database_repository has not been implemented yet"
     return module
+
+
+def codex_rebind():
+    """The coordinate-rebinding module, imported once it exists on disk."""
+    assert (
+        _PACKAGE / "_supervisor_codex_rebind.py"
+    ).is_file(), "overseer/_supervisor_codex_rebind.py has not been implemented yet"
+    return importlib.import_module("_supervisor_codex_rebind")
+
+
+def row_of(*, store, topic="topic"):
+    """The one mapping row for `topic`, re-read from the store."""
+    return next(row for row in registry.read_valid_mapping(store_path=store) if row.topic == topic)
+
+
+def resolve(*, world, act, topic="topic"):
+    """Drive the REAL evaluation target resolution, capturing the daemon's own log."""
+    world.sup.refresh_codex_sessions()
+    log = io.StringIO()
+    with contextlib.redirect_stderr(log):
+        outcome = _supervisor_evaluate_target.resolve_evaluate_target(
+            sup=world.sup, track=row_of(store=world.store, topic=topic), act=act
+        )
+    return outcome, log.getvalue()
 
 
 def coordinate(*, pane_id: str) -> str:
@@ -132,11 +159,11 @@ class World:
     store: Path
 
 
-def make_world(*, tmp_path, rows=None, cwds=None):
+def make_world(*, tmp_path, rows=None, cwds=None, panes=None):
     """The measured topology, with every Codex host coupling injected.
 
-    `rows` overrides the mapping store's contents and `cwds` the carriers' cwds, so a
-    test can drive one refusal without re-stating the whole host.
+    `rows` overrides the mapping store's contents, `cwds` the carriers' cwds and `panes`
+    the pane-pid map, so a test can drive one refusal without re-stating the whole host.
     """
     repo, topic = make_plan(tmp_path=tmp_path, topic="topic")
     other_repo, _other_topic = make_plan(tmp_path=tmp_path, repo_name="operator", topic="operator")
@@ -157,10 +184,14 @@ def make_world(*, tmp_path, rows=None, cwds=None):
         capture=codex_idle_capture(ctx=40),
         cmd="bun",
     )
-    fake.pane_pids = {
-        TRACKED_PANE_PID: TRACKED_COORDINATE,
-        OPERATOR_PANE_PID: OPERATOR_COORDINATE,
-    }
+    fake.pane_pids = (
+        panes
+        if panes is not None
+        else {
+            TRACKED_PANE_PID: TRACKED_COORDINATE,
+            OPERATOR_PANE_PID: OPERATOR_COORDINATE,
+        }
+    )
     # Only the app-server holds rollout fds, and it holds BOTH live sessions'.
     fd_targets = {
         APP_SERVER_PID: [
@@ -310,6 +341,86 @@ def test_an_unresolvable_carrier_cwd_leaves_every_session_unidentified(*, tmp_pa
     world.sup.refresh_codex_sessions()
 
     assert world.sup.live_codex == {}
+
+
+# --- assertion 2: the dead tmux coordinate is rebound, old and new logged ------------
+
+
+def test_a_dead_tmux_coordinate_is_rebound_to_the_pane_running_its_recorded_session(*, tmp_path):
+    _module = codex_rebind()
+    world = make_world(tmp_path=tmp_path)
+
+    _outcome, log = resolve(world=world, act=True)
+
+    assert row_of(store=world.store).tmux == TRACKED_COORDINATE
+    # Both coordinates are named, so an operator reading the history can see what moved
+    # where rather than only that something moved.
+    assert DEAD_TMUX in log
+    assert TRACKED_COORDINATE in log
+
+
+def test_a_row_whose_recorded_identity_is_not_codex_is_never_rebound(*, tmp_path):
+    """Only a recorded Codex identity can be matched against a resolved Codex pane."""
+    _module = codex_rebind()
+    claude = tmp_path / "claude"
+    claude.mkdir()
+    world = make_world(
+        tmp_path=claude, rows=[(claude / "repo", "topic", DEAD_TMUX, "claude:4242:99:topic")]
+    )
+
+    _outcome, log = resolve(world=world, act=True)
+
+    assert row_of(store=world.store).tmux == DEAD_TMUX
+    assert TRACKED_COORDINATE not in log
+
+
+def test_a_stored_herdr_coordinate_is_left_to_its_own_backend_rules(*, tmp_path):
+    """This rebind answers a DEAD TMUX locator only; a herdr target has its own re-key.
+
+    The sharp control: the live pane IS resolved to this row's recorded identity, so the
+    refusal is the stored coordinate's backend and nothing else.
+    """
+    _module = codex_rebind()
+    qualified = tmp_path / "qualified"
+    qualified.mkdir()
+    dead_pane = coordinate(pane_id="w9:p9")
+    world = make_world(
+        tmp_path=qualified,
+        rows=[(qualified / "repo", "topic", dead_pane, f"codex:{SESSION_ID}")],
+    )
+
+    _outcome, log = resolve(world=world, act=True)
+
+    assert row_of(store=world.store).tmux == dead_pane
+    assert TRACKED_COORDINATE not in log
+
+
+def test_a_recorded_identity_no_live_pane_resolves_to_leaves_the_coordinate_alone(*, tmp_path):
+    _module = codex_rebind()
+    unknown = tmp_path / "unknown"
+    unknown.mkdir()
+    world = make_world(
+        tmp_path=unknown,
+        rows=[(unknown / "repo", "topic", DEAD_TMUX, "codex:019f1111-1111-7111-8111-111111111111")],
+    )
+
+    _outcome, log = resolve(world=world, act=True)
+
+    assert row_of(store=world.store).tmux == DEAD_TMUX
+    assert "rebound" not in log
+
+
+def test_a_live_pane_already_at_the_recorded_coordinate_rebinds_nothing(*, tmp_path):
+    """The carrier resolves to the coordinate the row already stores: nothing moved."""
+    _module = codex_rebind()
+    same = tmp_path / "same"
+    same.mkdir()
+    world = make_world(tmp_path=same, panes={TRACKED_PANE_PID: DEAD_TMUX})
+
+    _outcome, log = resolve(world=world, act=True)
+
+    assert row_of(store=world.store).tmux == DEAD_TMUX
+    assert "rebound" not in log
 
 
 # --- carrier_session_id: the database and home resolution ----------------------------
