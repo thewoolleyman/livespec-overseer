@@ -3614,8 +3614,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "constraints.md",
     "heading": "## Factory routing",
-    "test": "TODO",
+    "test": "tests.integration.test_committed_factory_registry_backing.test_the_committed_factory_table_is_one_registry_backed_legacy_entry",
     "work_item": "overseer-knslqg",
-    "reason": "Owed integration-tier test, to be written by overseer-knslqg, the registry-switch work-item of plan petri-factory-on-gmktec (epic bd-ib-fyozyd): load the committed .livespec.jsonc and prove every dispatcher.factories entry is registry-backed with no server or docker_host and that dispatcher.default_factory is legacy; ratified 2026-10-20 under the factory-routing revise (spec-first)."
+    "reason": "Integration-tier: reads the REAL committed .livespec.jsonc at the repository root (through the package's own JSONC reader, not a second stripper) and asserts dispatcher.factories is exactly one entry named legacy declaring \"registry\": true with no server and no docker_host key — so no committed entry can name a machine. Its sibling in the same module, test_the_committed_default_factory_names_legacy, pins the heading's other MUST: dispatcher.default_factory is legacy. Both were RED against the hostname-bearing hp/vps table this change replaced (observed naming hp and vps), so the assertions are load-bearing rather than vacuous."
   }
 ]

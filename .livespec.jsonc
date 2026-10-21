@@ -456,11 +456,38 @@
       "acceptance_mode": "ai-only",
       "auto_approve_ready": true,
       "wip_cap": 10,
+      // Factory table — REGISTRY-BACKED, naming no machine
+      // (SPECIFICATION/constraints.md §"Factory routing", ratified v063). Every
+      // committed entry declares `"registry": true` and carries no `server` and
+      // no `docker_host`. Which Fabro server answers to a factory NAME is bound
+      // only in the fleet gitops inventory's factory registry
+      // (livespec-dev-tooling §"Fabro factory registry"), which each dispatching
+      // host renders as /etc/livespec/fabro-factories.json; a dispatch resolves
+      // a registry-backed entry from that file by name.
+      //
+      // ROUTING DOES NOT CHANGE with this switch (coordinator rulings R318 and
+      // R320, 2026-10-20, plan petri-factory-on-gmktec, epic bd-ib-fyozyd): the
+      // control node's registry maps `legacy` to the same instance the retired
+      // `hp` entry named literally. The retired `vps` entry is dropped outright
+      // — maintainer instruction 2026-08-22 already forbids routing any of this
+      // repository's work there. A recorded per-item `dispatch_factory` pin
+      // still naming `hp` or `vps` falls back to `default_factory` under the
+      // ratified recorded-pin fallback, so no in-flight item is stranded.
+      //
+      // NOT ADDED: `petri`. Onboarding it needs this repository's own bin and
+      // secret-channel settings, which is a separate decision.
+      //
+      // KNOWN CONSEQUENCE, tracked separately and deliberately NOT fixed here:
+      // `overseer/_supervisor_wait_target_liveness.factory_server()` reads
+      // `dispatcher.factories[<dispatch_factory>].server` from each WATCHED
+      // repository's config to run `fabro ps --server` for wait-target
+      // liveness. A registry-backed entry carries no `server`, so that probe
+      // now answers `unknown` for this repository's runs until it learns to
+      // resolve a registry-backed entry from the rendered registry file.
       "factories": {
-        "hp": { "server": "https://hp-xubuntu.perch-rudd.ts.net:32276" },
-        "vps": { "server": "https://vps.perch-rudd.ts.net:32276" }
+        "legacy": { "registry": true }
       },
-      "default_factory": "hp"
+      "default_factory": "legacy"
     }
   }
 }
