@@ -28,11 +28,18 @@ from typing import TYPE_CHECKING
 import _supervisor_codex_identity
 import herdr_identity
 import registry
+import signals
+from _supervisor_codex_adoption import codex_host_readers
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
-__all__: list[str] = ["rebound_codex_coordinate"]
+__all__: list[str] = ["UNIDENTIFIED_NOTE", "rebound_codex_coordinate", "unidentified_codex_pane"]
+
+# What the operator is told about a track the daemon cannot resolve to a pane OR declare
+# gone. It names the condition rather than the mechanism: the actionable fact is that a
+# live Codex pane in this repository could not be identified.
+UNIDENTIFIED_NOTE = "a live Codex pane in this repo resolves to no single session"
 
 
 def _live_coordinate(*, sup: Supervisor, track: registry.Track) -> str | None:
@@ -78,3 +85,30 @@ def rebound_codex_coordinate(*, sup: Supervisor, track: registry.Track, session:
     )
     sup.log(message=f"rebound {track.repo}::{track.topic} tmux {session} → {coordinate}")
     return coordinate
+
+
+def unidentified_codex_pane(*, sup: Supervisor, track: registry.Track) -> bool:
+    """Whether a live Codex pane in this row's repository could not be identified.
+
+    The discriminator between "this track's session is gone" and "the daemon cannot say".
+    `session-gone` is an ASSERTION that the session is not there, and a live Codex
+    carrier the identity chain could not resolve does not support it — so the condition
+    is reported on its own terms instead.
+
+    Scoped to a row that records a Codex identity, so a Claude track costs no scan, and
+    to the row's own repository, so one unidentifiable pane cannot restate every other
+    repository's genuinely-gone tracks.
+    """
+    if not (track.observed_session_identity or "").startswith(
+        _supervisor_codex_identity.CODEX_IDENTITY_PREFIX
+    ):
+        return False
+    return any(
+        carrier.session_id is None
+        and signals.path_in_repo(pane_current_path=carrier.cwd, repo=track.repo)
+        for carrier in _supervisor_codex_identity.pane_codex_carriers(
+            sup=sup,
+            pane_pid_to_session=sup.tmux.pane_pid_sessions(),
+            readers=codex_host_readers(sup=sup),
+        )
+    )

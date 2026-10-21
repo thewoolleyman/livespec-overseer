@@ -32,6 +32,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import _supervisor_evaluate_target
+import _supervisor_view
 import codex_sessions
 import herdr_identity
 import registry
@@ -492,6 +493,39 @@ def test_a_live_pane_whose_resolved_identity_differs_never_moves_the_row(*, tmp_
     assert row_of(store=world.store).tmux == DEAD_TMUX
     assert "rebound" not in log
     assert not isinstance(outcome, _supervisor_evaluate_target.EvaluateTarget)
+
+
+# --- assertion 5: an unidentifiable Codex pane is its own status ---------------------
+
+
+def test_an_unidentifiable_codex_pane_is_reported_as_such_and_not_as_session_gone(*, tmp_path):
+    """`session-gone` asserts the session is NOT THERE; here the daemon cannot tell.
+
+    Two live sessions bound to one repository leave both unidentified, so the daemon has
+    a live Codex pane it cannot name. Reporting that as `session-gone` — the only red
+    status — would claim the work was lost on evidence that says nothing of the kind.
+    """
+    _module = codex_rebind()
+    ambiguous = tmp_path / "ambiguous"
+    ambiguous.mkdir()
+    world = make_world(tmp_path=ambiguous)
+    write_state_database(
+        path=world.home / "state_2.sqlite",
+        rows=[
+            (SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+            (OPERATOR_SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+        ],
+    )
+
+    outcome, _log = resolve(world=world, act=True)
+
+    assert not isinstance(outcome, _supervisor_evaluate_target.EvaluateTarget)
+    assert outcome.status == "codex-unidentified"
+    assert outcome.status in _supervisor_view.ATTENTION_STATUSES
+    assert _supervisor_view.row_color(status=outcome.status) != _supervisor_view.row_color(
+        status="session-gone"
+    )
+    assert row_of(store=world.store).tmux == DEAD_TMUX
 
 
 # --- carrier_session_id: the database and home resolution ----------------------------
