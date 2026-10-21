@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import _supervisor_codex_identity
 import codex_sessions
 import registry
 import signals
@@ -83,7 +84,15 @@ def codex_sessions_by_tmux_session(
     sup: Supervisor,
     pane_pid_to_session: dict[int, str],
 ) -> dict[tuple[str, str], codex_sessions.CodexSession]:
-    """Indexed Codex sessions plus store-bound unindexed sessions, keyed for evaluation."""
+    """Indexed, store-bound unindexed, and identity-bound Codex sessions, keyed for evaluation.
+
+    The three sources are tried in that order and every one of them only ever
+    ``setdefault``s, so a session the rollout-fd join already answers for keeps exactly
+    the answer it had. The third source reaches the carriers the first two cannot see at
+    all: a Codex 0.16x carrier holding no rollout file descriptor is absent from the
+    indexed join AND from the unindexed one, because both ask which rollout THIS process
+    holds open (see :mod:`_supervisor_codex_identity`).
+    """
     out = codex_sessions.codex_by_tmux_session(
         pane_pid_to_session=pane_pid_to_session,
         ppid_of=sup.ppid_of,
@@ -91,6 +100,12 @@ def codex_sessions_by_tmux_session(
     )
     for key, session in store_bound_unindexed_codex_sessions(
         sup=sup, pane_pid_to_session=pane_pid_to_session
+    ).items():
+        _ = out.setdefault(key, session)
+    for key, session in _supervisor_codex_identity.identity_bound_codex_sessions(
+        sup=sup,
+        pane_pid_to_session=pane_pid_to_session,
+        readers=codex_host_readers(sup=sup),
     ).items():
         _ = out.setdefault(key, session)
     return out
