@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, cast
 
+import _supervisor_codex_rebind
 import _supervisor_herdr_moved
 import _supervisor_herdr_stall
 import _supervisor_launch
@@ -63,7 +64,21 @@ def _unresolved_target(
     The transaction names the exact backend generation and pane, which
     `reconcile_bare_shell` verifies before acting, so it is reconciled with this tick's
     real `act` rather than read-only.
+
+    Before any of that, the unidentifiable-Codex condition is ruled out, because every
+    route below ends in a claim about the track's session and that condition supports
+    none of them: a live Codex pane in this repo whose identity could not be resolved
+    means the daemon cannot SAY, which is the opposite of `session-gone`.
     """
+    if _supervisor_codex_rebind.unidentified_codex_pane(sup=sup, track=track):
+        return RowView(
+            topic=track.topic,
+            repo=track.repo,
+            tmux=None,
+            ctx=None,
+            status="codex-unidentified",
+            note=_supervisor_codex_rebind.UNIDENTIFIED_NOTE,
+        )
     if refuses_recorded_target and sup.tmux.session_exists(session=session):
         recovery = _supervisor_herdr_stall.reconcile_and_alert(
             sup=sup,
@@ -196,18 +211,31 @@ def resolve_evaluate_target(
     # legacy existence path because there is no process generation available to
     # validate; `_unproven_herdr_target` then requires the pane to name the topic.
     if target is None and (refuses_recorded_target or not sup.tmux.session_exists(session=session)):
-        # The mapped TMUX session is gone — but the work may not be. A Claude
-        # session for the same plan can keep running in a NON-tmux terminal (a bare
-        # SSH shell), which the tmux-only daemon cannot capture, inject, or respawn.
-        # Distinguish that live-but-unmanageable case from a genuinely gone track so
-        # the operator is not falsely alarmed that finished-looking work was lost.
-        return _unresolved_target(
-            sup=sup,
-            track=track,
-            session=session,
-            act=act,
-            refuses_recorded_target=refuses_recorded_target,
+        # A row assigned before the herdr cutover still names a retired TMUX session,
+        # so the coordinate is dead while the track is not. Rebind it to the pane whose
+        # resolved Codex identity is the one this row recorded, before concluding
+        # anything about the track's session.
+        rebound = _supervisor_codex_rebind.rebound_codex_coordinate(
+            sup=sup, track=track, session=session, act=act
         )
+        if rebound is None:
+            # The mapped TMUX session is gone — but the work may not be. A Claude
+            # session for the same plan can keep running in a NON-tmux terminal (a bare
+            # SSH shell), which the tmux-only daemon cannot capture, inject, or respawn.
+            # Distinguish that live-but-unmanageable case from a genuinely gone track so
+            # the operator is not falsely alarmed that finished-looking work was lost.
+            return _unresolved_target(
+                sup=sup,
+                track=track,
+                session=session,
+                act=act,
+                refuses_recorded_target=refuses_recorded_target,
+            )
+        # Carry the rebound coordinate into THIS tick rather than waiting for the next
+        # one: a rebind that only rewrote the store would leave the track reading
+        # `session-gone` for the rest of the tick that repaired it. Every gate below
+        # still judges the new pane on its own evidence.
+        track, session, target = replace(track, tmux=rebound), rebound, rebound
 
     # Resolve the pane id ONCE and target every subsequent pane op by it (RB3).
     # A pane id is exact and never prefix/fnmatch-matched, so if the tracked

@@ -41,6 +41,16 @@ see. The state database is a different file entirely. Keep it that way.
 
 This is the CODEX reader only; the Claude transcript source lives in
 :mod:`_claude_runtime_model` and is untouched by it.
+
+**The same database answers one further question, and it is NOT about the model.**
+:func:`read_state_database_repository` reports whether a thread row exists for an exact
+session id and names an exact repository. It is the IDENTITY-side reader that
+:mod:`_supervisor_codex_identity` uses to bind a live carrier — holding no rollout file
+descriptor of its own — to the one live session that belongs to its repository. It
+deliberately carries NO model requirement: a thread with no recorded model token is
+still a thread, and gating identity on a model would make a session unidentifiable for
+a reason that has nothing to do with identity. Both readers live here because this is
+the module that owns reading that file; neither widens the other's answer.
 """
 
 from __future__ import annotations
@@ -59,6 +69,7 @@ __all__: list[str] = [
     "carrier_codex_home",
     "read_runtime_model",
     "read_state_database_model",
+    "read_state_database_repository",
     "usable_model_token",
 ]
 
@@ -181,6 +192,27 @@ def _thread_model(*, connection: sqlite3.Connection, session_id: str, cwd: str) 
     return usable_model_token(value=row[0])
 
 
+def _thread_repository(*, connection: sqlite3.Connection, session_id: str, cwd: str) -> bool:
+    cursor = connection.cursor()
+    query = _thread_row_query(cursor=cursor)
+    if query is None:
+        return False
+    row = cursor.execute(query, (session_id,)).fetchone()
+    return row is not None and _same_repository(row_cwd=row[1], cwd=cwd)
+
+
+def _read_only_connection(*, database: Path) -> sqlite3.Connection | None:
+    """``database`` opened read-only with no busy wait, or None when it cannot be opened.
+
+    No busy wait is deliberate: a locked database must fail immediately rather than stall
+    the supervision round, and both readers below treat that as "this source is unusable".
+    """
+    try:
+        return sqlite3.connect(_read_only_uri(database=database), uri=True, timeout=0)
+    except (OSError, sqlite3.Error):
+        return None
+
+
 def read_state_database_model(
     *,
     database: str | os.PathLike[str],
@@ -192,14 +224,39 @@ def read_state_database_model(
     Opened read-only and without a busy wait, so a locked or unreadable database fails
     immediately to ``None`` rather than stalling the supervision round.
     """
-    try:
-        connection = sqlite3.connect(_read_only_uri(database=Path(database)), uri=True, timeout=0)
-    except (OSError, sqlite3.Error):
+    connection = _read_only_connection(database=Path(database))
+    if connection is None:
         return None
     try:
         return _thread_model(connection=connection, session_id=session_id, cwd=cwd)
     except (OSError, sqlite3.Error):
         return None
+    finally:
+        connection.close()
+
+
+def read_state_database_repository(
+    *,
+    database: str | os.PathLike[str],
+    session_id: str,
+    cwd: str,
+) -> bool:
+    """Whether a ``threads`` row for the EXACT ``session_id`` names ``cwd`` as its repo.
+
+    The identity-side companion of :func:`read_state_database_model`, which answers which
+    MODEL an already-established session runs. This one answers whether a given live
+    session id is the one bound to a given repository, and carries no model requirement
+    for the reason the module header records. Fail-closed to ``False`` on every database,
+    schema, row or repository defect, so an unreadable database can never lend an
+    identity.
+    """
+    connection = _read_only_connection(database=Path(database))
+    if connection is None:
+        return False
+    try:
+        return _thread_repository(connection=connection, session_id=session_id, cwd=cwd)
+    except (OSError, sqlite3.Error):
+        return False
     finally:
         connection.close()
 
