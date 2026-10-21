@@ -216,7 +216,7 @@ def resolve_evaluate_target(
         # resolved Codex identity is the one this row recorded, before concluding
         # anything about the track's session.
         rebound = _supervisor_codex_rebind.rebound_codex_coordinate(
-            sup=sup, track=track, session=session
+            sup=sup, track=track, session=session, act=act
         )
         if rebound is None:
             # The mapped TMUX session is gone — but the work may not be. A Claude
