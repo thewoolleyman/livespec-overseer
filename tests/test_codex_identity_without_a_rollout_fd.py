@@ -528,6 +528,27 @@ def test_an_unidentifiable_codex_pane_is_reported_as_such_and_not_as_session_gon
     assert row_of(store=world.store).tmux == DEAD_TMUX
 
 
+# --- assertion 6: the read-only list path reports without rewriting ------------------
+
+
+def test_the_read_only_list_path_reports_the_rebindable_track_without_writing(*, tmp_path):
+    """`supervisor.py list` classifies; only an ACTING tick may mutate the store.
+
+    The read-only path must still tell the truth about the track — it is the surface an
+    operator reads when deciding whether to touch anything — so it resolves the live
+    coordinate in memory and leaves the stored one alone.
+    """
+    _module = codex_rebind()
+    world = make_world(tmp_path=tmp_path)
+
+    outcome, log = resolve(world=world, act=False)
+
+    assert isinstance(outcome, _supervisor_evaluate_target.EvaluateTarget)
+    assert outcome.pane == TRACKED_COORDINATE
+    assert row_of(store=world.store).tmux == DEAD_TMUX
+    assert "rebound" not in log
+
+
 # --- carrier_session_id: the database and home resolution ----------------------------
 
 
