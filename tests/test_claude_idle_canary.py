@@ -9,7 +9,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 
 import registry
 import signals
@@ -50,6 +50,28 @@ def _load_capture_canary() -> ModuleType:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+# A SYNTHETIC version that no real build will ever carry, so the unregistered
+# cases below cannot silently invert the day the build they name is registered —
+# which is the ordinary, intended use of this registry. Each test asserting an
+# unregistered outcome re-checks the premise rather than assuming it.
+_UNREGISTERED = "0.0.0"
+
+
+def _fake_version_run(*, version: str):
+    """A `claude --version` runner pinned to one version."""
+
+    def fake_run(*args, **kwargs):
+        del args, kwargs
+        return subprocess.CompletedProcess(
+            args=["claude", "--version"],
+            returncode=0,
+            stdout=f"Claude Code {version}\n",
+            stderr="",
+        )
+
+    return fake_run
 
 
 def _idle_capture_without_context() -> str:
@@ -109,43 +131,86 @@ def test_every_registered_idle_fixture_matches_the_detector() -> None:
         ), path.name
 
 
-def test_canary_check_script_reports_unregistered_installed_build() -> None:
+def test_unregistered_build_the_detector_recognizes_live_passes_with_an_advisory() -> None:
+    """A registry gap the detector DISPROVES is advisory, not a stop-the-line.
+
+    This is the whole reason the unregistered case is no longer a flat refusal.
+    The canary protects one property — that the overseer still recognizes the
+    installed build's idle input box — and a missing fixture file is registry
+    lag, not evidence against that property. Treating the two alike meant every
+    host Claude Code auto-update turned EVERY gate on that host red at once,
+    pre-push and the post-merge janitor alike, for an environment property no
+    diff under test caused.
+    """
     canary = _load_canary()
-    # A SYNTHETIC version that no real build will ever carry, asserted absent
-    # first. This test previously named a real, then-unregistered build; the day
-    # that build was registered — which is the ordinary, intended use of this
-    # registry — the test silently inverted and began asserting that a
-    # REGISTERED version is refused. A sentinel cannot rot that way, and the
-    # precondition below fails loudly rather than inverting if it ever does.
-    unregistered = "0.0.0"
-    assert unregistered not in {path.stem for path in _FIXTURE_DIR.glob("*.txt")}
+    assert _UNREGISTERED not in {path.stem for path in _FIXTURE_DIR.glob("*.txt")}
+    canary.live_idle_capture = lambda: _idle_capture_without_context()
+    err = _io.StringIO()
 
-    def fake_run(*args, **kwargs):
-        del args, kwargs
-        return subprocess.CompletedProcess(
-            args=["claude", "--version"],
-            returncode=0,
-            stdout=f"Claude Code {unregistered}\n",
-            stderr="",
-        )
+    with contextlib.redirect_stderr(err):
+        exit_code = canary.main(argv=["check"], run=_fake_version_run(version=_UNREGISTERED))
 
-    assert canary.installed_claude_version(run=fake_run) == unregistered
-    assert canary.main(argv=["check"], run=fake_run) == 1
+    assert exit_code == 0, err.getvalue()
+    assert "CLAUDE_IDLE_CANARY_UNREGISTERED" in err.getvalue()
+    assert _UNREGISTERED in err.getvalue()
+    assert "just capture-claude-idle-canary" in err.getvalue()
+
+
+def test_unregistered_build_with_no_obtainable_live_capture_still_refuses() -> None:
+    """No fixture AND no live evidence leaves nothing to judge, so the refusal stands.
+
+    The advisory above is earned by a capture the detector accepted. Where no
+    capture can be obtained at all — no tmux, or the idle box never renders —
+    there is no evidence either way, and the gate must never pass on none.
+    """
+    canary = _load_canary()
+    assert _UNREGISTERED not in {path.stem for path in _FIXTURE_DIR.glob("*.txt")}
+    canary.live_idle_capture = lambda: None
+    run = _fake_version_run(version=_UNREGISTERED)
+    err = _io.StringIO()
+
+    with contextlib.redirect_stderr(err):
+        exit_code = canary.main(argv=["check"], run=run)
+
+    assert canary.installed_claude_version(run=run) == _UNREGISTERED
+    assert exit_code == 1
+    assert "CLAUDE_IDLE_CANARY_MISSING_FIXTURE" in err.getvalue()
 
 
 def test_canary_check_script_accepts_registered_installed_build() -> None:
     canary = _load_canary()
+    out = _io.StringIO()
 
-    def fake_run(*args, **kwargs):
-        del args, kwargs
-        return subprocess.CompletedProcess(
-            args=["claude", "--version"],
-            returncode=0,
-            stdout="Claude Code 2.1.237\n",
-            stderr="",
-        )
+    with contextlib.redirect_stdout(out):
+        exit_code = canary.main(argv=["check"], run=_fake_version_run(version="2.1.237"))
 
-    assert canary.main(argv=["check"], run=fake_run) == 0
+    assert exit_code == 0
+    assert out.getvalue() == "claude idle canary ok for Claude Code 2.1.237\n"
+
+
+def test_the_check_reads_its_live_capture_from_the_capture_script() -> None:
+    """The check's default live capture IS the capture recipe's disposable session.
+
+    One implementation, reached through its public seam, is what keeps the
+    evidence the gate accepts identical to the evidence the registry stores — a
+    second copy of the capture would be free to drift from the fixtures it is
+    meant to stand in for.
+    """
+    canary = _load_canary()
+    canary._capture_module = lambda: SimpleNamespace(
+        live_idle_capture=lambda: SimpleNamespace(text="pane\n", failure=None)
+    )
+
+    assert canary.live_idle_capture() == "pane\n"
+
+
+def test_the_check_loads_the_real_capture_script_module() -> None:
+    """The seam resolves against the checked-in capture script, not a stub of it."""
+    canary = _load_canary()
+
+    module = canary._capture_module()
+
+    assert hasattr(module, "live_idle_capture")
 
 
 def test_capture_accepts_idle_pane_without_context_percentage() -> None:
@@ -333,6 +398,24 @@ def test_capture_script_times_out_waiting_for_idle(*, monkeypatch) -> None:
     monkeypatch.setattr(capture_canary.time, "sleep", fake_sleep)
 
     assert capture_canary._await_idle_capture(session="s") is None
+
+
+def test_capture_script_live_capture_returns_the_pane_text_it_captured() -> None:
+    """The public seam the canary CHECK consumes: the pane text, or why there is none.
+
+    The check cannot reach this module's private start/await/kill helpers — a
+    cross-module private call — so the whole disposable-session attempt is one
+    public function, and its outcome carries the failure wording `main` reports.
+    """
+    capture_canary = _load_capture_canary()
+    capture_canary._start_canary_session = lambda *, session: True
+    capture_canary._await_idle_capture = lambda *, session: "pane\n"
+    capture_canary._kill_canary_session = lambda *, session: None
+
+    attempt = capture_canary.live_idle_capture()
+
+    assert attempt.text == "pane\n"
+    assert attempt.failure is None
 
 
 def test_capture_script_main_reports_missing_claude_version() -> None:
