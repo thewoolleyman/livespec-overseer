@@ -15,6 +15,10 @@ __all__: list[str] = [
 ]
 
 _FABRO_REMOTE_TIMEOUT_SECONDS = 12.0
+# The fleet gitops inventory's factory registry, as each dispatching host renders
+# it. A registry-backed committed entry names no machine, so this file is the only
+# binding from a factory name to the server that answers for it.
+_FACTORY_REGISTRY_PATH = Path("/etc/livespec/fabro-factories.json")
 _TERMINAL_STATUSES = frozenset(
     {
         "blocked",
@@ -79,19 +83,50 @@ def dispatcher_config(*, repo: Path) -> dict[str, object] | None:
     return jsonio.as_object(value=dispatcher_owner_config.get("dispatcher"))
 
 
-def factory_server(*, repo: Path, factory: str | None) -> str | None:
-    if factory is None:
-        return None
+def committed_factory_config(*, repo: Path, factory: str) -> dict[str, object] | None:
+    """The repository's committed ``dispatcher.factories`` entry for one factory."""
     dispatcher = dispatcher_config(repo=repo)
     if dispatcher is None:
         return None
     factories = jsonio.as_object(value=dispatcher.get("factories"))
     if factories is None:
         return None
-    factory_config = jsonio.as_object(value=factories.get(factory))
+    return jsonio.as_object(value=factories.get(factory))
+
+
+def registry_factory_server(*, registry_path: Path, factory: str) -> str | None:
+    """Resolve a registry-backed factory's server address by factory name.
+
+    The registry is a JSON object mapping factory name to ``{server, optional
+    docker_host}``. A registry that declares no such factory, or an entry with no
+    string ``server``, yields ``None`` — which the caller must report as "the
+    factory cannot answer", never as "no run exists".
+    """
+    payload = jsonio.as_object(value=json.loads(registry_path.read_text(encoding="utf-8"))) or {}
+    entry = jsonio.as_object(value=payload.get(factory)) or {}
+    return string_field(record=entry, key="server")
+
+
+def factory_server(
+    *, repo: Path, factory: str | None, registry_path: Path = _FACTORY_REGISTRY_PATH
+) -> str | None:
+    """Resolve a factory's server from its committed entry, else from the registry.
+
+    A committed entry that declares ``"registry": true`` and carries no ``server``
+    names no machine, so the address it routes to is bound only in the factory
+    registry the dispatching host renders at ``registry_path``.
+    """
+    if factory is None:
+        return None
+    factory_config = committed_factory_config(repo=repo, factory=factory)
     if factory_config is None:
         return None
-    return string_field(record=factory_config, key="server")
+    committed = string_field(record=factory_config, key="server")
+    if committed is not None:
+        return committed
+    if factory_config.get("registry") is not True:
+        return None
+    return registry_factory_server(registry_path=registry_path, factory=factory)
 
 
 def process_records_from_payload(*, stdout: str) -> list[dict[str, object]] | None:
@@ -139,12 +174,13 @@ def remote_factory_run_present_with(
     record: dict[str, object],
     target_id: str,
     run: Callable[..., CompletedProcess[str]],
+    registry_path: Path = _FACTORY_REGISTRY_PATH,
 ) -> bool | None:
     """Return remote liveness, or ``None`` when the factory cannot answer."""
     dispatch_factory = string_field(record=record, key="dispatch_factory")
     if dispatch_factory is None:
         return False
-    server = factory_server(repo=repo, factory=dispatch_factory)
+    server = factory_server(repo=repo, factory=dispatch_factory, registry_path=registry_path)
     if server is None:
         return None
     try:
