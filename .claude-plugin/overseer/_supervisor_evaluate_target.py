@@ -201,19 +201,27 @@ def resolve_evaluate_target(
         # so the coordinate is dead while the track is not. Rebind it to the pane whose
         # resolved Codex identity is the one this row recorded, before concluding
         # anything about the track's session.
-        _ = _supervisor_codex_rebind.rebound_codex_coordinate(sup=sup, track=track, session=session)
-        # The mapped TMUX session is gone — but the work may not be. A Claude
-        # session for the same plan can keep running in a NON-tmux terminal (a bare
-        # SSH shell), which the tmux-only daemon cannot capture, inject, or respawn.
-        # Distinguish that live-but-unmanageable case from a genuinely gone track so
-        # the operator is not falsely alarmed that finished-looking work was lost.
-        return _unresolved_target(
-            sup=sup,
-            track=track,
-            session=session,
-            act=act,
-            refuses_recorded_target=refuses_recorded_target,
+        rebound = _supervisor_codex_rebind.rebound_codex_coordinate(
+            sup=sup, track=track, session=session
         )
+        if rebound is None:
+            # The mapped TMUX session is gone — but the work may not be. A Claude
+            # session for the same plan can keep running in a NON-tmux terminal (a bare
+            # SSH shell), which the tmux-only daemon cannot capture, inject, or respawn.
+            # Distinguish that live-but-unmanageable case from a genuinely gone track so
+            # the operator is not falsely alarmed that finished-looking work was lost.
+            return _unresolved_target(
+                sup=sup,
+                track=track,
+                session=session,
+                act=act,
+                refuses_recorded_target=refuses_recorded_target,
+            )
+        # Carry the rebound coordinate into THIS tick rather than waiting for the next
+        # one: a rebind that only rewrote the store would leave the track reading
+        # `session-gone` for the rest of the tick that repaired it. Every gate below
+        # still judges the new pane on its own evidence.
+        track, session, target = replace(track, tmux=rebound), rebound, rebound
 
     # Resolve the pane id ONCE and target every subsequent pane op by it (RB3).
     # A pane id is exact and never prefix/fnmatch-matched, so if the tracked
