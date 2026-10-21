@@ -1762,12 +1762,5 @@
     "heading": "## Daemon message delivery channel",
     "work_item": "overseer-uepcr6",
     "first_seen": "2026-10-15"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "constraints.md",
-    "heading": "## Factory routing",
-    "work_item": "overseer-knslqg",
-    "first_seen": "2026-10-20"
   }
 ]
