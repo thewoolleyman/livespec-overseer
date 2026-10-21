@@ -177,6 +177,30 @@ def test_unregistered_build_with_no_obtainable_live_capture_still_refuses() -> N
     assert "CLAUDE_IDLE_CANARY_MISSING_FIXTURE" in err.getvalue()
 
 
+def test_unregistered_build_whose_live_capture_the_detector_rejects_stops_the_line() -> None:
+    """The one unregistered shape that still FAILS the gate, and loudly.
+
+    This is what the old flat refusal conflated with registry lag, and why
+    separating them does not weaken the canary: a live capture the detector
+    cannot read as an idle input box is supervision actually broken on this
+    host, so it keeps `CLAUDE_IDLE_CANARY_DETECTOR_FAILURE` and names the build
+    — the distinct diagnosis a missing fixture must no longer be able to hide
+    behind, nor be mistaken for.
+    """
+    canary = _load_canary()
+    assert _UNREGISTERED not in {path.stem for path in _FIXTURE_DIR.glob("*.txt")}
+    canary.live_idle_capture = lambda: busy_capture(ctx=None)
+    err = _io.StringIO()
+
+    with contextlib.redirect_stderr(err):
+        exit_code = canary.main(argv=["check"], run=_fake_version_run(version=_UNREGISTERED))
+
+    assert exit_code == 1
+    assert "CLAUDE_IDLE_CANARY_DETECTOR_FAILURE" in err.getvalue(), err.getvalue()
+    assert _UNREGISTERED in err.getvalue()
+    assert "CLAUDE_IDLE_CANARY_MISSING_FIXTURE" not in err.getvalue()
+
+
 def test_canary_check_script_accepts_registered_installed_build() -> None:
     canary = _load_canary()
     out = _io.StringIO()
