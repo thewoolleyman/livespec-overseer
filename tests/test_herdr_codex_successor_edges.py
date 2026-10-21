@@ -7,6 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import _herdr_replacement_store
+import _supervisor_herdr_codex_naming
 import _supervisor_herdr_codex_successor
 import pytest
 from _codex_session_models import CodexSession
@@ -99,10 +100,10 @@ def _world(*, tmp_path, phase="launch-attempted"):
 
 
 def test_codex_successor_is_named_resumed_and_completed_once(*, tmp_path, monkeypatch) -> None:
-    sup, _fake, track, target, transaction, path = _world(tmp_path=tmp_path)
+    sup, fake, track, target, transaction, path = _world(tmp_path=tmp_path)
     prompts = []
     monkeypatch.setattr(
-        _supervisor_herdr_codex_successor.codex_sessions,
+        _supervisor_herdr_codex_naming.codex_sessions,
         "latest_session_for_thread_name",
         lambda **kwargs: NEW,
     )
@@ -122,7 +123,10 @@ def test_codex_successor_is_named_resumed_and_completed_once(*, tmp_path, monkey
     )
 
     assert reason is None
-    assert prompts == [f"/rename {track.topic}", "read the durable handoff"]
+    # The no-turn rename is delivered WITHOUT the held-attempt submitter, so only the
+    # resume line reaches `submit_prompt`; the rename shows up as the pane paste it is.
+    assert prompts == ["read the durable handoff"]
+    assert fake.paste_texts() == [f"/rename {track.topic}"]
     record = json.loads(path.read_text(encoding="utf-8"))
     assert record["phase"] == "completed"
     assert record["successor_rollout"] == NEW
