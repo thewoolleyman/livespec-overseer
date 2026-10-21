@@ -19,11 +19,18 @@ indication of it.
 
 **The marker set is the two spellings the launcher actually produces.** The
 installed console script is `overseerd`, and `.claude-plugin/bin/overseerd` ends by
-`exec`ing `python3 -m overseer.daemon` — so a healthy daemon's process title is the
-module invocation rather than the script name, and matching only one of the two
-would miss every daemon started the other way. The match is a SUBSTRING because
-what is read back is a full command line carrying an absolute interpreter path, a
-prefix, and the daemon's own flags.
+`exec`ing `python3 "$PLUGIN_ROOT/overseer/launch.py" overseer.daemon` — so a healthy
+daemon's process title names the launcher FILE and carries the module NAME as a bare
+argument rather than naming the script, and matching only one of the two spellings
+would miss every daemon started the other way. What `overseer.daemon` keys on is the
+module name appearing VERBATIM in the command line, which is the one thing that
+survived the launcher's own change of shape: it used to be `python3 -m
+overseer.daemon`, and that is no longer a process title anything produces
+(work-item overseer-uzvcbn.2 — `-m` put the caller's directory at `sys.path[0]`, so
+a launcher run from inside a livespec-overseer checkout imported THAT checkout's
+package). The match is a SUBSTRING because what is read back is a full command line
+carrying an absolute interpreter path, an absolute launcher path, a prefix, and the
+daemon's own flags.
 
 **`is_retained_shell` exists to make a refusal SPECIFIC rather than to authorize
 anything.** Nothing is ever accepted because it is a shell; the predicate only lets
