@@ -2741,9 +2741,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A Codex herdr replacement delivers the resume line after an unconfirmable rename",
-    "test": "TODO",
-    "work_item": "overseer-uzvcbn.5",
-    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-uzvcbn.5 with the herdr router fix: drive a herdr Codex replacement whose successor's /rename starts no turn, record the successor in the session index, and prove the resume line is pasted, confirmed by the successor's turn start, and the replacement completes; ratified 2026-10-21 under the herdr-held-attempt-scope revise (spec-first)."
+    "test": "tests.integration.test_herdr_codex_unconfirmable_rename_v064.test_scenario_a_codex_replacement_delivers_the_resume_after_an_unconfirmable_rename",
+    "reason": "Integration-tier (SPECIFICATION v064): a herdr Codex replacement whose fresh successor's /rename starts no turn is not held as an UNCONFIRMED delivery; once the session index records the successor's rollout under the topic the resume line is pasted, confirmed by the successor's own turn start, and the replacement reaches phase completed and consumes the ready declaration."
   },
   {
     "spec_root": "SPECIFICATION",

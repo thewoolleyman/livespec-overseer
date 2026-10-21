@@ -19,6 +19,9 @@ def _sup(*, capture: str):
         tmux=SimpleNamespace(capture_pane=lambda **kwargs: capture),
         codex_home="/codex",
         refresh_codex_sessions=lambda: None,
+        # The naming phase now WAITS, bounded, for the rename's own index record
+        # (SPECIFICATION v064), so it paces itself through the supervisor's sleep seam.
+        sleep=lambda _seconds: None,
     )
 
 
@@ -31,7 +34,9 @@ def _track():
     [
         ("gate", "fresh Codex successor is waiting at a structured gate"),
         ("not-idle", "fresh Codex successor input is not ready"),
-        ("unobserved", "fresh Codex rename submission was not durably observed"),
+        # v064: the rename is proven by its session-index record, never by its
+        # submission, so an unnamed successor is what this phase reports.
+        ("unobserved", "fresh Codex successor is not named in the session index"),
     ],
 )
 def test_rename_refuses_unready_or_unobserved_successor(

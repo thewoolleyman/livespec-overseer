@@ -73,6 +73,16 @@ class NativeSubmit(Protocol):
     ) -> tuple[bool, bool]: ...
 
 
+class NoTurnSubmit(Protocol):
+    def __call__(
+        self,
+        *,
+        session: str,
+        text: str,
+        sleep: Callable[[float], None],
+    ) -> bool: ...
+
+
 def session_of(*, sup: Supervisor, track: registry.Track) -> str:
     # A mapped track carries its real session name (`track.tmux`); only an
     # unmapped one falls back to the derived name, which must use THIS tick's
@@ -240,15 +250,45 @@ def resend_enter_budgeted(*, sup: Supervisor, target: str, max_enters: int) -> t
     return False, enters_sent
 
 
-def submit_prompt(*, sup: Supervisor, target: str, text: str, expect_codex: bool = False) -> bool:
-    return submit_prompt_outcome(sup=sup, target=target, text=text, expect_codex=expect_codex)[0]
+def submit_prompt(
+    *,
+    sup: Supervisor,
+    target: str,
+    text: str,
+    expect_codex: bool = False,
+    expects_no_turn: bool = False,
+) -> bool:
+    return submit_prompt_outcome(
+        sup=sup,
+        target=target,
+        text=text,
+        expect_codex=expect_codex,
+        expects_no_turn=expects_no_turn,
+    )[0]
 
 
 def submit_prompt_outcome(
-    *, sup: Supervisor, target: str, text: str, expect_codex: bool = False
+    *,
+    sup: Supervisor,
+    target: str,
+    text: str,
+    expect_codex: bool = False,
+    expects_no_turn: bool = False,
 ) -> tuple[bool, bool]:
     """``(submitted, effect_unknown)``: whether delivery is confirmed, and if not, whether
-    the write may still have landed (an UNCONFIRMED delivery, never a proven failure)."""
+    the write may still have landed (an UNCONFIRMED delivery, never a proven failure).
+
+    ``expects_no_turn`` marks a daemon-authored payload the runtime answers with NO
+    turn (SPECIFICATION v064, the `/rename` that names a fresh Codex successor). Such a
+    payload is delivered WITHOUT recording a native attempt, so it can neither be held
+    as an UNCONFIRMED delivery nor suppress a later paste into that pane, and its
+    outcome is never reported as confirmed here — the caller proves it from the
+    payload's own evidence. Every other payload keeps the held-attempt discipline
+    unchanged.
+    """
+    no_turn = cast(NoTurnSubmit | None, getattr(sup.tmux, "submit_no_turn_prompt_once", None))
+    if expects_no_turn and target.startswith(herdr_identity.HERDR_SCHEME) and no_turn is not None:
+        return no_turn(session=target, text=text, sleep=sup.sleep), False
     submit_once = cast(NativeSubmit | None, getattr(sup.tmux, "submit_prompt_once", None))
     if target.startswith(herdr_identity.HERDR_SCHEME) and submit_once is not None:
         submitted, effect_unknown = submit_once(

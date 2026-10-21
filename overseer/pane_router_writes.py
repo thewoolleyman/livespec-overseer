@@ -9,6 +9,7 @@ from functools import partial
 import herdr_identity
 import pane_router_reads
 import pane_router_submit
+import pane_router_submit_no_turn
 import pane_router_submit_retry
 import pane_router_submit_signals
 
@@ -135,6 +136,22 @@ class PaneRoutingWrites:
             session=session,
             text=text,
             expect_codex=expect_codex,
+            sleep=sleep,
+        )
+
+    def submit_no_turn_prompt_once(
+        self,
+        *,
+        session: str,
+        text: str,
+        sleep: Callable[[float], None],
+    ) -> bool:
+        """Deliver a no-turn Herdr payload without recording an attempt for it."""
+        return pane_router_submit_no_turn.submit_no_turn_once(
+            reads=self.reads,
+            writer=self.herdr_writer,
+            session=session,
+            text=text,
             sleep=sleep,
         )
 

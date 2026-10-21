@@ -14,11 +14,18 @@ import codex_sessions
 import registry
 import signals
 from _supervisor_codex_successor import rename_command
+from _supervisor_config import RESTART_POLL_INTERVAL, RESTART_POLL_MAX
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
 __all__: list[str] = ["continue_codex_successor"]
+
+# SPECIFICATION v064: an unnamed successor is the rename's own failure path, stated as
+# such. The rename is proven by its session-index record and never by a turn start, so
+# "the submission was not observed" is no longer a fact this phase can report — the
+# payload went in and nothing named the successor, which is what the operator needs told.
+_UNNAMED_SUCCESSOR = "fresh Codex successor is not named in the session index"
 
 
 def _rollout_named(*, sup: Supervisor, track: registry.Track, rollout: str) -> bool:
@@ -26,6 +33,28 @@ def _rollout_named(*, sup: Supervisor, track: registry.Track, rollout: str) -> b
         thread_name=track.topic, codex_home=sup.codex_home
     )
     return indexed == rollout
+
+
+def _named_within_bound(*, sup: Supervisor, track: registry.Track, rollout: str) -> bool:
+    """Wait, bounded, for the rename's OWN evidence: its durable session-index record.
+
+    The rename starts no turn, so there is nothing in the pane to wait on; Codex
+    appends the record a few seconds later, and v064 admits no other proof. The tmux
+    arm polls the same record over the same budget
+    (:func:`_supervisor_codex_fresh._named`), which is what this phase mirrors.
+
+    A miss is not terminal: the next tick re-reads the record at the top of the
+    ``rename-attempted`` phase before retrying anything, so this bound only decides how
+    long ONE tick waits before keeping the ready declaration and surfacing an unnamed
+    successor.
+    """
+    for attempt in range(RESTART_POLL_MAX):
+        sup.refresh_codex_sessions()
+        if _rollout_named(sup=sup, track=track, rollout=rollout):
+            return True
+        if attempt + 1 < RESTART_POLL_MAX:
+            sup.sleep(RESTART_POLL_INTERVAL)
+    return False
 
 
 def _prove_successor(
@@ -71,7 +100,7 @@ def _rename_successor(
 ) -> str | None:
     if current.get("phase") == "rename-attempted":
         if not _rollout_named(sup=sup, track=track, rollout=rollout):
-            _, reason = _supervisor_herdr_codex_retry.retry_pending(
+            submitted, reason = _supervisor_herdr_codex_retry.retry_pending(
                 sup=sup,
                 target=target,
                 current=current,
@@ -80,7 +109,11 @@ def _rename_successor(
             )
             sup.refresh_codex_sessions()
             if not _rollout_named(sup=sup, track=track, rollout=rollout):
-                return reason
+                # The Enter is worth reporting only when IT is what failed. A rename
+                # that did go in and still named nothing is an unnamed successor, not a
+                # submission problem — and the old code returned the retry's EMPTY
+                # success string there, a reason with nothing in it.
+                return _UNNAMED_SUCCESSOR if submitted else reason
     else:
         capture = sup.tmux.capture_pane(session=target)
         if signals.is_structured_gate(capture_text=capture):
@@ -90,15 +123,19 @@ def _rename_successor(
         current["rename"] = rename_command(topic=track.topic)
         current["phase"] = "rename-attempted"
         _herdr_replacement_store.durable_write(path=record_path, value=current)
+        # v064: a slash command asks Codex for nothing, so this delivery can never be
+        # confirmed by a turn start and is never HELD as an unconfirmed attempt — which
+        # is what used to answer the resume request below from the stale rename and
+        # leave the replacement's resume line unpasted. The index record is its proof.
         _ = _supervisor_launch.submit_prompt(
             sup=sup,
             target=target,
             text=current["rename"],
             expect_codex=True,
+            expects_no_turn=True,
         )
-        sup.refresh_codex_sessions()
-        if not _rollout_named(sup=sup, track=track, rollout=rollout):
-            return "fresh Codex rename submission was not durably observed"
+        if not _named_within_bound(sup=sup, track=track, rollout=rollout):
+            return _UNNAMED_SUCCESSOR
     current["phase"] = "successor-observed"
     _herdr_replacement_store.durable_write(path=record_path, value=current)
     return None

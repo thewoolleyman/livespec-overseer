@@ -194,6 +194,11 @@ class MixedPaneDriver:
             sleep=sleep,
         )
 
+    def submit_no_turn_prompt_once(
+        self, *, session: str, text: str, sleep: Callable[[float], None]
+    ) -> bool:
+        return self._writes().submit_no_turn_prompt_once(session=session, text=text, sleep=sleep)
+
     def retry_prompt_enter_once(
         self,
         *,

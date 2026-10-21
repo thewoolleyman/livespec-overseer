@@ -28,6 +28,7 @@ from test_supervisor_builders import (
     FakeTmux,
     arm_ready_marker,
     busy_capture,
+    codex_idle_capture,
     idle_capture,
     make_plan,
     make_supervisor,
@@ -544,6 +545,54 @@ def test_native_enter_retry_is_stateless_and_exact(
     )
 
     assert result == expected
+
+
+@pytest.mark.parametrize(
+    ("case", "expected", "enters"),
+    [("acknowledged", True, 1), ("paste-refused", False, 0)],
+)
+def test_the_driver_routes_a_no_turn_payload_and_records_no_attempt(
+    *, tmp_path: Path, case: str, expected: bool, enters: int
+) -> None:
+    """A no-turn payload reaches the herdr writer through the driver, holding nothing.
+
+    SPECIFICATION v064: the `/rename` that names a fresh Codex successor can never be
+    confirmed by a turn start, so no native attempt is recorded for it and nothing it
+    leaves behind suppresses the resume line that follows. A paste the backend REFUSED
+    outright is a proven failure, so no Enter chases it.
+    """
+    target = _target(tmp_path=tmp_path)
+    rename = "/rename topic"
+    pending = codex_idle_capture(ctx=100).replace("› Write tests for @filename", f"› {rename}")
+    paste = herdr_write.WriteOutcome(
+        ok=case != "paste-refused", error="fixture paste outcome", effect_unknown=False
+    )
+    ok = herdr_write.WriteOutcome(ok=True, error="", effect_unknown=False)
+    sent: list[object] = []
+    observer = SimpleNamespace(
+        capture_pane=lambda *, target, retain_ansi: herdr_adapter.PaneCapture(
+            ok=True, text=pending, error=""
+        )
+    )
+    writer = SimpleNamespace(
+        bracketed_paste=lambda *, target, text: paste,
+        send_enter=lambda *, target: sent.append(target) or ok,
+    )
+    driver = pane_router.MixedPaneDriver(
+        tmux=FakeTmux(),
+        herdr=cast(pane_router_reads.HerdrObserver, observer),
+        herdr_writer=cast(pane_router_submit_signals.HerdrInput, writer),
+    )
+
+    delivered = driver.submit_no_turn_prompt_once(
+        session=target,
+        text=rename,
+        sleep=lambda _seconds: None,
+    )
+
+    assert delivered is expected
+    assert len(sent) == enters
+    assert driver.prompt_states == {}
 
 
 @pytest.mark.parametrize(
