@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.34.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.34.1...v5.34.2) (2026-10-22)
+
+
+### Bug Fixes
+
+* retain Codex exercise bootstrap evidence ([a33d219](https://github.com/thewoolleyman/livespec-overseer/commit/a33d2197d321cd60fa5e06420a59cb4ac3f5967f))
+
 ## [5.34.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.34.0...v5.34.1) (2026-10-22)
 
 
