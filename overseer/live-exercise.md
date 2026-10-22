@@ -71,6 +71,14 @@ not resolve, so the condition is never reported later as a failed lifecycle stag
 ledger thread, so a run that cannot read a coordinator-provided plan epic must record
 that limitation and must not claim end-to-end continuation.
 
+One install root is NEVER bound back: a root that is agent state the scratch home itself
+provides (`~/.claude`, `~/.codex`, the watch-set declaration, the mapping store). Binding
+one would re-expose the operator's real credentials and session registry inside the very
+namespace that hides them, shadow the `--credential` installed into the scratch copy, and
+reach the client read-only so it could not write the session state it is adopted by. A
+client whose only install tree is such a root therefore cannot be made runnable here and
+is refused by name, exactly as an absent one is.
+
 Every mode requires an empty evidence directory. Reusing a directory is refused before
 the runner writes anything, so an incomplete run cannot inherit passed lifecycle or
 backend records from an earlier attempt. Repeating a required lifecycle stage is also a
