@@ -462,6 +462,11 @@ omit = [
     "overseer/test_*.py",
     "overseer/conftest.py",
     "tests/test_*.py",
+    # `stub_codex.py` is the isolated live exercise's disposable agent double.
+    # Like the test modules beside it, its emulator-only branches are test
+    # infrastructure rather than shipped overseer behavior; the controller's
+    # real-herdr acceptance test is its behavior gate.
+    "tests/stub_codex.py",
     "tests/conftest.py",
     "tests/integration/test_*.py",
     "tests/integration/conftest.py",
@@ -481,6 +486,11 @@ omit = [
 fail_under = 100
 show_missing = true
 skip_covered = false
+# The live exercise starts its test-only Codex double from a scratch repository,
+# where collection-time configuration is unavailable to the child. Keep the
+# exclusion at reporting time too, so that child cannot add test infrastructure
+# to the shipped-source coverage denominator.
+omit = ["*/tests/stub_codex.py"]
 # `exclude_also` — NOT `exclude_lines`. This distinction is load-bearing and cost
 # a debugging round: `exclude_lines` REPLACES coverage.py's built-in default
 # exclusions, while `exclude_also` ADDS to them. Using `exclude_lines` here

@@ -208,6 +208,11 @@ def _run_controller(*, root: Path, never_idle: bool, timeout: float) -> Exercise
     # and everything the controller writes share one disposable root.
     environment = dict(os.environ)
     environment["HOME"] = str(home)
+    # A Herdr replacement is spawned by the SERVER, not by the controller's
+    # original pane shell.  Give that server the scratch Codex home before it
+    # starts, otherwise the initial stub (whose shell is later exported below)
+    # and its successor write rollouts to different indexes.
+    environment["CODEX_HOME"] = str(home / ".codex")
     environment["PATH"] = f"{binaries}{os.pathsep}{environment['PATH']}"
     session = unique_session(label=_SESSION_LABEL)
     previous_home = os.environ.get("HOME")
@@ -222,7 +227,6 @@ def _run_controller(*, root: Path, never_idle: bool, timeout: float) -> Exercise
                 "OVERSEER_EXERCISE_TOPIC": TOPIC,
                 "OVERSEER_EXERCISE_EVIDENCE": str(evidence),
                 "OVERSEER_EXERCISE_REPO": str(root / "repo"),
-                "CODEX_HOME": str(home / ".codex"),
             }
         )
         try:

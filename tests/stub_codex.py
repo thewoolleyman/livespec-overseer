@@ -28,6 +28,7 @@ import contextlib
 import ctypes
 import json
 import os
+import signal
 import subprocess
 import sys
 import termios
@@ -67,6 +68,7 @@ _PASTE_END = "\x1b[201~"
 # sets this on startup; without it herdr delivers the payload unbracketed and a
 # multi-line wrap-up fragments into one submitted prompt per line.
 _ENABLE_BRACKETED_PASTE = "\x1b[?2004h"
+_DISABLE_BRACKETED_PASTE = "\x1b[?2004l"
 _CLEAR_SCREEN = "\x1b[2J\x1b[H"
 _TURN_SECONDS = 1.0
 _IDLE_POLL_SECONDS = 0.05
@@ -270,6 +272,11 @@ def _loop(*, session: StubCodex, stdin: TextIO) -> None:
             session.feed(data=chunk)
 
 
+def _stop_on_termination(_signum: int, _frame: object) -> None:
+    """Leave the raw terminal through ``main``'s restoration path on SIGTERM."""
+    raise KeyboardInterrupt
+
+
 def main(*, argv: list[str] | None = None) -> int:
     """Run the stub until it is interrupted or its pane is closed."""
     set_process_name()
@@ -287,12 +294,16 @@ def main(*, argv: list[str] | None = None) -> int:
     )
     descriptor = sys.stdin.fileno()
     saved = termios.tcgetattr(descriptor)
+    previous_sigterm = signal.signal(signal.SIGTERM, _stop_on_termination)
     try:
         tty.setraw(descriptor)
         _loop(session=session, stdin=sys.stdin)
     except (KeyboardInterrupt, OSError):
         return 0
     finally:
+        _ = signal.signal(signal.SIGTERM, previous_sigterm)
+        _ = session.output.write(_DISABLE_BRACKETED_PASTE)
+        session.output.flush()
         termios.tcsetattr(descriptor, termios.TCSADRAIN, saved)
     return 0
 
