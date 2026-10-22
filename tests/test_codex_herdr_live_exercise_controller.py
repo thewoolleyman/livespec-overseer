@@ -7,12 +7,13 @@ discharged here; what these exercises prove is that the controller drives the
 shipped mechanics correctly when the only thing stubbed is the agent binary.
 
 **Everything except Codex is real.** A genuine `herdr --session <unique> server`,
-a genuine pane, the released `overseerd` the shipped `overseer-start` provisions
-and launches, the real mapping store, the real injection-stamp sidecar and the
-real `/proc`-backed Codex discovery join. The agent is `tests/stub_codex.py`,
-which implements only the surfaces the shipped code reads -- `comm`, a held
-rollout fd, a `session_index.jsonl` record on `/rename`, and a pane frame
-`signals.py` parses. Nothing in the daemon is patched, seamed or faked.
+a genuine pane, the `overseerd` the shipped `overseer-start` resolves and launches
+from the run's own disposable runtime prefix, the real mapping store, the real
+injection-stamp sidecar and the real `/proc`-backed Codex discovery join. The
+agent is `tests/stub_codex.py`, which implements only the surfaces the shipped
+code reads -- `comm`, a held rollout fd, a `session_index.jsonl` record on
+`/rename`, and a pane frame `signals.py` parses. Nothing in the daemon is
+patched, seamed or faked.
 
 **The expensive run happens ONCE, inside one test, deliberately.** The full arc
 takes minutes, and this suite runs under `pytest -n <workers>` with the default
@@ -23,9 +24,11 @@ each with its own message, rather than split into four tests that would each pay
 for their own daemon.
 
 **Session isolation is herdr's own `--session` mechanism**, and the exercise
-additionally runs under a scratch `HOME`, so the mapping store, the stamp sidecar,
-the watch declaration and the Codex index are all disposable. The operator's own
-daemon, store and sessions are never addressed.
+additionally runs under a scratch `HOME` holding its own daemon runtime prefix, so
+the mapping store, the stamp sidecar, the watch declaration, the Codex index and
+the installed `overseerd` are all disposable. The operator's own daemon, store,
+runtime prefix and sessions are never addressed -- see `_scratch_home` for the
+measured defect that rule is written against.
 """
 
 from __future__ import annotations
@@ -43,6 +46,8 @@ from pathlib import Path
 
 import pytest
 from herdr_live_server import require_herdr, start_server, stop_server, unique_session
+
+from overseer import runtime_prefix
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CONTROLLER = REPO_ROOT / "scripts" / "overseer-live-exercise-codex-herdr.sh"
@@ -68,6 +73,17 @@ NEVER_IDLE_RUN_TIMEOUT = 600.0
 # root of its own, and the session label stays short for the same reason.
 _SHORT_ROOT_PREFIX = "ovx-"
 _SESSION_LABEL = "cx"
+# The daemon-owned runtime prefix, relative to HOME. `overseer-start` provisions
+# `<HOME>/.local/share/livespec-overseer/runtime/<version>`, and the venv it builds
+# there bakes that ABSOLUTE path into its own interpreter shebang -- which is why a
+# scratch HOME must never resolve this path onto the operator's own prefix.
+_RUNTIME_PREFIX_RELATIVE = Path(".local") / "share" / "livespec-overseer"
+_DAEMON_HELP_TIMEOUT = 60.0
+# A console script whose own absolute path overruns the kernel's shebang bound is
+# written with a portable `#!/bin/sh` wrapper that execs the interpreter from its
+# second line. See `_interpreter_of`.
+_PORTABLE_SHEBANG_SHELLS = frozenset({"sh", "bash"})
+_PORTABLE_SHEBANG_EXEC = re.compile(r"^'''exec' '([^']+)'")
 
 
 @pytest.fixture
@@ -152,22 +168,49 @@ def _checked_in_verifier() -> Callable[..., int]:
 
 
 def _scratch_home(*, root: Path) -> Path:
-    """A disposable HOME that can still reach the warm caches.
+    """A disposable HOME carrying its OWN daemon runtime, plus the warm uv cache.
 
     `~/.cache` is symlinked because `uv` keys its cache off HOME and a cold one
     rebuilds the whole environment -- documented in `overseer/AGENTS.md` as looking
-    exactly like a daemon hang. `~/.local/share/livespec-overseer` is symlinked so
-    `overseer-start` reuses an already-provisioned daemon runtime prefix instead of
-    reinstalling the release from git for every exercise.
+    exactly like a daemon hang.
+
+    `~/.local/share/livespec-overseer` is deliberately NOT symlinked, and that is
+    the whole shape of this helper. It used to be, so `overseer-start` could reuse
+    an already-provisioned daemon runtime prefix -- but a link is not read-only. On
+    a host with no prefix for the checkout's version the FIRST run provisioned one
+    through it, and the venv baked the scratch path into its own interpreter
+    (measured 2026-10-22: `runtime/5.33.8/venv/bin/overseerd` carried the shebang
+    `#!/tmp/ovx-vm170k6z/home/.local/share/livespec-overseer/runtime/5.33.8/venv/bin/python`).
+    The scratch root is deleted at teardown, so the host's shared prefix was left
+    with a dead interpreter and every later bootstrap there -- the exercise's and
+    the operator's alike -- failed with `bad interpreter`. The exercise builds its
+    own prefix inside the root instead.
     """
     home = root / "home"
     (home / ".local" / "share").mkdir(parents=True)
-    for shared in (Path.home() / ".cache", Path.home() / ".local" / "share" / "livespec-overseer"):
-        link = home / shared.relative_to(Path.home())
-        link.parent.mkdir(parents=True, exist_ok=True)
-        if shared.exists():
-            link.symlink_to(shared)
+    cache = Path.home() / ".cache"
+    if cache.exists():
+        (home / ".cache").symlink_to(cache)
+    _ = _provision_daemon_runtime(home=home)
     return home
+
+
+def _provision_daemon_runtime(*, home: Path) -> Path:
+    """Install this checkout's `overseerd` into the scratch HOME's own runtime prefix.
+
+    `runtime_prefix.ensure_runtime` short-circuits on an existing executable, so
+    filling the version-keyed prefix here is what keeps the shipped `overseer-start`
+    from provisioning a runtime of its own -- the step that used to reach outside
+    the scratch root. The install source is this CHECKOUT rather than the release
+    tag the daemon would otherwise fetch from git: it is the build under test, it
+    needs no network, and it is installed NON-EDITABLY exactly as the released path
+    installs, so the daemon still runs an installed distribution and never the
+    working tree.
+    """
+    prefix = runtime_prefix.runtime_prefix(home=home)
+    daemon = runtime_prefix.ensure_runtime(prefix=prefix, install_source=str(REPO_ROOT))
+    assert daemon is not None, f"could not provision an exercise daemon runtime under {prefix}"
+    return daemon
 
 
 def _write_executable(*, path: Path, body: str) -> None:
@@ -277,6 +320,99 @@ def test_the_controller_is_a_checked_in_executable() -> None:
     assert os.access(CONTROLLER, os.X_OK), f"the controller is not executable: {CONTROLLER}"
 
 
+def test_the_scratch_home_never_writes_through_to_the_hosts_runtime_prefix(
+    short_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Nothing this exercise provisions may land under the operator's own prefix.
+
+    The scratch HOME used to SYMLINK `~/.local/share/livespec-overseer` so a run
+    could reuse an already-provisioned daemon runtime. A link is not read-only: on
+    a host with no prefix for the checkout's version the first run provisioned one
+    THROUGH it, into the operator's tree.
+    """
+    host = _host_home(root=tmp_path, monkeypatch=monkeypatch)
+
+    home = _scratch_home(root=short_root)
+
+    scratch_prefix = home / _RUNTIME_PREFIX_RELATIVE
+    assert not scratch_prefix.is_symlink(), (
+        "the scratch HOME symlinks the operator's shared daemon runtime prefix, so "
+        "everything the exercise provisions is written into the host's own tree"
+    )
+    (scratch_prefix / "runtime" / "write-through-probe").mkdir(parents=True, exist_ok=True)
+    assert not (
+        host / _RUNTIME_PREFIX_RELATIVE / "runtime" / "write-through-probe"
+    ).exists(), "a directory created under the scratch HOME appeared under the host's prefix"
+    assert (home / ".cache").is_symlink(), (
+        "the warm `uv` cache link is what keeps a run from rebuilding its whole "
+        "environment; only the daemon runtime prefix is supposed to stop being shared"
+    )
+
+
+def test_two_consecutive_runs_each_get_their_own_usable_daemon_runtime(
+    short_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A deleted run's scratch root cannot leave the next run without a daemon.
+
+    The SECOND run is the one that failed on the release host: the first run's venv
+    had baked its own scratch path into the shared prefix's interpreter, the scratch
+    root was deleted at teardown, and every later bootstrap died with `bad
+    interpreter` -- reported only as `overseer-start did not bring a daemon up`.
+    """
+    _ = _host_home(root=tmp_path, monkeypatch=monkeypatch)
+
+    for index in (1, 2):
+        root = short_root / f"run-{index}"
+        daemon = _daemon_executable(home=_scratch_home(root=root))
+        assert daemon.is_file(), f"run {index} provisioned no daemon runtime at {daemon}"
+        completed = subprocess.run(  # noqa: S603 - the runtime this run just provisioned
+            [str(daemon), "--help"],
+            capture_output=True,
+            text=True,
+            timeout=_DAEMON_HELP_TIMEOUT,
+            check=False,
+            env=_scrub_coverage_env(env=dict(os.environ)),
+        )
+        assert completed.returncode == 0, (
+            f"run {index}'s daemon runtime does not execute (exit "
+            f"{completed.returncode}): {completed.stderr.strip()}"
+        )
+        shutil.rmtree(root)
+
+
+def test_a_finished_run_leaves_no_interpreter_path_behind_in_the_host_prefix(
+    short_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Once a run's scratch root is gone, no surviving runtime may point into it.
+
+    This is the host-visible damage the defect left: `runtime/5.33.8/venv/bin/overseerd`
+    carrying the shebang
+    `#!/tmp/ovx-vm170k6z/home/.local/share/livespec-overseer/runtime/5.33.8/venv/bin/python`,
+    a path deleted the moment the exercise finished.
+    """
+    host = _host_home(root=tmp_path, monkeypatch=monkeypatch)
+    root = short_root / "run"
+    daemon = _daemon_executable(home=_scratch_home(root=root))
+    assert daemon.is_file(), f"the run provisioned no daemon runtime at {daemon}"
+    interpreter = _interpreter_of(executable=daemon)
+    assert str(root) in interpreter, (
+        "the run's own runtime is not rooted in its scratch tree, so this test cannot "
+        f"say anything about what the run leaves behind: {interpreter}"
+    )
+
+    shutil.rmtree(root)  # the run has ended; `short_root` deletes exactly this tree.
+
+    poisoned = [
+        str(script)
+        for script in (host / _RUNTIME_PREFIX_RELATIVE).rglob("venv/bin/overseerd")
+        if str(root) in _interpreter_of(executable=script)
+    ]
+    assert not poisoned, (
+        "the host's daemon runtime prefix carries an interpreter inside the finished "
+        f"run's deleted scratch root, so the next bootstrap there cannot start: {poisoned}"
+    )
+
+
 @pytest.mark.integration
 def test_a_stub_codex_run_records_every_lifecycle_stage_and_verifies(
     short_root: Path, capsys: pytest.CaptureFixture[str]
@@ -367,6 +503,47 @@ def test_a_codex_that_never_goes_idle_fails_its_first_stage_and_stops(short_root
     # The same evidence must be refused by the shipped verifier.
     verdict = _checked_in_verifier()(argv=[str(run.evidence / "lifecycle.jsonl")])
     assert verdict != 0, "the shipped verifier accepted a failed lifecycle"
+
+
+def _host_home(*, root: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A stand-in for the operator's HOME, carrying an already-provisioned prefix.
+
+    The isolation tests must never be able to touch the REAL
+    `~/.local/share/livespec-overseer` -- including while they are red -- so HOME is
+    redirected and the prefix the exercise must not reach is created here instead.
+    `~/.cache` is linked through to the real one for the same reason `_scratch_home`
+    links it: a cold `uv` cache rebuilds the whole environment.
+    """
+    cache = Path.home() / ".cache"
+    host = root / "host-home"
+    (host / _RUNTIME_PREFIX_RELATIVE).mkdir(parents=True)
+    (host / ".cache").symlink_to(cache)
+    monkeypatch.setenv("HOME", str(host))
+    return host
+
+
+def _daemon_executable(*, home: Path) -> Path:
+    """Where the shipped `overseer-start` looks for this version's daemon under `home`."""
+    return runtime_prefix.daemon_executable(prefix=runtime_prefix.runtime_prefix(home=home))
+
+
+def _interpreter_of(*, executable: Path) -> str:
+    """The interpreter path a console script execs, whichever shebang form it got.
+
+    A prefix under a short root gets the ordinary `#!<python>` shebang -- the form
+    the defect was measured in, and the form the exercise's own `ovx-` root always
+    produces. A prefix whose absolute path overruns the kernel's shebang bound gets
+    the portable `#!/bin/sh` wrapper instead, which execs the same interpreter from
+    its SECOND line; reading only the first line there would report `/bin/sh` and
+    make a poisoned runtime look clean.
+    """
+    lines = executable.read_text(encoding="utf-8").splitlines()
+    first = lines[0].removeprefix("#!").strip()
+    if Path(first).name not in _PORTABLE_SHEBANG_SHELLS:
+        return first
+    wrapped = _PORTABLE_SHEBANG_EXEC.match(lines[1])
+    assert wrapped is not None, f"unrecognized shebang wrapper in {executable}: {lines[:2]}"
+    return wrapped.group(1)
 
 
 def _rollout_ids(*, text: str) -> list[str]:
