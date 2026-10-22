@@ -354,6 +354,10 @@ def test_failed_otel_export_surfaces_cause_and_rejected_count(*, tmp_path):
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
         sup.log(message="tick 1 complete", event="daemon-tick")
+        # The failed-export alert is emitted by the asynchronous exporter. Drain
+        # its pending result before inspecting stderr, otherwise a loaded worker
+        # can make this assertion race the alert it is meant to verify.
+        sup.otel.exporter.flush(sup=sup)
 
     events = [json.loads(line) for line in err.getvalue().splitlines()]
     assert [event["event"] for event in events] == [
