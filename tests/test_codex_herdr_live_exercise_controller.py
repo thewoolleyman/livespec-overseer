@@ -19,9 +19,9 @@ patched, seamed or faked.
 takes minutes, and this suite runs under `pytest -n <workers>` with the default
 per-test distribution, so a module-scoped fixture would be re-entered by every
 worker that drew a test from this file -- paying the whole arc two or three times
-over. The six acceptance facts that share a run are therefore asserted together,
-each with its own message, rather than split into six tests that would each pay
-for their own daemon.
+over. The acceptance facts that share a run are therefore asserted together, each
+with its own message, rather than split into one test per fact that would each pay
+for its own daemon.
 
 **The host condition travels with the run.** The lifecycle run happens with
 unrelated `codex`-named processes live outside its scratch root (see
@@ -30,6 +30,18 @@ was host leakage: Codex identity came from a host-wide `/proc` scan that nothing
 scoped, so the exercise daemon read the operator's real sessions beside its stub
 (work-item `overseer-crjbmp`). The factory runs no Codex of its own, which is
 precisely why CI stayed green while every push from the release host failed.
+
+**The second half of that host condition is the operator shell's own TERMINAL,
+and it is the one that actually broke the run** (work-item `overseer-4mdi2g`).
+The release host's operator shell runs INSIDE the fleet herdr session, so every
+`HERDR_*` variable herdr injects into that pane is in this test process's
+environment — and the exercise used to copy the whole environment into the
+server it starts and the pane that server spawns. `operator_pane_environment`
+stages those variables here as unmistakable DECOYS and
+`_scrub_terminal_owner_env` removes them from everything the exercise starts, so
+the exercise declares the one coordinate it owns and inherits none. See
+`_DECOY_PANE_ENVIRONMENT` for which inherited value was decisive and what it did
+to the run.
 
 **Session isolation is herdr's own `--session` mechanism**, and the exercise
 additionally runs under a scratch `HOME` holding its own daemon runtime prefix, so
@@ -52,12 +64,13 @@ import sys
 import tempfile
 import time
 import uuid
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+import herdr_identity
 import pytest
-from herdr_live_server import require_herdr, start_server, stop_server, unique_session
+from herdr_live_server import raw_request, require_herdr, start_server, stop_server, unique_session
 
 from overseer import runtime_prefix
 
@@ -107,6 +120,56 @@ _DAEMON_HELP_TIMEOUT = 60.0
 # second line. See `_interpreter_of`.
 _PORTABLE_SHEBANG_SHELLS = frozenset({"sh", "bash"})
 _PORTABLE_SHEBANG_EXEC = re.compile(r"^'''exec' '([^']+)'")
+# The pane the controller drives (`AGENT_PANE` in
+# `scripts/overseer-live-exercise-codex-herdr.sh`). It is a POSITION, not a lookup: the
+# controller creates one workspace on a server it expects to be empty and addresses
+# that workspace's root pane, so anything which makes the server open a workspace
+# FIRST hands the controller a stray pane instead -- silently, because the pane it
+# gets is a perfectly good pane.
+AGENT_PANE = "w1:p1"
+# The operator shell's inherited herdr pane environment, as measured on the release
+# host 2026-10-22 at ebccbc7d (`HERDR_PANE_ID=w5:p5`, `HERDR_WORKSPACE_ID=w5`,
+# `HERDR_ENV=1`, `HERDR_SOCKET_PATH=~/.config/herdr/herdr.sock`, plus `HERDR_TAB_ID`,
+# `HERDR_BIN_PATH` and `HERDR_STARTUP_CWD`).
+#
+# `HERDR_STARTUP_CWD` is the decisive one. Herdr sets it on the panes it relaunches
+# when it restores a session, and a server that INHERITS it opens a startup workspace
+# of its own: measured here, `pane.list` answers `w1:p1` before any workspace is
+# created and the controller's own `workspace.create` returns `w2`. So `AGENT_PANE`
+# addressed the startup pane, which is rooted in the operator's startup cwd rather
+# than the watched exercise repo. Codex came up there, `/rename` indexed a rollout
+# there and `overseer-start` brought the daemon up there, so BOOTSTRAP PASSED -- and
+# then nothing adopted the track, because adoption requires the session's cwd to
+# resolve inside a watched repo. The daemon's snapshot row carried `tmux: null` and
+# `restart_model.reason: pane-absent`, and the run reported it as the ADOPTION stage
+# failing on Codex identity, which is why `overseer-crjbmp` chased a /proc-scoping
+# hypothesis that was not the host's cause.
+#
+# These values are DECOYS: each one names an instance that does not exist, so a
+# server or pane that reached one would fail rather than quietly address something
+# real. They are set in the TEST PROCESS, which is where the release host's leak
+# begins.
+_DECOY_PANE_ENVIRONMENT: dict[str, str] = {
+    # Deliberately NOT the host's literal `1`: herdr sets `HERDR_ENV=1` on the
+    # exercise's OWN panes too, so a truthful `1` would be indistinguishable from the
+    # value the exercise is entitled to, and an assertion over observed environments
+    # could not tell a leak from a legitimate injection.
+    "HERDR_ENV": "ovx-decoy-env",
+    "HERDR_PANE_ID": "w5:p5",
+    "HERDR_TAB_ID": "w5:t5",
+    "HERDR_WORKSPACE_ID": "w5",
+    "HERDR_SESSION": "ovx-decoy-operator-session",
+    "HERDR_SOCKET_PATH": "/ovx-decoy/operator/herdr.sock",
+    "HERDR_STARTUP_CWD": "/ovx-decoy/operator-startup-cwd",
+    "HERDR_BIN_PATH": "/ovx-decoy/bin/herdr",
+    "TMUX": "/ovx-decoy/tmux-default,1,0",
+    "TMUX_PANE": "%5",
+}
+# What the scrub removes. A PREFIX rather than a list, because a list is what failed:
+# `scripts/overseer-live-exercise.sh` unsets seven `HERDR_*` names by hand and misses
+# `HERDR_STARTUP_CWD` -- the only one that changed the outcome.
+_TERMINAL_OWNER_PREFIXES = ("HERDR_",)
+_TERMINAL_OWNER_NAMES = frozenset({"TMUX", "TMUX_PANE"})
 
 
 @pytest.fixture
@@ -117,6 +180,76 @@ def short_root() -> Iterator[Path]:
         yield root
     finally:
         shutil.rmtree(root, ignore_errors=True)
+
+
+@pytest.fixture
+def operator_pane_environment(*, monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
+    """This test process AS IT IS ON THE RELEASE HOST: inside the fleet herdr session.
+
+    The factory has no herdr parent, so it never carried these variables at all --
+    which is exactly why CI, the factory and `overseer-crjbmp`'s decoy-process proof
+    were green while every push from the release host failed. Staging them here moves
+    the leak to where it can be gated.
+
+    The suite-wide `_isolate_ambient_herdr` fixture scrubs `HERDR_SOCKET_PATH` from
+    every test process, so that one is re-declared here rather than merely left alone.
+    """
+    for name, value in _DECOY_PANE_ENVIRONMENT.items():
+        monkeypatch.setenv(name, value)
+    return dict(_DECOY_PANE_ENVIRONMENT)
+
+
+def _scrub_terminal_owner_env(*, env: dict[str, str]) -> dict[str, str]:
+    """Drop every inherited terminal-owner selector from a child's environment.
+
+    The exercise owns its own herdr instance and declares the ONE coordinate it wants
+    (`HERDR_SOCKET_PATH`, taken from the server it just started). Every other value a
+    parent terminal injected describes a DIFFERENT instance, and the server, the pane
+    shell and the daemon `overseer-start` launches all read these names -- so an
+    inherited value is not inert. See `_DECOY_PANE_ENVIRONMENT` for the measured
+    consequence of carrying one.
+    """
+    return {
+        key: value
+        for key, value in env.items()
+        if not key.startswith(_TERMINAL_OWNER_PREFIXES) and key not in _TERMINAL_OWNER_NAMES
+    }
+
+
+def _environ_of(*, pid: int) -> tuple[str, ...]:
+    """`pid`'s own environment as `KEY=value` entries, read from `/proc`.
+
+    The process's environment as the KERNEL holds it, which is the only reading that
+    can answer what a child actually inherited. Asserting over the dict this module
+    assembled would prove the scrub was called, not that it reached anything.
+    """
+    try:
+        raw = Path(f"/proc/{pid}/environ").read_bytes()
+    except OSError:
+        return ()
+    return tuple(entry.decode(errors="replace") for entry in raw.split(b"\0") if entry)
+
+
+def _pane_shell_pid(*, socket_path: str, pane_id: str) -> int:
+    """The retained shell of `pane_id` on this server, or 0 when it cannot be read.
+
+    Through a raw request rather than the shipped adapter: this is control evidence
+    about the exercise's own pane, and taking it from the surface under test would
+    only prove the adapter is self-consistent.
+    """
+    reply = raw_request(
+        socket_path=socket_path, method="pane.process_info", params={"pane_id": pane_id}
+    )
+    result = reply.get("result")
+    info = result.get("process_info") if isinstance(result, dict) else None
+    shell = info.get("shell_pid") if isinstance(info, dict) else None
+    return shell if isinstance(shell, int) else 0
+
+
+def _inherited_decoys(*, observed: tuple[str, ...], decoys: Mapping[str, str]) -> list[str]:
+    """Every observed `KEY=value` entry that is one of `decoys` verbatim."""
+    pairs = (entry.split("=", 1) for entry in observed if "=" in entry)
+    return [f"{name}={value}" for name, value in pairs if decoys.get(name) == value]
 
 
 def _codex_named_pids(*, processes: list[subprocess.Popen[bytes]]) -> list[int]:
@@ -260,6 +393,27 @@ class ExerciseRun:
     completed: subprocess.CompletedProcess[str]
     evidence: Path
     herdr_log: Path
+    home: Path
+    socket_path: str
+    server_environ: tuple[str, ...]
+    pane_shell_environ: tuple[str, ...]
+
+    def snapshot_row(self, *, topic: str) -> dict[str, object]:
+        """The exercise DAEMON's own status row for `topic`, or an empty row.
+
+        The daemon writes `~/.livespec-overseer-status.json` under the run's scratch
+        HOME, so this is the daemon's answer about the track rather than the
+        controller's -- the same file the controller's own stage predicates read.
+        """
+        snapshot = self.home / ".livespec-overseer-status.json"
+        if not snapshot.is_file():
+            return {}
+        parsed: object = json.loads(snapshot.read_text(encoding="utf-8"))
+        rows = parsed.get("rows", []) if isinstance(parsed, dict) else []
+        for row in rows if isinstance(rows, list) else []:
+            if isinstance(row, dict) and row.get("topic") == topic:
+                return row
+        return {}
 
     def records(self) -> list[dict[str, str]]:
         """Every lifecycle record, in the order the controller appended them."""
@@ -401,8 +555,10 @@ def _run_controller(*, root: Path, never_idle: bool, timeout: float) -> Exercise
     evidence.mkdir()
 
     # The server runs under the scratch HOME so its socket, its session registry
-    # and everything the controller writes share one disposable root.
-    environment = _scrub_coverage_env(env=dict(os.environ))
+    # and everything the controller writes share one disposable root. The
+    # terminal-owner scrub is what keeps a test process that is ITSELF inside a herdr
+    # pane from lending its coordinates to the instance this run owns.
+    environment = _scrub_terminal_owner_env(env=_scrub_coverage_env(env=dict(os.environ)))
     environment["HOME"] = str(home)
     # A Herdr replacement is spawned by the SERVER, not by the controller's
     # original pane shell.  Give that server the scratch Codex home before it
@@ -415,6 +571,9 @@ def _run_controller(*, root: Path, never_idle: bool, timeout: float) -> Exercise
     os.environ["HOME"] = str(home)
     try:
         server = start_server(scratch=root / "server", session=session, env=environment)
+        # Read while the server is certainly alive. A process's environment is fixed
+        # at `exec`, so this reading is its whole life's environment.
+        server_environ = _environ_of(pid=server.server_pid)
         environment["HERDR_SOCKET_PATH"] = server.socket_path
         environment.update(
             {
@@ -435,6 +594,12 @@ def _run_controller(*, root: Path, never_idle: bool, timeout: float) -> Exercise
                 env=environment,
                 cwd=str(root),
             )
+            # The retained shell of the controller's pane outlives the controller, so
+            # what it inherited is still readable here -- and it has to be read before
+            # the server is stopped, because stopping the server takes the pane with it.
+            pane_shell_environ = _environ_of(
+                pid=_pane_shell_pid(socket_path=server.socket_path, pane_id=AGENT_PANE)
+            )
         finally:
             stop_server(session=session)
     finally:
@@ -442,7 +607,15 @@ def _run_controller(*, root: Path, never_idle: bool, timeout: float) -> Exercise
             del os.environ["HOME"]
         else:
             os.environ["HOME"] = previous_home
-    return ExerciseRun(completed=completed, evidence=evidence, herdr_log=herdr_log)
+    return ExerciseRun(
+        completed=completed,
+        evidence=evidence,
+        herdr_log=herdr_log,
+        home=home,
+        socket_path=server.socket_path,
+        server_environ=server_environ,
+        pane_shell_environ=pane_shell_environ,
+    )
 
 
 def test_the_controller_is_a_checked_in_executable() -> None:
@@ -548,16 +721,19 @@ def test_a_finished_run_leaves_no_interpreter_path_behind_in_the_host_prefix(
 def test_a_stub_codex_run_records_every_lifecycle_stage_and_verifies(
     short_root: Path,
     outside_codex_processes: list[subprocess.Popen[bytes]],
+    operator_pane_environment: dict[str, str],
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """The whole arc against a real herdr instance, a real daemon and a stub Codex.
 
-    Six acceptance facts share this one run -- see the module docstring for why
-    they are not six tests.
+    Eight acceptance facts share this one run -- see the module docstring for why
+    they are not eight tests.
 
     The run happens with `_OUTSIDE_CODEX_PROCESSES` unrelated `codex`-named processes
-    live on the host, in their own Codex world outside this run's scratch root: the
-    release host's condition, which is the one the exercise could not survive.
+    live on the host, in their own Codex world outside this run's scratch root, AND
+    with this process carrying the release host operator shell's own herdr pane
+    environment (`operator_pane_environment`). Both are the release host's condition,
+    and the second is the one that actually broke the run.
     """
     run = _run_controller(root=short_root, never_idle=False, timeout=PASSING_RUN_TIMEOUT)
     records = run.records()
@@ -625,6 +801,66 @@ def test_a_stub_codex_run_records_every_lifecycle_stage_and_verifies(
     assert (
         len(_codex_named_pids(processes=outside_codex_processes)) == _OUTSIDE_CODEX_PROCESSES
     ), "the unrelated `codex` processes did not survive the run, so it proves nothing"
+
+    # 7. The daemon's own snapshot row for the topic names a pane INSIDE the exercise
+    #    instance. This is the fact the operator shell's inherited pane environment
+    #    destroyed: the controller drove a stray startup pane rooted outside the
+    #    watched repo, nothing adopted the track, and the row carried `tmux: null`
+    #    with `restart_model.reason: pane-absent` -- while the failure was reported
+    #    one stage later as a Codex-identity problem.
+    _assert_pane_inside_the_exercise_instance(run=run, diagnostic=diagnostic)
+
+    # 8. Neither the exercise server nor the shell in its pane inherited one of this
+    #    process's terminal-owner values.
+    _assert_nothing_inherited_the_pane_environment(run=run, decoys=operator_pane_environment)
+
+
+def _assert_pane_inside_the_exercise_instance(*, run: ExerciseRun, diagnostic: str) -> None:
+    """The daemon bound the track to the exercise instance's own pane, not a null pane."""
+    row = run.snapshot_row(topic=TOPIC)
+    coordinate = row.get("tmux")
+    assert isinstance(coordinate, str) and coordinate, (
+        "the exercise daemon's snapshot row for the topic carries no pane at all, so the "
+        f"daemon never located the exercise herdr pane\nrow={row}\n{diagnostic}"
+    )
+    decoded = herdr_identity.decode_target(value=coordinate)
+    herdr_target = decoded.herdr
+    assert herdr_target is not None, (
+        f"the snapshot row's pane coordinate is not a herdr target: {coordinate!r} "
+        f"({decoded.error})"
+    )
+    assert herdr_target.socket_path == run.socket_path, (
+        "the snapshot row names a pane on a DIFFERENT herdr instance: "
+        f"{herdr_target.socket_path!r} is not the exercise's {run.socket_path!r}"
+    )
+    assert herdr_target.pane_id == AGENT_PANE, (
+        f"the snapshot row names pane {herdr_target.pane_id!r} rather than the pane the "
+        f"controller drives ({AGENT_PANE}), so the exercise and the daemon disagree "
+        "about which pane the track lives in"
+    )
+
+
+def _assert_nothing_inherited_the_pane_environment(
+    *, run: ExerciseRun, decoys: Mapping[str, str]
+) -> None:
+    """Read from each process's OWN `/proc` environment, never from the assembled dict.
+
+    A scrub asserted against its own input would prove the function was called. The
+    exercise's own `HERDR_SOCKET_PATH` is deliberately not exempted here: the run
+    OVERWRITES it with the socket of the server it started, so a decoy value
+    surviving in a child is a leak by the same test as every other name.
+    """
+    assert run.server_environ, "the exercise herdr server's environment could not be read"
+    assert run.pane_shell_environ, "the exercise pane shell's environment could not be read"
+    for label, observed in (
+        ("herdr server", run.server_environ),
+        (f"shell in pane {AGENT_PANE}", run.pane_shell_environ),
+    ):
+        inherited = _inherited_decoys(observed=observed, decoys=decoys)
+        assert not inherited, (
+            f"the exercise {label} inherited this process's terminal-owner environment "
+            f"instead of being scoped to the exercise instance: {inherited}"
+        )
 
 
 @pytest.mark.integration
