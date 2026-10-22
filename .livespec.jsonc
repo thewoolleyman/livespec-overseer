@@ -465,8 +465,9 @@
       // host renders as /etc/livespec/fabro-factories.json; a dispatch resolves
       // a registry-backed entry from that file by name.
       //
-      // ROUTING DOES NOT CHANGE with this switch (coordinator rulings R318 and
-      // R320, 2026-10-20, plan petri-factory-on-gmktec, epic bd-ib-fyozyd): the
+      // The earlier switch to a registry-backed table changed no routing
+      // (coordinator rulings R318 and R320, 2026-10-20, plan
+      // petri-factory-on-gmktec, epic bd-ib-fyozyd): the
       // control node's registry maps `legacy` to the same instance the retired
       // `hp` entry named literally. The retired `vps` entry is dropped outright
       // — maintainer instruction 2026-08-22 already forbids routing any of this
@@ -474,20 +475,35 @@
       // still naming `hp` or `vps` falls back to `default_factory` under the
       // ratified recorded-pin fallback, so no in-flight item is stranded.
       //
-      // NOT ADDED: `petri`. Onboarding it needs this repository's own bin and
-      // secret-channel settings, which is a separate decision.
+      // `petri` ADDED and made the default (coordinator ruling R668,
+      // 2026-10-22, cutover bd-ib-iud52v): the registry maps `petri` to the
+      // gmktec-xubuntu :32276 Petri-era instance. Its keys follow the
+      // orchestrator's own petri entry: `bin` is the Petri-era carrier fabro
+      // client the dispatch runs against this factory, `secret_channel`
+      // `native_secrets` delivers credentials through Fabro's native secrets,
+      // and `environment` `livespec-ci` supplies the sandbox image on petri,
+      // so `fabro_sandbox_image` above is left as it is. `legacy` stays
+      // declared so an item already pinned to it keeps reaching hp; a recorded
+      // pin naming the retired `hp` or `vps` now falls back to `petri`.
       //
       // KNOWN CONSEQUENCE, tracked separately and deliberately NOT fixed here:
-      // `overseer/_supervisor_wait_target_liveness.factory_server()` reads
-      // `dispatcher.factories[<dispatch_factory>].server` from each WATCHED
-      // repository's config to run `fabro ps --server` for wait-target
-      // liveness. A registry-backed entry carries no `server`, so that probe
-      // now answers `unknown` for this repository's runs until it learns to
-      // resolve a registry-backed entry from the rendered registry file.
+      // `overseer/_supervisor_wait_target_liveness.factory_server()` does
+      // resolve a registry-backed entry's server by name from the rendered
+      // registry file, but the probe then runs the `fabro` on PATH (not the
+      // entry's `bin`), and `process_records_from_payload()` accepts only an
+      // object carrying `runs` or `items`, while the 0.254 client prints a
+      // top-level array. Wait-target liveness therefore still answers
+      // `unknown` for both `legacy` and `petri` runs.
       "factories": {
-        "legacy": { "registry": true }
+        "legacy": { "registry": true },
+        "petri": {
+          "registry": true,
+          "bin": "/home/ubuntu/.local/state/fabro-currency/carrier-petri-v0.382-adeefec4c/fabro",
+          "secret_channel": "native_secrets",
+          "environment": "livespec-ci"
+        }
       },
-      "default_factory": "legacy"
+      "default_factory": "petri"
     }
   }
 }
