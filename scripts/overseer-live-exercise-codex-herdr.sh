@@ -44,7 +44,10 @@ state_file="$repo/tmp/overseer/$topic/.overseer-state"
 # that was waiting, never a silent downgrade to a later stage.
 readonly POLL_SECONDS=2
 readonly CODEX_READY_TIMEOUT=60
-readonly DAEMON_TIMEOUT=240
+# A warmed exercise normally reaches its first status snapshot in seconds. The
+# release host, however, runs this alongside fleet work and the daemon itself, so
+# bootstrap is allowed one loaded-host ten-minute window before it is diagnosed.
+readonly DAEMON_TIMEOUT=600
 readonly ADOPTION_TIMEOUT=120
 readonly WRAPUP_TIMEOUT=180
 readonly REPLACEMENT_TIMEOUT=300
@@ -253,6 +256,7 @@ print(json.dumps({"repos": [sys.argv[1]]}))
 # --------------------------------------------------------------------------- #
 
 stage_bootstrap() {
+  local overseer_start_output bootstrap_started_at elapsed launcher_output
   ensure_scratch_plan
   hd workspace create --cwd "$repo" --label "$topic" >/dev/null 2>&1
 
@@ -276,9 +280,17 @@ stage_bootstrap() {
   # pane: it detects its owning pane through process ancestry and refuses unless a
   # supported agent runtime is in that ancestry, so it cannot be run for the
   # session from out here.
-  pane_submit "$AGENT_PANE" "!$package/overseer-start 2>&1 | tail -3"
-  wait_until "$DAEMON_TIMEOUT" daemon_is_up || fail_stage bootstrap \
-    "overseer-start did not bring a daemon up within ${DAEMON_TIMEOUT}s (no status snapshot at $snapshot)"
+  overseer_start_output="$evidence/overseer-start.log"
+  : >"$overseer_start_output"
+  bootstrap_started_at=$SECONDS
+  pane_submit "$AGENT_PANE" "!$package/overseer-start > $(printf '%q' "$overseer_start_output") 2>&1"
+  if ! wait_until "$DAEMON_TIMEOUT" daemon_is_up; then
+    elapsed=$((SECONDS - bootstrap_started_at))
+    launcher_output="$(tail -n 3 -- "$overseer_start_output" 2>/dev/null || true)"
+    [[ -n "$launcher_output" ]] || launcher_output="<no launcher output captured>"
+    fail_stage bootstrap \
+      "overseer-start did not bring a daemon up after ${elapsed}s (no status snapshot at $snapshot; overseer-start last output: ${launcher_output//$'\n'/ | })"
+  fi
 
   pass_stage bootstrap \
     "codex pane $AGENT_PANE named '$topic' on rollout $predecessor; overseer-start brought up the daemon beside it"
