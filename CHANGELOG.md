@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.34.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.34.0...v5.34.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* **codex:** scope Codex adoption evidence to the daemon's own Codex home ([d2214d5](https://github.com/thewoolleyman/livespec-overseer/commit/d2214d507c586999c62f3d1be163dd87bd1214fe))
+
 ## [5.34.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.33.8...v5.34.0) (2026-10-22)
 
 
