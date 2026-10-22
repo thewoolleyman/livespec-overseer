@@ -190,4 +190,6 @@ value, so no committed factory entry names a machine. Which Fabro server answers
 name is bound only in the fleet gitops inventory's factory registry (livespec-dev-tooling
 `non-functional-requirements.md` §"Fabro factory registry"), which each dispatching host
 renders as `/etc/livespec/fabro-factories.json`; a dispatch resolves a registry-backed entry
-from that file by name. `dispatcher.default_factory` MUST name `legacy`.
+from that file by name. `dispatcher.default_factory` MUST name `petri`. The committed table
+MUST continue to declare `legacy` as a registry-backed entry, so a recorded per-item
+`dispatch_factory` pin naming `legacy` still resolves.
