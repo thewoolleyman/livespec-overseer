@@ -129,6 +129,26 @@ def _bun_install_tree(*, home: Path) -> Path:
     return install
 
 
+def _local_install_launcher(*, home: Path, agent: str) -> Path:
+    """Install a launcher whose install tree IS the state the scratch home provides.
+
+    Claude Code's local install puts the client under `~/.claude` and Codex's own
+    configuration lives at `~/.codex`, which are exactly the subtrees the scratch home
+    replaces and the runner installs the supplied `--credential` into.
+    """
+    launcher = home / ".local" / "bin" / agent
+    launcher.parent.mkdir(parents=True, exist_ok=True)
+    launcher.write_text(
+        f'#!/usr/bin/env bash\nexec "$HOME/.{agent}/local/{agent}" "$@"\n', encoding="utf-8"
+    )
+    launcher.chmod(0o755)
+    client = home / f".{agent}" / "local" / agent
+    client.parent.mkdir(parents=True)
+    client.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    client.chmod(0o755)
+    return launcher
+
+
 def _plan_argv(*, home: Path, path: str, agent: str, topic: str, evidence: Path) -> list[str]:
     completed = _run(
         home=home, path=path, agent=agent, topic=topic, evidence=evidence, plan_only=True
@@ -220,6 +240,58 @@ def test_an_agent_client_absent_from_path_refuses_before_any_backend_starts(
 
     assert completed.returncode == 2, completed.stderr
     assert "codex" in completed.stderr
+    assert not (evidence / "lifecycle.jsonl").exists(), completed.stderr
+    assert not (evidence / "backend-runtime.env").exists(), completed.stderr
+
+
+def test_no_install_root_rebinds_the_agent_state_the_scratch_home_replaces(
+    *, tmp_path: Path
+) -> None:
+    """A launcher's install root may never re-expose the operator's own agent state.
+
+    The scratch home exists to hide `~/.claude` and `~/.codex`: the operator's real
+    credentials, the Claude session registry the daemon's adoption reads, and the
+    `--credential` this runner installs into the scratch copy. Binding such a root back
+    over the scratch home would hand the run the operator's own credential, shadow the
+    supplied one, and leave the path read-only for a client that must write its session
+    registry there.
+    """
+    home = tmp_path / "home"
+    home.mkdir()
+    launcher = _local_install_launcher(home=home, agent="claude")
+    evidence = tmp_path / "evidence"
+
+    argv = _plan_argv(
+        home=home,
+        path=f"{launcher.parent}:{_runner_path(tmp_path=tmp_path)}",
+        agent="claude",
+        topic="scratch-collision",
+        evidence=evidence,
+    )
+
+    assert ("--ro-bind", str(launcher), str(launcher)) in _ro_binds(argv=argv)
+    assert str(home / ".claude") not in argv, argv
+
+
+def test_a_client_installed_where_the_scratch_home_replaces_it_refuses_by_name(
+    *, tmp_path: Path
+) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    launcher = _local_install_launcher(home=home, agent="codex")
+    evidence = tmp_path / "evidence"
+
+    completed = _run(
+        home=home,
+        path=f"{launcher.parent}:{_runner_path(tmp_path=tmp_path)}",
+        agent="codex",
+        topic="scratch-collision-refusal",
+        evidence=evidence,
+    )
+
+    assert completed.returncode == 2, completed.stderr
+    assert str(launcher) in completed.stderr
+    assert str(home / ".codex") in completed.stderr
     assert not (evidence / "lifecycle.jsonl").exists(), completed.stderr
     assert not (evidence / "backend-runtime.env").exists(), completed.stderr
 
