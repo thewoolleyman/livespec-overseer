@@ -47,6 +47,7 @@ import pty
 import re
 import select
 import shutil
+import sqlite3
 import struct
 import subprocess
 import sys
@@ -54,7 +55,7 @@ import tempfile
 import termios
 import time
 import tty
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 import livespec_dev_tooling
@@ -380,6 +381,53 @@ def _prepare_codex_home(*, codex_home: Path) -> None:
             os.symlink(source, codex_home / filename)
 
 
+# WHY A STALL CARRIES CODEX'S OWN LOG. On the release host this acceptance stalls
+# intermittently at startup (overseer-twtw55: 2 of 10 runs on 2026-10-22), and the
+# rendered tail held only "⚠ 2 warnings" -- the TUI's collapsed count, never the
+# warnings themselves. Codex writes them to `logs_2.sqlite` in its OWN home, which is
+# this test's temporary directory and is deleted on exit, so the cause was destroyed
+# with the evidence. The digest is read before that cleanup: every WARN/ERROR row in
+# full, plus the last rows of any level, which name what startup was waiting on.
+def _codex_tui_env(*, inherited: Mapping[str, str]) -> dict[str, str]:
+    """The spawned Codex's environment: a capable 40x120 terminal, no git-hook state."""
+    env = dict(inherited)
+    env["TERM"] = _tui_capable_term(inherited=env.get("TERM"))
+    env["COLUMNS"] = "120"
+    env["LINES"] = "40"
+    env["NO_COLOR"] = "1"
+    for name in _GIT_HOOK_ENV_VARS:
+        env.pop(name, None)
+    return env
+
+
+_CODEX_LOG_DB = "logs_2.sqlite"
+_CODEX_LOG_TAIL_ROWS = 25
+
+
+def _codex_log_digest(*, codex_home: Path) -> str:
+    """Codex's own startup log from `codex_home`, or a line saying why it is absent."""
+    database = codex_home / _CODEX_LOG_DB
+    if not database.exists():
+        return f"(no Codex log: {database} does not exist)"
+    try:
+        with sqlite3.connect(f"file:{database}?mode=ro", uri=True) as connection:
+            problems = connection.execute(
+                "SELECT ts, level, target, feedback_log_body FROM logs"
+                " WHERE level IN ('WARN', 'ERROR') ORDER BY id"
+            ).fetchall()
+            last = connection.execute(
+                "SELECT ts, level, target, feedback_log_body FROM logs ORDER BY id DESC LIMIT ?",
+                (_CODEX_LOG_TAIL_ROWS,),
+            ).fetchall()
+    except sqlite3.Error as exc:
+        return f"(Codex log unreadable: {database}: {exc})"
+    lines = [f"Codex WARN/ERROR log rows ({len(problems)}):"]
+    lines.extend(f"  {ts} {level} {target}: {body}" for ts, level, target, body in problems)
+    lines.append(f"Codex last {len(last)} log rows, oldest first:")
+    lines.extend(f"  {ts} {level} {target}: {body}" for ts, level, target, body in reversed(last))
+    return "\n".join(lines)
+
+
 def _await_codex_prompt(*, fd: int, transcript: str, answered: dict[str, int]) -> str:
     current = _read_until(
         fd=fd,
@@ -506,6 +554,32 @@ def test_a_capable_caller_terminal_reaches_the_spawned_codex_unchanged(inherited
     assert _tui_capable_term(inherited=inherited) == inherited
 
 
+def test_a_stall_digest_carries_codex_warnings_and_its_last_log_rows(tmp_path: Path) -> None:
+    with sqlite3.connect(tmp_path / _CODEX_LOG_DB) as connection:
+        _ = connection.execute(
+            "CREATE TABLE logs (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL,"
+            " level TEXT NOT NULL, target TEXT NOT NULL, feedback_log_body TEXT)"
+        )
+        _ = connection.executemany(
+            "INSERT INTO logs (ts, level, target, feedback_log_body) VALUES (?, ?, ?, ?)",
+            [
+                (1, "INFO", "codex_core::boot", "starting"),
+                (2, "WARN", "codex_mcp::rmcp_client", "mcp server needs auth"),
+                (3, "DEBUG", "codex_core::models", "fetching models"),
+            ],
+        )
+    digest = _codex_log_digest(codex_home=tmp_path)
+    assert "Codex WARN/ERROR log rows (1):" in digest
+    assert "2 WARN codex_mcp::rmcp_client: mcp server needs auth" in digest
+    assert digest.rstrip().endswith("3 DEBUG codex_core::models: fetching models")
+
+
+def test_a_stall_digest_names_a_missing_codex_log(tmp_path: Path) -> None:
+    assert _codex_log_digest(codex_home=tmp_path) == (
+        f"(no Codex log: {tmp_path / _CODEX_LOG_DB} does not exist)"
+    )
+
+
 @_LIVE_CODEX_PICKER_ONLY
 def test_skills_picker_renders_the_declared_codex_canonical_command() -> None:
     plugin, skill = _declared_codex_command(repo_root=_REPO_ROOT)
@@ -515,13 +589,7 @@ def test_skills_picker_renders_the_declared_codex_canonical_command() -> None:
 
     master_fd, slave_fd = pty.openpty()
     _prepare_pty(master_fd=master_fd, slave_fd=slave_fd)
-    env = os.environ.copy()
-    env["TERM"] = _tui_capable_term(inherited=env.get("TERM"))
-    env["COLUMNS"] = "120"
-    env["LINES"] = "40"
-    env["NO_COLOR"] = "1"
-    for name in _GIT_HOOK_ENV_VARS:
-        env.pop(name, None)
+    env = _codex_tui_env(inherited=os.environ)
     tmp_root = _HOST_CODEX_HOME / "tmp"
     tmp_root.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="livespec-codex-home-", dir=tmp_root) as codex_home_raw:
@@ -553,6 +621,8 @@ def test_skills_picker_renders_the_declared_codex_canonical_command() -> None:
         os.close(slave_fd)
         try:
             transcript = _exercise_skills_picker(master_fd=master_fd, plugin=plugin, skill=skill)
+        except AssertionError as exc:
+            raise AssertionError(f"{exc}\n\n{_codex_log_digest(codex_home=codex_home)}") from exc
         finally:
             _stop_codex(proc=proc, fd=master_fd)
 
