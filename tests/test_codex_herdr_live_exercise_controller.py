@@ -19,9 +19,17 @@ patched, seamed or faked.
 takes minutes, and this suite runs under `pytest -n <workers>` with the default
 per-test distribution, so a module-scoped fixture would be re-entered by every
 worker that drew a test from this file -- paying the whole arc two or three times
-over. The four acceptance facts that share a run are therefore asserted together,
-each with its own message, rather than split into four tests that would each pay
+over. The six acceptance facts that share a run are therefore asserted together,
+each with its own message, rather than split into six tests that would each pay
 for their own daemon.
+
+**The host condition travels with the run.** The lifecycle run happens with
+unrelated `codex`-named processes live outside its scratch root (see
+`outside_codex_processes`), because the defect this exercise failed to survive
+was host leakage: Codex identity came from a host-wide `/proc` scan that nothing
+scoped, so the exercise daemon read the operator's real sessions beside its stub
+(work-item `overseer-crjbmp`). The factory runs no Codex of its own, which is
+precisely why CI stayed green while every push from the release host failed.
 
 **Session isolation is herdr's own `--session` mechanism**, and the exercise
 additionally runs under a scratch `HOME` holding its own daemon runtime prefix, so
@@ -33,13 +41,17 @@ measured defect that rule is written against.
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
 import json
 import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
+import time
+import uuid
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -73,6 +85,17 @@ NEVER_IDLE_RUN_TIMEOUT = 600.0
 # root of its own, and the session label stays short for the same reason.
 _SHORT_ROOT_PREFIX = "ovx-"
 _SESSION_LABEL = "cx"
+# The release host runs the operator's own authenticated Codex sessions beside this
+# exercise, and the exercise used to read them: Codex identity came from a host-wide
+# `/proc` scan that nothing scoped (work-item `overseer-crjbmp`). The factory runs none
+# by itself, which is exactly why CI and the factory stayed green while every push from
+# the release host failed -- so the exercise now brings the host condition with it.
+# Seven is the count measured on the release host 2026-10-22 (`pgrep -c codex`).
+_OUTSIDE_CODEX_PROCESSES = 7
+_OUTSIDE_ROOT_PREFIX = "ovx-operator-"
+_OUTSIDE_READY_TIMEOUT = 30.0
+_OUTSIDE_STOP_TIMEOUT = 10.0
+_OUTSIDE_POLL_SECONDS = 0.1
 # The daemon-owned runtime prefix, relative to HOME. `overseer-start` provisions
 # `<HOME>/.local/share/livespec-overseer/runtime/<version>`, and the venv it builds
 # there bakes that ABSOLUTE path into its own interpreter shebang -- which is why a
@@ -96,6 +119,74 @@ def short_root() -> Iterator[Path]:
         shutil.rmtree(root, ignore_errors=True)
 
 
+def _codex_named_pids(*, processes: list[subprocess.Popen[bytes]]) -> list[int]:
+    """Which of these processes are live and present as `codex` in `/proc`."""
+    return [
+        process.pid
+        for process in processes
+        if process.poll() is None
+        and Path(f"/proc/{process.pid}/comm").read_text(encoding="utf-8").strip() == "codex"
+    ]
+
+
+@pytest.fixture
+def outside_codex_processes() -> Iterator[list[subprocess.Popen[bytes]]]:
+    """Unrelated `codex`-named processes, running OUTSIDE this run's scratch root.
+
+    This is the release host's condition, brought into the factory. They are started
+    BEFORE the controller and proven present as `codex` in `/proc` before the run
+    begins, because a decoy that failed to rename itself would leave the exercise
+    passing for the reason it always passed here -- no second Codex world on the host --
+    and prove nothing about the one the operator actually runs.
+
+    Their root is its own temporary directory rather than a child of `short_root`, so
+    "outside the test's scratch root" is literally where they live, including their
+    `HOME`, their `CODEX_HOME`, their cwd and every rollout they hold.
+    """
+    root = Path(tempfile.mkdtemp(prefix=_OUTSIDE_ROOT_PREFIX))
+    started: list[subprocess.Popen[bytes]] = []
+    try:
+        home = root / "operator-home"
+        codex_home = home / ".codex"
+        codex_home.mkdir(parents=True)
+        launcher = root / "operator-codex.py"
+        _write_executable(
+            path=launcher,
+            body=_OUTSIDE_CODEX_LAUNCHER.format(tests_dir=str(Path(__file__).resolve().parent)),
+        )
+        environment = _scrub_coverage_env(env=dict(os.environ))
+        environment["HOME"] = str(home)
+        environment["CODEX_HOME"] = str(codex_home)
+        for index in range(_OUTSIDE_CODEX_PROCESSES):
+            started.append(
+                subprocess.Popen(  # noqa: S603 - a launcher this fixture just wrote
+                    [sys.executable, str(launcher), str(uuid.uuid4()), f"operator-topic-{index}"],
+                    cwd=str(home),
+                    env=environment,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            )
+        deadline = time.monotonic() + _OUTSIDE_READY_TIMEOUT
+        while time.monotonic() < deadline:
+            if len(_codex_named_pids(processes=started)) == _OUTSIDE_CODEX_PROCESSES:
+                break
+            time.sleep(_OUTSIDE_POLL_SECONDS)
+        assert len(_codex_named_pids(processes=started)) == _OUTSIDE_CODEX_PROCESSES, (
+            f"only {len(_codex_named_pids(processes=started))} of "
+            f"{_OUTSIDE_CODEX_PROCESSES} decoy processes came up as `codex`, so this run "
+            "would not reproduce the release host's condition"
+        )
+        yield started
+    finally:
+        for process in started:
+            process.terminate()
+        for process in started:
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                _ = process.wait(timeout=_OUTSIDE_STOP_TIMEOUT)
+        shutil.rmtree(root, ignore_errors=True)
+
+
 # The stub reaches the checkout by path rather than by install: it is test
 # infrastructure, and putting it on the exercise's `PYTHONPATH` would also put it
 # where the shipped modules resolve from.
@@ -109,6 +200,46 @@ sys.path.insert(0, {tests_dir!r})
 import stub_codex
 
 raise SystemExit(stub_codex.main())
+"""
+
+# One unrelated `codex`-named process, standing in for a session of the operator's own.
+# It presents the surfaces the shipped Codex join reads -- `comm`, a HELD rollout fd and
+# a `session_index.jsonl` record naming it -- and every path it names is in its OWN Codex
+# world outside this run's scratch root, which is the whole point: that is the shape the
+# exercise daemon must not read. `stub_codex`'s helpers are reused rather than re-derived,
+# so the decoy cannot drift from the surfaces the stub itself presents.
+#
+# The DESCENDANT shape -- a 0.16x carrier holding no rollout while a shared app-server
+# holds it -- is covered deterministically instead, by
+# `tests/test_codex_adoption_scoped_to_the_daemons_codex_home.py`; it needs a process
+# tree this fixture has no reason to build.
+_OUTSIDE_CODEX_LAUNCHER = """#!/usr/bin/env python3
+import json
+import os
+import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+
+sys.path.insert(0, {tests_dir!r})
+
+import stub_codex
+
+stub_codex.set_process_name()
+home = Path(os.environ["CODEX_HOME"])
+session_id, thread_name = sys.argv[1], sys.argv[2]
+rollout = stub_codex.rollout_path(
+    home=home, session_id=session_id, now=datetime.now(tz=timezone.utc)
+)
+rollout.parent.mkdir(parents=True, exist_ok=True)
+held = rollout.open("a", encoding="utf-8")
+try:
+    with (home / "session_index.jsonl").open("a", encoding="utf-8") as index:
+        _ = index.write(json.dumps({{"id": session_id, "thread_name": thread_name}}) + "\\n")
+    while True:
+        time.sleep(3600)
+finally:
+    held.close()
 """
 
 # Logs the FULL argv of every herdr invocation, then execs the real binary so the
@@ -415,12 +546,18 @@ def test_a_finished_run_leaves_no_interpreter_path_behind_in_the_host_prefix(
 
 @pytest.mark.integration
 def test_a_stub_codex_run_records_every_lifecycle_stage_and_verifies(
-    short_root: Path, capsys: pytest.CaptureFixture[str]
+    short_root: Path,
+    outside_codex_processes: list[subprocess.Popen[bytes]],
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     """The whole arc against a real herdr instance, a real daemon and a stub Codex.
 
-    Four acceptance facts share this one run -- see the module docstring for why
-    they are not four tests.
+    Six acceptance facts share this one run -- see the module docstring for why
+    they are not six tests.
+
+    The run happens with `_OUTSIDE_CODEX_PROCESSES` unrelated `codex`-named processes
+    live on the host, in their own Codex world outside this run's scratch root: the
+    release host's condition, which is the one the exercise could not survive.
     """
     run = _run_controller(root=short_root, never_idle=False, timeout=PASSING_RUN_TIMEOUT)
     records = run.records()
@@ -470,6 +607,24 @@ def test_a_stub_codex_run_records_every_lifecycle_stage_and_verifies(
         "these herdr commands did not name the exercise instance, so they addressed the "
         f"operator's default server: {unscoped}"
     )
+
+    # 5. The daemon's OWN snapshot bound the topic to the stub's own rollout, inside
+    #    the controller's adoption window. The bootstrap record names the rollout the
+    #    stub came up on, and the adoption record is the daemon's answer about it; that
+    #    pairing is the fact, and asserting only "adoption passed" would not state it.
+    bootstrap = next(record for record in records if record["stage"] == "bootstrap")
+    adoption = next(record for record in records if record["stage"] == "adoption")
+    predecessor_id = _rollout_ids(text=bootstrap["detail"])[0]
+    assert f"codex:{predecessor_id}" in adoption["detail"], (
+        "the daemon's snapshot did not bind the topic to the rollout the stub came up "
+        f"on: bootstrap={bootstrap['detail']!r} adoption={adoption['detail']!r}"
+    )
+
+    # 6. The decoys outlived the run, so fact 1 was reached WITH the host condition
+    #    present rather than after it quietly went away.
+    assert (
+        len(_codex_named_pids(processes=outside_codex_processes)) == _OUTSIDE_CODEX_PROCESSES
+    ), "the unrelated `codex` processes did not survive the run, so it proves nothing"
 
 
 @pytest.mark.integration

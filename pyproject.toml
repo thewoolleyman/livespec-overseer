@@ -62,10 +62,24 @@ livespec-dev-tooling = { git = "https://github.com/thewoolleyman/livespec-dev-to
 livespec-runtime = { git = "https://github.com/thewoolleyman/livespec-runtime.git", tag = "v0.28.0" }
 
 [tool.livespec_dev_tooling]
-# This test alone needs a real Python child: it verifies the checked-in script's
-# import path from outside the checkout, which an in-process call cannot model.
-# The test passes a fixed argv and scrubs coverage instrumentation from the child.
-subprocess_spawn_allowlist = ["tests/test_herdr_operator_delivery.py"]
+# Two tests need a real Python child, and in both cases the thing under test is a
+# property only a real process has. Each passes a fixed argv and scrubs coverage
+# instrumentation from the child, which is the other half of this allowance.
+#
+# `test_herdr_operator_delivery.py` verifies the checked-in script's import path
+# from OUTSIDE the checkout, which an in-process call cannot model.
+#
+# `test_codex_herdr_live_exercise_controller.py` runs unrelated `codex`-named
+# processes beside its lifecycle run, because the shipped Codex join reads a live
+# `/proc` entry — `comm`, a held rollout fd, a cwd, an environ — and the defect it
+# guards against is the exercise daemon reading the operator's real sessions
+# (work-item `overseer-crjbmp`). An in-process stand-in has no `/proc` entry at
+# all, so it would leave the exercise passing for the reason it always passed in
+# the factory: no second Codex world on the host.
+subprocess_spawn_allowlist = [
+    "tests/test_codex_herdr_live_exercise_controller.py",
+    "tests/test_herdr_operator_delivery.py",
+]
 # Role trees. This section must exist at all: without it the loader falls back to
 # defaults naming core's layout (`.claude-plugin/scripts/livespec`, `.../io`,
 # `.../commands`, `.../parse`, `dev-tooling`), none of which exist here, and
