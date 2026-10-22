@@ -1,0 +1,24 @@
+
+           [1mClaude Code[0m [38;5;246mv2.1.308[39m
+           [38;5;246mOpus 5.5 with medium effort · Claude Max[39m
+           [38;5;246m~/.worktrees/livespec-overseer/chore/claude-idle-canary-2.1.308[39m
+
+  [1mUpdated to latest. Got 13 features, 65 bugfixes, and 36 other changes.[0m
+  [38;5;246m]8;id=1rmwg0m;https://code.claude.com/docs/en/changelog\code.claude.com/docs/en/changelog]8;;\ for details[39m
+
+
+
+
+
+
+
+
+
+
+
+                                                            [38;5;246m◐ medium · /effort[39m
+[38;5;244m───────────────────────────────────────────────────────── overseer-idle-canary ─
+[39m❯ [2mTry "create a util logging.py that..."[0m
+[38;5;244m────────────────────────────────────────────────────────────────────────────────
+
+[39m  [38;5;211m⏵⏵ bypass permissions on[38;5;246m (shift+tab to cycle) · ← for agents[39m
