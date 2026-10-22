@@ -144,18 +144,55 @@ EOF
 # so would the `uv` that the shipped `overseer-start` shim runs under. Bind each such
 # executable read-only at its own path, beneath the scratch home bind. A mise shim is
 # `mise` itself and needs mise's hidden install tree, so bind the tool it resolves to.
+#
+# Binding the launcher FILE alone is not enough when that launcher is a SCRIPT that runs
+# an install tree elsewhere under the operator home. Measured on the release host
+# 2026-10-22: `~/.local/bin/codex` is a bash shim that execs the bun global install under
+# `~/.bun`, the scratch home hid that tree, and Codex never reached its input prompt — a
+# failed `bootstrap` stage an hour into an authenticated run. So resolve every home-rooted
+# path such a launcher names to its top-level install directory under the operator home.
+launcher_install_roots() {
+  sed -e 's|[$]{HOME}|@home@|g' -e 's|[$]HOME|@home@|g' -e 's|[~]|@home@|g' \
+    -e "s|$operator_home|@home@|g" "$1" |
+    grep -oE '@home@/[A-Za-z0-9_.][A-Za-z0-9_.-]*' | sed -e 's|^@home@/||' | sort -u || true
+}
+
+is_script_launcher() {
+  [[ "$(head -c 2 "$1")" == '#!' ]]
+}
+
 home_binaries=()
+client_refusal=""
 for tool in "$backend" "$agent" uv; do
   tool_path="$(command -v "$tool" || true)"
+  if [[ -z "$tool_path" ]]; then
+    if [[ "$tool" == "$agent" ]]; then
+      client_refusal="agent client $tool is not on PATH"
+    fi
+    continue
+  fi
   case "$tool_path" in
-    "$operator_home"/*)
-      tool_source="$(realpath "$tool_path")"
-      if [[ "$(basename "$tool_source")" == mise ]]; then
-        tool_source="$(mise which "$tool")" || die "mise cannot resolve $tool"
-      fi
-      home_binaries+=(--ro-bind "$tool_source" "$tool_path")
-      ;;
+    "$operator_home"/*) ;;
+    *) continue ;;
   esac
+  tool_source="$(realpath "$tool_path")"
+  if [[ "$(basename "$tool_source")" == mise ]]; then
+    tool_source="$(mise which "$tool")" || die "mise cannot resolve $tool"
+  fi
+  home_binaries+=(--ro-bind "$tool_source" "$tool_path")
+  is_script_launcher "$tool_source" || continue
+  named_roots=0
+  resolved_roots=0
+  while IFS= read -r install_root; do
+    [[ -n "$install_root" ]] || continue
+    named_roots=$((named_roots + 1))
+    if [[ -e "$operator_home/$install_root" ]]; then
+      resolved_roots=$((resolved_roots + 1))
+    fi
+  done < <(launcher_install_roots "$tool_source")
+  if [[ "$tool" == "$agent" ]] && ((named_roots > 0 && resolved_roots == 0)); then
+    client_refusal="agent client launcher $tool_path names no resolvable install tree under $operator_home"
+  fi
 done
 
 namespace=(
@@ -203,6 +240,11 @@ if [[ "$plan_only" == true ]]; then
   echo "exercise plan written to $evidence; no namespace or terminal was started"
   exit 0
 fi
+
+# An agent client that cannot be made runnable inside the namespace is refused HERE,
+# before any terminal backend starts, so the condition is never reported later as a
+# failed `bootstrap` lifecycle stage.
+[[ -z "$client_refusal" ]] || die "$client_refusal"
 
 command -v bwrap >/dev/null 2>&1 || die "bwrap is required"
 cp -a "$checkout/." "$scratch_checkout/"
