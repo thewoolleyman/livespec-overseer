@@ -188,6 +188,7 @@ for tool in "$backend" "$agent" uv; do
     named_roots=$((named_roots + 1))
     if [[ -e "$operator_home/$install_root" ]]; then
       resolved_roots=$((resolved_roots + 1))
+      home_binaries+=(--ro-bind "$operator_home/$install_root" "$operator_home/$install_root")
     fi
   done < <(launcher_install_roots "$tool_source")
   if [[ "$tool" == "$agent" ]] && ((named_roots > 0 && resolved_roots == 0)); then

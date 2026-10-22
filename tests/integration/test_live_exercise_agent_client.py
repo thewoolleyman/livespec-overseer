@@ -78,12 +78,13 @@ def _runner_path(*, tmp_path: Path) -> Path:
 
 
 def _run(
-    *, home: Path, path: str, agent: str, topic: str, evidence: Path
+    *, home: Path, path: str, agent: str, topic: str, evidence: Path, plan_only: bool = False
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603 -- fixed repo-owned script.
         [
             str(LIVE_EXERCISE),
             "run",
+            *(["--plan-only"] if plan_only else []),
             "--backend",
             "tmux",
             "--agent",
@@ -114,6 +115,54 @@ def _bun_style_launcher(*, home: Path) -> Path:
     )
     launcher.chmod(0o755)
     return launcher
+
+
+def _bun_install_tree(*, home: Path) -> Path:
+    """Install what that shim actually runs: the bun global install under `~/.bun`."""
+    install = home / ".bun"
+    binaries = install / "bin"
+    binaries.mkdir(parents=True)
+    bun = binaries / "bun"
+    bun.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    bun.chmod(0o755)
+    (binaries / "codex").write_text("// the entry point the shim hands to bun\n", encoding="utf-8")
+    return install
+
+
+def _plan_argv(*, home: Path, path: str, agent: str, topic: str, evidence: Path) -> list[str]:
+    completed = _run(
+        home=home, path=path, agent=agent, topic=topic, evidence=evidence, plan_only=True
+    )
+    assert completed.returncode == 0, completed.stderr
+    return (evidence / "namespace.argv").read_text(encoding="utf-8").splitlines()
+
+
+def _ro_binds(*, argv: list[str]) -> list[tuple[str, ...]]:
+    return [tuple(argv[i : i + 3]) for i, token in enumerate(argv) if token == "--ro-bind"]
+
+
+def test_the_agent_clients_install_tree_is_bound_read_only(*, tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    install = _bun_install_tree(home=home)
+    launcher = _bun_style_launcher(home=home)
+    evidence = tmp_path / "evidence"
+
+    argv = _plan_argv(
+        home=home,
+        path=f"{launcher.parent}:{_runner_path(tmp_path=tmp_path)}",
+        agent="codex",
+        topic="launcher-install",
+        evidence=evidence,
+    )
+
+    mounts = _ro_binds(argv=argv)
+    assert ("--ro-bind", str(launcher), str(launcher)) in mounts
+    assert ("--ro-bind", str(install), str(install)) in mounts
+    # Both sit BENEATH the scratch-home bind, or the scratch home would hide them again.
+    home_bind = argv.index(str(home))
+    assert argv.index(str(install)) > home_bind
+    assert argv.index(str(launcher)) > home_bind
 
 
 def test_an_agent_client_absent_from_path_refuses_before_any_backend_starts(
