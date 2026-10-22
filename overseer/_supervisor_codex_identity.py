@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import _codex_runtime_model
@@ -89,6 +90,13 @@ class CodexPaneCarrier:
     session_id: str | None
 
 
+def _resolved_codex_home(*, readers: codex_sessions.CodexHostReaders) -> Path:
+    """The bundle's Codex home, with its ``None`` resolved to the daemon account's."""
+    if readers.codex_home is None:
+        return codex_sessions.default_codex_home()
+    return Path(readers.codex_home)
+
+
 def live_rollout_ids(
     *, carriers: list[int], readers: codex_sessions.CodexHostReaders
 ) -> frozenset[str]:
@@ -98,9 +106,20 @@ def live_rollout_ids(
     ``carrier_pids``, so it descends through a shared app-server hanging off whichever
     carrier happens to have spawned it; the union is what makes the shared topology
     answerable at all, and nothing downstream reads membership as ownership.
+
+    Unattributed is not unscoped, and the scope is re-asserted HERE rather than trusted
+    from the caller: a carrier running under another Codex home contributes nothing,
+    and its fd table is not opened to find that out. So every id in the union is one
+    this daemon's index could name and its database could bind, which is what keeps the
+    set a liveness answer rather than a census of the host.
     """
+    home = _resolved_codex_home(readers=readers)
     ids: set[str] = set()
     for pid in carriers:
+        if not codex_sessions.carrier_in_codex_home(
+            pid=pid, codex_home=home, environ_of=readers.environ_of
+        ):
+            continue
         ids.update(
             codex_sessions.carrier_rollout_ids(
                 pid=pid,
@@ -155,8 +174,22 @@ def pane_codex_carriers(
     A carrier outside any pane, or one whose cwd cannot be read, is dropped: the daemon
     can neither observe nor drive it, and without a repository nothing can be bound.
     Order follows the ``/proc`` pid scan, so the answer is deterministic.
+
+    The scan is scoped to carriers running under THIS daemon's Codex home
+    (:func:`codex_sessions.codex_carriers`) before any of it is read. Pane membership
+    alone would not do it: a daemon whose environment names no explicit tmux socket
+    resolves the AMBIENT tmux server's panes too, so the operator's own Codex sessions
+    arrive carrying perfectly good coordinates. Their threads live in a different state
+    database and their rollouts can never be named by this daemon's index, so the only
+    thing including them can do is add live ids for an ambiguity refusal to count.
     """
-    carriers = readers.pids_of_comm(comm=codex_sessions.CODEX_COMM)
+    carriers = list(
+        codex_sessions.codex_carriers(
+            codex_home=_resolved_codex_home(readers=readers),
+            pids_of_comm=readers.pids_of_comm,
+            environ_of=readers.environ_of,
+        ).scoped
+    )
     candidates = live_rollout_ids(carriers=carriers, readers=readers)
     found: list[CodexPaneCarrier] = []
     for pid in carriers:

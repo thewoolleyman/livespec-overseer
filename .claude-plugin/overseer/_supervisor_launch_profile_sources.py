@@ -128,6 +128,7 @@ def _codex_sources(
         cwd_of=readers.cwd_of,
         fd_targets_of=readers.fd_targets_of,
         children_of=readers.children_of,
+        environ_of=readers.environ_of,
     ):
         tmux_session = claude_sessions.resolve_tmux_session(
             pid=session.pid,

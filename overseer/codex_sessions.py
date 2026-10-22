@@ -43,6 +43,15 @@ keeps its own identity instead of being attributed to its parent. Nothing about 
 proof is weakened: an exact indexed name plus the carrier's own process cwd are still
 both required, and a session with neither is still dropped.
 
+**The carrier scan is host-wide; the EVIDENCE is scoped to one Codex home.** ``comm``
+is the only thing that says a process is a Codex carrier, so the scan has to look at
+every pid — but a carrier running under a DIFFERENT ``CODEX_HOME`` cannot be named by
+the index this module reads, so :func:`codex_carriers` drops it before its cwd or fd
+table is read. On a fleet host every carrier shares the daemon account's home and
+nothing narrows; it narrows exactly where a second Codex world exists, which is the
+isolated live exercise (work-item ``overseer-crjbmp``) — in both directions, so the
+fleet daemon does not read the exercise's stub either.
+
 **The adoption precondition: only INDEXED/NAMED sessions can be mapped to a plan.**
 An unnamed session carries no topic anywhere, so it cannot be joined to a plan. The
 supervisor surfaces live unindexed Codex sessions in watched repos as diagnostic
@@ -77,12 +86,17 @@ from pathlib import Path
 
 import codex_session_index
 from _codex_proc import (
+    CODEX_HOME_ENV,
     MAX_HELPER_PROCESSES,
     CodexHostReaders,
+    carrier_in_codex_home,
     carrier_rollout_ids,
+    codex_carriers,
     open_rollout_id,
     open_rollout_ids,
     proc_cwd,
+    proc_environ,
+    proc_environ_value,
     proc_fd_targets,
     proc_pids_of_comm,
     rollout_id,
@@ -91,6 +105,7 @@ from _codex_session_models import CODEX_COMM, CodexSession, UnindexedCodexSessio
 from _seams import (
     CommToPidList,
     PidToIntList,
+    PidToOptionalBytes,
     PidToOptionalInt,
     PidToOptionalStr,
     PidToStrList,
@@ -104,12 +119,15 @@ from claude_sessions import proc_children, proc_ppid, resolve_tmux_session
 
 __all__: list[str] = [
     "CODEX_COMM",
+    "CODEX_HOME_ENV",
     "MAX_HELPER_PROCESSES",
     "CodexHostReaders",
     "CodexSession",
     "UnindexedCodexSession",
+    "carrier_in_codex_home",
     "carrier_rollout_ids",
     "codex_by_tmux_session",
+    "codex_carriers",
     "default_codex_home",
     "latest_session_for_thread_name",
     "map_codex_sessions",
@@ -117,6 +135,7 @@ __all__: list[str] = [
     "open_rollout_id",
     "open_rollout_ids",
     "proc_cwd",
+    "proc_environ_value",
     "proc_fd_targets",
     "proc_pids_of_comm",
     "read_live_codex_sessions",
@@ -177,6 +196,7 @@ def read_live_codex_sessions(
     cwd_of: PidToOptionalStr = proc_cwd,
     fd_targets_of: PidToStrList = proc_fd_targets,
     children_of: PidToIntList = proc_children,
+    environ_of: PidToOptionalBytes = proc_environ,
 ) -> list[CodexSession]:
     """Every live, NAMED Codex TUI session, joined to its topic + repo.
 
@@ -188,6 +208,9 @@ def read_live_codex_sessions(
     Skips, all deliberate and all fail-soft:
 
     - not ``comm == codex`` — including the ``bun`` launcher (holds no rollout anyway);
+    - **running under a DIFFERENT Codex home** (:func:`codex_carriers`) — its rollouts
+      can never appear in the index this call reads, so it is not this daemon's session
+      and nothing of it is read;
     - neither it nor its helpers hold an open rollout — no session id to join;
     - **its id is not in the index** — an UNNAMED session, which carries no topic
       anywhere and so cannot belong to a plan;
@@ -203,10 +226,10 @@ def read_live_codex_sessions(
     """
     home = Path(codex_home) if codex_home is not None else default_codex_home()
     names = read_thread_names(codex_home=home)
-    carriers = pids_of_comm(comm=CODEX_COMM)
-    carrier_pids = frozenset(carriers)
+    carriers = codex_carriers(codex_home=home, pids_of_comm=pids_of_comm, environ_of=environ_of)
+    carrier_pids = frozenset(carriers.all_pids)
     out: list[CodexSession] = []
-    for pid in carriers:
+    for pid in carriers.scoped:
         session_id = next(
             (
                 rollout
@@ -257,6 +280,7 @@ def map_codex_sessions(
         cwd_of=host.cwd_of,
         fd_targets_of=host.fd_targets_of,
         children_of=host.children_of,
+        environ_of=host.environ_of,
     ):
         tmux_session = resolve_tmux_session(
             pid=session.pid, pane_pid_to_session=pane_pid_to_session, ppid_of=ppid_of
@@ -290,10 +314,12 @@ def map_unindexed_codex_sessions(
     host = readers if readers is not None else CodexHostReaders()
     home = Path(host.codex_home) if host.codex_home is not None else default_codex_home()
     names = read_thread_names(codex_home=home)
-    carriers = host.pids_of_comm(comm=CODEX_COMM)
-    carrier_pids = frozenset(carriers)
+    carriers = codex_carriers(
+        codex_home=home, pids_of_comm=host.pids_of_comm, environ_of=host.environ_of
+    )
+    carrier_pids = frozenset(carriers.all_pids)
     unindexed: list[UnindexedCodexSession] = []
-    for pid in carriers:
+    for pid in carriers.scoped:
         rollout_ids = carrier_rollout_ids(
             pid=pid,
             carrier_pids=carrier_pids,
@@ -364,6 +390,7 @@ def codex_by_tmux_session(
         cwd_of=host.cwd_of,
         fd_targets_of=host.fd_targets_of,
         children_of=host.children_of,
+        environ_of=host.environ_of,
     ):
         tmux_session = resolve_tmux_session(
             pid=session.pid, pane_pid_to_session=pane_pid_to_session, ppid_of=ppid_of
