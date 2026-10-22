@@ -129,6 +129,19 @@ def _bun_install_tree(*, home: Path) -> Path:
     return install
 
 
+def _home_rooted_launcher(*, home: Path, agent: str, install: str) -> Path:
+    """Install a script launcher that execs a client at the named home-rooted path."""
+    launcher = home / ".local" / "bin" / agent
+    launcher.parent.mkdir(parents=True, exist_ok=True)
+    launcher.write_text(f'#!/usr/bin/env bash\nexec "$HOME/{install}" "$@"\n', encoding="utf-8")
+    launcher.chmod(0o755)
+    client = home / install
+    client.parent.mkdir(parents=True, exist_ok=True)
+    client.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    client.chmod(0o755)
+    return launcher
+
+
 def _local_install_launcher(*, home: Path, agent: str) -> Path:
     """Install a launcher whose install tree IS the state the scratch home provides.
 
@@ -136,16 +149,21 @@ def _local_install_launcher(*, home: Path, agent: str) -> Path:
     configuration lives at `~/.codex`, which are exactly the subtrees the scratch home
     replaces and the runner installs the supplied `--credential` into.
     """
-    launcher = home / ".local" / "bin" / agent
-    launcher.parent.mkdir(parents=True, exist_ok=True)
+    return _home_rooted_launcher(home=home, agent=agent, install=f".{agent}/local/{agent}")
+
+
+def _config_naming_launcher(*, home: Path) -> Path:
+    """The measured release-host shim shape, plus the `XDG_CONFIG_HOME` export shims carry.
+
+    Such a launcher names TWO home-rooted roots: the `~/.bun` install tree it really runs,
+    and `~/.config`, which it only points an environment variable at.
+    """
+    launcher = _bun_style_launcher(home=home)
     launcher.write_text(
-        f'#!/usr/bin/env bash\nexec "$HOME/.{agent}/local/{agent}" "$@"\n', encoding="utf-8"
+        '#!/usr/bin/env bash\nexport XDG_CONFIG_HOME="$HOME/.config"\n'
+        'exec "$HOME/.bun/bin/bun" "$HOME/.bun/bin/codex" "$@"\n',
+        encoding="utf-8",
     )
-    launcher.chmod(0o755)
-    client = home / f".{agent}" / "local" / agent
-    client.parent.mkdir(parents=True)
-    client.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    client.chmod(0o755)
     return launcher
 
 
@@ -292,6 +310,59 @@ def test_a_client_installed_where_the_scratch_home_replaces_it_refuses_by_name(
     assert completed.returncode == 2, completed.stderr
     assert str(launcher) in completed.stderr
     assert str(home / ".codex") in completed.stderr
+    assert not (evidence / "lifecycle.jsonl").exists(), completed.stderr
+    assert not (evidence / "backend-runtime.env").exists(), completed.stderr
+
+
+def test_no_install_root_rebinds_the_home_config_the_exercise_itself_writes(
+    *, tmp_path: Path
+) -> None:
+    """`~/.config` inside the namespace belongs to the exercise, not to the operator.
+
+    `scripts/overseer-live-exercise-inside.sh` waits on the herdr backend creating
+    `$HOME/.config/herdr/sessions/<instance>/herdr.sock` INSIDE the namespace, so that
+    path must stay the writable scratch copy. Binding the operator's own `~/.config` back
+    over it would both re-expose operator state that routinely holds credentials
+    (`~/.config/gh/hosts.yml`) and make the socket's directory read-only, killing the run
+    at a late lifecycle stage instead of at a refusal.
+    """
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / ".config" / "gh").mkdir(parents=True)
+    install = _bun_install_tree(home=home)
+    launcher = _config_naming_launcher(home=home)
+    evidence = tmp_path / "evidence"
+
+    argv = _plan_argv(
+        home=home,
+        path=f"{launcher.parent}:{_runner_path(tmp_path=tmp_path)}",
+        agent="codex",
+        topic="config-collision",
+        evidence=evidence,
+    )
+
+    # The tree the launcher really runs is still bound, so the client stays runnable.
+    assert ("--ro-bind", str(install), str(install)) in _ro_binds(argv=argv)
+    assert str(home / ".config") not in argv, argv
+
+
+def test_a_client_installed_under_the_home_config_root_refuses_by_name(*, tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    launcher = _home_rooted_launcher(home=home, agent="codex", install=".config/codex-cli/codex")
+    evidence = tmp_path / "evidence"
+
+    completed = _run(
+        home=home,
+        path=f"{launcher.parent}:{_runner_path(tmp_path=tmp_path)}",
+        agent="codex",
+        topic="config-collision-refusal",
+        evidence=evidence,
+    )
+
+    assert completed.returncode == 2, completed.stderr
+    assert str(launcher) in completed.stderr
+    assert str(home / ".config") in completed.stderr
     assert not (evidence / "lifecycle.jsonl").exists(), completed.stderr
     assert not (evidence / "backend-runtime.env").exists(), completed.stderr
 
