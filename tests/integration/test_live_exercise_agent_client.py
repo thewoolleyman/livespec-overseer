@@ -165,6 +165,44 @@ def test_the_agent_clients_install_tree_is_bound_read_only(*, tmp_path: Path) ->
     assert argv.index(str(launcher)) > home_bind
 
 
+def _recorded_scratch_root(*, evidence: Path) -> str:
+    isolation = (evidence / "isolation.env").read_text(encoding="utf-8").splitlines()
+    recorded = [
+        line.removeprefix("scratch_root=") for line in isolation if line.startswith("scratch_root=")
+    ]
+    assert len(recorded) == 1, isolation
+    return recorded[0]
+
+
+def test_the_namespace_binds_no_writable_operator_home_path(*, tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    install = _bun_install_tree(home=home)
+    launcher = _bun_style_launcher(home=home)
+    evidence = tmp_path / "evidence"
+
+    argv = _plan_argv(
+        home=home,
+        path=f"{launcher.parent}:{_runner_path(tmp_path=tmp_path)}",
+        agent="codex",
+        topic="writable-scope",
+        evidence=evidence,
+    )
+
+    scratch_root = _recorded_scratch_root(evidence=evidence)
+    writable = [tuple(argv[i : i + 3]) for i, token in enumerate(argv) if token == "--bind"]
+    sources = [source for _, source, _ in writable]
+    assert sources, argv
+    for source in sources:
+        permitted = source == str(evidence) or source.startswith(f"{scratch_root}/")
+        assert permitted, f"{source} is writable inside the namespace but is not runner scratch"
+    # The client's launcher and its install tree reach the namespace READ-ONLY. Making
+    # either writable would hand an exercise run the operator's own install.
+    assert str(install) not in sources
+    assert str(launcher) not in sources
+    assert ("--ro-bind", str(install), str(install)) in _ro_binds(argv=argv)
+
+
 def test_an_agent_client_absent_from_path_refuses_before_any_backend_starts(
     *, tmp_path: Path
 ) -> None:
