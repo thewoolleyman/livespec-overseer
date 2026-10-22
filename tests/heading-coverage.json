@@ -3630,16 +3630,16 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## The isolated live exercise",
-    "test": "TODO",
+    "test": "tests.integration.test_live_exercise_agent_client.test_the_agent_clients_install_tree_is_bound_read_only",
     "work_item": "overseer-fr8f",
-    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-fr8f with the live-exercise runner fix; ratified 2026-10-22 in v065 under the live-exercise-agent-client-isolation revise (spec-first)."
+    "reason": "Integration-tier: runs the REAL checked-in runner against the release host's own client shape — a bash shim at ~/.local/bin/codex that execs the bun global install under ~/.bun — and asserts the recorded namespace plan binds BOTH the launcher and the install tree it runs read-only, beneath the scratch-home bind that would otherwise hide them. Its siblings in the same module pin the heading's other two MUSTs: test_the_namespace_binds_no_writable_operator_home_path (every writable bind's source is the runner's own scratch root or the evidence directory, so no operator-home path is writable) and the two refusal tests (an unrunnable client is refused before any terminal backend starts, naming the client or launcher path). The install-tree assertion was RED against the one-file bind this change replaced."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The isolated live exercise runs the installed agent client or refuses before starting",
-    "test": "TODO",
+    "test": "tests.integration.test_live_exercise_agent_client.test_an_unresolvable_script_launcher_refuses_and_names_the_client_path",
     "work_item": "overseer-fr8f",
-    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-fr8f with the live-exercise runner fix; ratified 2026-10-22 in v065 under the live-exercise-agent-client-isolation revise (spec-first)."
+    "reason": "Integration-tier: drives the REAL runner as the operator does, on a PATH built from symlinks so the verdict cannot depend on which clients the host has installed, and asserts the scenario's refusal Then — a script launcher whose install tree is absent is refused with exit 2 naming that launcher path, and the evidence directory carries no lifecycle or backend-runtime record, so nothing was reported later as a failed bootstrap stage. Siblings in the same module cover the absent-from-PATH shape and the scenario's writable-path Then. The scenario's first Then — the authenticated client reaching its idle prompt inside the Bubblewrap namespace — is host-captured release proof: the factory sandbox is denied namespace creation, and this module deliberately never starts one."
   }
 ]

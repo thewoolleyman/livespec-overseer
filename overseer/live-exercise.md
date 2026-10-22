@@ -56,7 +56,18 @@ For Herdr, every controller command must use
 
 The namespace keeps networking for real authentication but scrubs inherited tmux,
 Herdr and OTLP selectors. It copies the released checkout to the private writable bind;
-all other host paths remain read-only. The scratch plan is intentionally not a real
+all other host paths remain read-only.
+
+An agent client installed under the operator home reaches the namespace as read-only
+binds of what it actually executes: the executable itself, and — when the client on PATH
+is a SCRIPT LAUNCHER, as `~/.local/bin/codex` is on the release host, a bash shim into the
+bun global install under `~/.bun` — the install tree that launcher runs. Binding only the
+launcher file leaves the client unrunnable, because the scratch home hides what the shim
+execs; measured 2026-10-22, that is how an authenticated Codex run reported a failed
+`bootstrap` stage instead of starting. When the selected client cannot be made runnable
+that way — absent from PATH, or a launcher naming no install tree that exists — the runner
+REFUSES before it starts any terminal backend, naming the client or launcher path it could
+not resolve, so the condition is never reported later as a failed lifecycle stage. The scratch plan is intentionally not a real
 ledger thread, so a run that cannot read a coordinator-provided plan epic must record
 that limitation and must not claim end-to-end continuation.
 
