@@ -1175,6 +1175,35 @@ repository's gitignored scratch area. At startup the daemon verifies that
 every watched repository ignores that scratch path and REFUSES to run if any
 does not — so supervision can never dirty a tracked working tree.
 
+## The isolated live exercise
+
+The released live-exercise runner (`scripts/overseer-live-exercise.sh`) runs one
+supported terminal backend and one authenticated agent client (Claude Code or
+Codex) inside a private namespace. It is the sanctioned surface for the
+host-captured lifecycle proof of a release. It MUST NOT touch the operator's real
+tracked sessions, real terminal-backend servers, or home-directory overseer
+stores.
+
+The namespace MUST mount a scratch home at the operator's home path. Inside the
+namespace, the only writable host paths MUST be the runner's own scratch root and
+the operator-supplied evidence directory; every other operator-home path MUST be
+either hidden by the scratch home or bound read-only. The runner copies the
+released checkout into its scratch root, and apart from that copy the agent
+client's credential is the only operator content copied into the scratch home.
+
+An agent client installed under the operator home MUST be made runnable inside the
+namespace by binding, read-only, what that client actually executes — the
+executable itself, or the install tree a script launcher runs from. Binding only
+the launcher file is insufficient when that launcher executes content elsewhere
+under the operator home, because the scratch home hides that content.
+
+When the runner cannot make the selected agent client runnable inside the
+namespace — including when the client is absent from PATH, or when the runner
+cannot determine what a launcher executes — it MUST refuse BEFORE it starts any
+terminal backend. The refusal MUST name the client name or path it could not
+resolve. It MUST NOT report the condition later as a failed `bootstrap` lifecycle
+stage.
+
 ## Notify, never block
 
 A question may only be asked by the actor that OWNS the decision. A

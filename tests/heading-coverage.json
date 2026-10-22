@@ -3625,5 +3625,21 @@
     "test": "tests.integration.test_committed_factory_registry_backing.test_the_committed_factory_table_is_one_registry_backed_legacy_entry",
     "work_item": "overseer-knslqg",
     "reason": "Integration-tier: reads the REAL committed .livespec.jsonc at the repository root (through the package's own JSONC reader, not a second stripper) and asserts dispatcher.factories is exactly one entry named legacy declaring \"registry\": true with no server and no docker_host key — so no committed entry can name a machine. Its sibling in the same module, test_the_committed_default_factory_names_legacy, pins the heading's other MUST: dispatcher.default_factory is legacy. Both were RED against the hostname-bearing hp/vps table this change replaced (observed naming hp and vps), so the assertions are load-bearing rather than vacuous."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## The isolated live exercise",
+    "test": "TODO",
+    "work_item": "overseer-fr8f",
+    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-fr8f with the live-exercise runner fix; ratified 2026-10-22 in v065 under the live-exercise-agent-client-isolation revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The isolated live exercise runs the installed agent client or refuses before starting",
+    "test": "TODO",
+    "work_item": "overseer-fr8f",
+    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-fr8f with the live-exercise runner fix; ratified 2026-10-22 in v065 under the live-exercise-agent-client-isolation revise (spec-first)."
   }
 ]

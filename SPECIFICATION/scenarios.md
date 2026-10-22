@@ -5340,3 +5340,15 @@ Then it imports the overseer package from its own plugin root and starts the dae
 And the checkout's overseer package is never imported
 
 And a launcher whose own plugin root cannot be resolved refuses before starting anything, naming the missing root
+
+## Scenario: The isolated live exercise runs the installed agent client or refuses before starting
+
+Given an operator host whose agent client on PATH is a script launcher that executes an install tree under the operator home
+
+When the released live-exercise runner starts a lifecycle run for that agent client
+
+Then the client inside the namespace reaches its idle input prompt, so the run records a passed `bootstrap` stage
+
+And the only writable host paths inside the namespace are the runner's scratch root and the evidence directory
+
+And when the client cannot be made runnable inside the namespace, the runner refuses before any terminal backend starts, naming the client name or path it could not resolve
