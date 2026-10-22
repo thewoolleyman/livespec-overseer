@@ -161,24 +161,27 @@ is_script_launcher() {
   [[ "$(head -c 2 "$1")" == '#!' ]]
 }
 
-# An install root is NEVER bound back when it is one of the home subtrees the scratch
-# home itself provides. Binding one would undo this namespace's whole purpose: the
-# operator's real `~/.claude` or `~/.codex` — credentials, the session registry the
-# daemon's adoption reads — would be re-exposed inside it, would shadow the
-# `--credential` installed into the scratch copy below, and would reach the client
-# READ-ONLY, so it could not write the session state it is adopted by. A client whose
-# only install tree is such a root therefore cannot be made runnable here, and is
-# refused by name rather than bound.
-scratch_home_state=(
+# An install root is NEVER bound back when it is one of the home subtrees the exercise
+# itself owns inside the namespace. Binding one would undo this namespace's whole purpose:
+# the operator's real `~/.claude`, `~/.codex` or `~/.config` — credentials (including
+# `~/.config/gh/hosts.yml`), the session registry the daemon's adoption reads — would be
+# re-exposed inside it, would shadow the `--credential` installed into the scratch copy
+# below, and would reach READ-ONLY a path the run must WRITE: the client's own session
+# state, and the herdr session socket `$HOME/.config/herdr/sessions/<instance>/herdr.sock`
+# that `overseer-live-exercise-inside.sh` waits on. A client whose only install tree is
+# such a root therefore cannot be made runnable here, and is refused by name rather than
+# bound.
+exercise_owned_home_state=(
   .claude
   .codex
+  .config
   .livespec-overseer-repos.json
   .livespec-overseer.jsonl
 )
 
-is_scratch_home_state() {
+is_exercise_owned_home_state() {
   local candidate="$1" provided
-  for provided in "${scratch_home_state[@]}"; do
+  for provided in "${exercise_owned_home_state[@]}"; do
     [[ "$candidate" == "$provided" || "$candidate" == "$provided"/* ]] && return 0
   done
   return 1
@@ -206,12 +209,12 @@ for tool in "$backend" "$agent" uv; do
   is_script_launcher "$tool_source" || continue
   named_roots=0
   resolved_roots=0
-  scratch_state_roots=()
+  owned_state_roots=()
   while IFS= read -r install_root; do
     [[ -n "$install_root" ]] || continue
     named_roots=$((named_roots + 1))
-    if is_scratch_home_state "$install_root"; then
-      scratch_state_roots+=("$operator_home/$install_root")
+    if is_exercise_owned_home_state "$install_root"; then
+      owned_state_roots+=("$operator_home/$install_root")
       continue
     fi
     if [[ -e "$operator_home/$install_root" ]]; then
@@ -221,8 +224,8 @@ for tool in "$backend" "$agent" uv; do
   done < <(launcher_install_roots "$tool_source")
   if [[ "$tool" == "$agent" ]] && ((named_roots > 0 && resolved_roots == 0)); then
     client_refusal="agent client launcher $tool_path names no resolvable install tree under $operator_home"
-    if ((${#scratch_state_roots[@]} > 0)); then
-      client_refusal+=": ${scratch_state_roots[*]} is agent state the scratch home replaces, so binding it would re-expose the operator's own"
+    if ((${#owned_state_roots[@]} > 0)); then
+      client_refusal+=": ${owned_state_roots[*]} is home state the exercise itself owns inside the namespace, so binding it would re-expose the operator's own and leave a path the run must write read-only"
     fi
   fi
 done
