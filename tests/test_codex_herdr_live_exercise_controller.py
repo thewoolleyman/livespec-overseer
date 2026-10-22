@@ -624,6 +624,17 @@ def test_the_controller_is_a_checked_in_executable() -> None:
     assert os.access(CONTROLLER, os.X_OK), f"the controller is not executable: {CONTROLLER}"
 
 
+def test_bootstrap_failure_keeps_launcher_output_and_elapsed_time() -> None:
+    """A loaded-host bootstrap expiry must identify the launcher that did not finish."""
+    controller = CONTROLLER.read_text(encoding="utf-8")
+
+    assert "readonly DAEMON_TIMEOUT=600" in controller
+    assert "bootstrap_started_at=$SECONDS" in controller
+    assert '"$evidence/overseer-start.log"' in controller
+    assert 'tail -n 3 -- "$overseer_start_output"' in controller
+    assert "after ${elapsed}s" in controller
+
+
 def test_the_scratch_home_never_writes_through_to_the_hosts_runtime_prefix(
     short_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
