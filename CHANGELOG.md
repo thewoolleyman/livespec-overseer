@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.34.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.33.8...v5.34.0) (2026-10-22)
+
+
+### Features
+
+* **overseer:** ship a Codex herdr lifecycle controller for the isolated live exercise ([37857cd](https://github.com/thewoolleyman/livespec-overseer/commit/37857cd03a13b87f19b0924a61c3148186bdea04))
+
 ## [5.33.8](https://github.com/thewoolleyman/livespec-overseer/compare/v5.33.7...v5.33.8) (2026-10-21)
 
 
