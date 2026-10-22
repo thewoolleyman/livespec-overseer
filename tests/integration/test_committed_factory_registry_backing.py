@@ -6,7 +6,7 @@ Integration-tier coverage for the factory-routing rule in
 no `docker_host`, so the binding from a factory NAME to a machine lives only in
 the fleet gitops inventory that each dispatching host renders as
 `/etc/livespec/fabro-factories.json`; and `dispatcher.default_factory` names
-`legacy`.
+`petri` since the cutover (bd-ib-iud52v).
 
 The subject is the REAL committed `.livespec.jsonc` at the repository root, read
 through the package's own JSONC reader rather than a second stripper — a
@@ -31,16 +31,17 @@ def _committed_dispatcher() -> dict[str, object]:
     return dispatcher
 
 
-def test_the_committed_factory_table_is_one_registry_backed_legacy_entry() -> None:
+def test_the_committed_factory_table_is_registry_backed_legacy_and_petri() -> None:
     factories = jsonio.as_object(value=_committed_dispatcher().get("factories"))
     assert factories is not None
-    assert sorted(factories) == ["legacy"]
-    entry = jsonio.as_object(value=factories["legacy"])
-    assert entry is not None
-    assert entry.get("registry") is True
-    assert "server" not in entry
-    assert "docker_host" not in entry
+    assert sorted(factories) == ["legacy", "petri"]
+    for name in ("legacy", "petri"):
+        entry = jsonio.as_object(value=factories[name])
+        assert entry is not None
+        assert entry.get("registry") is True
+        assert "server" not in entry
+        assert "docker_host" not in entry
 
 
-def test_the_committed_default_factory_names_legacy() -> None:
-    assert _committed_dispatcher().get("default_factory") == "legacy"
+def test_the_committed_default_factory_names_petri() -> None:
+    assert _committed_dispatcher().get("default_factory") == "petri"
