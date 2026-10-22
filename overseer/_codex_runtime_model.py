@@ -73,7 +73,7 @@ __all__: list[str] = [
     "usable_model_token",
 ]
 
-CODEX_HOME_ENV = "CODEX_HOME"
+CODEX_HOME_ENV = codex_sessions.CODEX_HOME_ENV
 
 # A model value that is not a launch token, mirroring the Claude transcript reader's
 # rule: a synthetic marker expresses no model the track could be relaunched under.
@@ -119,12 +119,18 @@ def carrier_codex_home(
 
     ``fallback`` is the daemon-wide Codex home seam, whose own ``None`` means "resolve
     the standard ``~/.codex``" — the same convention :mod:`codex_sessions` uses.
+
+    Deliberately NARROWER than :func:`codex_sessions.carrier_codex_scope`, which also
+    derives ``<HOME>/.codex`` for a carrier that declares no ``CODEX_HOME``. This one
+    answers which database holds a model token for a session already established in
+    THIS daemon's world, so the daemon's own home is the right fallback; that one
+    answers whether a carrier is in that world at all, where an inherited ``HOME`` is
+    the whole evidence.
     """
-    for item in (environ_of(pid=pid) or b"").split(b"\0"):
-        key, separator, value = item.decode(errors="replace").partition("=")
-        if separator and key == CODEX_HOME_ENV and value:
-            return value
-    return fallback
+    declared = codex_sessions.proc_environ_value(
+        pid=pid, name=CODEX_HOME_ENV, environ_of=environ_of
+    )
+    return fallback if declared is None else declared
 
 
 def active_state_database(*, codex_home: str | os.PathLike[str]) -> Path | None:

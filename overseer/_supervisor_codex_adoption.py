@@ -23,9 +23,13 @@ __all__: list[str] = [
 def codex_host_readers(*, sup: Supervisor) -> codex_sessions.CodexHostReaders:
     """The supervisor's injected Codex host seams, as the one bundle the readers take.
 
-    Every Codex read the daemon performs goes through these five, and they are threaded
+    Every Codex read the daemon performs goes through these six, and they are threaded
     end-to-end rather than defaulted so the beside-tests stay hermetic: with the real
     defaults a test would fall through to this host's ``/proc`` and ``~/.codex``.
+
+    ``environ_of`` is the daemon's one environ reader, shared with the Claude side
+    rather than given a Codex twin: it answers which Codex home each carrier runs
+    under, which is what scopes the host-wide carrier scan.
     """
     return codex_sessions.CodexHostReaders(
         codex_home=sup.codex_home,
@@ -33,6 +37,7 @@ def codex_host_readers(*, sup: Supervisor) -> codex_sessions.CodexHostReaders:
         cwd_of=sup.codex_cwd_of,
         fd_targets_of=sup.codex_fd_targets_of,
         children_of=sup.children_of,
+        environ_of=sup.environ_of,
     )
 
 
