@@ -73,6 +73,26 @@ resolve_exec_target() {
   printf '%s\n' "$resolved"
 }
 
+# Whether one exec-line word is WHOLLY a positional-parameter expansion -- `$@`, `$*`, or
+# a numbered `$1` -- in any of its brace spellings.
+#
+# Such a word forwards the launcher's OWN caller arguments, so it names no path: not one
+# the runner failed to determine, but none at all. It is therefore the one exception to
+# the unexpanded-`$` rule below, and it has to be, because the exec line's words are read
+# with their quotes stripped: the `"$@"` ending nearly every real shim arrives as the bare
+# `$@`. Reading that as an undeterminable path refused every launcher shaped
+# `exec <program> "$@"` -- the commonest shim shape there is -- while naming the launcher
+# as unresolvable, which was the opposite of what the runner had just measured, since the
+# program resolved and its install root was already in hand.
+#
+# Anchored at both ends, so a word merely CONTAINING such an expansion is not swept in; a
+# launcher-local `$CODEX_APP_DIR/main.js` and a bare `${CODEX_APP_DIR}` both stay owed.
+is_argument_forwarding_word() {
+  # `[$]` as a bracket class rather than a quoted literal for the same reason the arms
+  # below use them: the dollar is matched LITERALLY in the launcher's own text (SC2016).
+  [[ "$1" =~ ^[$](([@*]|[0-9]+)|\{([@*]|[0-9]+)\})$ ]]
+}
+
 # Whether one exec-line token NAMES something the runner is OWED a resolution of, so that
 # failing to resolve it means the runner cannot say what the launcher executes.
 #
@@ -84,12 +104,17 @@ resolve_exec_target() {
 # home so no root is owed on it either.
 #
 # Anything else is tolerated unresolved, and must be: the `run` of `exec bun run codex` is
-# a subcommand word rather than a file, and a path outside the operator home names nothing
-# the scratch home hides. So the discriminator is what the token NAMES, never whether it
-# happened to resolve.
+# a subcommand word rather than a file, an argument-forwarding word names no path at all,
+# and a path outside the operator home names nothing the scratch home hides. So the
+# discriminator is what the token NAMES, never whether it happened to resolve.
 exec_target_is_owed() {
   local token
   token="$(expand_operator_home "$1")"
+  # Before the arms below, because the dollar an argument-forwarding word carries is the
+  # very character the undeterminable-path arm matches on.
+  if is_argument_forwarding_word "$token"; then
+    return 1
+  fi
   case "$token" in
     # Bracket classes for the same reason `expand_operator_home` uses them: these are
     # matched LITERALLY in the launcher's own text (SC2088, SC2016).

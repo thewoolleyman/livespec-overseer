@@ -19,6 +19,8 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 __all__: list[str] = []
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -216,3 +218,50 @@ def test_a_non_file_token_after_the_program_is_tolerated_unresolved(tmp_path: Pa
     assert ("--ro-bind", str(client.install_root), str(client.install_root)) in mounts
     bound = sorted({source for _, source, _ in mounts if _under(source=source, home=client.home)})
     assert bound == sorted([str(client.install_root), str(client.launcher)])
+
+
+@pytest.mark.parametrize("word", ["$@", "$*", "${@}", "$1"])
+def test_the_program_of_an_argument_forwarding_launcher_still_yields_its_install_root(
+    tmp_path: Path, word: str
+) -> None:
+    """`exec <program> "$@"` is the commonest shim shape there is, and it was REFUSED.
+
+    The exec line's words are read with their quotes stripped, so the `"$@"` ending
+    nearly every real launcher arrives in the script-token position as the bare `$@`. A
+    script token still carrying a `$` names a path the runner cannot determine, which is
+    a refusal -- but a positional-parameter word names no path at ALL: it forwards the
+    launcher's own caller arguments. Reading it as the former refused this whole shape
+    while naming the launcher as unresolvable, which is the opposite of what the runner
+    had just measured: the program resolved and its install root was already in hand.
+
+    The release-host Codex shim survived only incidentally, because its `"$@"` sits in a
+    THIRD token position nothing examines. The sibling control above has the same shape,
+    which is why the suite missed this: a two-token launcher is the exposed case.
+    """
+    client, argv = _plan(
+        tmp_path=tmp_path,
+        body=f'#!/usr/bin/env bash\nexec "$HOME/.bun/bin/bun" "{word}"\n',
+    )
+
+    mounts = _mounts(argv=argv)
+    assert ("--ro-bind", str(client.install_root), str(client.install_root)) in mounts
+    bound = sorted({source for _, source, _ in mounts if _under(source=source, home=client.home)})
+    assert bound == sorted([str(client.install_root), str(client.launcher)])
+
+
+def test_an_argument_forwarding_launcher_outside_the_home_owes_no_install_root(
+    tmp_path: Path,
+) -> None:
+    """The same refusal fired where the contract asks for NO install root whatsoever.
+
+    The script token is read for a root only because the program yielded none, and a
+    word naming no path cannot supply one either. So this client is runnable with the
+    launcher bind alone, and refusing it inverted the spec's condition outright: the
+    runner had determined exactly what the launcher executes.
+    """
+    client, argv = _plan(tmp_path=tmp_path, body='#!/usr/bin/env bash\nexec /bin/sh "$@"\n')
+
+    bound = sorted(
+        {source for _, source, _ in _mounts(argv=argv) if _under(source=source, home=client.home)}
+    )
+    assert bound == [str(client.launcher)]
