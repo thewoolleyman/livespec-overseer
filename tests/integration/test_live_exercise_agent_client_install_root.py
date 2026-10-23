@@ -21,7 +21,7 @@ from pathlib import Path
 
 __all__: list[str] = []
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 LIVE_EXERCISE = ROOT / "scripts" / "overseer-live-exercise.sh"
 _MOUNT_OPTIONS = frozenset({"--bind", "--ro-bind"})
 

@@ -21,7 +21,7 @@ from pathlib import Path
 
 __all__: list[str] = []
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 LIVE_EXERCISE = ROOT / "scripts" / "overseer-live-exercise.sh"
 
 # Every external tool the runner reaches around the point it decides about the agent
