@@ -76,8 +76,11 @@ cannot make the client runnable at all: absent from PATH, an `exec` line whose p
 cannot resolve, a script file it cannot resolve that is rooted in the operator home or
 still carries an unexpanded variable, or a program and script file living in two
 different first-level home trees. A script token that names neither — the `run` of
-`exec bun run codex`, a path outside the home — is tolerated unresolved, because nothing
-the scratch home hides depends on it. And it refuses, naming the root, when the resolved install root is the operator
+`exec bun run codex`, the `"$@"` ending nearly every shim, a path outside the home — is
+tolerated unresolved, because nothing the scratch home hides depends on it. An
+argument-forwarding word is the one unexpanded-variable exception, and it has to be: the
+exec line's words are read with their quotes stripped, so a positional parameter arrives
+as the bare `$@`, and it forwards the caller's own arguments rather than naming a path. And it refuses, naming the root, when the resolved install root is the operator
 home itself or one of `~/.claude`, `~/.codex`, `~/.config` — the home directories this
 exercise WRITES inside the namespace, which binding read-only would break. The scratch plan is intentionally not a real
 ledger thread, so a run that cannot read a coordinator-provided plan epic must record
