@@ -3630,16 +3630,32 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## The isolated live exercise",
-    "test": "TODO",
+    "test": "tests.integration.test_live_exercise_agent_client_install_root.test_no_other_operator_home_path_is_bound_for_the_agent_client",
     "work_item": "overseer-fr8f",
-    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-fr8f with the live-exercise runner fix; ratified 2026-10-22 in v065 under the live-exercise-agent-client-isolation revise (spec-first)."
+    "reason": "Integration-tier: drives the released runner (`scripts/overseer-live-exercise.sh`) against the release-host shim shape -- a bash launcher at ~/.local/bin/codex that exports BUN_INSTALL, XDG_CONFIG_HOME and a cache directory and then execs the bun runtime against the bun-installed Codex script -- and asserts the operator-home paths the namespace argv binds are EXACTLY the launcher and the install root of what its exec line runs. It was RED against the pre-fix runner, which bound the shim as one file and named no install root at all. Its two siblings in the same module pin the section's other MUSTs: test_no_operator_home_path_reaches_the_namespace_through_a_writable_bind for the no-writable-home-bind rule, and test_the_install_root_of_what_the_launcher_executes_is_bound_read_only for the install-root definition (the first directory below the operator home, never the directory holding the program nor a parent of the root). The section's refusal rules are pinned by tests.integration.test_live_exercise_agent_client_refusal and tests.integration.test_live_exercise_agent_client_unsafe_root."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The isolated live exercise runs the installed agent client or refuses before starting",
-    "test": "TODO",
+    "test": "tests.integration.test_live_exercise_agent_client_install_root.test_the_install_root_of_what_the_launcher_executes_is_bound_read_only",
     "work_item": "overseer-fr8f",
-    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-fr8f with the live-exercise runner fix; ratified 2026-10-22 in v065 under the live-exercise-agent-client-isolation revise (spec-first)."
+    "reason": "Integration-tier, under tests/integration: covers the scenario's bind clause -- the only operator-home paths the runner binds for the agent client are the launcher at its own path and the install root of what that launcher executes, both read-only, even when the launcher names other home paths. RED against the pre-fix runner, which bound only the launcher file. The scenario's two refusal clauses are covered by the sibling rows below. Its first Then -- a real Codex inside the namespace reaching its idle input prompt, so the run records a passed bootstrap stage -- is a release-host obligation on an authenticated install and is explicitly not discharged by fixture tests (`overseer/live-exercise.md`); it is captured host-side under this same work-item."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The isolated live exercise runs the installed agent client or refuses before starting",
+    "test": "tests.integration.test_live_exercise_agent_client_refusal.test_a_launcher_running_a_missing_home_path_is_refused",
+    "work_item": "overseer-fr8f",
+    "reason": "Integration-tier, under tests/integration: covers the scenario's clause that a client which cannot be made runnable inside the namespace is refused before any terminal backend starts, naming the client path it could not resolve. It runs a full `run` rather than --plan-only and asserts the evidence directory is still empty, so the refusal is proven to precede the backend rather than merely to precede a plan. RED against the pre-fix runner, which tolerated an unresolvable client silently and reached the namespace launch. Its three siblings in the same module pin the other unresolvable shapes: a client absent from PATH, an exec line naming a program that is not installed, and an exec line whose program and script file lie in different first-level home trees."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The isolated live exercise runs the installed agent client or refuses before starting",
+    "test": "tests.integration.test_live_exercise_agent_client_unsafe_root.test_an_install_root_the_exercise_writes_is_refused_by_name",
+    "work_item": "overseer-fr8f",
+    "reason": "Integration-tier, under tests/integration: covers the scenario's clause that an install root which is the operator home itself, ~/.claude, ~/.codex or ~/.config is refused before any terminal backend starts, naming that root. Parametrized over all four, each with a launcher whose exec line executes content inside that root, and each asserting an empty evidence directory. RED against the pre-fix runner, which had no refusal at all and reached the namespace launch."
   }
 ]

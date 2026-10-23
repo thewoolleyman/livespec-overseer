@@ -1762,19 +1762,5 @@
     "heading": "## Daemon message delivery channel",
     "work_item": "overseer-uepcr6",
     "first_seen": "2026-10-15"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "spec.md",
-    "heading": "## The isolated live exercise",
-    "work_item": "overseer-fr8f",
-    "first_seen": "2026-10-22"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The isolated live exercise runs the installed agent client or refuses before starting",
-    "work_item": "overseer-fr8f",
-    "first_seen": "2026-10-22"
   }
 ]
