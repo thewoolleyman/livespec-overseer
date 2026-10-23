@@ -5351,4 +5351,8 @@ Then the client inside the namespace reaches its idle input prompt, so the run r
 
 And the only writable host paths inside the namespace are the runner's scratch root and the evidence directory
 
+And the only operator-home paths the runner binds for the agent client are the launcher at its own path and the install root of what that launcher executes, both read-only, even when the launcher names other home paths
+
 And when the client cannot be made runnable inside the namespace, the runner refuses before any terminal backend starts, naming the client name or path it could not resolve
+
+And when the install root of what the launcher executes is the operator home itself, `~/.claude`, `~/.codex` or `~/.config`, the runner refuses before any terminal backend starts, naming that root
