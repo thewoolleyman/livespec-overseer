@@ -47,7 +47,7 @@ class _Client:
         self.named_only = (home / ".config", home / ".cache" / "codex")
 
 
-def _client(*, home: Path) -> _Client:
+def _client(*, home: Path, body: str) -> _Client:
     client = _Client(home=home)
     client.runtime.parent.mkdir(parents=True)
     client.runtime.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
@@ -56,15 +56,17 @@ def _client(*, home: Path) -> _Client:
     for path in client.named_only:
         path.mkdir(parents=True)
     client.launcher.parent.mkdir(parents=True)
-    client.launcher.write_text(_LAUNCHER_BODY, encoding="utf-8")
+    client.launcher.write_text(body, encoding="utf-8")
     client.launcher.chmod(0o755)
     return client
 
 
-def _plan(*, tmp_path: Path, home: Path | None = None) -> tuple[_Client, list[str]]:
+def _plan(
+    *, tmp_path: Path, home: Path | None = None, body: str = _LAUNCHER_BODY
+) -> tuple[_Client, list[str]]:
     home = tmp_path / "home" if home is None else home
     home.mkdir(exist_ok=True)
-    client = _client(home=home)
+    client = _client(home=home, body=body)
     evidence = tmp_path / "evidence"
     environment = {
         **os.environ,
@@ -195,3 +197,22 @@ def test_an_operator_home_reached_through_a_symlink_still_binds_the_install_root
     # And the client binds still layer over the scratch home, which masks the same
     # directory under the unresolved name because a mount resolves its own target.
     assert argv.index(str(install_root)) > argv.index(str(home))
+
+
+def test_a_non_file_token_after_the_program_is_tolerated_unresolved(tmp_path: Path) -> None:
+    """`exec bun run codex` passes a SUBCOMMAND, not a script, and must not be refused.
+
+    The companion refusal reads what a token NAMES rather than whether it resolved,
+    precisely so this case survives it: `run` is rooted nowhere under the operator home
+    and carries no unexpanded variable, so nothing the scratch home hides depends on it
+    and the install root of the program alone makes the client runnable.
+    """
+    client, argv = _plan(
+        tmp_path=tmp_path,
+        body='#!/usr/bin/env bash\nexec "$HOME/.bun/bin/bun" run codex "$@"\n',
+    )
+
+    mounts = _mounts(argv=argv)
+    assert ("--ro-bind", str(client.install_root), str(client.install_root)) in mounts
+    bound = sorted({source for _, source, _ in mounts if _under(source=source, home=client.home)})
+    assert bound == sorted([str(client.install_root), str(client.launcher)])
