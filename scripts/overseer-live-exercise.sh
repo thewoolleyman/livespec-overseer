@@ -19,6 +19,82 @@ die() {
   exit 2
 }
 
+# The first directory below the operator home on one absolute path, or the operator home
+# itself when the path sits directly in it. Empty for a path outside that home.
+install_root_of() {
+  local path="$1" rest
+  case "$path" in
+    "$operator_home"/*) rest="${path#"$operator_home"/}" ;;
+    *) return 0 ;;
+  esac
+  case "$rest" in
+    */*) printf '%s/%s\n' "$operator_home" "${rest%%/*}" ;;
+    *) printf '%s\n' "$operator_home" ;;
+  esac
+}
+
+# One exec-line token with a leading operator-home reference expanded. A token naming any
+# OTHER unexpanded variable stays as written, so it fails to resolve and the client is
+# refused rather than bound at a guessed path.
+expand_operator_home() {
+  local token="$1"
+  case "$token" in
+    # Bracket classes, not quoted literals: every one of these is matched LITERALLY in
+    # the launcher's own text, and quoting a tilde or a dollar here reads to shellcheck
+    # as one the runner meant to expand (SC2088, SC2016).
+    [~]/*) printf '%s/%s\n' "$operator_home" "${token#[~]/}" ;;
+    [\$]HOME/*) printf '%s/%s\n' "$operator_home" "${token#[\$]HOME/}" ;;
+    [\$]'{HOME}'/*) printf '%s/%s\n' "$operator_home" "${token#[\$]'{HOME}'/}" ;;
+    *) printf '%s\n' "$token" ;;
+  esac
+}
+
+# The real path of one exec-line program or script argument, or empty when the runner
+# cannot resolve it. A bare name is looked up on PATH; anything else must already exist.
+resolve_exec_target() {
+  local token resolved
+  token="$(expand_operator_home "$1")"
+  [[ -n "$token" ]] || return 0
+  case "$token" in
+    */*) ;;
+    *)
+      token="$(command -v "$token" || true)"
+      [[ -n "$token" ]] || return 0
+      ;;
+  esac
+  resolved="$(realpath -e "$token" 2>/dev/null || true)"
+  [[ -n "$resolved" ]] || return 0
+  printf '%s\n' "$resolved"
+}
+
+# Whether one launcher is a script, which is what makes its text worth reading at all. A
+# self-contained executable runs nothing else and needs no install root.
+launcher_is_script() {
+  local first=""
+  IFS= read -r first <"$1" 2>/dev/null || true
+  [[ "$first" == '#!'* ]]
+}
+
+# The program one launcher's exec line runs and, when it passes one, the script file it
+# passes to it — at most two lines. `exec` options are skipped. Nothing when the launcher
+# carries no exec line.
+launcher_exec_tokens() {
+  local line
+  line="$(sed -n 's/^[[:space:]]*exec[[:space:]]\{1,\}//p' "$1" | head -n 1)"
+  [[ -n "$line" ]] || return 0
+  local -a words=()
+  read -r -a words <<<"${line//[\"\']/}"
+  while ((${#words[@]})); do
+    case "${words[0]}" in
+      -a) words=("${words[@]:2}") ;;
+      -*) words=("${words[@]:1}") ;;
+      *) break ;;
+    esac
+  done
+  ((${#words[@]})) || return 0
+  printf '%s\n' "${words[@]:0:2}"
+}
+
 cleanup() {
   if [[ -n "${scratch_root:-}" ]]; then
     case "$scratch_root" in
@@ -104,6 +180,54 @@ chmod 700 "$evidence"
 
 operator_home="${HOME:?HOME must name the operator home}"
 operator_uid="$(id -u)"
+
+# The namespace mounts a scratch home at the operator home path, so whatever the agent
+# client executes from under that home vanishes. Measured on the release host 2026-10-22
+# (work-item `overseer-fr8f`): `~/.local/bin/codex` is a bash shim whose exec line runs
+# the bun global install under `~/.bun`, and binding only the shim file left Codex unable
+# to start — reported sixty seconds later as a FAILED `bootstrap` stage, after the
+# backend was already running. So resolve the client FIRST, before any evidence record or
+# terminal backend exists, and refuse by name when it cannot be made runnable.
+#
+# Resolution follows what the launcher EXECUTES, never what it MENTIONS: a denylist of
+# the other home paths a launcher happens to name cannot converge, because every further
+# named path is one more entry.
+agent_path="$(command -v "$agent" || true)"
+[[ -n "$agent_path" ]] ||
+  die "cannot make the agent client runnable inside the namespace: $agent is not on PATH"
+agent_real="$(realpath -e "$agent_path" 2>/dev/null || true)"
+[[ -n "$agent_real" ]] ||
+  die "cannot make the agent client runnable inside the namespace: $agent_path"
+if [[ "$(basename "$agent_real")" == mise ]]; then
+  agent_real="$(mise which "$agent")" ||
+    die "cannot make the agent client runnable inside the namespace: $agent_path"
+fi
+
+agent_exec_tokens=()
+if launcher_is_script "$agent_real"; then
+  mapfile -t agent_exec_tokens < <(launcher_exec_tokens "$agent_real")
+fi
+agent_program_root=""
+agent_script_root=""
+if ((${#agent_exec_tokens[@]})); then
+  agent_program="$(resolve_exec_target "${agent_exec_tokens[0]}")"
+  [[ -n "$agent_program" ]] ||
+    die "cannot make the agent client runnable inside the namespace: $agent_real"
+  agent_program_root="$(install_root_of "$agent_program")"
+  if ((${#agent_exec_tokens[@]} > 1)); then
+    agent_script="$(resolve_exec_target "${agent_exec_tokens[1]}")"
+    if [[ -n "$agent_script" ]]; then
+      agent_script_root="$(install_root_of "$agent_script")"
+    fi
+  fi
+  # Two first-level home trees are two install roots, and the contract admits one. The
+  # runner refuses rather than binding a parent of both, which would be the operator home.
+  if [[ -n "$agent_program_root" && -n "$agent_script_root" ]]; then
+    [[ "$agent_program_root" == "$agent_script_root" ]] ||
+      die "cannot make the agent client runnable inside the namespace: $agent_real"
+  fi
+fi
+
 scratch_root="$(mktemp -d "${TMPDIR:-/tmp}/livespec-overseer-exercise.XXXXXX")"
 trap cleanup EXIT HUP INT TERM
 chmod 700 "$scratch_root"
