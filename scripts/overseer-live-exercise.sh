@@ -228,6 +228,21 @@ if ((${#agent_exec_tokens[@]})); then
   fi
 fi
 
+# At most TWO read-only binds, and no other operator-home path: the install root of what
+# the launcher executes, then the launcher itself at its own path so the client stays
+# callable by name. The root comes first so a launcher living inside it is layered on top.
+# When the exec line's program lies outside the operator home, the root is the one on the
+# script file that program is passed; a self-contained executable has no root at all.
+agent_install_root="$agent_program_root"
+[[ -n "$agent_install_root" ]] || agent_install_root="$agent_script_root"
+agent_binaries=()
+if [[ -n "$agent_install_root" ]]; then
+  agent_binaries+=(--ro-bind "$agent_install_root" "$agent_install_root")
+fi
+if [[ "$agent_path" == "$operator_home"/* || "$agent_real" == "$operator_home"/* ]]; then
+  agent_binaries+=(--ro-bind "$agent_real" "$agent_path")
+fi
+
 scratch_root="$(mktemp -d "${TMPDIR:-/tmp}/livespec-overseer-exercise.XXXXXX")"
 trap cleanup EXIT HUP INT TERM
 chmod 700 "$scratch_root"
@@ -263,13 +278,16 @@ mapping_store=$operator_home/.livespec-overseer.jsonl
 checkout=$checkout
 EOF
 
-# The namespace replaces the operator home with a scratch home, so a backend or agent
-# client installed under that home (for example ~/.local/bin/herdr) would vanish, and
-# so would the `uv` that the shipped `overseer-start` shim runs under. Bind each such
-# executable read-only at its own path, beneath the scratch home bind. A mise shim is
-# `mise` itself and needs mise's hidden install tree, so bind the tool it resolves to.
+# The namespace replaces the operator home with a scratch home, so a backend installed
+# under that home (for example ~/.local/bin/herdr) would vanish, and so would the `uv`
+# that the shipped `overseer-start` shim runs under. Bind each such executable read-only
+# at its own path, beneath the scratch home bind. A mise shim is `mise` itself and needs
+# mise's hidden install tree, so bind the tool it resolves to.
+#
+# The AGENT CLIENT is deliberately not in this loop: its binds are governed by the
+# at-most-two-paths rule resolved above, not by this one's bind-the-launcher-file rule.
 home_binaries=()
-for tool in "$backend" "$agent" uv; do
+for tool in "$backend" uv; do
   tool_path="$(command -v "$tool" || true)"
   case "$tool_path" in
     "$operator_home"/*)
@@ -296,6 +314,7 @@ namespace=(
   --bind "$scratch_checkout" "$checkout"
   --bind "$evidence" /tmp/livespec-overseer-exercise-evidence
   "${home_binaries[@]}"
+  "${agent_binaries[@]}"
   --chdir "$checkout"
   /usr/bin/env
   -u TMUX
