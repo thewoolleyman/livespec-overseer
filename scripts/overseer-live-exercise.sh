@@ -73,6 +73,33 @@ resolve_exec_target() {
   printf '%s\n' "$resolved"
 }
 
+# Whether one exec-line token NAMES something the runner is OWED a resolution of, so that
+# failing to resolve it means the runner cannot say what the launcher executes.
+#
+# Two kinds of token qualify. One rooted in the operator home names content the scratch
+# home will hide, so an unresolved one leaves the client unrunnable inside the namespace.
+# One still carrying a `$` or a leading `~` after expansion names a path the runner cannot
+# determine AT ALL -- a launcher-local `CODEX_APP_DIR="$HOME/.codexapp"` indirected
+# through `exec /bin/sh "$CODEX_APP_DIR/main.js"`, say, whose program lies outside the
+# home so no root is owed on it either.
+#
+# Anything else is tolerated unresolved, and must be: the `run` of `exec bun run codex` is
+# a subcommand word rather than a file, and a path outside the operator home names nothing
+# the scratch home hides. So the discriminator is what the token NAMES, never whether it
+# happened to resolve.
+exec_target_is_owed() {
+  local token
+  token="$(expand_operator_home "$1")"
+  case "$token" in
+    # Bracket classes for the same reason `expand_operator_home` uses them: these are
+    # matched LITERALLY in the launcher's own text (SC2088, SC2016).
+    "$operator_home" | "$operator_home"/*) return 0 ;;
+    "$operator_home_real" | "$operator_home_real"/*) return 0 ;;
+    *[\$]* | [~]*) return 0 ;;
+  esac
+  return 1
+}
+
 # Whether one launcher is a script, which is what makes its text worth reading at all. A
 # self-contained executable runs nothing else and needs no install root.
 launcher_is_script() {
@@ -232,6 +259,8 @@ if ((${#agent_exec_tokens[@]})); then
     agent_script="$(resolve_exec_target "${agent_exec_tokens[1]}")"
     if [[ -n "$agent_script" ]]; then
       agent_script_root="$(install_root_of "$agent_script")"
+    elif exec_target_is_owed "${agent_exec_tokens[1]}"; then
+      die "cannot make the agent client runnable inside the namespace: $agent_real"
     fi
   fi
   # Two first-level home trees are two install roots, and the contract admits one. The

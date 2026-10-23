@@ -129,6 +129,37 @@ def test_a_launcher_running_a_missing_home_path_is_refused(tmp_path: Path) -> No
     _refused(completed=completed, naming=str(launcher), evidence=tmp_path / "evidence")
 
 
+def test_a_launcher_whose_script_token_keeps_an_unexpanded_variable_is_refused(
+    tmp_path: Path,
+) -> None:
+    """An indirected script path the runner cannot expand is a client it cannot resolve.
+
+    The program token is held to resolving unconditionally, but the script token could
+    not be: `exec bun run codex` passes a subcommand word rather than a file, so a flat
+    must-resolve rule would refuse a working client. Tolerating EVERY unresolved script
+    token instead was silent the other way -- here the program `/bin/sh` lies outside the
+    operator home, so no root is owed on it, and an unresolvable `$CODEX_APP_DIR/main.js`
+    left the install root empty, nothing bound and nothing refused.
+
+    So the discriminator is what the token NAMES: one still carrying a `$` after
+    expansion names a path the runner cannot determine at all, which is exactly the
+    "cannot determine what a launcher executes" condition this section refuses on.
+    """
+    home = tmp_path / "home"
+    application = home / ".codexapp"
+    application.mkdir(parents=True)
+    (application / "main.js").write_text("// codex\n", encoding="utf-8")
+    launcher = _launcher(
+        home=home,
+        body='CODEX_APP_DIR="$HOME/.codexapp"\nexec /bin/sh "$CODEX_APP_DIR/main.js" "$@"',
+    )
+    search_path = f"{launcher.parent}:{_sealed_bin(root=tmp_path)}"
+
+    completed = _run(tmp_path=tmp_path, search_path=search_path)
+
+    _refused(completed=completed, naming=str(launcher), evidence=tmp_path / "evidence")
+
+
 def test_a_launcher_whose_program_and_script_split_across_home_trees_is_refused(
     tmp_path: Path,
 ) -> None:
