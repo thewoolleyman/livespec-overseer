@@ -237,6 +237,20 @@ agent_install_root="$agent_program_root"
 [[ -n "$agent_install_root" ]] || agent_install_root="$agent_script_root"
 agent_binaries=()
 if [[ -n "$agent_install_root" ]]; then
+  # The runner's OWN fixed list of the home roots it writes inside the namespace: the
+  # scratch home at the operator home path, the agent credential under ~/.claude or
+  # ~/.codex, and the Herdr client socket under ~/.config. Binding the home read-only
+  # would defeat the scratch home; binding one of the other three would make read-only a
+  # directory the exercise must write. This list grows only when the exercise starts
+  # writing somewhere new — never with the home paths a launcher happens to name.
+  for exercise_owned_root in \
+    "$operator_home" \
+    "$operator_home/.claude" \
+    "$operator_home/.codex" \
+    "$operator_home/.config"; do
+    [[ "$agent_install_root" != "$exercise_owned_root" ]] ||
+      die "refusing the agent client install root $agent_install_root: the exercise writes it inside the namespace"
+  done
   agent_binaries+=(--ro-bind "$agent_install_root" "$agent_install_root")
 fi
 if [[ "$agent_path" == "$operator_home"/* || "$agent_real" == "$operator_home"/* ]]; then
