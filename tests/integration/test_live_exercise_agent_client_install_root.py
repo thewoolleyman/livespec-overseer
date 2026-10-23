@@ -61,9 +61,9 @@ def _client(*, home: Path) -> _Client:
     return client
 
 
-def _plan(*, tmp_path: Path) -> tuple[_Client, list[str]]:
-    home = tmp_path / "home"
-    home.mkdir()
+def _plan(*, tmp_path: Path, home: Path | None = None) -> tuple[_Client, list[str]]:
+    home = tmp_path / "home" if home is None else home
+    home.mkdir(exist_ok=True)
     client = _client(home=home)
     evidence = tmp_path / "evidence"
     environment = {
@@ -156,3 +156,42 @@ def test_no_other_operator_home_path_is_bound_for_the_agent_client(tmp_path: Pat
     # the launcher merely NAMES are hidden by the scratch home, named or not.
     for path in client.named_only:
         assert str(path) not in bound
+
+
+def test_an_operator_home_reached_through_a_symlink_still_binds_the_install_root(
+    tmp_path: Path,
+) -> None:
+    """`/home/x` standing for `/mnt/.../x` is an ordinary layout, and it hid every bind.
+
+    The install root is defined on the REAL path of what the launcher executes, so every
+    candidate arrives resolved; comparing those against a raw `$HOME` made the prefix test
+    miss all of them at once on such a host. The miss was silent in both directions --
+    nothing bound AND nothing refused -- so the runner reproduced byte for byte the
+    pre-fix behaviour, and the run surfaced it sixty seconds later as the failed
+    `bootstrap` stage this section forbids.
+    """
+    real_home = tmp_path / "real" / "operator"
+    real_home.mkdir(parents=True)
+    real_home = real_home.resolve()
+    home = tmp_path / "home"
+    home.symlink_to(real_home)
+
+    client, argv = _plan(tmp_path=tmp_path, home=home)
+    mounts = _mounts(argv=argv)
+
+    install_root = real_home / ".bun"
+    launcher = real_home / ".local" / "bin" / "codex"
+    assert ("--ro-bind", str(install_root), str(install_root)) in mounts
+    # Bound from its real path at the name PATH carries, so the client stays callable by
+    # name through the symlink the operator's own `$HOME` is spelled with.
+    assert ("--ro-bind", str(launcher), str(client.launcher)) in mounts
+    # The at-most-two rule holds under either spelling of the home.
+    bound = {
+        source
+        for _, source, _ in mounts
+        if _under(source=source, home=real_home) or _under(source=source, home=home)
+    }
+    assert bound == {str(install_root), str(launcher)}
+    # And the client binds still layer over the scratch home, which masks the same
+    # directory under the unresolved name because a mount resolves its own target.
+    assert argv.index(str(install_root)) > argv.index(str(home))

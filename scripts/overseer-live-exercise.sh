@@ -21,15 +21,21 @@ die() {
 
 # The first directory below the operator home on one absolute path, or the operator home
 # itself when the path sits directly in it. Empty for a path outside that home.
+#
+# Against the RESOLVED home, because every path handed here came back from `realpath`.
+# A home reached through a symlink -- `/home/x` standing for `/mnt/.../x`, an ordinary
+# layout -- makes a raw `$HOME` prefix test miss all of them at once, and the miss is
+# silent: the root reads as empty, so nothing is bound AND nothing is refused, which is
+# byte for byte the pre-fix behaviour this runner exists to stop.
 install_root_of() {
   local path="$1" rest
   case "$path" in
-    "$operator_home"/*) rest="${path#"$operator_home"/}" ;;
+    "$operator_home_real"/*) rest="${path#"$operator_home_real"/}" ;;
     *) return 0 ;;
   esac
   case "$rest" in
-    */*) printf '%s/%s\n' "$operator_home" "${rest%%/*}" ;;
-    *) printf '%s\n' "$operator_home" ;;
+    */*) printf '%s/%s\n' "$operator_home_real" "${rest%%/*}" ;;
+    *) printf '%s\n' "$operator_home_real" ;;
   esac
 }
 
@@ -179,6 +185,14 @@ fi
 chmod 700 "$evidence"
 
 operator_home="${HOME:?HOME must name the operator home}"
+# The same home with every symlink resolved, which is the form every install-root rule
+# below compares against -- see `install_root_of`. The scratch home still mounts at the
+# UNRESOLVED path, and that is not an inconsistency: a mount resolves its own target, so
+# both names reach one directory and the client's binds layer over the scratch home
+# whichever name either side is spelled with. `-m` rather than `-e` so a home that does
+# not exist normalizes instead of aborting here, leaving the ordinary refusals to report
+# a client nothing under that home can resolve.
+operator_home_real="$(realpath -m "$operator_home")"
 operator_uid="$(id -u)"
 
 # The namespace mounts a scratch home at the operator home path, so whatever the agent
@@ -244,16 +258,20 @@ if [[ -n "$agent_install_root" ]]; then
   # directory the exercise must write. This list grows only when the exercise starts
   # writing somewhere new — never with the home paths a launcher happens to name.
   for exercise_owned_root in \
-    "$operator_home" \
-    "$operator_home/.claude" \
-    "$operator_home/.codex" \
-    "$operator_home/.config"; do
+    "$operator_home_real" \
+    "$operator_home_real/.claude" \
+    "$operator_home_real/.codex" \
+    "$operator_home_real/.config"; do
     [[ "$agent_install_root" != "$exercise_owned_root" ]] ||
       die "refusing the agent client install root $agent_install_root: the exercise writes it inside the namespace"
   done
   agent_binaries+=(--ro-bind "$agent_install_root" "$agent_install_root")
 fi
-if [[ "$agent_path" == "$operator_home"/* || "$agent_real" == "$operator_home"/* ]]; then
+# Each name against the home in ITS OWN form: `$agent_path` came off PATH unresolved, so
+# it is compared with the raw home, while `$agent_real` came back from `realpath` and is
+# compared with the resolved one. A launcher reached only through a symlinked home
+# satisfies the second alone.
+if [[ "$agent_path" == "$operator_home"/* || "$agent_real" == "$operator_home_real"/* ]]; then
   agent_binaries+=(--ro-bind "$agent_real" "$agent_path")
 fi
 
