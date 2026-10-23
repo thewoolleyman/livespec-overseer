@@ -163,7 +163,7 @@ lived in.
   Eight measured failure shapes whose error messages point away from the fix,
   with the discriminator tables (`fabro ps -a`, the forge, the journal, the
   envelope's `detail`) that tell them apart — plus the doubled-brace token trap,
-  the GitHub App installation pin, the tenant-wide `--defer` refusal, the
+  the GitHub App installation pin, the tenant-wide `--defer` and cross-tenant-edge refusals, the
   `--ephemeral` retraction, ledger-edit items, and the stale plugin build.
 - **`.ai/anthropic-credentials.md`** — read BEFORE probing or reasoning about
   an Anthropic credential's limits: which probe is evidence about the factory,

@@ -1175,6 +1175,33 @@ proving it REPORTS a genuinely non-conforming row — a scan that quietly
 whitelists a status it should flag reports a clean tenant and is worse than no
 scan.
 
+### A dependency edge into ANOTHER TENANT blocks EVERY dispatch in the repo
+
+Measured 2026-10-22 (coordinator ruling R646, recorded on `overseer-twtw55`). A
+native blocks edge added with `bd dep add` whose target is an id in a DIFFERENT
+tenant — here `overseer-twtw55` → `bd-ib-a3dzii`, an orchestrator-tenant item —
+is stored as a dangling edge in this tenant, and the same global pre-dispatch
+sweep as the deferred-item trap above treats it as an orphan:
+
+    LEDGER: no-orphan-dependency  overseer-twtw55  depends_on names a missing
+      item: bd-ib-a3dzii
+
+ONE such edge refused EVERY livespec-overseer dispatch until it was removed; it
+was found on an unrelated item's launch (`overseer-aiht7g`, 19:35Z), about forty
+minutes after the edge was written. As with the deferred-item trap, the refusal
+names an item that has nothing to do with the one you dispatched.
+
+**Do not confuse it with the anchor-as-dependency shape.** That shape is a
+`metadata.non_local_depends_on` entry: it fails only the item that carries it,
+with `not in the ready set`. This one is a native edge, and it fails the whole
+tenant with a `no-orphan-dependency` line. The discriminator is the error text.
+
+**Never put a dependency edge across tenants.** Record the relation as TEXT on
+the blocked item ("blocked on `<id>` (`<tenant>`, owner `<track>`)"), keep its
+status honest, and recheck the other item by hand. Remedy once armed:
+`bd dep remove <blocked> <other-tenant-id>`, then record the relation as text so
+the removal does not erase it.
+
 ### RETRACTED: `bd create --ephemeral` does NOT block dispatch — `open` is auto-healed
 
 **This entry previously claimed the opposite, and the claim was wrong.** It is
