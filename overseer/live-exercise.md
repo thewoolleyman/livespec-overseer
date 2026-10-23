@@ -56,7 +56,27 @@ For Herdr, every controller command must use
 
 The namespace keeps networking for real authentication but scrubs inherited tmux,
 Herdr and OTLP selectors. It copies the released checkout to the private writable bind;
-all other host paths remain read-only. The scratch plan is intentionally not a real
+all other host paths remain read-only.
+
+**The agent client gets AT MOST TWO read-only operator-home binds and no others.** The
+scratch home hides whatever the client executes from under the real home, so the runner
+resolves the launcher on PATH to what it actually RUNS — the real path of the program on
+its `exec` line, or, when that program lies outside the home, the script file it is
+passed — and binds that program's install root, the first directory below the operator
+home on that path. On the release host `~/.local/bin/codex` is a bash shim running the
+bun global install, so the two binds are the shim at its own path and `~/.bun`. Every
+other home path a launcher merely NAMES — a config, cache or state directory, another
+install — stays hidden; the bound set does not grow with the launcher. A launcher that
+is a self-contained executable, or a script with no `exec` line, needs only the first
+bind.
+
+Two conditions REFUSE before any terminal backend starts, so neither can be mistaken for
+a failed `bootstrap` stage. The runner refuses, naming the client name or path, when it
+cannot make the client runnable at all: absent from PATH, an `exec` line whose program it
+cannot resolve, or a program and script file living in two different first-level home
+trees. And it refuses, naming the root, when the resolved install root is the operator
+home itself or one of `~/.claude`, `~/.codex`, `~/.config` — the home directories this
+exercise WRITES inside the namespace, which binding read-only would break. The scratch plan is intentionally not a real
 ledger thread, so a run that cannot read a coordinator-provided plan epic must record
 that limitation and must not claim end-to-end continuation.
 
