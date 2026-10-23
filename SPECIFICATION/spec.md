@@ -1197,12 +1197,39 @@ executable itself, or the install tree a script launcher runs from. Binding only
 the launcher file is insufficient when that launcher executes content elsewhere
 under the operator home, because the scratch home hides that content.
 
+On the agent client's behalf the runner MUST bind, read-only, at most two
+operator-home paths and no others: (1) the launcher on PATH, bound at its own path
+from its real path so the client stays callable by name; and (2) when that
+launcher is a script that runs content elsewhere under the operator home, that
+content's install root. The install root is the first directory below the
+operator home on the real path of the program the launcher's exec line runs, or,
+when that program lies outside the operator home, on the real path of the script
+file the launcher passes to it; when that program sits directly in the operator
+home, the install root is the operator home itself. A launcher whose real path is
+a self-contained executable rather than a script needs only bind (1). When the
+program and the script file it is passed both lie under the operator home but in
+different first-level directories, the runner cannot make the client runnable and
+MUST refuse as described below. The runner MUST NOT bind a parent of the install
+root in its place, and MUST NOT bind any other operator-home path for the agent
+client, whatever other home paths the launcher names (configuration, cache or
+state directories, other installs); those paths stay hidden by the scratch home.
+This rule governs only the binds the runner makes for the agent client. Read-only
+binds the runner makes for the terminal backend or its own tooling remain
+governed by the writable-path rule above.
+
 When the runner cannot make the selected agent client runnable inside the
 namespace — including when the client is absent from PATH, or when the runner
 cannot determine what a launcher executes — it MUST refuse BEFORE it starts any
 terminal backend. The refusal MUST name the client name or path it could not
-resolve. It MUST NOT report the condition later as a failed `bootstrap` lifecycle
-stage.
+resolve. The runner MUST likewise refuse BEFORE it starts any terminal backend
+when the resolved install root is the operator home directory itself, or is one
+of the home directories the exercise writes inside the namespace (`~/.claude`,
+`~/.codex` or `~/.config`), because binding that root read-only would defeat the
+scratch home or make read-only a directory the exercise must write. That refusal
+MUST name the offending root. This refusal set is the runner's fixed list of the
+roots it writes; it MUST NOT grow with the home paths a launcher names. The
+runner MUST NOT report either refusal condition later as a failed `bootstrap`
+lifecycle stage.
 
 ## Notify, never block
 
