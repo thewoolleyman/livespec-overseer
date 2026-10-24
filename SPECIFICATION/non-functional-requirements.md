@@ -120,7 +120,43 @@ would otherwise live in.
 - The repository is a pin-consuming fleet member: its lint, formatting,
   strict type-checking, and coverage gates come from the fleet enforcement
   suite at a pinned release, and the aggregate check target is the single
-  local, pre-push, and CI entry point.
+  entry point for local, pre-push, and CI runs. Where the repository has
+  delegated its pre-push gate per the next item, a pre-push from a delegating
+  host obtains that same aggregate's verdict from the remote executor against
+  the pushed tree instead of running it on the pushing host, save the checks
+  the next item places on the pushing host, and except where an explicit local
+  run has already authorized the tree. This changes WHERE the aggregate runs
+  and MUST NOT change WHAT it verifies.
+- The repository MAY delegate its pre-push gate to the remote executor of the
+  fleet enforcement suite's delegation client (livespec-dev-tooling
+  `SPECIFICATION/contracts.md` §"Delegated pre-push gate"). When it does, it
+  MUST conform to the delegation contract livespec ratifies in its
+  `non-functional-requirements.md` §"Enforcement-suite invocation", clause
+  **Delegated gate execution** (*The host*, *The tree*, *The set*,
+  *The authority*, *The credential*, *The verdict*). For this repository that
+  means:
+  - Delegation MUST be opted in by the repository's version-controlled
+    configuration. It MUST be withdrawn only by a change to that
+    configuration, never per push or per host. The gate MUST remain runnable
+    on the pushing host by an explicit act whether or not delegation is opted
+    in.
+  - A push MUST delegate only from a host that holds the credential
+    authorizing it to submit to the executor. A host that holds none, such as
+    a factory sandbox, MUST run the repository's gate recipe on that host
+    without delegation. It MUST report that it gated locally.
+  - The pre-push recipe's path for a delegating host MUST run the delegation
+    client in place of the aggregate, and MUST have no branch from the
+    client's result to a local run of the gate. An absent verdict MUST refuse
+    the push where no explicit run of the entire gate recipe on the pushing
+    host without delegation has authorized it. It MUST NOT be treated as a
+    pass, and MUST NOT be replaced by an automatic local run.
+  - A check that declares it reads an authorization held outside the tree
+    MUST run on the pushing host, with that host's credentials, against the
+    same tree. Its result MUST join the delegated verdict. A pushing host that
+    cannot evaluate such a check MUST refuse the push as that check's failure.
+  - The delegation client, its verdict handling and the scenarios that pin
+    them belong to the fleet enforcement suite. This repository realizes only
+    the opt-in and the recipe path.
 - The product package holds one hundred percent statement AND branch
   coverage; coverage exceptions are individually annotated in source with
   their reasoning, never blanket-excluded.
