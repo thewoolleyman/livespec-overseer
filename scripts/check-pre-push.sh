@@ -40,6 +40,17 @@ if uv run python -m livespec_dev_tooling.green_token check 2>&1; then
   exit 0
 fi
 
+# Delegated gate (livespec-dev-tooling plan delegated-gate-fleet-rollout): where
+# this repository opts in and this host can read the gates kubeconfig, the full
+# aggregate below runs as a cluster Job instead of here. `exec` is load-bearing:
+# a delegated run that reaches no verdict must REFUSE the push, never fall
+# through to a local run. Inside the gate pod `enabled` exits non-zero (no
+# kubeconfig), so the Job itself runs the aggregate below.
+if uv run python -m livespec_dev_tooling.gate_remote_delegate enabled; then
+  echo ":: pre-push: delegated gate selected for this push; gating on the cluster"
+  exec uv run python -m livespec_dev_tooling.gate_remote_delegate run
+fi
+
 # PR gate ≡ master gate (livespec plan pr-gate-master-parity R3, livespec-citqsd):
 # pre-push runs the FULL `just check` unconditionally. The prior zero-.py branch,
 # which delegated a doc-only push to the check-pre-commit-doc-only subset, is
