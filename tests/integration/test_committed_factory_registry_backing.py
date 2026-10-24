@@ -31,11 +31,11 @@ def _committed_dispatcher() -> dict[str, object]:
     return dispatcher
 
 
-def test_the_committed_factory_table_is_registry_backed_legacy_and_petri() -> None:
+def test_the_committed_factory_table_is_registry_backed_petri_alone() -> None:
     factories = jsonio.as_object(value=_committed_dispatcher().get("factories"))
     assert factories is not None
-    assert sorted(factories) == ["legacy", "petri"]
-    for name in ("legacy", "petri"):
+    assert sorted(factories) == ["petri"]
+    for name in ("petri",):
         entry = jsonio.as_object(value=factories[name])
         assert entry is not None
         assert entry.get("registry") is True

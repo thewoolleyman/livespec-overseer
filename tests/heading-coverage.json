@@ -3622,9 +3622,9 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "constraints.md",
     "heading": "## Factory routing",
-    "test": "tests.integration.test_committed_factory_registry_backing.test_the_committed_factory_table_is_registry_backed_legacy_and_petri",
+    "test": "tests.integration.test_committed_factory_registry_backing.test_the_committed_factory_table_is_registry_backed_petri_alone",
     "work_item": "overseer-knslqg",
-    "reason": "Integration-tier: reads the REAL committed .livespec.jsonc at the repository root (through the package's own JSONC reader, not a second stripper) and asserts dispatcher.factories is exactly the entries legacy and petri, each declaring \"registry\": true with no server and no docker_host key — so no committed entry can name a machine, and legacy stays declared. Its sibling in the same module, test_the_committed_default_factory_names_petri, pins the heading's other MUST: dispatcher.default_factory is petri (cutover bd-ib-iud52v, ruling R668). The original pair was RED against the hostname-bearing hp/vps table this change replaced (observed naming hp and vps), so the assertions are load-bearing rather than vacuous."
+    "reason": "Integration-tier: reads the REAL committed .livespec.jsonc at the repository root (through the package's own JSONC reader, not a second stripper) and asserts dispatcher.factories is exactly the entry petri, declaring \"registry\": true with no server and no docker_host key — so no committed entry can name a machine (legacy was retired and removed on 2026-10-24). Its sibling in the same module, test_the_committed_default_factory_names_petri, pins the heading's other MUST: dispatcher.default_factory is petri (cutover bd-ib-iud52v, ruling R668). The original pair was RED against the hostname-bearing hp/vps table this change replaced (observed naming hp and vps), so the assertions are load-bearing rather than vacuous."
   },
   {
     "spec_root": "SPECIFICATION",

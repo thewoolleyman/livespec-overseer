@@ -482,9 +482,9 @@
       // client the dispatch runs against this factory, `secret_channel`
       // `native_secrets` delivers credentials through Fabro's native secrets,
       // and `environment` `livespec-ci` supplies the sandbox image on petri,
-      // so `fabro_sandbox_image` above is left as it is. `legacy` stays
-      // declared so an item already pinned to it keeps reaching hp; a recorded
-      // pin naming the retired `hp` or `vps` now falls back to `petri`.
+      // so `fabro_sandbox_image` above is left as it is. `legacy` was
+      // retired and removed on 2026-10-24 (plan fabro-currency); a recorded
+      // pin naming it, `hp` or `vps` now falls back to `petri`.
       //
       // KNOWN CONSEQUENCE, tracked separately and deliberately NOT fixed here:
       // `overseer/_supervisor_wait_target_liveness.factory_server()` does
@@ -493,11 +493,8 @@
       // entry's `bin`), and `process_records_from_payload()` accepts only an
       // object carrying `runs` or `items`, while the 0.254 client prints a
       // top-level array. Wait-target liveness therefore still answers
-      // `unknown` for both `legacy` and `petri` runs.
+      // `unknown` for `petri` runs.
       "factories": {
-        // legacy submits through the pinned 0.254 8869e88 client whose bytes match hp's
-        // declared engine, staged by the livespec-dev-tooling dev-host play (bd-ib-zb2hso).
-        "legacy": { "registry": true, "bin": "/home/ubuntu/.local/state/fabro-currency/carrier-legacy-v0.254-8869e88/fabro" },
         "petri": {
           "registry": true,
           "bin": "/home/ubuntu/.local/state/fabro-currency/carrier-petri-v0.382-adeefec4c/fabro",
