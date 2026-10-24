@@ -62,8 +62,7 @@ NAME, so no other session — including the operator's `default` — is touched.
 from __future__ import annotations
 
 import shutil
-import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -131,6 +130,14 @@ IMPATIENT_BOUND = 0.3
 # The decoy server is given enough panes that whatever id the operation creates
 # on the real target already exists over there too.
 DECOY_PANES = 4
+# The bound `_await_child_gone` has always run under: the brief child's own
+# declared lifetime plus the liveness floor above. It is a module constant so the
+# wait's default is one NAMED figure a control can pin — the tolerance that
+# function adds is a retry inside this bound, never a widening of it.
+CHILD_EXIT_POLL = BoundedPoll(seconds=LAUNCH_TIMEOUT + BRIEF_SECONDS)
+# The gap between two readings of that same wait, matching the delivered
+# observation helpers' own cadence.
+CHILD_EXIT_INTERVAL = 0.1
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -434,26 +441,67 @@ def _brief_then_busy(*, pair: ServerPair) -> str:
     return f"sleep {BRIEF_SECONDS}; {pair.transient} #{MARKER}"
 
 
-def _await_child_gone(*, socket_path: str, pane_id: str, child: int) -> str:
+def _await_child_gone(
+    *,
+    read: Callable[[], Mapping[str, Any]],
+    pane_id: str,
+    child: int,
+    poll: BoundedPoll = CHILD_EXIT_POLL,
+    starttime_of_pid: Callable[..., int | None] = starttime_of,
+) -> str:
     """Wait for `child` to leave BOTH `/proc` and the pane's foreground, or say why not.
 
     Nothing here signals the child; an ordinary exit is the whole point. The
     bound covers the child's own declared lifetime plus the liveness floor, and
     an expiry is returned as a reason rather than fallen out of silently.
+
+    **ONE UNUSABLE READING IS DISCARDED AND LOOKED FOR AGAIN, and that is a
+    repair to this wait.** Every reading used to be taken through `_reading`,
+    which asserts the reply usable — right for a reading a single assertion rests
+    on, and wrong inside a loop that already tolerates every other
+    not-yet-answer. A server that answered one reply without usable native
+    fields therefore raised `AssertionError` out of the middle of the wait and
+    failed the exercise on a transient the next reading would have answered.
+    Measured on the release host at v5.34.2 (`just check` from inside the fleet
+    herdr, gate run 20261023T013747Z-1652971): the suite failed only
+    `test_a_child_exit_before_shell_idle_is_a_bounded_discriminating_case`, 1
+    failed and 4436 passed, with "herdr returned no usable process reading for
+    'w4:p3'" raised from here.
+
+    The identity step of that same exercise had already met the SAME one-shot
+    unusable reply on the SAME host and already consumes it — see the
+    `await_coherent_identity` comment there. This is that fix applied to the
+    other poll in this file, and it relaxes nothing: an unusable reply is
+    evidence of neither the child's presence nor its exit, so it can never
+    shorten this wait. It becomes the reason carried forward instead, which is
+    what makes a bound that expires with every reading unusable REPORT the
+    unusable reading rather than raise — a named fixture failure instead of an
+    exception from inside a loop.
+
+    The reading source, the bound and the `/proc` identity reader are injected
+    for the reason the delivered helpers inject theirs: the tolerance and the
+    expiry are then gradeable deterministically, and a control that really
+    waited would be asserting a timer.
     """
-    deadline = time.monotonic() + LAUNCH_TIMEOUT + BRIEF_SECONDS
+    deadline = poll.monotonic() + poll.seconds
     reason = "no reading was taken before the deadline"
-    while time.monotonic() < deadline:
-        reading = _reading(socket_path=socket_path, pane_id=pane_id)
-        alive = starttime_of(pid=child)
-        listed = child in reading.pids_named(name=LAUNCH_NAME)
-        if alive is None and not listed:
-            return ""
-        reason = (
-            f"child {child} is {'still alive' if alive is not None else 'gone from /proc'} "
-            f"and {'still listed' if listed else 'unlisted'} in {list(reading.processes)}"
-        )
-        time.sleep(0.1)
+    while poll.monotonic() < deadline:
+        reading = read_foreground(reply=read())
+        if reading is None:
+            reason = (
+                f"herdr returned no usable process reading for {pane_id!r}, which is "
+                "evidence of neither the child's presence nor its exit"
+            )
+        else:
+            alive = starttime_of_pid(pid=child)
+            listed = child in reading.pids_named(name=LAUNCH_NAME)
+            if alive is None and not listed:
+                return ""
+            reason = (
+                f"child {child} is {'still alive' if alive is not None else 'gone from /proc'} "
+                f"and {'still listed' if listed else 'unlisted'} in {list(reading.processes)}"
+            )
+        poll.sleep(CHILD_EXIT_INTERVAL)
     return f"the brief child {child} never exited on its own within the bound: {reason}"
 
 
@@ -521,7 +569,11 @@ def test_the_retained_shell_outlives_an_ordinary_child_exit(*, pair: ServerPair)
     ), "the brief child must run in its OWN process group, not as the shell itself"
 
     departed = _await_child_gone(
-        socket_path=pair.target.socket_path, pane_id=outcome.pane_id, child=child
+        read=lambda: process_info_reply(
+            socket_path=pair.target.socket_path, pane_id=outcome.pane_id
+        ),
+        pane_id=outcome.pane_id,
+        child=child,
     )
     assert departed == "", departed
 
@@ -596,7 +648,7 @@ def test_a_child_exit_before_shell_idle_is_a_bounded_discriminating_case(*, pair
     child = _observe_launched_child(
         socket_path=pair.target.socket_path, pane_id=pane_id, name=LAUNCH_NAME
     )
-    departed = _await_child_gone(socket_path=pair.target.socket_path, pane_id=pane_id, child=child)
+    departed = _await_child_gone(read=read, pane_id=pane_id, child=child)
     assert departed == "", departed
 
     busy = await_occupying_child(
@@ -718,3 +770,111 @@ def test_an_absent_herdr_lets_this_fixtures_setup_skip_reach_the_runner(
         f"raised {type(arrived).__name__}({arrived}) over the in-flight {masked_over}"
     )
     assert "herdr is not installed" in str(arrived), arrived
+
+
+# ------------------------------------------- controls over the child-exit wait
+#
+# Deterministic controls over scripted readings, driving `_await_child_gone`
+# itself rather than any server. The measured failure they stand against is in
+# that function's docstring: an exercise on the release host failed INSIDE this
+# wait on one unusable reply, so the tolerance is graded here rather than left
+# to whether a live server happens to answer every poll of it.
+
+CONTROL_PANE = "w4:p3"
+CONTROL_SHELL_PID = 3618552
+CONTROL_CHILD_PID = 3618638
+# The shape the release host actually answered with: an envelope whose
+# `process_info` carries neither `shell_pid` nor a foreground group, which
+# `read_foreground` reports as no reading at all.
+UNUSABLE_REPLY: dict[str, Any] = {"result": {"process_info": {"pane_id": CONTROL_PANE}}}
+
+
+def _usable_reply(*, processes: tuple[tuple[int, str], ...]) -> dict[str, Any]:
+    """One `pane.process_info` reply carrying both fields a reading requires."""
+    return {
+        "result": {
+            "process_info": {
+                "pane_id": CONTROL_PANE,
+                "shell_pid": CONTROL_SHELL_PID,
+                "foreground_process_group_id": CONTROL_SHELL_PID,
+                "foreground_processes": [
+                    {"pid": pid, "name": name, "cmdline": name, "cwd": PANE_CWD}
+                    for pid, name in processes
+                ],
+            }
+        }
+    }
+
+
+def _scripted_poll(*, seconds: float, ticks: list[float]) -> BoundedPoll:
+    """A poll whose clock advances only through `ticks`, and never really sleeps.
+
+    The wait reads the clock once to compute its deadline and again on every
+    `while` test, so a control wanting N readings before expiry gives N + 2
+    ticks. `test_herdr_live_observations._frozen_poll` records what authoring
+    that off by one costs: the wait reports "no reading was taken before the
+    deadline", which is true and is not the outcome the control meant to grade.
+    """
+    remaining = list(ticks)
+
+    def monotonic() -> float:
+        return remaining.pop(0) if remaining else 1e9
+
+    return BoundedPoll(seconds=seconds, monotonic=monotonic, sleep=lambda _seconds: None)
+
+
+def test_one_unusable_reading_mid_poll_costs_a_poll_rather_than_the_exercise() -> None:
+    """The repair: the host's unusable reply is discarded and the exit still observed.
+
+    The reading source answers that reply FIRST and usable ones afterwards,
+    which is the sequence the measured failure consisted of. The child is gone
+    from `/proc` and unlisted in every usable reading, so the wait must report
+    its departure — and the predecessor, which asserted each reply usable, would
+    have raised `AssertionError` before ever taking the second reading.
+
+    The default bound is pinned in the same breath, because "retry within the
+    EXISTING deadline" is half the claim: a tolerance bought by widening the
+    wait would satisfy the other half while still changing what the live
+    exercises are waiting for.
+    """
+    assert CHILD_EXIT_POLL.seconds == LAUNCH_TIMEOUT + BRIEF_SECONDS, (
+        "the tolerance must be a retry inside the bound this wait already carried, never a "
+        f"widened one; the default is now {CHILD_EXIT_POLL.seconds}s"
+    )
+    replies = [UNUSABLE_REPLY, _usable_reply(processes=((CONTROL_SHELL_PID, "zsh"),))]
+
+    departed = _await_child_gone(
+        read=lambda: replies.pop(0) if len(replies) > 1 else replies[0],
+        pane_id=CONTROL_PANE,
+        child=CONTROL_CHILD_PID,
+        poll=_scripted_poll(seconds=1.0, ticks=[0.0, 0.1, 0.2, 0.3]),
+        starttime_of_pid=lambda pid: None,
+    )
+
+    assert departed == "", departed
+    assert replies == [
+        _usable_reply(processes=((CONTROL_SHELL_PID, "zsh"),))
+    ], "the unusable reply must have been consumed, so a second reading really was taken"
+
+
+def test_every_unusable_reading_until_the_deadline_is_reported_not_raised() -> None:
+    """The other half: an unreadable pane expires as a NAMED reason.
+
+    A wait that cannot read the pane has observed neither an exit nor a
+    presence, so it must say which pane it could not read and which child it was
+    looking for, rather than raise from inside its own loop. It must equally not
+    read the unusable reply as the child's departure: `/proc` reports this child
+    absent throughout, so the only thing still withholding the empty answer is
+    the reading the server would not supply.
+    """
+    departed = _await_child_gone(
+        read=lambda: UNUSABLE_REPLY,
+        pane_id=CONTROL_PANE,
+        child=CONTROL_CHILD_PID,
+        poll=_scripted_poll(seconds=1.0, ticks=[0.0, 0.5, 2.0]),
+        starttime_of_pid=lambda pid: None,
+    )
+
+    assert "no usable process reading" in departed, departed
+    assert CONTROL_PANE in departed, departed
+    assert str(CONTROL_CHILD_PID) in departed, departed
