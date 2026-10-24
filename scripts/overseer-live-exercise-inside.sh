@@ -51,6 +51,11 @@ trap 'exit 143' TERM
   exit 1
 }
 
+# Herdr and tmux both start panes through the scratch user's shell.  Seed zsh's
+# startup file before either backend starts so a first-run configuration menu
+# cannot consume the controller's first pane submission.
+: >"$HOME/.zshrc"
+
 if [[ "$backend" == herdr ]]; then
   herdr --session "$instance" server >"$evidence/backend.log" 2>&1 &
   backend_pid="$!"

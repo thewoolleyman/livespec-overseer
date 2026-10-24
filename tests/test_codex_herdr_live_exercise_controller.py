@@ -631,7 +631,7 @@ def test_backend_starts_after_the_scratch_home_has_a_zshrc() -> None:
     )
 
     zshrc_seed = ': >"$HOME/.zshrc"'
-    backend_start = 'if [[ "$backend" == herdr ]]; then'
+    backend_start = 'if [[ "$backend" == herdr ]]; then\n  herdr --session "$instance" server'
     assert zshrc_seed in inside
     assert inside.index(zshrc_seed) < inside.index(backend_start)
 
