@@ -42,6 +42,7 @@ why the declared value is the bare form.
 from __future__ import annotations
 
 import fcntl
+import json
 import os
 import pty
 import re
@@ -120,16 +121,32 @@ _PLUGINS_ROOT = Path(
     os.environ.get("LIVESPEC_CODEX_PLUGINS_ROOT", str(_HOST_CODEX_HOME / "plugins"))
 )
 
+# THE PLUGIN THIS ACCEPTANCE IS ABOUT, AND NOTHING ELSE. The host plugin root is a
+# SHARED, MULTI-TENANT tree: whatever the operator has installed lives beside ours
+# under `cache/<marketplace>/<plugin>/<version>`. `_CODEX_PLUGIN_KEY` is the
+# `<plugin>@<marketplace>` form Codex's own `[plugins.*]` config table uses, and
+# `_DECLARED_PLUGIN_NAMES` is the pair of directory names that belong to us.
+_CODEX_PLUGIN_CACHE_DIR = "cache"
+_CODEX_MARKETPLACE = "livespec-overseer"
+_CODEX_PLUGIN = "livespec-overseer"
+_CODEX_PLUGIN_KEY = f"{_CODEX_PLUGIN}@{_CODEX_MARKETPLACE}"
+_DECLARED_PLUGIN_NAMES = frozenset({_CODEX_MARKETPLACE, _CODEX_PLUGIN})
+# How deep the pruning mirror walks before it symlinks a subtree wholesale: enough
+# to reach `cache/<marketplace>/<plugin>` and link THAT, so the declared plugin's
+# own materialized versions are never copied or re-walked.
+_PLUGIN_MIRROR_DEPTH = 2
+_HOST_CODEX_HOME_FILES = ("auth.json", ".credentials.json", "installation_id")
+
 # DELIBERATELY NO `[marketplaces.*]` BLOCK — this omission is load-bearing and was
 # arrived at by measurement, not by taste.
 #
 # The template this is ported from declares its marketplaces here. Doing the same
-# was tried and REBUILT THE SHARED PLUGIN CACHE: the real `~/.codex/plugins` is
-# SYMLINKED into the scratch home (below), so a declared marketplace makes codex
-# re-fetch and re-materialize `~/.codex/plugins/cache/livespec-overseer/...` —
-# observed as fresh inodes on two consecutive runs. That is precisely the prune this
-# plan warns breaks live Codex sessions on this host, and a check that fires
-# on every `just check` must not do it.
+# was tried and REBUILT THE SHARED PLUGIN CACHE: the real
+# `~/.codex/plugins/cache/livespec-overseer/livespec-overseer` is SYMLINKED into the
+# scratch home (see `_mirror_declared_plugin_only`), so a declared marketplace makes
+# codex re-fetch and re-materialize it — observed as fresh inodes on two consecutive
+# runs. That is precisely the prune this plan warns breaks live Codex sessions on
+# this host, and a check that fires on every `just check` must not do it.
 #
 # Mirroring the host's `last_updated`/`last_revision` state keys did NOT prevent it:
 # the host pin is `ref = "master"`, a MOVING ref, so codex re-syncs whenever master
@@ -156,7 +173,7 @@ model = "{_CODEX_TEST_MODEL}"
 [projects."{_REPO_ROOT}"]
 trust_level = "trusted"
 
-[plugins."livespec-overseer@livespec-overseer"]
+[plugins."{_CODEX_PLUGIN_KEY}"]
 enabled = true
 """
 
@@ -198,6 +215,22 @@ def _declared_codex_command(*, repo_root: Path) -> tuple[str, str]:
 
 def _plain(*, text: str) -> str:
     return _ANSI_RE.sub("", text).replace("\r", "\n")
+
+
+def _escaped(*, text: str) -> str:
+    """The RAW pty bytes with escape sequences rendered visibly.
+
+    WHY A STALL NEEDS THIS BESIDE THE RENDERED TAIL. `_plain` strips escape
+    sequences, which is right for asserting on content and wrong for diagnosing a
+    stall: the release-host failure of `overseer-twtw55` reported an EMPTY
+    `Last output:` because everything codex had emitted was escape sequences, and an
+    UNANSWERED terminal query — a cursor-position report, a device-attributes
+    request, a keyboard-protocol probe — is by construction invisible once stripped.
+    `_answer_terminal_queries` answers only the two OSC colour queries, so any other
+    query codex learns to send would stall startup with nothing on screen to say so.
+    Rendering the raw stream makes the next such stall readable instead of blank.
+    """
+    return text.encode("unicode_escape").decode("ascii")
 
 
 def _squashed(*, text: str) -> str:
@@ -340,7 +373,10 @@ def _read_until(
     if matched:
         return current
     tail = _plain(text=current)[-3000:]
-    raise AssertionError(f"Timed out waiting for Codex picker state. Last output:\n{tail}")
+    raise AssertionError(
+        f"Timed out waiting for Codex picker state. Last output:\n{tail}\n\n"
+        f"Raw pty tail, escapes visible:\n{_escaped(text=current[-_RAW_TAIL_CHARS:])}"
+    )
 
 
 def _read_until_quiet(
@@ -372,11 +408,128 @@ def _send(*, fd: int, text: str) -> None:
     os.write(fd, text.encode("utf-8"))
 
 
-def _prepare_codex_home(*, codex_home: Path) -> None:
+def _foreign_plugin_names(*, plugins_root: Path) -> frozenset[str]:
+    """Every marketplace and plugin name the host has materialized EXCEPT ours.
+
+    Read off the cache tree rather than off a registry, because the cache is the
+    thing that actually exists: a plugin materialized under
+    `cache/<marketplace>/<plugin>` is a plugin Codex can start whether or not any
+    registry still records it, and the inverse (a registry entry with no cache) is
+    inert. Enumerating from the tree therefore cannot miss a tenant.
+    """
+    cache = plugins_root / _CODEX_PLUGIN_CACHE_DIR
+    if not cache.is_dir():
+        return frozenset()
+    names = {entry.name for entry in cache.iterdir() if entry.is_dir()}
+    for marketplace in cache.iterdir():
+        if marketplace.is_dir():
+            names.update(entry.name for entry in marketplace.iterdir() if entry.is_dir())
+    return frozenset(names - _DECLARED_PLUGIN_NAMES)
+
+
+def _names_a_foreign_plugin(*, name: str, foreign: frozenset[str]) -> bool:
+    """Whether one directory, file, or registry-key name belongs to another tenant.
+
+    Split on `@` so BOTH spellings are caught: a bare cache directory name and the
+    `<plugin>@<marketplace>` key Codex's registries and config table use.
+    """
+    return any(part in foreign for part in name.split("@"))
+
+
+def _without_foreign_entries(*, value: object, foreign: frozenset[str]) -> object:
+    """One parsed registry value with every foreign-named mapping entry removed."""
+    if isinstance(value, dict):
+        return {
+            key: _without_foreign_entries(value=entry, foreign=foreign)
+            for key, entry in value.items()
+            if not (isinstance(key, str) and _names_a_foreign_plugin(name=key, foreign=foreign))
+        }
+    if isinstance(value, list):
+        return [_without_foreign_entries(value=entry, foreign=foreign) for entry in value]
+    return value
+
+
+def _pruned_registry(*, path: Path, foreign: frozenset[str]) -> str | None:
+    """`path`'s JSON with foreign entries dropped, or `None` when it cannot be read.
+
+    `None` is the FAIL-CLOSED answer, and it is deliberately not an empty object: a
+    registry this function cannot parse is a registry whose contents it cannot vouch
+    for, so the home is built WITHOUT it rather than with something unfiltered.
+    Carrying the parseable ones pruned — rather than dropping every registry — is
+    what keeps OUR plugin's own registration intact, which is the surface the live
+    picker assertion needs.
+    """
+    try:
+        parsed = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    return json.dumps(_without_foreign_entries(value=parsed, foreign=foreign), indent=2)
+
+
+def _mirror_declared_plugin_only(
+    *, source: Path, destination: Path, foreign: frozenset[str], depth: int
+) -> None:
+    """Mirror `source` into `destination`, admitting only the declared plugin.
+
+    A PRUNING MIRROR RATHER THAN A SYMLINK OF THE WHOLE ROOT, which is the fix for
+    `overseer-kq7tkw`. Each level becomes a REAL directory holding only the entries
+    that are not another tenant's, so the shared host tree is read without being
+    re-materialized (the hazard the `[marketplaces.*]` omission above was measured
+    against) and without being exposed.
+
+    `depth` bounds the walk: at zero a kept directory is symlinked WHOLESALE, so
+    `cache/<marketplace>/<plugin>` — every version of our own plugin — is linked in
+    one step rather than walked. Walking into it would be pointless work and would
+    put this function in the business of mirroring plugin internals.
+    """
+    destination.mkdir(parents=True, exist_ok=True)
+    if not source.is_dir():
+        # An absent host plugin root used to leave a DANGLING symlink here, which let
+        # the run reach the picker assertion and fail with its own diagnostic about a
+        # surface that does not exist. Returning an empty mirror preserves exactly
+        # that failure, rather than replacing it with an opaque FileNotFoundError
+        # from inside the mirror.
+        return
+    for entry in sorted(source.iterdir()):
+        if _names_a_foreign_plugin(name=entry.name, foreign=foreign):
+            continue
+        target = destination / entry.name
+        if entry.is_file() and entry.suffix == ".json":
+            pruned = _pruned_registry(path=entry, foreign=foreign)
+            if pruned is not None:
+                target.write_text(pruned, encoding="utf-8")
+        elif entry.is_dir() and depth > 0:
+            _mirror_declared_plugin_only(
+                source=entry, destination=target, foreign=foreign, depth=depth - 1
+            )
+        else:
+            os.symlink(entry, target)
+
+
+def _prepare_codex_home(
+    *,
+    codex_home: Path,
+    plugins_root: Path = _PLUGINS_ROOT,
+    host_home: Path = _HOST_CODEX_HOME,
+) -> None:
+    """Build the scratch Codex home the live exercise runs against.
+
+    `plugins_root` and `host_home` default to the real host's, which is what the
+    live acceptance reads; they are parameters so the exposure contract above can be
+    proved HERMETICALLY against a stand-in host tree. Without the seam the only way
+    to measure what this home exposes would be to measure the operator's own
+    `~/.codex`, which makes the answer depend on what they happen to have installed
+    — the very coupling this function exists to remove.
+    """
     (codex_home / "config.toml").write_text(_CODEX_TEST_CONFIG, encoding="utf-8")
-    os.symlink(_PLUGINS_ROOT, codex_home / "plugins")
-    for filename in ("auth.json", ".credentials.json", "installation_id"):
-        source = _HOST_CODEX_HOME / filename
+    _mirror_declared_plugin_only(
+        source=plugins_root,
+        destination=codex_home / "plugins",
+        foreign=_foreign_plugin_names(plugins_root=plugins_root),
+        depth=_PLUGIN_MIRROR_DEPTH,
+    )
+    for filename in _HOST_CODEX_HOME_FILES:
+        source = host_home / filename
         if source.exists():
             os.symlink(source, codex_home / filename)
 
@@ -402,6 +555,10 @@ def _codex_tui_env(*, inherited: Mapping[str, str]) -> dict[str, str]:
 
 _CODEX_LOG_DB = "logs_2.sqlite"
 _CODEX_LOG_TAIL_ROWS = 25
+# How much of the raw pty stream a picker-state stall reports. Escaped rendering is
+# several times longer than the bytes it describes, so this is deliberately well
+# under the 3000 characters of rendered tail it sits beside.
+_RAW_TAIL_CHARS = 1200
 
 
 def _codex_log_digest(*, codex_home: Path) -> str:
@@ -574,10 +731,130 @@ def test_a_stall_digest_carries_codex_warnings_and_its_last_log_rows(tmp_path: P
     assert digest.rstrip().endswith("3 DEBUG codex_core::models: fetching models")
 
 
+def test_an_unanswered_terminal_query_is_visible_in_the_raw_pty_rendering() -> None:
+    """A stream `_plain` renders as empty is still readable escape-by-escape."""
+    unanswered = "\x1b[6n\x1b[?u"
+    assert _plain(text=unanswered) == ""
+    assert _escaped(text=unanswered) == "\\x1b[6n\\x1b[?u"
+
+
 def test_a_stall_digest_names_a_missing_codex_log(tmp_path: Path) -> None:
     assert _codex_log_digest(codex_home=tmp_path) == (
         f"(no Codex log: {tmp_path / _CODEX_LOG_DB} does not exist)"
     )
+
+
+_FOREIGN_MARKETPLACE = "openai-curated-remote"
+_FOREIGN_PLUGIN = "someoneelses-remote-plugin"
+
+
+def _fake_host_codex_home(*, home: Path) -> Path:
+    """A stand-in `~/.codex` carrying OUR plugin and one foreign remote plugin.
+
+    Shaped like the real host tree the live exercise reads: a
+    `cache/<marketplace>/<plugin>/<version>` materialization per installed plugin,
+    plus the two root registries that record which plugins and marketplaces the
+    host knows about. The foreign plugin declares an MCP server, because that
+    declaration is what Codex acts on at startup and therefore what must not be
+    reachable from the home this test builds.
+    """
+    plugins = home / "plugins"
+    for marketplace, plugin, version in (
+        (_CODEX_MARKETPLACE, _CODEX_PLUGIN, "5.34.2"),
+        (_FOREIGN_MARKETPLACE, _FOREIGN_PLUGIN, "1.0.0"),
+    ):
+        materialized = plugins / _CODEX_PLUGIN_CACHE_DIR / marketplace / plugin / version
+        materialized.mkdir(parents=True)
+        (materialized / "plugin.json").write_text(
+            json.dumps({"name": plugin, "mcpServers": {plugin: {"url": f"https://{plugin}"}}}),
+            encoding="utf-8",
+        )
+    (plugins / "installed_plugins.json").write_text(
+        json.dumps(
+            {
+                "plugins": {
+                    _CODEX_PLUGIN_KEY: [{"version": "5.34.2"}],
+                    f"{_FOREIGN_PLUGIN}@{_FOREIGN_MARKETPLACE}": [{"version": "1.0.0"}],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (plugins / "known_marketplaces.json").write_text(
+        json.dumps(
+            {
+                _CODEX_MARKETPLACE: {"source": {"ref": "master"}},
+                _FOREIGN_MARKETPLACE: {"source": {"ref": "main"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    for filename in _HOST_CODEX_HOME_FILES:
+        (home / filename).write_text("{}", encoding="utf-8")
+    return plugins
+
+
+def _exposed_surface(*, codex_home: Path) -> str:
+    """Every path name AND file body reachable from the built home, as one string.
+
+    Reading the BODIES as well as the names is the point: a registry entry naming a
+    foreign plugin is exposure just as surely as a cache directory is, and it is the
+    form a names-only assertion would miss.
+    """
+    parts: list[str] = []
+    for path in sorted(codex_home.rglob("*")):
+        parts.append(str(path.relative_to(codex_home)))
+        if path.is_file():
+            parts.append(path.read_text(encoding="utf-8", errors="replace"))
+    return "\n".join(parts)
+
+
+def test_the_built_codex_home_exposes_only_the_declared_plugin(tmp_path: Path) -> None:
+    """The scratch home exposes our plugin alone, so no foreign MCP server starts.
+
+    THE DEFECT THIS PINS (`overseer-kq7tkw`). `_prepare_codex_home` used to symlink
+    the host's WHOLE `~/.codex/plugins` root into the scratch home, so every remote
+    plugin the operator happens to have installed was visible to the spawned Codex
+    and each one's MCP server started and performed a network handshake at startup.
+    Measured on the release host 2026-10-23: the only ERROR in Codex's own log was a
+    foreign `box` MCP server failing auth against `mcp.box.com`, and the acceptance
+    stalled waiting for a picker state that startup had not reached. That makes this
+    gate's verdict depend on the host's unrelated plugin inventory and on the
+    reachability of third-party servers — neither of which it claims to check.
+    """
+    host_home = tmp_path / "host"
+    plugins_root = _fake_host_codex_home(home=host_home)
+    codex_home = tmp_path / "scratch"
+    codex_home.mkdir()
+
+    _prepare_codex_home(codex_home=codex_home, plugins_root=plugins_root, host_home=host_home)
+
+    exposed = codex_home / "plugins"
+    assert not exposed.is_symlink(), (
+        "the scratch plugins root is a symlink to the host's whole multi-tenant "
+        "plugin tree, so every host-installed plugin is exposed to the spawned Codex"
+    )
+    surface = _exposed_surface(codex_home=codex_home)
+    assert _FOREIGN_PLUGIN not in surface, (
+        f"the built Codex home exposes the foreign plugin {_FOREIGN_PLUGIN!r}, so "
+        f"Codex will start its MCP server at startup. Exposed surface:\n{surface}"
+    )
+    assert (
+        _FOREIGN_MARKETPLACE not in surface
+    ), f"the built Codex home exposes the foreign marketplace {_FOREIGN_MARKETPLACE!r}"
+
+    cache = exposed / _CODEX_PLUGIN_CACHE_DIR
+    assert [entry.name for entry in sorted(cache.iterdir())] == [_CODEX_MARKETPLACE]
+    assert [entry.name for entry in sorted((cache / _CODEX_MARKETPLACE).iterdir())] == [
+        _CODEX_PLUGIN
+    ]
+    assert (
+        cache / _CODEX_MARKETPLACE / _CODEX_PLUGIN / "5.34.2" / "plugin.json"
+    ).is_file(), "the declared plugin's own materialized tree is no longer reachable"
+    assert _CODEX_PLUGIN_KEY in (exposed / "installed_plugins.json").read_text(encoding="utf-8")
+    assert _CODEX_MARKETPLACE in (exposed / "known_marketplaces.json").read_text(encoding="utf-8")
+    for filename in _HOST_CODEX_HOME_FILES:
+        assert (codex_home / filename).is_file(), f"{filename} is no longer linked"
 
 
 @_LIVE_CODEX_PICKER_ONLY
