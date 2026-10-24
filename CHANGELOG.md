@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.34.4](https://github.com/thewoolleyman/livespec-overseer/compare/v5.34.3...v5.34.4) (2026-10-24)
+
+
+### Bug Fixes
+
+* recognize collapsed Codex paste ([628fada](https://github.com/thewoolleyman/livespec-overseer/commit/628fada3761015ad728202031ad19847afef9cfe))
+
 ## [5.34.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.34.2...v5.34.3) (2026-10-24)
 
 
