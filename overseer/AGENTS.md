@@ -480,6 +480,18 @@ for the marker's edge-triggered lifecycle.
    (`rollout_ctx_remaining`) and was **WRONG by 2–4 points** against Codex's own display,
    because it reimplemented codex-rs's private occupancy formula (subtracts a ~12k
    baseline, excludes reasoning tokens) — an internal that drifts with any Codex release.
+
+   **That statusline item is OPERATOR CONFIGURATION, not a Codex default (measured
+   2026-10-24, Codex CLI 0.163.0).** Codex shows `Context N% left` only when the
+   operator's `~/.codex/config.toml` lists `context-remaining` in `[tui] status_line`.
+   The release host's config does, which is why "verified live" held. A Codex whose
+   config does not — including a fresh `CODEX_HOME` such as the live exercise's scratch
+   home — renders a footer like `GPT-6.1-Sol default · ~` with no context figure. The
+   consequence is worse than an unknown ctx: `codex_prompt_present` requires that
+   statusline, so `is_codex_idle_input` never holds: the daemon never reads that pane as
+   idle, so it never pastes a wrap-up into it. A supervised Codex operator therefore needs
+   `context-remaining` in `[tui] status_line`; the live-exercise controller must seed
+   it into its scratch config (`overseer-2x7d5n`).
    That function was REMOVED; `codex_sessions.py` reads no rollout body. **Never
    reintroduce a local occupancy formula.** This matters because the escalating wrap-up is
    the daemon's ONLY lever now that nothing is force-killed — and a Codex track now
