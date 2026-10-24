@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.34.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.34.2...v5.34.3) (2026-10-24)
+
+
+### Bug Fixes
+
+* bind the live-exercise client's install root, nothing else ([2c05a9e](https://github.com/thewoolleyman/livespec-overseer/commit/2c05a9ea172075061fbef47fa294eeddb6253ade))
+* refuse a live-exercise agent client the namespace cannot run ([6169bc1](https://github.com/thewoolleyman/livespec-overseer/commit/6169bc1399268cc3a89adcc0ca2bb9337017c569))
+* refuse a live-exercise script token the runner cannot determine ([aea3bd8](https://github.com/thewoolleyman/livespec-overseer/commit/aea3bd8a1a034b65d36d4abbbac9f5bc99d5238e))
+* refuse an agent-client install root the live exercise writes ([2be2364](https://github.com/thewoolleyman/livespec-overseer/commit/2be236490874309ce58a1259110c59a92ff0b0fe))
+* resolve the live-exercise client's install root against the real home ([eab7e3f](https://github.com/thewoolleyman/livespec-overseer/commit/eab7e3f202f8abae07f3aed0177fbef39102a1f4))
+* tolerate an argument-forwarding word in a launcher's exec line ([4e115d2](https://github.com/thewoolleyman/livespec-overseer/commit/4e115d2a081c098689aea731dbb314f557becf01))
+
 ## [5.34.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.34.1...v5.34.2) (2026-10-22)
 
 
