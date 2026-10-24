@@ -47,6 +47,10 @@ class PromptState:
 # Enter was never sent). A single-line payload is never collapsed, so the placeholder
 # only stands in for a multi-line one.
 _CLAUDE_PASTE_PLACEHOLDER = re.compile(r"\[Pasted text #\d+(?: \+\d+ lines)?\]")
+# Codex 0.163.0 collapses a multi-line bracketed paste to this prompt-row
+# placeholder. As with Claude's placeholder, it proves a payload landed only
+# for a multi-line payload; a one-line paste must still expose its first line.
+_CODEX_PASTE_PLACEHOLDER = re.compile(r"› \[Pasted Content \d+ chars\]")
 
 
 def prompt_visible(*, capture: str, text: str) -> bool:
@@ -56,7 +60,11 @@ def prompt_visible(*, capture: str, text: str) -> bool:
         _CLAUDE_PASTE_PLACEHOLDER.fullmatch(box or "") is not None
     )
     claude_visible = (box == first_line) | collapsed
-    codex_visible = bool(first_line) & (f"› {first_line}" in signals.strip_ansi(text=capture))
+    codex_capture = signals.strip_ansi(text=capture)
+    codex_collapsed = ("\n" in text.strip()) & (
+        _CODEX_PASTE_PLACEHOLDER.search(codex_capture) is not None
+    )
+    codex_visible = bool(first_line) & ((f"› {first_line}" in codex_capture) | codex_collapsed)
     return bool(claude_visible | codex_visible)
 
 
