@@ -69,12 +69,16 @@ TRANSPORT_PATH = PACKAGE_DIR / "herdr_transport.py"
 REQUEST_ID = "overseer-bounds-1"
 
 # The write-bound case, in whole seconds so the two outcomes cannot be confused.
-# Accepted tree: ~3.6s (identification's 1.6s plus the write's inherited 2.0s).
-# Remedied tree: ~2.0s (identification's 1.6s plus the residual 0.4s).
-WRITE_BUDGET_SECONDS = 2.0
+# Accepted tree: ~4.6s (identification's 1.6s plus the write's inherited 3.0s).
+# Remedied tree: ~3.0s (identification's 1.6s plus the residual 1.4s).
+# The residual must stay well above a loaded host's connect latency: at a 2.0s budget
+# it was 0.4s, and under load 42-62 on 18 cores the connect consumed it before any
+# byte was written, so the transport correctly reported `request_sent=False` and the
+# assertion below failed on behaviour that was right (overseer-7a6r2e).
+WRITE_BUDGET_SECONDS = 3.0
 IDENTIFY_COST_SECONDS = 1.6
 # Halfway between the two, so neither verdict depends on a tight margin.
-WRITE_BOUND_SECONDS = 2.8
+WRITE_BOUND_SECONDS = 3.8
 # Far past this host's AF_UNIX send buffer (`net.core.wmem_default` is 212 992),
 # against a peer that accepts and never reads, so `sendall` genuinely blocks.
 BLOCKING_PAYLOAD_BYTES = 8 * 1024 * 1024
