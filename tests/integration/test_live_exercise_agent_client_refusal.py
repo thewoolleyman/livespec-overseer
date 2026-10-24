@@ -27,13 +27,10 @@ LIVE_EXERCISE = ROOT / "scripts" / "overseer-live-exercise.sh"
 # Every external tool the runner reaches around the point it decides about the agent
 # client. The PATH a refusal case runs under carries ONLY these, so `codex` is absent BY
 # CONSTRUCTION rather than by accident: a release host carrying its own `codex` would
-# otherwise make the absent-client case pass for the wrong reason. `bwrap` is among them
-# deliberately -- a sealed PATH without it would refuse every case for the wrong reason,
-# and the assertion that matters is that the refusal beats the namespace launch.
+# otherwise make the absent-client case pass for the wrong reason.
 _RUNNER_TOOLS = (
     "bash",
     "basename",
-    "bwrap",
     "cat",
     "chmod",
     "dirname",
@@ -50,6 +47,13 @@ _RUNNER_TOOLS = (
 )
 
 
+# The runner demands a `bwrap` on PATH, so the sealed PATH carries one -- a STUB, never the
+# host's. The CI runner image has no `bwrap` at all, and a stub that fails loudly turns the
+# assertion that matters into one the test can see: a refusal that lost the race to the
+# namespace launch would reach the stub and print this marker.
+_BWRAP_STUB_MARKER = "sealed-bin bwrap stub was invoked"
+
+
 def _sealed_bin(*, root: Path) -> Path:
     sealed = root / "sealed-bin"
     sealed.mkdir(parents=True, exist_ok=True)
@@ -57,6 +61,9 @@ def _sealed_bin(*, root: Path) -> Path:
         resolved = shutil.which(tool)
         assert resolved is not None, f"this host provides no {tool}"
         (sealed / tool).symlink_to(resolved)
+    bwrap = sealed / "bwrap"
+    bwrap.write_text(f"#!/bin/sh\necho '{_BWRAP_STUB_MARKER}' >&2\nexit 97\n", encoding="utf-8")
+    bwrap.chmod(0o755)
     return sealed
 
 
@@ -97,6 +104,7 @@ def _run(*, tmp_path: Path, search_path: str) -> subprocess.CompletedProcess[str
 def _refused(*, completed: subprocess.CompletedProcess[str], naming: str, evidence: Path) -> None:
     assert completed.returncode != 0, completed.stdout
     assert naming in completed.stderr, completed.stderr
+    assert _BWRAP_STUB_MARKER not in completed.stderr, "the refusal lost the race to bwrap"
     assert list(evidence.iterdir()) == [], "the runner wrote evidence before refusing"
 
 
