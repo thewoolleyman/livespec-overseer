@@ -44,18 +44,34 @@ ID_A = "019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
 ID_B = "019f548d-6071-7893-9c2e-472cce81da02"
 
 
-def fake_host(*, comms=None, cwds=None, fds=None, children=None):
-    """Injected host readers: pid→comm, pid→cwd, pid→open fd targets, pid→child pids.
+def fake_host(*, comms=None, cwds=None, fds=None, children=None, environs=None):
+    """Injected host readers: pid→comm, pid→cwd, pid→open fd targets, pid→child pids, pid→environ.
 
     `children` defaults to a childless host, which is both what every pre-0.150 shape
     looked like and what keeps the walk over a session's helper processes hermetic:
     without it that walk would fall back to the REAL `/proc` children reader for the
     fake pids these tests invent.
+
+    `environs` defaults to unreadable environments for the SAME reason, and it was
+    missing rather than deliberately omitted. Every reader that scopes a carrier to a
+    Codex home consults `environ_of`, so without it the scope test fell back to the
+    REAL `/proc/<pid>/environ` for pids these tests invent — and on a host where such a
+    pid HAPPENS to exist, that carrier resolved to the host's own Codex home, compared
+    unequal to the declared fake one, and was dropped from the mapping. Measured in a
+    factory sandbox where `/proc/10` is a live `sleep` and `/proc/20` does not exist:
+    four of these tests failed, each losing exactly pid 10 while pid 20 — whose
+    unreadable environ already fell back to the declared home — survived.
+
+    An unreadable environ is the right default rather than a convenient one: the scope
+    test falls back to the home the caller DECLARED, which is what every fake here
+    intends its pids to be carriers of.
     """
     comms, cwds, fds, children = comms or {}, cwds or {}, fds or {}, children or {}
+    environs = environs or {}
     return {
         "pids_of_comm": lambda *, comm: sorted(p for p, c in comms.items() if c == comm),
         "cwd_of": lambda *, pid: cwds.get(pid),
         "fd_targets_of": lambda *, pid: fds.get(pid, []),
         "children_of": lambda *, pid: list(children.get(pid, [])),
+        "environ_of": lambda *, pid: environs.get(pid),
     }
