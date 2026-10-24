@@ -39,11 +39,14 @@
   },
   // Cross-repository citations the spec may make (doctor-no-cross-spec-reference).
   // constraints.md §"Factory routing" cites livespec-dev-tooling's
-  // §"Fabro factory registry". The entry is the BARE heading form: a
-  // file-qualified entry is validated against a local sibling clone that CI
-  // runners do not have.
+  // §"Fabro factory registry", and non-functional-requirements.md
+  // §"Constraints" cites livespec-dev-tooling's §"Delegated pre-push gate" and
+  // livespec's §"Enforcement-suite invocation" (its Delegated gate execution
+  // clause). Each entry is the BARE heading form: a file-qualified entry is
+  // validated against a local sibling clone that CI runners do not have.
   "external_references": {
-    "livespec-dev-tooling": ["§\"Fabro factory registry\""]
+    "livespec-dev-tooling": ["§\"Fabro factory registry\"", "§\"Delegated pre-push gate\""],
+    "livespec": ["§\"Enforcement-suite invocation\""]
   },
   "template": "livespec",
   "spec_root": "SPECIFICATION",
