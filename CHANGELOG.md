@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.34.6](https://github.com/thewoolleyman/livespec-overseer/compare/v5.34.5...v5.34.6) (2026-10-25)
+
+
+### Bug Fixes
+
+* **caam:** a scheduled invocation passes --scheduled to the program ([2da6206](https://github.com/thewoolleyman/livespec-overseer/commit/2da6206a1080e4fa856ce40072770abcd6f2b768))
+
 ## [5.34.5](https://github.com/thewoolleyman/livespec-overseer/compare/v5.34.4...v5.34.5) (2026-10-25)
 
 
