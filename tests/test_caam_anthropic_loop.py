@@ -239,12 +239,110 @@ def test_default_run_attempts_a_due_expired_idle_profile(*, tmp_path: Path):
     assert any(line.startswith("next-warm-wake: ") for line in out)
 
 
+UNSCHEDULED_LINE = (
+    "unscheduled: no --scheduled marker, so this pass rotates now;"
+    " the projected short-window drain and the expiring-weekly drain do not apply"
+)
+
+
+@pytest.mark.parametrize("argv", [[], ["--no-warm"], ["--protected-account=main=12.5"]])
+def test_an_executable_run_without_a_mode_flag_is_a_rotate_now_pass_that_says_so(*, argv):
+    """contracts.md **Mode resolution**: an invocation without the scheduled marker
+    is an explicit request to rotate now, so a lost marker degrades to a VISIBLE
+    forced rotation rather than to a silent pass with only the plain triggers live.
+    """
+    module = caam_loop_module()
+    out: list[str] = []
+    seen: list[object] = []
+
+    def runner(*, flags) -> int:
+        seen.append(flags)
+        return 0
+
+    assert module.main(argv=argv, stdout=out.append, pass_runner=runner) == 0
+
+    assert seen[0].force is True
+    assert seen[0].scheduled is False
+    assert out == [UNSCHEDULED_LINE]
+
+
+@pytest.mark.parametrize(
+    ("argv", "force"),
+    [(["--scheduled"], False), (["--force"], True), (["--dry-run"], False)],
+)
+def test_an_executable_run_with_a_mode_flag_is_resolved_as_written_and_silent(*, argv, force):
+    module = caam_loop_module()
+    out: list[str] = []
+    seen: list[object] = []
+
+    def runner(*, flags) -> int:
+        seen.append(flags)
+        return 0
+
+    assert module.main(argv=argv, stdout=out.append, pass_runner=runner) == 0
+
+    assert seen[0].force is force
+    assert out == []
+
+
+def test_a_bare_executable_run_rotates_off_an_account_the_triggers_would_keep(*, tmp_path: Path):
+    """The active account sits far above every trigger, so a scheduled pass holds;
+    the same pass run with no mode flag rotates to the roomier account and says why.
+    """
+    module = caam_loop_module()
+    write_snapshot(home=tmp_path, name="active", credential="active", expires_at_s=30_000.0)
+    write_snapshot(home=tmp_path, name="roomy", credential="roomy", expires_at_s=30_000.0)
+    write_creds(
+        path=tmp_path / ".claude" / ".credentials.json",
+        bearer="active",
+        expires_at_s=30_000.0,
+    )
+
+    def fetcher(*, creds_path: Path, now: float | None = None):
+        del now
+        token = json.loads(creds_path.read_text(encoding="utf-8"))["claudeAiOauth"]["accessToken"]
+        if token == "active":
+            return usage(five_hour=40.0, seven_day=40.0), None
+        return usage(five_hour=5.0, seven_day=5.0), None
+
+    def run(*, argv: list[str]) -> list[str]:
+        out: list[str] = []
+
+        def runner(*, flags) -> int:
+            return module.run_pass(
+                flags=flags,
+                home=tmp_path,
+                now=2_000.0,
+                stdout=out.append,
+                caam_runner=lambda *, args: FakeProcess(),
+                capacity_source=no_plan_read,
+                fetcher=fetcher,
+                save_state=lambda *, state, state_path: None,
+                switch_account=lambda *, request: module.SwitchResult(
+                    exit_code=0,
+                    reason="switched",
+                    lines=(f"SWITCHED {request.active_name} -> {request.target.name}",),
+                ),
+                enforce_models=lambda **kwargs: [],
+            )
+
+        assert module.main(argv=argv, stdout=out.append, pass_runner=runner) == 0
+        return out
+
+    scheduled = run(argv=["--scheduled", "--no-warm"])
+    bare = run(argv=["--no-warm"])
+
+    assert "SWITCHED active -> roomy" not in scheduled
+    assert bare[0] == UNSCHEDULED_LINE
+    assert bare[-1] == "SWITCHED active -> roomy"
+
+
 def test_unexpected_exception_reports_fail_type_without_traceback():
     module = caam_loop_module()
     out: list[str] = []
 
     code = module.main(
-        argv=[],
+        argv=["--scheduled"],
         stdout=out.append,
         pass_runner=lambda *, flags: (_ for _ in ()).throw(RuntimeError("boom")),
     )

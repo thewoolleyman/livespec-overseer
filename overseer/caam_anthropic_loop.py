@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 import sys
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Protocol
 
@@ -16,6 +16,7 @@ from caam_anthropic_pass import run_pass
 from caam_switch import SwitchResult
 
 __all__: list[str] = [
+    "UNSCHEDULED_LINE",
     "Flags",
     "LineWriter",
     "SwitchResult",
@@ -32,6 +33,12 @@ _EXPECTED_ERRORS = (
     KeyError,
     IndexError,
     subprocess.SubprocessError,
+)
+
+
+UNSCHEDULED_LINE = (
+    "unscheduled: no --scheduled marker, so this pass rotates now;"
+    " the projected short-window drain and the expiring-weekly drain do not apply"
 )
 
 
@@ -130,10 +137,26 @@ def main(
     writer = _stdout_line if stdout is None else stdout
     runner = _main_pass_runner(writer=writer) if pass_runner is None else pass_runner
     try:
-        return runner(flags=parse_flags(argv=list(sys.argv[1:] if argv is None else argv)))
+        flags = parse_flags(argv=list(sys.argv[1:] if argv is None else argv))
+        return runner(flags=_resolve_mode(flags=flags, writer=writer))
     except _EXPECTED_ERRORS as exc:
         writer(f"FAIL {type(exc).__name__}: {exc}")
         return 2
+
+
+def _resolve_mode(*, flags: Flags, writer: LineWriter) -> Flags:
+    """Resolve an executable run that names no mode per contracts.md **Mode resolution**.
+
+    Without the scheduled marker an invocation is an explicit request to rotate
+    now, so a run naming none of `--scheduled`, `--force` or `--dry-run` is
+    forced, keeping every refusal `--force` keeps. Saying so is the point: a
+    lost marker must degrade to a forced rotation the operator can SEE, never
+    to a pass with only the plain triggers live and nothing to say about it.
+    """
+    if flags.scheduled or flags.force or flags.dry_run:
+        return flags
+    writer(UNSCHEDULED_LINE)
+    return replace(flags, force=True)
 
 
 def _main_pass_runner(*, writer: LineWriter) -> PassRunner:
