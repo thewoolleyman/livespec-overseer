@@ -1762,5 +1762,96 @@
     "heading": "## Daemon message delivery channel",
     "work_item": "overseer-uepcr6",
     "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The weekly reserve is released when no account above it can serve a request now",
+    "work_item": "overseer-2fjvy6",
+    "first_seen": "2026-10-25"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The weekly reserve is released when the protected active account is spend-blocked and every other account above it is exhausted",
+    "work_item": "overseer-2fjvy6",
+    "first_seen": "2026-10-25"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The weekly reserve stays in force while an account above it can serve a request now",
+    "work_item": "overseer-2fjvy6",
+    "first_seen": "2026-10-25"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An account above the reserve that would reach the floor before the next pass does not keep the reserve in force",
+    "work_item": "overseer-2fjvy6",
+    "first_seen": "2026-10-25"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An account above the reserve that lacks the eligibility margin does not keep the reserve in force",
+    "work_item": "overseer-2fjvy6",
+    "first_seen": "2026-10-25"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An active account projected to reach the floor before the next pass does not keep the reserve in force",
+    "work_item": "overseer-2fjvy6",
+    "first_seen": "2026-10-25"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A refusal-held account above the reserve does not keep the reserve in force",
+    "work_item": "overseer-2fjvy6",
+    "first_seen": "2026-10-25"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The reserve decision precedes the capacity test's release for a refusal-held active account",
+    "work_item": "overseer-2fjvy6",
+    "first_seen": "2026-10-25"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The capacity test's release reaches candidates the reserve's release admitted",
+    "work_item": "overseer-2fjvy6",
+    "first_seen": "2026-10-25"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The scoped-model margin exception does not keep the weekly reserve in force",
+    "work_item": "overseer-2fjvy6",
+    "first_seen": "2026-10-25"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An account above the reserve that is not live-verified does not keep the reserve in force",
+    "work_item": "overseer-2fjvy6",
+    "first_seen": "2026-10-25"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A protected account above the reserve does not keep the reserve in force",
+    "work_item": "overseer-2fjvy6",
+    "first_seen": "2026-10-25"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A release on serveability grounds does not release a protection floor",
+    "work_item": "overseer-2fjvy6",
+    "first_seen": "2026-10-25"
   }
 ]
