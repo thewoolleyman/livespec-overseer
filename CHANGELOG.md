@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.34.5](https://github.com/thewoolleyman/livespec-overseer/compare/v5.34.4...v5.34.5) (2026-10-25)
+
+
+### Bug Fixes
+
+* **caam:** a run with no mode flag is a rotate-now pass and says so ([bfeae33](https://github.com/thewoolleyman/livespec-overseer/commit/bfeae33de2d5e4c5a58d2432d8f738ef9f8ee19a))
+
 ## [5.34.4](https://github.com/thewoolleyman/livespec-overseer/compare/v5.34.3...v5.34.4) (2026-10-24)
 
 
