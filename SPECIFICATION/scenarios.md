@@ -5089,6 +5089,196 @@ Then the operation holds
 
 And it reports that no candidate can carry the current load until the next pass
 
+## Scenario: The weekly reserve is released when no account above it can serve a request now
+
+Given the active account is unprotected, live-verified and above the weekly reserve, and has reached its monthly spend cap with an exhausted short window
+
+And one other live-verified unprotected account is above the weekly reserve with short-window remaining above zero but at or below the short-window floor
+
+And four live-verified unprotected accounts hold weekly remaining below the weekly reserve but above zero, with fresh short windows
+
+And a fleet load is recorded under which the account at the short-window floor fails the capacity test and at least one of the four passes it
+
+When a scheduled pass runs
+
+Then the operation releases the weekly reserve and rotates to one of the four accounts below the reserve instead of holding with an empty candidate set
+
+And it reports that the weekly reserve was released because no unprotected account above it was usable, naming the two accounts above the reserve
+
+## Scenario: The weekly reserve is released when the protected active account is spend-blocked and every other account above it is exhausted
+
+Given the active account is protected, live-verified, above both the weekly reserve and its own protection floor, and has reached its monthly spend cap with an exhausted short window
+
+And the only unprotected account above the weekly reserve is live-verified with an exhausted short window
+
+And four live-verified unprotected accounts hold weekly remaining below the weekly reserve but above zero, with fresh short windows, and at least one of them passes the capacity test
+
+When a scheduled pass runs
+
+Then the operation releases the weekly reserve and rotates off the protected account to one of the four accounts below the reserve instead of holding with an empty candidate set
+
+And it reports that the weekly reserve was released because no unprotected account above it was usable, naming the exhausted unprotected account
+
+## Scenario: The weekly reserve stays in force while an account above it can serve a request now
+
+Given the active account has crossed the short-window rotation threshold
+
+And one live-verified unprotected account holds weekly remaining above the weekly reserve, can serve a request now, holds the eligibility margin over the active account and passes the capacity test
+
+And other live-verified unprotected accounts hold weekly remaining below the weekly reserve with fresh short windows
+
+When a scheduled pass runs
+
+Then every account below the weekly reserve stays excluded from selection
+
+## Scenario: An account above the reserve that would reach the floor before the next pass does not keep the reserve in force
+
+Given the active account is unprotected, below the weekly reserve, and has crossed the short-window rotation threshold
+
+And the only unprotected account above the weekly reserve can serve a request now but fails the capacity test under the recorded fleet load
+
+And a live-verified unprotected account below the weekly reserve holds weekly remaining above zero and survives every selection rule other than the weekly reserve, including the eligibility margin over the active account and the capacity test
+
+When a scheduled pass runs
+
+Then the operation releases the weekly reserve and rotates to that account below the reserve
+
+And it reports that the weekly reserve was released because no unprotected account above it was usable, naming the account that failed the capacity test
+
+## Scenario: An account above the reserve that lacks the eligibility margin does not keep the reserve in force
+
+Given the active account is protected, above both the weekly reserve and its own protection floor, and its short-window remaining is at or below the short-window floor
+
+And the only unprotected account above the weekly reserve is live-verified, passes the capacity test, and holds short-window remaining above the short-window floor but less than the eligibility margin above the active account's short-window remaining
+
+And a live-verified unprotected account below the weekly reserve holds weekly remaining above zero and survives every selection rule other than the weekly reserve, including the eligibility margin over the active account and the capacity test
+
+When a scheduled pass runs
+
+Then the operation releases the weekly reserve and rotates to that account below the reserve
+
+And it reports that the weekly reserve was released because no unprotected account above it was usable, naming the account that lacked the margin
+
+## Scenario: An active account projected to reach the floor before the next pass does not keep the reserve in force
+
+Given the active account is unprotected, live-verified and above the weekly reserve, with short-window remaining above the short-window floor
+
+And its known short-window burn rate projects it to reach the short-window floor within the projection horizon, so the fast-drain trigger fires
+
+And the active account holds a usable reset that clears its short window
+
+And no other unprotected account is above the weekly reserve
+
+And a live-verified unprotected account below the weekly reserve holds weekly remaining above zero and survives every selection rule other than the weekly reserve, including the eligibility margin over the active account and the capacity test
+
+When a scheduled pass runs
+
+Then the operation releases the weekly reserve and rotates to that account below the reserve rather than claiming a reset on the active account
+
+And it reports that the weekly reserve was released because no unprotected account above it was usable, naming the active account
+
+## Scenario: A refusal-held account above the reserve does not keep the reserve in force
+
+Given the only unprotected account above the weekly reserve is refusal-held and is not the active account, and its readings show a fresh short window
+
+And the active account is below the weekly reserve and has crossed the short-window rotation threshold
+
+And a live-verified unprotected account below the weekly reserve holds weekly remaining above zero and survives every selection rule other than the weekly reserve, including the eligibility margin over the active account and the capacity test
+
+When a scheduled pass runs
+
+Then the operation releases the weekly reserve and rotates to that account below the reserve
+
+And it reports that the weekly reserve was released because no unprotected account above it was usable, naming the refusal-held account
+
+## Scenario: The reserve decision precedes the capacity test's release for a refusal-held active account
+
+Given the active account is unprotected, above the weekly reserve and refusal-held
+
+And the only other unprotected account above the weekly reserve can serve a request now and holds the eligibility margin, but fails the capacity test under the recorded fleet load
+
+And a live-verified unprotected account below the weekly reserve holds weekly remaining above zero and survives every selection rule other than the weekly reserve, including the eligibility margin over the active account and the capacity test
+
+When a scheduled pass runs
+
+Then the operation releases the weekly reserve, does not release the capacity test, and rotates to the account below the reserve
+
+And it reports that the weekly reserve was released because no unprotected account above it was usable, naming the refusal-held active account and the account that failed the capacity test
+
+## Scenario: The capacity test's release reaches candidates the reserve's release admitted
+
+Given the active account is unprotected, above the weekly reserve and refusal-held
+
+And the only other unprotected account above the weekly reserve can serve a request now and holds the eligibility margin, but fails the capacity test under the recorded fleet load
+
+And one live-verified unprotected account below the weekly reserve holds weekly remaining above zero and survives every selection rule other than the weekly reserve and the capacity test, which it also fails
+
+When a scheduled pass runs
+
+Then the operation releases the weekly reserve, then releases the capacity test, and selects whichever of those two candidates **Ranking** places first
+
+And it reports both the weekly reserve's release and the capacity test's release
+
+## Scenario: The scoped-model margin exception does not keep the weekly reserve in force
+
+Given an operator pin names the scoped model, and the active account is protected, live-verified, above both the weekly reserve and its own protection floor, and at or below the scoped-model reserve on the scoped allowance
+
+And the only unprotected account above the weekly reserve can serve a request now, passes the capacity test and holds the scoped allowance above the scoped-model reserve, but lacks the eligibility margin over the active account on the dimension the governing trigger compares
+
+And a live-verified unprotected account below the weekly reserve holds weekly remaining above zero, holds the scoped allowance above the scoped-model reserve, survives every selection rule other than the weekly reserve, including the eligibility margin and the capacity test, and has the earlier weekly reset of the two
+
+When a scheduled pass runs
+
+Then the operation releases the weekly reserve and rotates to the account below the reserve
+
+And it reports that the weekly reserve was released because no unprotected account above it was usable, naming the account above the reserve that lacked the margin
+
+## Scenario: An account above the reserve that is not live-verified does not keep the reserve in force
+
+Given the active account is unprotected, below the weekly reserve, and has crossed the short-window rotation threshold
+
+And the only unprotected account above the weekly reserve is not live-verified
+
+And a live-verified unprotected account below the weekly reserve holds weekly remaining above zero and survives every selection rule other than the weekly reserve, including the eligibility margin over the active account and the capacity test
+
+When a scheduled pass runs
+
+Then the operation releases the weekly reserve and rotates to that account below the reserve
+
+And it reports that the weekly reserve was released because no unprotected account above it was usable, naming the account that is not live-verified
+
+## Scenario: A protected account above the reserve does not keep the reserve in force
+
+Given a live-verified protected account holds weekly remaining above both the weekly reserve and its own protection floor, with a fresh short window
+
+And every unprotected account holds weekly remaining below the weekly reserve
+
+And the active account is unprotected and has crossed the short-window rotation threshold
+
+And another live-verified unprotected account holds weekly remaining above zero and survives every selection rule other than the weekly reserve, including the eligibility margin over the active account and the capacity test
+
+When a scheduled pass runs
+
+Then the operation releases the weekly reserve and rotates to that unprotected account rather than to the protected account
+
+And it reports that the weekly reserve was released because no unprotected account is above it
+
+## Scenario: A release on serveability grounds does not release a protection floor
+
+Given the active account is unprotected, live-verified and above the weekly reserve, its short-window remaining is at or below the short-window floor, and it holds no usable reset
+
+And no other unprotected account is above the weekly reserve
+
+And the only remaining candidates are protected accounts at or below their own protection floors
+
+When a scheduled pass runs
+
+Then the operation holds rather than selecting a protected account at or below its floor
+
+And it reports which accounts are protected and at what floor
+
+And it reports that the weekly reserve was released because no unprotected account above it was usable, naming the active account
+
 ## Scenario: The account table shows each account's capacity class
 
 Given the provider reports a large plan for one account and a small plan for another

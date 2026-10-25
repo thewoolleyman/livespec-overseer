@@ -3226,6 +3226,110 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: The weekly reserve is released when no account above it can serve a request now",
+    "test": "TODO",
+    "work_item": "overseer-2fjvy6",
+    "reason": "Owned by the code child of plan caam-weekly-reserve-release-ignores-serveability, which drives this scenario through the shipped rotation pass at integration tier with a scheduled invocation, injecting only provider usage."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The weekly reserve is released when the protected active account is spend-blocked and every other account above it is exhausted",
+    "test": "TODO",
+    "work_item": "overseer-2fjvy6",
+    "reason": "Owned by the code child of plan caam-weekly-reserve-release-ignores-serveability, which drives this scenario through the shipped rotation pass at integration tier with a scheduled invocation, injecting only provider usage."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The weekly reserve stays in force while an account above it can serve a request now",
+    "test": "TODO",
+    "work_item": "overseer-2fjvy6",
+    "reason": "Owned by the code child of plan caam-weekly-reserve-release-ignores-serveability, which drives this scenario through the shipped rotation pass at integration tier with a scheduled invocation, injecting only provider usage."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An account above the reserve that would reach the floor before the next pass does not keep the reserve in force",
+    "test": "TODO",
+    "work_item": "overseer-2fjvy6",
+    "reason": "Owned by the code child of plan caam-weekly-reserve-release-ignores-serveability, which drives this scenario through the shipped rotation pass at integration tier with a scheduled invocation, injecting only provider usage."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An account above the reserve that lacks the eligibility margin does not keep the reserve in force",
+    "test": "TODO",
+    "work_item": "overseer-2fjvy6",
+    "reason": "Owned by the code child of plan caam-weekly-reserve-release-ignores-serveability, which drives this scenario through the shipped rotation pass at integration tier with a scheduled invocation, injecting only provider usage."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An active account projected to reach the floor before the next pass does not keep the reserve in force",
+    "test": "TODO",
+    "work_item": "overseer-2fjvy6",
+    "reason": "Owned by the code child of plan caam-weekly-reserve-release-ignores-serveability, which drives this scenario through the shipped rotation pass at integration tier with a scheduled invocation, injecting only provider usage."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A refusal-held account above the reserve does not keep the reserve in force",
+    "test": "TODO",
+    "work_item": "overseer-2fjvy6",
+    "reason": "Owned by the code child of plan caam-weekly-reserve-release-ignores-serveability, which drives this scenario through the shipped rotation pass at integration tier with a scheduled invocation, injecting only provider usage."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The reserve decision precedes the capacity test's release for a refusal-held active account",
+    "test": "TODO",
+    "work_item": "overseer-2fjvy6",
+    "reason": "Owned by the code child of plan caam-weekly-reserve-release-ignores-serveability, which drives this scenario through the shipped rotation pass at integration tier with a scheduled invocation, injecting only provider usage."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The capacity test's release reaches candidates the reserve's release admitted",
+    "test": "TODO",
+    "work_item": "overseer-2fjvy6",
+    "reason": "Owned by the code child of plan caam-weekly-reserve-release-ignores-serveability, which drives this scenario through the shipped rotation pass at integration tier with a scheduled invocation, injecting only provider usage."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The scoped-model margin exception does not keep the weekly reserve in force",
+    "test": "TODO",
+    "work_item": "overseer-2fjvy6",
+    "reason": "Owned by the code child of plan caam-weekly-reserve-release-ignores-serveability, which drives this scenario through the shipped rotation pass at integration tier with a scheduled invocation, injecting only provider usage."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An account above the reserve that is not live-verified does not keep the reserve in force",
+    "test": "TODO",
+    "work_item": "overseer-2fjvy6",
+    "reason": "Owned by the code child of plan caam-weekly-reserve-release-ignores-serveability, which drives this scenario through the shipped rotation pass at integration tier with a scheduled invocation, injecting only provider usage."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A protected account above the reserve does not keep the reserve in force",
+    "test": "TODO",
+    "work_item": "overseer-2fjvy6",
+    "reason": "Owned by the code child of plan caam-weekly-reserve-release-ignores-serveability, which drives this scenario through the shipped rotation pass at integration tier with a scheduled invocation, injecting only provider usage."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A release on serveability grounds does not release a protection floor",
+    "test": "TODO",
+    "work_item": "overseer-2fjvy6",
+    "reason": "Owned by the code child of plan caam-weekly-reserve-release-ignores-serveability, which drives this scenario through the shipped rotation pass at integration tier with a scheduled invocation, injecting only provider usage."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: The account table shows each account's capacity class",
     "test": "tests.integration.test_caam_capacity_reporting.test_scenario_the_account_table_shows_each_accounts_capacity_class",
     "reason": "Drives the shipped rotation pass with the provider reporting a large plan for one account and a small plan for another, and asserts every account row's capacity cell carries its class with the provider's plan name as detail — including a row whose quota read failed, because the requirement is every account ROW rather than every readable one."
