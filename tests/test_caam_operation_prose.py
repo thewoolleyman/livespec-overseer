@@ -20,7 +20,8 @@ WARM_SOURCE = ROOT / "overseer" / "caam_warm.py"
 FLAG_SOURCE = ROOT / "overseer" / "caam_anthropic_loop.py"
 
 # `--scheduled` is the invocation marker the harness itself supplies, not an
-# operator flag the prose forwards, so it is excluded from the derived set.
+# operator flag, so it is excluded from the derived set; the prose passes it to
+# the program on a scheduled invocation, which the Invocation Mode test pins.
 NON_FORWARDABLE_FLAGS = frozenset(("--scheduled",))
 
 # Keep-warm is on by design (overseer-54k2za.52); the `CAAM_ROTATE_WARM=1` opt-in
@@ -115,3 +116,33 @@ def test_caam_prose_explains_cutover_operator_false_alarms() -> None:
     assert "bounded by the one-hour per-session memo" in prose
     assert "`homelab-foreman`" in prose
     assert "genuinely running Fable" in prose
+
+
+def _invocation_mode_section() -> str:
+    prose = PROSE.read_text(encoding="utf-8")
+    section = prose.partition("## Invocation Mode\n")[2].partition("\n## ")[0]
+    # Control: an absent heading would leave every assertion below reading "".
+    assert section.strip(), "Invocation Mode section not found"
+    return " ".join(section.split())
+
+
+def test_a_scheduled_invocation_runs_the_program_with_the_scheduled_marker() -> None:
+    """A literal reading of the old "without extra flags" ran every scheduled pass
+    unmarked, so the scheduled-only triggers never fired (overseer-g46gza).
+    """
+    section = _invocation_mode_section()
+
+    assert (
+        "Invoked with `--scheduled`: run the rebuilt account-rotation program with"
+        " `--scheduled`" in section
+    )
+    assert "without extra flags" not in section
+
+
+def test_the_invocation_mode_says_which_drains_need_the_scheduled_marker() -> None:
+    section = _invocation_mode_section()
+
+    assert (
+        "The projected short-window drain and the expiring-weekly drain run only when"
+        " the program is passed `--scheduled`." in section
+    )
