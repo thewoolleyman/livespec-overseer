@@ -106,8 +106,12 @@ as unknown while genuinely running Fable.
 
 Resolve the mode from the invocation text after the schedule check.
 
-- Invoked with `--scheduled`: run the rebuilt account-rotation program without
-  extra flags, so normal rotation triggers apply.
+- Invoked with `--scheduled`: run the rebuilt account-rotation program with
+  `--scheduled`, so normal rotation triggers apply. Pass the marker to the
+  program itself; it is not implied by how this operation was invoked. The
+  projected short-window drain and the expiring-weekly drain run only when the
+  program is passed `--scheduled`. A program run without it is a rotate-now pass
+  and prints an `unscheduled:` line saying so.
 - Invoked without `--scheduled`: run it with `--force`. A manual run is an
   explicit request to move now, but force still refuses an account with less
   headroom than the current account and still refuses any account with zero
