@@ -13,11 +13,16 @@ from caam_profile_state import caam_vault
 
 __all__: list[str] = [
     "ClaudeState",
+    "StateValidationError",
     "apply_identity_state",
     "capture_state",
 ]
 
 _PROFILE_MODE: Final = 0o600
+
+
+class StateValidationError(ValueError):
+    """The account manager must not run when captured state is invalid."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -31,20 +36,23 @@ class ClaudeState:
     target_profile: dict[str, object]
 
 
-def capture_state(*, home: Path, target_name: str) -> ClaudeState | None:
-    """Read the state to preserve before caam overwrites it, if it exists."""
+def capture_state(*, home: Path, target_name: str) -> ClaudeState:
+    """Capture and validate every state file before activation."""
     profile_path = home / ".claude.json"
     settings_path = home / ".claude/settings.json"
     target_path = caam_vault(home=home) / target_name / ".claude.json"
-    if not (profile_path.exists() or settings_path.exists() or target_path.exists()):
-        return None
-    return ClaudeState(
+    state = ClaudeState(
         profile=_read_object(path=profile_path),
         profile_path=profile_path,
         settings_bytes=settings_path.read_bytes(),
         settings_path=settings_path,
         target_profile=_read_object(path=target_path),
     )
+    for key in ("oauthAccount", "userID"):
+        if key not in state.target_profile:
+            raise StateValidationError(f"stored global state lacks {key}")
+    _ = _read_object_bytes(body=state.settings_bytes)
+    return state
 
 
 def apply_identity_state(*, state: ClaudeState) -> None:
@@ -63,7 +71,14 @@ def apply_identity_state(*, state: ClaudeState) -> None:
 
 
 def _read_object(*, path: Path) -> dict[str, object]:
-    return cast(dict[str, object], json.loads(path.read_text(encoding="utf-8")))
+    return _read_object_bytes(body=path.read_bytes())
+
+
+def _read_object_bytes(*, body: bytes) -> dict[str, object]:
+    parsed = json.loads(body.decode("utf-8"))
+    if not isinstance(parsed, dict):
+        raise StateValidationError("global state is not a JSON object")
+    return cast(dict[str, object], parsed)
 
 
 def _atomic_write(*, path: Path, body: bytes) -> None:

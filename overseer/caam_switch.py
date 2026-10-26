@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -14,7 +15,7 @@ from _caam_switch_host import (
     acquire_switch_lock,
     caam_activate,
 )
-from _caam_switch_state import apply_identity_state, capture_state
+from _caam_switch_state import StateValidationError, apply_identity_state, capture_state
 from caam_decision import ProfileUsage, UsageRecord, decision_switched
 from caam_profile_state import caam_vault, live_creds_path
 from caam_usage import read_creds
@@ -25,6 +26,7 @@ __all__: list[str] = [
     "REASON_FAIL_ACTIVATE",
     "REASON_FAIL_DID_NOT_STICK",
     "REASON_FAIL_ERROR",
+    "REASON_FAIL_STATE_VALIDATION",
     "REASON_FAIL_TARGET_CREDENTIAL",
     "REASON_HOLD_ACTIVE_CHANGED",
     "REASON_HOLD_LOCK_HELD",
@@ -60,6 +62,7 @@ REASON_FAIL_TARGET_CREDENTIAL: Final = "fail-target-credential"
 REASON_FAIL_ACTIVATE: Final = "fail-activate"
 REASON_FAIL_DID_NOT_STICK: Final = "fail-did-not-stick"
 REASON_FAIL_ERROR: Final = "fail-error"
+REASON_FAIL_STATE_VALIDATION: Final = "fail-state-validation"
 
 
 class CaamProcess(Protocol):
@@ -168,7 +171,15 @@ def _switch_account_uncaught(*, request: SwitchRequest) -> SwitchResult:
                 ),
             )
 
-        preserved_state = capture_state(home=request.home, target_name=request.target.name)
+        try:
+            preserved_state = capture_state(home=request.home, target_name=request.target.name)
+        except (OSError, StateValidationError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            request.save(state=request.state)
+            return SwitchResult(
+                exit_code=2,
+                reason=REASON_FAIL_STATE_VALIDATION,
+                lines=(f"FAIL state validation: {type(exc).__name__}: {exc}",),
+            )
 
         process = request.activator(
             args=("activate", _TOOL, request.target.name),
@@ -185,8 +196,7 @@ def _switch_account_uncaught(*, request: SwitchRequest) -> SwitchResult:
                 ),
             )
 
-        if preserved_state is not None:
-            apply_identity_state(state=preserved_state)
+        apply_identity_state(state=preserved_state)
 
     if _switch_did_not_stick(home=request.home, target_name=request.target.name):
         request.save(state=request.state)
