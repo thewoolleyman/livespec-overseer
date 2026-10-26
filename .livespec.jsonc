@@ -457,8 +457,10 @@
         "implement": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high", "fallbacks": [{ "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" }] },
         "fix": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high", "fallbacks": [{ "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" }] },
         "review_fix": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high", "fallbacks": [{ "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" }] },
-        "proof_capture": { "agent": "codex-acp", "model": "gpt-5.6-luna", "effort": "medium", "fallbacks": [{ "agent": "claude-acp", "model": "claude-sonnet-5-5", "effort": "medium" }] },
-        "proof_verify": { "agent": "codex-acp", "model": "gpt-5.6-luna", "effort": "medium", "fallbacks": [{ "agent": "claude-acp", "model": "claude-sonnet-5-5", "effort": "medium" }] },
+        // 2026-10-26: proof nodes moved luna medium -> terra high, extending the orchestrator move
+        // (b5fb6931) after its first terra proof_verify PASS (bd-ib-yzxmuo run 01M5VB0EHEKG), per coordinator ruling.
+        "proof_capture": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high", "fallbacks": [{ "agent": "claude-acp", "model": "claude-sonnet-5-5", "effort": "medium" }] },
+        "proof_verify": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high", "fallbacks": [{ "agent": "claude-acp", "model": "claude-sonnet-5-5", "effort": "medium" }] },
         "review": { "agent": "codex-acp", "model": "gpt-5.6-terra", "effort": "high", "fallbacks": [{ "agent": "claude-acp", "model": "claude-opus-5", "effort": "high" }] },
         "pr": { "agent": "codex-acp", "model": "gpt-5.6-luna", "effort": "low", "fallbacks": [{ "agent": "claude-acp", "model": "claude-sonnet-5-5", "effort": "medium" }] },
         "disposition": { "agent": "codex-acp", "model": "gpt-5.6-luna", "effort": "low", "fallbacks": [{ "agent": "claude-acp", "model": "claude-sonnet-5-5", "effort": "medium" }] }
