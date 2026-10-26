@@ -12,6 +12,7 @@ no real `~/.codex`.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import _codex_proc
@@ -44,7 +45,7 @@ def test_map_codex_sessions_emits_the_same_triple_as_the_claude_twin(*, tmp_path
     mapped = codex_sessions.map_codex_sessions(
         pane_pid_to_session={9000: "livespec3"},
         ppid_of=lambda *, pid: {4242: 9000}.get(pid),  # the codex pid's parent IS the pane pid
-        readers=codex_sessions.CodexHostReaders(codex_home=home, **host),
+        readers=replace(host["readers"], codex_home=home),
     )
     assert mapped == [("livespec3", "topic-a", "/data/projects/livespec")]
 
@@ -61,7 +62,7 @@ def test_map_codex_sessions_omits_a_session_not_inside_tmux(*, tmp_path):
     mapped = codex_sessions.map_codex_sessions(
         pane_pid_to_session={},  # no tmux panes at all
         ppid_of=lambda *, pid: None,
-        readers=codex_sessions.CodexHostReaders(codex_home=home, **host),
+        readers=replace(host["readers"], codex_home=home),
     )
     assert mapped == []
 
@@ -76,7 +77,7 @@ def test_map_codex_sessions_is_deterministic_across_sessions(*, tmp_path):
     mapped = codex_sessions.map_codex_sessions(
         pane_pid_to_session={101: "s-one", 202: "s-two"},
         ppid_of=lambda *, pid: {10: 101, 20: 202}.get(pid),
-        readers=codex_sessions.CodexHostReaders(codex_home=home, **host),
+        readers=replace(host["readers"], codex_home=home),
     )
     assert mapped == [  # pid order, like the Claude twin's sorted-registry order
         ("s-one", "topic-a", "/data/projects/one"),
@@ -104,7 +105,7 @@ def test_codex_by_tmux_session_keys_live_sessions_by_tmux_session_and_name(*, tm
     by = codex_sessions.codex_by_tmux_session(
         pane_pid_to_session={101: "s-one", 202: "s-two"},
         ppid_of=lambda *, pid: {10: 101, 20: 202}.get(pid),
-        readers=codex_sessions.CodexHostReaders(codex_home=home, **host),
+        readers=replace(host["readers"], codex_home=home),
     )
     assert set(by) == {("s-one", "topic-a"), ("s-two", "topic-b")}
     assert by[("s-one", "topic-a")].pid == 10
@@ -127,7 +128,7 @@ def test_codex_by_tmux_session_keeps_both_when_two_share_one_tmux_session(*, tmp
     by = codex_sessions.codex_by_tmux_session(
         pane_pid_to_session={101: "shared", 202: "shared"},
         ppid_of=lambda *, pid: {10: 101, 20: 202}.get(pid),
-        readers=codex_sessions.CodexHostReaders(codex_home=home, **host),
+        readers=replace(host["readers"], codex_home=home),
     )
     assert set(by) == {("shared", "topic-a"), ("shared", "topic-b")}
     assert by[("shared", "topic-a")].pid == 10
@@ -142,7 +143,7 @@ def test_codex_by_tmux_session_is_empty_with_no_codex_running(*, tmp_path):
     home = fake_index(tmp_path=tmp_path, records=[])
     by = codex_sessions.codex_by_tmux_session(
         pane_pid_to_session={},
-        readers=codex_sessions.CodexHostReaders(codex_home=home, **fake_host()),
+        readers=replace(fake_host()["readers"], codex_home=home),
     )
     assert by == {}
 
@@ -155,7 +156,7 @@ def test_codex_by_tmux_session_omits_sessions_outside_tmux(*, tmp_path):
     by = codex_sessions.codex_by_tmux_session(
         pane_pid_to_session={},
         ppid_of=lambda *, pid: None,
-        readers=codex_sessions.CodexHostReaders(codex_home=home, **host),
+        readers=replace(host["readers"], codex_home=home),
     )
     assert by == {}
 
@@ -175,7 +176,7 @@ def test_codex_by_tmux_session_keeps_the_first_on_a_same_tmux_same_name_collisio
     by = codex_sessions.codex_by_tmux_session(
         pane_pid_to_session={101: "shared", 202: "shared"},
         ppid_of=lambda *, pid: {10: 101, 20: 202}.get(pid),
-        readers=codex_sessions.CodexHostReaders(codex_home=home, **host),
+        readers=replace(host["readers"], codex_home=home),
     )
     assert set(by) == {("shared", "topic-a")}
     assert by[("shared", "topic-a")].pid == 10  # the FIRST by pid order, not the last

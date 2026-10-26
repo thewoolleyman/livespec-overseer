@@ -166,6 +166,7 @@ def codex_supervisor(
         watch_repos=[str(repo)],
         codex_home=str(codex_home),
         codex_pids_of_comm=lambda *, comm: carriers if comm == codex_sessions.CODEX_COMM else [],
+        codex_foreground_pgrp_of=lambda *, pid: pid if pid in carriers else None,
         codex_fd_targets_of=lambda *, pid: fd_targets.get(pid, []),
         codex_cwd_of=lambda *, pid: str(repo) if pid in fd_targets else None,
         cmdline_of=lambda *, pid: nul(argv=["codex", "-m", model]) if pid in fd_targets else None,

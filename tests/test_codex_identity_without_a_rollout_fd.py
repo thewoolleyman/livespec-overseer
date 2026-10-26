@@ -243,6 +243,7 @@ def make_world(*, tmp_path, rows=None, cwds=None, panes=None, indexed=None):
             if comm == codex_sessions.CODEX_COMM
             else []
         ),
+        codex_foreground_pgrp_of=lambda *, pid: (pid if pid != APP_SERVER_PID else None),
         codex_fd_targets_of=lambda *, pid: fd_targets.get(pid, []),
         codex_cwd_of=lambda *, pid: carrier_cwds.get(pid),
         children_of=lambda *, pid: [APP_SERVER_PID] if pid == OPERATOR_PID else [],
@@ -282,6 +283,7 @@ def test_the_shared_app_servers_rollout_set_names_no_carrier_of_its_own(*, tmp_p
         cwd_of=world.sup.codex_cwd_of,
         fd_targets_of=world.sup.codex_fd_targets_of,
         children_of=world.sup.children_of,
+        foreground_pgrp_of=world.sup.codex_foreground_pgrp_of,
     )
 
     carriers = module.pane_codex_carriers(
@@ -293,12 +295,11 @@ def test_the_shared_app_servers_rollout_set_names_no_carrier_of_its_own(*, tmp_p
     assert module.live_rollout_ids(
         carriers=[TRACKED_PID, OPERATOR_PID, APP_SERVER_PID], readers=readers
     ) == frozenset({SESSION_ID, OPERATOR_SESSION_ID})
-    # The paneless carrier and the one whose cwd cannot be read are both dropped.
+    # The detached app-server, paneless carrier, and unreadable-cwd process are dropped.
     by_pid = {carrier.pid: carrier for carrier in carriers}
-    assert sorted(by_pid) == [TRACKED_PID, OPERATOR_PID, APP_SERVER_PID]
+    assert sorted(by_pid) == [TRACKED_PID, OPERATOR_PID]
     assert by_pid[TRACKED_PID].session_id == SESSION_ID
     assert by_pid[OPERATOR_PID].session_id == OPERATOR_SESSION_ID
-    assert by_pid[APP_SERVER_PID].session_id is None
 
 
 def test_two_rows_recording_one_identity_bind_nothing(*, tmp_path):

@@ -31,11 +31,19 @@ settings are the operator's environment and are handed on verbatim.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping
 
-__all__: list[str] = ["IMPORT_PATH_VAR", "runtime_exec_env"]
+__all__: list[str] = ["IMPORT_PATH_VAR", "process_execve", "runtime_exec_env"]
 
 IMPORT_PATH_VAR = "PYTHONPATH"
+
+
+def process_execve(
+    *, path: str, argv: list[str], env: Mapping[str, str]
+) -> None:  # pragma: no cover
+    """Replace this process with the selected overseer executable."""
+    os.execve(path, argv, env)  # noqa: S606
 
 
 def runtime_exec_env(*, env: Mapping[str, str]) -> dict[str, str]:

@@ -6,6 +6,7 @@ import io
 import os
 import subprocess
 import time
+from dataclasses import replace
 from pathlib import Path
 
 import codex_sessions
@@ -64,9 +65,10 @@ def _mapped_unindexed_codex_supervisor(*, tmp_path):
         fake=fake,
         watch_repos=[str(repo)],
         codex_home=str(codex_home),
-        codex_pids_of_comm=host["pids_of_comm"],
+        codex_pids_of_comm=host["readers"].pids_of_comm,
         codex_fd_targets_of=rollout_fds,
-        codex_cwd_of=host["cwd_of"],
+        codex_cwd_of=host["readers"].cwd_of,
+        codex_foreground_pgrp_of=host["readers"].foreground_pgrp_of,
         ppid_of=lambda *, pid: {9000: 7001}.get(pid),
     )
     registry.append_mapping(
@@ -145,7 +147,7 @@ def test_process_holding_only_unindexed_rollouts_still_surfaces_as_unnamed(tmp_p
     unindexed = codex_sessions.map_unindexed_codex_sessions(
         pane_pid_to_session={7001: "critical-path"},
         ppid_of=lambda *, pid: {9000: 7001}.get(pid),
-        readers=codex_sessions.CodexHostReaders(codex_home=home, **host),
+        readers=replace(host["readers"], codex_home=home),
     )
     assert [(session.tmux_session, session.session_id) for session in unindexed] == [
         ("critical-path", ID_B)
@@ -250,6 +252,7 @@ def test_mapped_unindexed_codex_adoption_uses_a_real_tmux_session(tmp_path):
             sleep=lambda _seconds: None,
             codex_home=str(codex_home),
             codex_pids_of_comm=lambda *, comm: [9000] if comm == codex_sessions.CODEX_COMM else [],
+            codex_foreground_pgrp_of=lambda *, pid: 9000 if pid == 9000 else None,
             codex_fd_targets_of=lambda *, pid: [fake_rollout(session_id=ID_B)]
             if pid == 9000
             else [],
@@ -326,9 +329,10 @@ def test_indexed_rollout_fd_makes_track_codex_and_routes_ready_restart(tmp_path)
         fake=fake,
         watch_repos=[str(repo)],
         codex_home=str(codex_home),
-        codex_pids_of_comm=host["pids_of_comm"],
+        codex_pids_of_comm=host["readers"].pids_of_comm,
         codex_fd_targets_of=rollout_fds,
-        codex_cwd_of=host["cwd_of"],
+        codex_cwd_of=host["readers"].cwd_of,
+        codex_foreground_pgrp_of=host["readers"].foreground_pgrp_of,
         ppid_of=lambda *, pid: {9000: 7001}.get(pid),
     )
     registry.write_injection_stamp(

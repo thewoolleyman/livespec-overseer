@@ -38,6 +38,7 @@ def codex_host_readers(*, sup: Supervisor) -> codex_sessions.CodexHostReaders:
         fd_targets_of=sup.codex_fd_targets_of,
         children_of=sup.children_of,
         environ_of=sup.environ_of,
+        foreground_pgrp_of=sup.codex_foreground_pgrp_of,
     )
 
 

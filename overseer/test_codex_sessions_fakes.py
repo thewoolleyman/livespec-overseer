@@ -16,6 +16,8 @@ No tests live here. The `test_` prefix is deliberate: coverage omits
 as product code and demand 100% coverage of a test double.
 """
 
+import codex_sessions
+
 __all__: list[str] = ["ID_A", "ID_B", "fake_host", "fake_index", "fake_rollout"]
 
 # --------------------------------------------------------------------------- #
@@ -44,8 +46,10 @@ ID_A = "019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
 ID_B = "019f548d-6071-7893-9c2e-472cce81da02"
 
 
-def fake_host(*, comms=None, cwds=None, fds=None, children=None, environs=None):
-    """Injected host readers: pid→comm, pid→cwd, pid→open fd targets, pid→child pids, pid→environ.
+def fake_host(
+    *, comms=None, cwds=None, fds=None, children=None, environs=None, foreground_pgrps=None
+):
+    """Injected host readers: pid→comm, cwd, fds, children, environ, and foreground group.
 
     `children` defaults to a childless host, which is both what every pre-0.150 shape
     looked like and what keeps the walk over a session's helper processes hermetic:
@@ -68,10 +72,18 @@ def fake_host(*, comms=None, cwds=None, fds=None, children=None, environs=None):
     """
     comms, cwds, fds, children = comms or {}, cwds or {}, fds or {}, children or {}
     environs = environs or {}
+    if foreground_pgrps is None:
+        descendants = {child for nested in children.values() for child in nested}
+        foreground_pgrps = {
+            pid: pid for pid, comm in comms.items() if comm == "codex" and pid not in descendants
+        }
     return {
-        "pids_of_comm": lambda *, comm: sorted(p for p, c in comms.items() if c == comm),
-        "cwd_of": lambda *, pid: cwds.get(pid),
-        "fd_targets_of": lambda *, pid: fds.get(pid, []),
-        "children_of": lambda *, pid: list(children.get(pid, [])),
-        "environ_of": lambda *, pid: environs.get(pid),
+        "readers": codex_sessions.CodexHostReaders(
+            pids_of_comm=lambda *, comm: sorted(p for p, c in comms.items() if c == comm),
+            cwd_of=lambda *, pid: cwds.get(pid),
+            fd_targets_of=lambda *, pid: fds.get(pid, []),
+            children_of=lambda *, pid: list(children.get(pid, [])),
+            environ_of=lambda *, pid: environs.get(pid),
+            foreground_pgrp_of=lambda *, pid: foreground_pgrps.get(pid),
+        )
     }

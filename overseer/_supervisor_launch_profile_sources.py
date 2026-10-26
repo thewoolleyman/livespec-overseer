@@ -122,14 +122,7 @@ def _codex_sources(
     readers: codex_sessions.CodexHostReaders,
 ) -> dict[tuple[str, str], LaunchProfileSource]:
     out: dict[tuple[str, str], LaunchProfileSource] = {}
-    for session in codex_sessions.read_live_codex_sessions(
-        codex_home=readers.codex_home,
-        pids_of_comm=readers.pids_of_comm,
-        cwd_of=readers.cwd_of,
-        fd_targets_of=readers.fd_targets_of,
-        children_of=readers.children_of,
-        environ_of=readers.environ_of,
-    ):
+    for session in codex_sessions.read_live_codex_sessions(readers=readers):
         tmux_session = claude_sessions.resolve_tmux_session(
             pid=session.pid,
             pane_pid_to_session=pane_pid_to_session,
