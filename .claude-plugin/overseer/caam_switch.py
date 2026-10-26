@@ -14,6 +14,7 @@ from _caam_switch_host import (
     acquire_switch_lock,
     caam_activate,
 )
+from _caam_switch_state import apply_identity_state, capture_state
 from caam_decision import ProfileUsage, UsageRecord, decision_switched
 from caam_profile_state import caam_vault, live_creds_path
 from caam_usage import read_creds
@@ -167,6 +168,8 @@ def _switch_account_uncaught(*, request: SwitchRequest) -> SwitchResult:
                 ),
             )
 
+        preserved_state = capture_state(home=request.home, target_name=request.target.name)
+
         process = request.activator(
             args=("activate", _TOOL, request.target.name),
             timeout=ACTIVATE_TIMEOUT_S,
@@ -181,6 +184,9 @@ def _switch_account_uncaught(*, request: SwitchRequest) -> SwitchResult:
                     f"{_process_message(process=process)}",
                 ),
             )
+
+        if preserved_state is not None:
+            apply_identity_state(state=preserved_state)
 
     if _switch_did_not_stick(home=request.home, target_name=request.target.name):
         request.save(state=request.state)
