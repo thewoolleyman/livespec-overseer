@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.37.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.36.0...v5.37.0) (2026-10-26)
+
+
+### Features
+
+* preserve caam switch host state ([c2d6d96](https://github.com/thewoolleyman/livespec-overseer/commit/c2d6d969c5fb5b0fbc5528c3fdfbcab15505a8e0))
+
 ## [5.36.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.35.0...v5.36.0) (2026-10-26)
 
 
