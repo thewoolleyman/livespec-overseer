@@ -20,6 +20,8 @@ __all__: list[str] = [
 ]
 
 _IDENTITY_KEYS: Final = ("oauthAccount", "userID")
+_EFFORT_KEY: Final = "effortLevel"
+_EFFORT_ORDER: Final = ("low", "medium", "high", "xhigh", "max")
 
 
 class StateValidationError(Exception):
@@ -38,6 +40,7 @@ class LiveSwitchState:
     profile: dict[str, object]
     profile_bytes: bytes
     profile_path: Path
+    settings: dict[str, object]
     settings_bytes: bytes
     settings_path: Path
     target_profile: dict[str, object]
@@ -53,7 +56,7 @@ def capture_live_state(*, home: Path, target_name: str) -> LiveSwitchState:
     profile_bytes = profile_path.read_bytes()
     settings_bytes = settings_path.read_bytes()
     profile = _read_object(path=profile_path, body=profile_bytes)
-    _ = _read_object(path=settings_path, body=settings_bytes)
+    settings = _read_object(path=settings_path, body=settings_bytes)
     target_profile = _read_object(path=target_path, body=target_path.read_bytes())
     missing = [key for key in _IDENTITY_KEYS if key not in target_profile]
     if missing:
@@ -67,6 +70,7 @@ def capture_live_state(*, home: Path, target_name: str) -> LiveSwitchState:
         profile=profile,
         profile_bytes=profile_bytes,
         profile_path=profile_path,
+        settings=settings,
         settings_bytes=settings_bytes,
         settings_path=settings_path,
         target_profile=target_profile,
@@ -81,7 +85,7 @@ def restore_rejected_state(*, state: LiveSwitchState) -> None:
 
 
 def apply_activated_state(*, state: LiveSwitchState) -> None:
-    """Keep local onboarding and settings after caam replaces its three files."""
+    """Restore host state after caam replaces its three files under the switch lock."""
     profile = dict(state.profile)
     for key in _IDENTITY_KEYS:
         profile[key] = state.target_profile[key]
@@ -89,7 +93,74 @@ def apply_activated_state(*, state: LiveSwitchState) -> None:
         path=state.profile_path,
         body=(json.dumps(profile, indent=2) + "\n").encode("utf-8"),
     )
-    _atomic_write(path=state.settings_path, body=state.settings_bytes)
+    _atomic_write(
+        path=state.settings_path,
+        body=_settings_with_effort_floor(state=state),
+    )
+
+
+def _settings_with_effort_floor(*, state: LiveSwitchState) -> bytes:
+    """Return captured settings with only a below-floor effort value changed."""
+    wanted = os.environ.get("CAAM_ROTATE_EFFORT", "high")
+    current = state.settings.get(_EFFORT_KEY)
+    if not wanted or _is_at_or_above_floor(current=current, wanted=wanted):
+        return state.settings_bytes
+    return _replace_top_level_value(
+        body=state.settings_bytes,
+        key=_EFFORT_KEY,
+        value=wanted,
+        has_members=bool(state.settings),
+    )
+
+
+def _is_at_or_above_floor(*, current: object, wanted: str) -> bool:
+    """Whether one captured effort value needs no repair for this floor."""
+    if not isinstance(current, str):
+        return False
+    if current not in _EFFORT_ORDER or wanted not in _EFFORT_ORDER:
+        return current == wanted
+    return _EFFORT_ORDER.index(current) >= _EFFORT_ORDER.index(wanted)
+
+
+def _replace_top_level_value(*, body: bytes, key: str, value: str, has_members: bool) -> bytes:
+    """Change or add one top-level JSON member without reserializing its siblings."""
+    text = body.decode("utf-8")
+    span = _top_level_value_span(text=text, key=key)
+    rendered = json.dumps(value)
+    if span is not None:
+        start, end = span
+        return (text[:start] + rendered + text[end:]).encode("utf-8")
+    closing = text.rfind("}")
+    separator = "," if has_members else ""
+    member = "\n  " + json.dumps(key) + ": " + rendered
+    return (text[:closing] + separator + member + text[closing:]).encode("utf-8")
+
+
+def _top_level_value_span(*, text: str, key: str) -> tuple[int, int] | None:
+    """Find one top-level object's value span using the JSON parser's own grammar."""
+    decoder = json.JSONDecoder()
+    index = _skip_whitespace(text=text, index=0) + 1
+    while True:
+        index = _skip_whitespace(text=text, index=index)
+        if text[index] == "}":
+            return None
+        name, index = decoder.raw_decode(text, index)
+        index = _skip_whitespace(text=text, index=index) + 1
+        start = _skip_whitespace(text=text, index=index)
+        _, end = decoder.raw_decode(text, start)
+        if name == key:
+            return (start, end)
+        index = _skip_whitespace(text=text, index=end)
+        if text[index] == "}":
+            return None
+        index += 1
+
+
+def _skip_whitespace(*, text: str, index: int) -> int:
+    """Advance over JSON's allowed whitespace before the next structural token."""
+    while index < len(text) and text[index].isspace():
+        index += 1
+    return index
 
 
 def _read_object(*, path: Path, body: bytes) -> dict[str, object]:
