@@ -50,6 +50,7 @@ this test process's pid, and teardown stops and deletes BY THAT EXACT NAME.
 from __future__ import annotations
 
 import contextlib
+import inspect
 import itertools
 import json
 import os
@@ -58,7 +59,7 @@ import socket
 import subprocess
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -66,6 +67,7 @@ from typing import Any
 import pytest
 from test_herdr_live_observations import (
     PANE_CWD,
+    BoundedPoll,
     pane_ids,
     process_info_reply,
     raw_request,
@@ -92,6 +94,10 @@ ACCEPT_POLL = 0.5
 INSTALL_TIMEOUT = 600.0
 SENTINEL_COMMAND = "sleep 600"
 SENTINEL_NAME = "sleep"
+# `_foreground` has always waited no longer than the daemon-appearance bound.
+# Its retry is inside that existing deadline, never a longer wait for a flaky
+# process reply.
+FOREGROUND_POLL = BoundedPoll(seconds=DAEMON_TIMEOUT)
 
 # A per-exercise suffix for the herdr session name, on top of this process's pid.
 # The pid alone was not enough: both exercises here are function-scoped, so the
@@ -231,10 +237,29 @@ def _geometry(*, socket_path: str, pane_id: str) -> tuple[dict[str, int], str]:
     return tops, str(layout["focused_pane_id"])
 
 
-def _foreground(*, socket_path: str, pane_id: str) -> Any:
-    reading = read_foreground(reply=process_info_reply(socket_path=socket_path, pane_id=pane_id))
-    assert reading is not None, f"no usable process reading for {pane_id!r}"
-    return reading
+def _foreground(
+    *,
+    read: Callable[[], Mapping[str, Any]],
+    pane_id: str,
+    poll: BoundedPoll = FOREGROUND_POLL,
+) -> Any:
+    """The first usable foreground reading before the existing bounded deadline.
+
+    A missing native process field is evidence of neither a shell identity nor a
+    foreground group. The live exercises need a usable reading to make either
+    assertion, but one transient incomplete reply must not end an exercise that
+    the next reading can establish. Keep the final unreadable reply as the
+    deadline reason so an all-unusable sequence names the pane rather than
+    raising from the first poll.
+    """
+    deadline = poll.monotonic() + poll.seconds
+    reason = f"no usable process reading for {pane_id!r}"
+    while poll.monotonic() < deadline:
+        reading = read_foreground(reply=read())
+        if reading is not None:
+            return reading
+        poll.sleep(POLL_SECONDS)
+    pytest.fail(f"{reason} within {poll.seconds}s")
 
 
 def _await_occupant(*, socket_path: str, pane_id: str, name: str) -> int:
@@ -242,7 +267,10 @@ def _await_occupant(*, socket_path: str, pane_id: str, name: str) -> int:
     deadline = time.monotonic() + DAEMON_TIMEOUT
     seen = ""
     while time.monotonic() < deadline:
-        reading = _foreground(socket_path=socket_path, pane_id=pane_id)
+        reading = _foreground(
+            read=lambda: process_info_reply(socket_path=socket_path, pane_id=pane_id),
+            pane_id=pane_id,
+        )
         named = reading.pids_named(name=name)
         if named and reading.group_id != reading.shell_pid:
             return named[0]
@@ -328,7 +356,10 @@ def _live_tab(*, tmp_path: Path) -> Iterator[LiveTab]:
             server_pid=owned.server_pid,
             invoking=owned.root,
             sibling=sibling,
-            sibling_shell_pid=_foreground(socket_path=owned.socket_path, pane_id=sibling).shell_pid,
+            sibling_shell_pid=_foreground(
+                read=lambda: process_info_reply(socket_path=owned.socket_path, pane_id=sibling),
+                pane_id=sibling,
+            ).shell_pid,
             sentinel_pid=sentinel,
             driver=_write_driver(scratch=tmp_path),
             scratch=tmp_path,
@@ -342,7 +373,10 @@ def _assert_placed_above(*, live: LiveTab, daemon_pane: str, before_invoking: An
     tops, focused = _geometry(socket_path=live.socket_path, pane_id=live.invoking)
     assert tops[daemon_pane] < tops[live.invoking] < tops[live.sibling]
     assert focused == live.invoking
-    after = _foreground(socket_path=live.socket_path, pane_id=live.invoking)
+    after = _foreground(
+        read=lambda: process_info_reply(socket_path=live.socket_path, pane_id=live.invoking),
+        pane_id=live.invoking,
+    )
     assert after.shell_pid == before_invoking.shell_pid
 
 
@@ -351,7 +385,10 @@ def _assert_candidate_daemon(*, live: LiveTab, daemon_pane: str, prefix: Path) -
     daemon_pid = _await_occupant(
         socket_path=live.socket_path, pane_id=daemon_pane, name="overseerd"
     )
-    reading = _foreground(socket_path=live.socket_path, pane_id=daemon_pane)
+    reading = _foreground(
+        read=lambda: process_info_reply(socket_path=live.socket_path, pane_id=daemon_pane),
+        pane_id=daemon_pane,
+    )
     assert reading.group_id != reading.shell_pid
     assert str(prefix) in Path(f"/proc/{daemon_pid}/cmdline").read_bytes().decode(errors="replace")
     return daemon_pid
@@ -359,7 +396,10 @@ def _assert_candidate_daemon(*, live: LiveTab, daemon_pane: str, prefix: Path) -
 
 def _assert_sibling_untouched(*, live: LiveTab) -> None:
     assert (
-        _foreground(socket_path=live.socket_path, pane_id=live.sibling).shell_pid
+        _foreground(
+            read=lambda: process_info_reply(socket_path=live.socket_path, pane_id=live.sibling),
+            pane_id=live.sibling,
+        ).shell_pid
         == live.sibling_shell_pid
     )
     assert _pid_alive(pid=live.sentinel_pid)
@@ -376,7 +416,12 @@ def test_the_bootstrap_places_a_live_daemon_above_its_own_pane_and_then_reuses_i
         daemon_executable=daemon_executable,
         home=live_tab.scratch / "daemon-home-one",
     )
-    before_invoking = _foreground(socket_path=live_tab.socket_path, pane_id=live_tab.invoking)
+    before_invoking = _foreground(
+        read=lambda: process_info_reply(
+            socket_path=live_tab.socket_path, pane_id=live_tab.invoking
+        ),
+        pane_id=live_tab.invoking,
+    )
     before_panes = set(pane_ids(socket_path=live_tab.socket_path))
 
     outcome = _invoke(
@@ -557,7 +602,10 @@ def test_a_withheld_launch_answer_stays_unresolved_and_is_never_repeated_or_clea
     tops, focused = _geometry(socket_path=live_tab.socket_path, pane_id=live_tab.invoking)
     assert tops[created] < tops[live_tab.invoking]
     assert focused == live_tab.invoking
-    stranded = _foreground(socket_path=live_tab.socket_path, pane_id=created)
+    stranded = _foreground(
+        read=lambda: process_info_reply(socket_path=live_tab.socket_path, pane_id=created),
+        pane_id=created,
+    )
     assert stranded.group_id == stranded.shell_pid
 
     repeat = _invoke(
@@ -575,8 +623,84 @@ def test_a_withheld_launch_answer_stays_unresolved_and_is_never_repeated_or_clea
     assert "retained shell" in repeat["error"]
     assert set(pane_ids(socket_path=live_tab.socket_path)) == live_panes
     assert (
-        _foreground(socket_path=live_tab.socket_path, pane_id=created).shell_pid
+        _foreground(
+            read=lambda: process_info_reply(socket_path=live_tab.socket_path, pane_id=created),
+            pane_id=created,
+        ).shell_pid
         == stranded.shell_pid
     )
     assert _pid_alive(pid=stranded.shell_pid)
     assert _pid_alive(pid=live_tab.sentinel_pid)
+
+
+# ------------------------------------------------ controls over foreground reads
+
+
+_CONTROL_PANE = "w1:p1"
+_CONTROL_SHELL_PID = 3618552
+_UNUSABLE_PROCESS_REPLY: dict[str, Any] = {"result": {"process_info": {"pane_id": _CONTROL_PANE}}}
+
+
+def _usable_process_reply() -> dict[str, Any]:
+    """One process reply carrying the native fields a foreground reading needs."""
+    return {
+        "result": {
+            "process_info": {
+                "pane_id": _CONTROL_PANE,
+                "shell_pid": _CONTROL_SHELL_PID,
+                "foreground_process_group_id": _CONTROL_SHELL_PID,
+                "foreground_processes": [
+                    {
+                        "pid": _CONTROL_SHELL_PID,
+                        "name": "zsh",
+                        "cmdline": "zsh",
+                        "cwd": PANE_CWD,
+                    }
+                ],
+            }
+        }
+    }
+
+
+def _scripted_poll(*, ticks: list[float]) -> BoundedPoll:
+    """A poll whose clock advances through supplied ticks without sleeping."""
+    remaining = list(ticks)
+
+    def monotonic() -> float:
+        return remaining.pop(0) if remaining else 1e9
+
+    return BoundedPoll(seconds=1.0, monotonic=monotonic, sleep=lambda _seconds: None)
+
+
+def test_foreground_discards_one_unusable_reading_before_returning_the_next_reading() -> None:
+    """A transient incomplete reply costs a poll instead of failing the live exercise."""
+    parameters = inspect.signature(_foreground).parameters
+    assert (
+        "read" in parameters
+    ), "the deterministic control needs an injected process-reading source"
+    assert (
+        "poll" in parameters
+    ), "the retry deadline must be injectable rather than waiting in real time"
+    replies = [_UNUSABLE_PROCESS_REPLY, _usable_process_reply()]
+
+    reading = _foreground(
+        read=lambda: replies.pop(0),
+        pane_id=_CONTROL_PANE,
+        poll=_scripted_poll(ticks=[0.0, 0.1, 0.2, 2.0]),
+    )
+
+    assert reading.shell_pid == _CONTROL_SHELL_PID
+    assert replies == [], "the usable reading must be fetched after the unusable one is discarded"
+
+
+def test_foreground_names_the_pane_when_every_reading_is_unusable_until_deadline() -> None:
+    """An unreadable pane expires with the observed missing-reading reason."""
+    with pytest.raises(pytest.fail.Exception) as failed:
+        _foreground(
+            read=lambda: _UNUSABLE_PROCESS_REPLY,
+            pane_id=_CONTROL_PANE,
+            poll=_scripted_poll(ticks=[0.0, 0.5, 2.0]),
+        )
+
+    assert "no usable process reading" in str(failed.value)
+    assert _CONTROL_PANE in str(failed.value)
