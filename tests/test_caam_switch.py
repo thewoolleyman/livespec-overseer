@@ -190,6 +190,47 @@ def test_switch_keeps_live_onboarding_trust_and_settings_while_replacing_identit
     assert live_profile.stat().st_mode & 0o777 == 0o600
 
 
+def test_switch_raises_only_low_reasoning_effort_without_reformatting_settings(
+    *, tmp_path: Path, monkeypatch
+):
+    module = caam_switch_module()
+    monkeypatch.setenv("CAAM_ROTATE_EFFORT", "high")
+    target = tmp_path / ".local/share/caam/vault/claude/target"
+    live_profile = tmp_path / ".claude.json"
+    live_settings = tmp_path / ".claude/settings.json"
+    write_json(path=live_profile, body={"oauthAccount": {"accountUuid": "active"}})
+    write_json(path=target / ".claude.json", body={"oauthAccount": {"accountUuid": "target"}})
+    before_settings = b'{\n  "theme": "dark",\n  "effortLevel": "low",\n  "other": [1, 2]\n}\n'
+    expected_settings = b'{\n  "theme": "dark",\n  "effortLevel": "high",\n  "other": [1, 2]\n}\n'
+    live_settings.parent.mkdir(parents=True, exist_ok=True)
+    live_settings.write_bytes(before_settings)
+    (target / "settings.json").write_text('{"effortLevel":"low"}\n', encoding="utf-8")
+    write_creds(path=target / ".credentials.json", access_value="target-value")
+    write_creds(path=tmp_path / ".claude/.credentials.json", access_value="active-value")
+    lock = FakeLock()
+    activator = RestoringActivator(home=tmp_path)
+    activator.lock = lock
+
+    result = module.switch_account(
+        request=module.SwitchRequest(
+            active_name="active",
+            target=ProfileUsage(name="target", source="live", usage=usage()),
+            current=usage(five_hour=90.0),
+            state={"profiles": {}},
+            home=tmp_path,
+            now=1000.0,
+            active_reader=FakeActive("active"),
+            fetcher=lambda *, creds_path, now=None: (usage(), None),
+            activator=activator,
+            lock_factory=FakeLockFactory(lock=lock),
+            save=lambda *, state: None,
+        )
+    )
+
+    assert result.reason == module.REASON_SWITCHED
+    assert live_settings.read_bytes() == expected_settings
+
+
 def test_contended_lock_holds_without_waiting_and_saves_state(*, tmp_path: Path):
     module = caam_switch_module()
     saved: list[dict[str, object]] = []
