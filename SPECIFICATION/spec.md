@@ -1027,6 +1027,36 @@ sessions matches each session's registered display name against active plan
 topics, exactly — never a screen-scrape, and never a most-recent-by-time
 guess.
 
+A mapped track whose session is gone MUST be surfaced as MISNAMED, rather than
+as gone, whenever a Codex near-miss candidate exists. It is the candidate's own
+live runtime that makes the case a Codex one, not the track's recorded launch
+profile, so a stale recorded harness does not suppress the row. A candidate is a Codex thread whose identity is established from live
+process evidence — a live Codex process whose working directory resolves
+inside the track's repository — and whose name, read from the Codex session
+index, CONTAINS the track's derived session name (as derived in this section,
+including any cross-repository qualifier), compared case-sensitively, but is
+not equal to it. A thread named exactly the derived session name is never
+misnamed. A thread is never a candidate when its name ends in a reserved
+suffix (compared case-insensitively), when its name equals the derived
+session name of any other discovered track, or when it is already adopted by
+or bound to another track. When one or more candidates exist, the daemon MUST
+raise exactly one `codex-track-misnamed` attention row for the track, in place
+of its session-gone row, naming every candidate's live pane, thread
+identifier and actual name, together with the exact one-line repair
+`/rename <derived-name>` to be typed in the intended candidate's pane. While a
+track reads misnamed, the daemon MUST NOT adopt, wrap up, nudge, restart, or
+consume a ready declaration for any candidate: containment is evidence for
+the operator, never an identity, and exact-name adoption remains the only way
+a session becomes a track. The row's notification follows §"Notify, never
+block": its dedup identity is the misnamed condition together with the set of
+candidate thread identifiers, a change in a candidate's actual name alone
+MUST NOT re-emit it, and it re-arms when that condition clears. On the first
+round after a candidate's indexed name becomes exactly the derived session
+name, ordinary exact-name adoption applies: the session is adopted, the track
+binds that session's live pane, and the misnamed row clears. A
+discovered-but-unassigned plan never raises a misnamed row, and neither does a
+done track (§"The terminal declaration"), which keeps its quiet `done` status.
+
 The `-supervisor` suffix is RESERVED for pair members (per §"Supervised
 runtimes"). It is compared case-insensitively. A worker entity MUST
 NOT be derived, registered, or accepted under a session name ending in a

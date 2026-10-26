@@ -3799,39 +3799,63 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A switch to a never-onboarded profile keeps the host's onboarding and trust",
     "test": "TODO",
-    "work_item": "overseer-hc7j",
-    "reason": "Owed integration-tier test (tests/integration) over the shipped rotation pass, to be written by overseer-hc7j with the implementation; ratified 2026-10-26 under the caam-identity-only-switch-write revise (spec-first)."
+    "work_item": "overseer-znzi47",
+    "reason": "Owed integration-tier test (tests/integration) over the shipped rotation pass, to be written by overseer-znzi47 (a slice of the regroomed overseer-hc7j) with the implementation; ratified 2026-10-26 under the caam-identity-only-switch-write revise (spec-first)."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A global state file that fails validation prevents the install",
     "test": "TODO",
-    "work_item": "overseer-hc7j",
-    "reason": "Owed integration-tier test (tests/integration) over the shipped rotation pass, to be written by overseer-hc7j with the implementation; ratified 2026-10-26 under the caam-identity-only-switch-write revise (spec-first)."
+    "work_item": "overseer-ks3ydu",
+    "reason": "Owed integration-tier test (tests/integration) over the shipped rotation pass, to be written by overseer-ks3ydu (a slice of the regroomed overseer-hc7j) with the implementation; ratified 2026-10-26 under the caam-identity-only-switch-write revise (spec-first)."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed post-install write restores the pre-switch account",
     "test": "TODO",
-    "work_item": "overseer-hc7j",
-    "reason": "Owed integration-tier test (tests/integration) over the shipped rotation pass, to be written by overseer-hc7j with the implementation; ratified 2026-10-26 under the caam-identity-only-switch-write revise (spec-first)."
+    "work_item": "overseer-5o3ebm",
+    "reason": "Owed integration-tier test (tests/integration) over the shipped rotation pass, to be written by overseer-5o3ebm (a slice of the regroomed overseer-hc7j) with the implementation; ratified 2026-10-26 under the caam-identity-only-switch-write revise (spec-first)."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed restore names every file left unrestored",
     "test": "TODO",
-    "work_item": "overseer-hc7j",
-    "reason": "Owed integration-tier test (tests/integration) over the shipped rotation pass, to be written by overseer-hc7j with the implementation; ratified 2026-10-26 under the caam-identity-only-switch-write revise (spec-first)."
+    "work_item": "overseer-5o3ebm",
+    "reason": "Owed integration-tier test (tests/integration) over the shipped rotation pass, to be written by overseer-5o3ebm (a slice of the regroomed overseer-hc7j) with the implementation; ratified 2026-10-26 under the caam-identity-only-switch-write revise (spec-first)."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A session that reinstates the previous identity reads as a switch that did not take effect",
     "test": "TODO",
-    "work_item": "overseer-hc7j",
-    "reason": "Owed integration-tier test (tests/integration) over the shipped rotation pass, to be written by overseer-hc7j with the implementation; ratified 2026-10-26 under the caam-identity-only-switch-write revise (spec-first)."
+    "work_item": "overseer-ux7ryt",
+    "reason": "Owed integration-tier test (tests/integration) over the shipped rotation pass, to be written by overseer-ux7ryt (a slice of the regroomed overseer-hc7j) with the implementation; ratified 2026-10-26 under the caam-identity-only-switch-write revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A live Codex thread named around its topic is surfaced as misnamed, not adopted",
+    "test": "TODO",
+    "work_item": "overseer-uzvcbn.6",
+    "reason": "Owed integration-tier test over the shipped supervision round, to be written by overseer-uzvcbn.6 with the implementation; ratified 2026-10-26 under the codex-track-misnamed-alert revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A misnamed Codex track is adopted on the round after it is renamed to its topic",
+    "test": "TODO",
+    "work_item": "overseer-uzvcbn.6",
+    "reason": "Owed integration-tier test over the shipped supervision round, to be written by overseer-uzvcbn.6 with the implementation; ratified 2026-10-26 under the codex-track-misnamed-alert revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Supervisor, other-track and out-of-repository threads are never misnamed candidates",
+    "test": "TODO",
+    "work_item": "overseer-uzvcbn.6",
+    "reason": "Owed integration-tier test over the shipped supervision round, to be written by overseer-uzvcbn.6 with the implementation; ratified 2026-10-26 under the codex-track-misnamed-alert revise (spec-first)."
   }
 ]
