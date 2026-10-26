@@ -219,8 +219,9 @@ def _resolve(*, request: OnboardingRequest, screen: OnboardingScreen) -> None:
     """Send only a re-read-safe key sequence for a recognised, owned screen."""
     if screen.name in (_THEME, _SECURITY):
         _send_if_same(request=request, expected=screen, key="Enter")
-    elif screen.folder == request.track.repo and screen.selection == "exit":
-        _send_if_same(request=request, expected=screen, key="Down")
+    elif screen.folder == request.track.repo:
+        if screen.selection == "exit":
+            _send_if_same(request=request, expected=screen, key="Down")
         accepted = OnboardingScreen(name=_TRUST, folder=screen.folder, selection="accept")
         _send_if_same(request=request, expected=accepted, key="Enter")
 

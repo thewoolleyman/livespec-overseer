@@ -140,6 +140,23 @@ def test_foreign_workspace_trust_is_an_attention_row_without_a_keystroke(*, tmp_
     assert str(repo) not in (row.note or "")
 
 
+def test_owned_workspace_trust_accept_selection_is_submitted_after_reread(*, tmp_path):
+    repo, fake, sup, track = onboarding_case(
+        tmp_path=tmp_path,
+        capture=workspace_trust(folder=str(tmp_path), accept_selected=True),
+    )
+    track = registry.Track(
+        repo=str(tmp_path),
+        topic=track.topic,
+        tmux=track.tmux,
+    )
+
+    row = sup.evaluate(track=track, act=True)
+
+    assert row.status == "blocked-onboarding"
+    assert sent_keys(fake=fake) == ["Enter"]
+
+
 def test_read_only_onboarding_reports_without_keystroking(*, tmp_path):
     _repo, fake, sup, track = onboarding_case(tmp_path=tmp_path, capture=SECURITY_NOTES)
 
