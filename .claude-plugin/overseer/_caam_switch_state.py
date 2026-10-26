@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,6 +21,9 @@ __all__: list[str] = [
 ]
 
 _IDENTITY_KEYS: Final = ("oauthAccount", "userID")
+_EFFORT_KEY: Final = "effortLevel"
+_EFFORT_RANK: Final = {"low": 0, "medium": 1, "high": 2, "xhigh": 3, "max": 4}
+_EFFORT_VALUE: Final = re.compile(rb'("effortLevel"\s*:\s*)"[^"]*"')
 
 
 class StateValidationError(Exception):
@@ -38,6 +42,7 @@ class LiveSwitchState:
     profile: dict[str, object]
     profile_bytes: bytes
     profile_path: Path
+    settings: dict[str, object]
     settings_bytes: bytes
     settings_path: Path
     target_profile: dict[str, object]
@@ -53,7 +58,7 @@ def capture_live_state(*, home: Path, target_name: str) -> LiveSwitchState:
     profile_bytes = profile_path.read_bytes()
     settings_bytes = settings_path.read_bytes()
     profile = _read_object(path=profile_path, body=profile_bytes)
-    _ = _read_object(path=settings_path, body=settings_bytes)
+    settings = _read_object(path=settings_path, body=settings_bytes)
     target_profile = _read_object(path=target_path, body=target_path.read_bytes())
     missing = [key for key in _IDENTITY_KEYS if key not in target_profile]
     if missing:
@@ -67,6 +72,7 @@ def capture_live_state(*, home: Path, target_name: str) -> LiveSwitchState:
         profile=profile,
         profile_bytes=profile_bytes,
         profile_path=profile_path,
+        settings=settings,
         settings_bytes=settings_bytes,
         settings_path=settings_path,
         target_profile=target_profile,
@@ -80,6 +86,20 @@ def restore_rejected_state(*, state: LiveSwitchState) -> None:
     _atomic_write(path=state.settings_path, body=state.settings_bytes)
 
 
+def _settings_bytes_after_floor(*, state: LiveSwitchState) -> bytes:
+    """Raise only a too-low effort value without reformatting settings."""
+    wanted = os.environ.get("CAAM_ROTATE_EFFORT", "high")
+    current_rank = _EFFORT_RANK.get(str(state.settings.get(_EFFORT_KEY)), -1)
+    wanted_rank = _EFFORT_RANK.get(wanted, -1)
+    if current_rank >= wanted_rank:
+        return state.settings_bytes
+    return _EFFORT_VALUE.sub(
+        lambda match: match.group(1) + json.dumps(wanted).encode("utf-8"),
+        state.settings_bytes,
+        count=1,
+    )
+
+
 def apply_activated_state(*, state: LiveSwitchState) -> None:
     """Keep local onboarding and settings after caam replaces its three files."""
     profile = dict(state.profile)
@@ -89,7 +109,10 @@ def apply_activated_state(*, state: LiveSwitchState) -> None:
         path=state.profile_path,
         body=(json.dumps(profile, indent=2) + "\n").encode("utf-8"),
     )
-    _atomic_write(path=state.settings_path, body=state.settings_bytes)
+    _atomic_write(
+        path=state.settings_path,
+        body=_settings_bytes_after_floor(state=state),
+    )
 
 
 def _read_object(*, path: Path, body: bytes) -> dict[str, object]:

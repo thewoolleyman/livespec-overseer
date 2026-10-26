@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import stat
 from pathlib import Path
 from types import ModuleType
 
@@ -107,6 +108,25 @@ class OverwritingActivator(FakeActivator):
         process = super().__call__(args=args, timeout=timeout)
         for path in self.paths:
             path.write_bytes(b"overwritten by caam\n")
+        return process
+
+
+class SuccessfulOverwritingActivator(FakeActivator):
+    """Simulate caam restoring every live file from the target vault."""
+
+    def __init__(self, *, paths: tuple[Path, Path, Path]) -> None:
+        super().__init__()
+        self.paths = paths
+
+    def __call__(self, *, args: tuple[str, ...], timeout: float) -> FakeProcess:
+        process = super().__call__(args=args, timeout=timeout)
+        credential, profile, settings = self.paths
+        credential.write_bytes(b"target credential\n")
+        profile.write_text(
+            '{"oauthAccount":{"accountUuid":"target"},"userID":"target-user"}\n',
+            encoding="utf-8",
+        )
+        settings.write_text('{"effortLevel":"low"}\n', encoding="utf-8")
         return process
 
 
@@ -445,6 +465,80 @@ def test_success_records_last_switch_saves_and_reports_switch(*, tmp_path: Path)
     assert saved == [
         {"profiles": {}, "last_switch": {"at": 1787356770.0, "from": "active", "to": "target"}}
     ]
+
+
+def test_switch_merges_identity_raises_effort_and_atomically_rewrites_live_state(
+    *, monkeypatch, tmp_path: Path
+):
+    """A target snapshot must not replace this host's Claude preferences."""
+    module = caam_switch_module()
+    credentials = tmp_path / ".claude/.credentials.json"
+    profile = tmp_path / ".claude.json"
+    settings = tmp_path / ".claude/settings.json"
+    target_credentials = tmp_path / ".local/share/caam/vault/claude/target/.credentials.json"
+    target_profile = tmp_path / ".local/share/caam/vault/claude/target/.claude.json"
+    live_profile = {
+        "oauthAccount": {"accountUuid": "active", "email": "active@example.test"},
+        "userID": "active-user",
+        "hasCompletedOnboarding": True,
+        "projects": {"/trusted": {"hasTrustDialogAccepted": True}},
+        "unrelated": {"kept": ["as-is"]},
+    }
+    settings_before = (
+        b'{\n  "hooks": {"Stop": []},\n  "effortLevel": "low",\n  "model": "kept"\n}\n'
+    )
+    write_creds(path=credentials, access_value="active-value")
+    profile.write_text(json.dumps(live_profile), encoding="utf-8")
+    settings.parent.mkdir(parents=True, exist_ok=True)
+    settings.write_bytes(settings_before)
+    target_credentials.parent.mkdir(parents=True, exist_ok=True)
+    target_credentials.write_bytes(b"target credential\n")
+    target_profile.write_text(
+        '{"oauthAccount":{"accountUuid":"target"},"userID":"target-user"}\n',
+        encoding="utf-8",
+    )
+    replacements: list[tuple[Path, Path, int]] = []
+    original_replace = Path.replace
+
+    def record_replace(self: Path, target: Path) -> Path:
+        replacements.append((self, target, stat.S_IMODE(self.stat().st_mode)))
+        return original_replace(self, target)
+
+    monkeypatch.setattr(Path, "replace", record_replace)
+    lock = FakeLock()
+    activator = SuccessfulOverwritingActivator(paths=(credentials, profile, settings))
+    activator.lock = lock
+
+    result = module.switch_account(
+        request=module.SwitchRequest(
+            active_name="active",
+            target=ProfileUsage(name="target", source="live", usage=usage()),
+            current=usage(five_hour=90.0),
+            state={"profiles": {}},
+            home=tmp_path,
+            now=1000.0,
+            active_reader=FakeActive("active"),
+            fetcher=lambda *, creds_path, now=None: (usage(), None),
+            activator=activator,
+            lock_factory=FakeLockFactory(lock=lock),
+            save=lambda *, state: None,
+        )
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(profile.read_text(encoding="utf-8")) == {
+        **live_profile,
+        "oauthAccount": {"accountUuid": "target"},
+        "userID": "target-user",
+    }
+    assert settings.read_bytes() == settings_before.replace(b'"low"', b'"high"')
+    assert [
+        (temporary.parent, destination, mode) for temporary, destination, mode in replacements
+    ] == [
+        (profile.parent, profile, 0o600),
+        (settings.parent, settings, 0o600),
+    ]
+    assert lock.released
 
 
 def test_cached_row_is_never_selected_even_when_it_would_rank_first():
