@@ -18,6 +18,14 @@ from caam_decision import (
 
 __all__: list[str] = []
 
+LOW_EFFORT_SETTINGS = (
+    b"{\n"
+    b'  "hooks": {"keep": true},\n'
+    b'  "effortLevel": "low",\n'
+    b'  "plugins": ["keep"]\n'
+    b"}\n"
+)
+
 
 def caam_switch_module() -> ModuleType:
     module_path = Path(__file__).resolve().parents[1] / "overseer" / "caam_switch.py"
@@ -107,6 +115,20 @@ class OverwritingActivator(FakeActivator):
         process = super().__call__(args=args, timeout=timeout)
         for path in self.paths:
             path.write_bytes(b"overwritten by caam\n")
+        return process
+
+
+class InstallingActivator(FakeActivator):
+    """A hermetic stand-in for caam restoring a target vault snapshot."""
+
+    def __init__(self, *, installs: tuple[tuple[Path, Path], ...]) -> None:
+        super().__init__()
+        self.installs = installs
+
+    def __call__(self, *, args: tuple[str, ...], timeout: float) -> FakeProcess:
+        process = super().__call__(args=args, timeout=timeout)
+        for source, destination in self.installs:
+            destination.write_bytes(source.read_bytes())
         return process
 
 
@@ -445,6 +467,153 @@ def test_success_records_last_switch_saves_and_reports_switch(*, tmp_path: Path)
     assert saved == [
         {"profiles": {}, "last_switch": {"at": 1787356770.0, "from": "active", "to": "target"}}
     ]
+
+
+def switch_snapshot(
+    *, home: Path, settings_before: bytes = LOW_EFFORT_SETTINGS
+) -> tuple[dict[str, object], bytes, tuple[tuple[Path, Path], ...], Path, Path]:
+    """Create live and target files that exercise caam's destructive restore."""
+    live_creds = home / ".claude/.credentials.json"
+    live_profile = home / ".claude.json"
+    live_settings = home / ".claude/settings.json"
+    target = home / ".local/share/caam/vault/claude/target"
+    target_creds = target / ".credentials.json"
+    target_profile = target / ".claude.json"
+    target_settings = target / ".claude/settings.json"
+    profile_before: dict[str, object] = {
+        "oauthAccount": {"accountUuid": "active"},
+        "userID": "active-user",
+        "hasCompletedOnboarding": True,
+        "projects": {"/trusted": {"hasTrustDialogAccepted": True}},
+        "otherHostState": ["keep"],
+    }
+    live_profile.write_text(json.dumps(profile_before), encoding="utf-8")
+    live_settings.write_bytes(settings_before)
+    write_creds(path=live_creds, access_value="active-value")
+    write_creds(path=target_creds, access_value="target-value")
+    target_profile.write_text(
+        '{"oauthAccount":{"accountUuid":"target"},"userID":"target-user"}\n',
+        encoding="utf-8",
+    )
+    target_settings.parent.mkdir(parents=True)
+    target_settings.write_text('{"effortLevel":"medium"}\n', encoding="utf-8")
+    return (
+        profile_before,
+        settings_before,
+        (
+            (target_creds, live_creds),
+            (target_profile, live_profile),
+            (target_settings, live_settings),
+        ),
+        live_profile,
+        live_settings,
+    )
+
+
+def switch_from_snapshot(
+    *, module: ModuleType, home: Path, installs: tuple[tuple[Path, Path], ...]
+):
+    """Exercise a successful switch after the fake activator overwrites live files."""
+    lock = FakeLock()
+    activator = InstallingActivator(installs=installs)
+    activator.lock = lock
+    result = module.switch_account(
+        request=module.SwitchRequest(
+            active_name="active",
+            target=ProfileUsage(name="target", source="live", usage=usage()),
+            current=usage(five_hour=90.0),
+            state={"profiles": {}},
+            home=home,
+            now=1000.0,
+            active_reader=FakeActive("active"),
+            fetcher=lambda *, creds_path, now=None: (usage(), None),
+            activator=activator,
+            lock_factory=FakeLockFactory(lock=lock),
+            save=lambda *, state: None,
+        )
+    )
+    return result
+
+
+def test_switch_merges_identity_and_repairs_only_low_effort_under_lock(
+    *, monkeypatch, tmp_path: Path
+) -> None:
+    module = caam_switch_module()
+    state_module = importlib.import_module("_caam_switch_state")
+    profile_before, settings_before, installs, live_profile, live_settings = switch_snapshot(
+        home=tmp_path
+    )
+    lock = FakeLock()
+    activator = InstallingActivator(installs=installs)
+    activator.lock = lock
+    writes: list[Path] = []
+    original_atomic_write = state_module._atomic_write
+
+    def record_atomic_write(*, path: Path, body: bytes) -> None:
+        assert lock.entered
+        assert not lock.released
+        original_atomic_write(path=path, body=body)
+        writes.append(path)
+
+    monkeypatch.setattr(state_module, "_atomic_write", record_atomic_write)
+
+    result = module.switch_account(
+        request=module.SwitchRequest(
+            active_name="active",
+            target=ProfileUsage(name="target", source="live", usage=usage()),
+            current=usage(five_hour=90.0),
+            state={"profiles": {}},
+            home=tmp_path,
+            now=1000.0,
+            active_reader=FakeActive("active"),
+            fetcher=lambda *, creds_path, now=None: (usage(), None),
+            activator=activator,
+            lock_factory=FakeLockFactory(lock=lock),
+            save=lambda *, state: None,
+        )
+    )
+
+    profile_after = json.loads(live_profile.read_text(encoding="utf-8"))
+    assert result.switched
+    assert profile_after == {
+        **profile_before,
+        "oauthAccount": {"accountUuid": "target"},
+        "userID": "target-user",
+    }
+    assert live_settings.read_bytes() == settings_before.replace(b'"low"', b'"high"')
+    assert writes == [live_profile, live_settings]
+    assert live_profile.stat().st_mode & 0o777 == 0o600
+    assert live_settings.stat().st_mode & 0o777 == 0o600
+
+
+@pytest.mark.parametrize(
+    ("settings_before", "floor", "expected"),
+    [
+        (b'{"effortLevel":"max"}\n', "high", b'{"effortLevel":"max"}\n'),
+        (
+            b'{"other":true}\n',
+            "high",
+            b'{"other":true,\n  "effortLevel": "high"}\n',
+        ),
+        (b"{}\n", "high", b'{\n  "effortLevel": "high"}\n'),
+        (b'{"effortLevel":"custom"}\n', "custom", b'{"effortLevel":"custom"}\n'),
+        (b'{"effortLevel":"low"}\n', "", b'{"effortLevel":"low"}\n'),
+    ],
+)
+def test_switch_preserves_settings_that_do_not_need_an_effort_rewrite(
+    *, monkeypatch, tmp_path: Path, settings_before: bytes, floor: str, expected: bytes
+) -> None:
+    module = caam_switch_module()
+    monkeypatch.setenv("CAAM_ROTATE_EFFORT", floor)
+    _, _, installs, _, live_settings = switch_snapshot(
+        home=tmp_path,
+        settings_before=settings_before,
+    )
+
+    result = switch_from_snapshot(module=module, home=tmp_path, installs=installs)
+
+    assert result.switched
+    assert live_settings.read_bytes() == expected
 
 
 def test_cached_row_is_never_selected_even_when_it_would_rank_first():
