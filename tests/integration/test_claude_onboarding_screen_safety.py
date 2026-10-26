@@ -32,3 +32,16 @@ def test_unfamiliar_trust_and_changed_reread_send_no_onboarding_key(*, tmp_path)
     changed = sup.evaluate(track=track, act=True)
     assert changed.status == "blocked-onboarding"
     assert sent_keys(fake=fake) == []
+
+
+def test_onboarding_with_a_missing_interior_blank_line_is_not_recognised(*, tmp_path):
+    changed_layout = THEME_PICKER.replace(
+        "Let's get started.\n\nChoose",
+        "Let's get started.\nChoose",
+    )
+    _repo, fake, sup, track = onboarding_case(tmp_path=tmp_path, capture=changed_layout)
+
+    row = sup.evaluate(track=track, act=True)
+
+    assert row.status != "blocked-onboarding"
+    assert sent_keys(fake=fake) == []
