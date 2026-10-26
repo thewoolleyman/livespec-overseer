@@ -5652,3 +5652,49 @@ And a host agent session then rewrites its `oauthAccount` to the previous accoun
 When the operation verifies the switch
 
 Then it reports the switch as not having taken effect, with a clearly-marked failure line, and exits non-zero
+
+## Scenario: A live Codex thread named around its topic is surfaced as misnamed, not adopted
+
+Given a mapped, not-done track whose derived session name is N and whose session is gone
+
+And a live Codex process in the track's repository whose indexed thread name is `Resume N`
+
+When a supervision round runs
+
+Then the attention surface shows one `codex-track-misnamed` row naming that thread's pane, its thread identifier, the name `Resume N` and the repair `/rename N`
+
+And no session-gone row is shown for the track
+
+And the thread is not adopted, wrapped up, nudged or restarted, and no ready declaration is consumed for it
+
+And a second round with nothing changed sends the operator no second notification
+
+## Scenario: A misnamed Codex track is adopted on the round after it is renamed to its topic
+
+Given a mapped track with derived session name N reading `codex-track-misnamed` for a live Codex thread in pane P
+
+When that thread's indexed name becomes exactly N
+
+And the next supervision round runs
+
+Then the session is adopted for the track
+
+And the track is bound to pane P
+
+And the misnamed row is cleared
+
+## Scenario: Supervisor, other-track and out-of-repository threads are never misnamed candidates
+
+Given a mapped, not-done track with derived session name N whose session is gone
+
+And a live Codex thread in the track's repository named `N-supervisor`
+
+And a live Codex thread in the track's repository named exactly the derived session name of another discovered track, which contains N
+
+And a live Codex thread named `Resume N` whose working directory is outside the track's repository
+
+When a supervision round runs
+
+Then the track shows its session-gone row and no `codex-track-misnamed` row
+
+And none of those threads is adopted, renamed or otherwise acted on

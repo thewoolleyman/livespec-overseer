@@ -852,6 +852,21 @@ remains the sole restart authorization. Its rendered note MUST state that no
 wrap-up was delivered for the standing round, so an operator can distinguish it
 from a delivered round legitimately awaiting a declaration.
 
+Membership also includes a MISNAMED Codex track, as defined in spec.md
+§"Session-name derivation": a mapped track whose session is gone while one or
+more live Codex near-miss candidate threads exist. For that track this member
+REPLACES the session-gone member rather than appearing beside it. This is a
+distinct report-only member with normal coordinates; it participates in the
+NEEDS YOU count and window badge, is edge-triggered with the dedup identity
+spec.md states, and authorizes no act. Its rendered note MUST name, for every
+candidate, the live pane, the thread identifier and the thread's actual name,
+and MUST carry the one-line repair `/rename <derived-name>`. It clears when a
+candidate is adopted under the exact derived session name, or when no
+candidate remains, in which case the track reverts to the session-gone member.
+A done track (spec.md §"The terminal declaration") is never a member as a
+misnamed Codex track; it renders the quiet `done` status. Discovered-but-unassigned
+tracks remain outside this membership.
+
 ## The account-rotation operation
 
 **Pi package discovery.** Repository-root `package.json` MUST be regular UTF-8 JSON whose `pi.skills` value is exactly `["./.claude-plugin/.pi-plugin/skills"]`, so Pi discovers the namespaced bindings required by both operator operations. Its package version remains outside operation-version lockstep.
