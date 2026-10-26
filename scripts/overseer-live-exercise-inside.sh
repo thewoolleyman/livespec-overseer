@@ -9,6 +9,11 @@ evidence="${OVERSEER_EXERCISE_EVIDENCE:?missing exercise evidence directory}"
 isolation_check="${OVERSEER_EXERCISE_ISOLATION_CHECK:-false}"
 backend_pid=""
 
+# Herdr and tmux panes inherit the scratch HOME.  Seed zsh before either backend
+# starts so a pane using the release host's zsh reaches its shell prompt instead
+# of the interactive first-run configurator.
+: >"$HOME/.zshrc"
+
 cleanup_backend() {
   local cleanup_status=0
   if [[ "$backend" == herdr ]]; then

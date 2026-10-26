@@ -258,6 +258,14 @@ print(json.dumps({"repos": [sys.argv[1]]}))
 stage_bootstrap() {
   local overseer_start_output bootstrap_started_at elapsed launcher_output
   ensure_scratch_plan
+  mkdir -p -- "$codex_home"
+  cat >"$codex_home/config.toml" <<EOF
+[tui]
+status_line = ["model-with-reasoning", "current-dir", "context-remaining"]
+
+[projects."$repo"]
+trust_level = "trusted"
+EOF
   hd workspace create --cwd "$repo" --label "$topic" >/dev/null 2>&1
 
   # Export into the RETAINED SHELL rather than onto one command line. The daemon's
@@ -266,6 +274,7 @@ stage_bootstrap() {
   # replacement failure whose message names the shell, not the environment.
   pane_submit "$AGENT_PANE" \
     "export HOME=$HOME CODEX_HOME=$codex_home HERDR_SOCKET_PATH=$HERDR_SOCKET_PATH PATH=$PATH"
+  pane_submit "$AGENT_PANE" "cd $(printf '%q' "$repo")"
   pane_submit "$AGENT_PANE" "codex --dangerously-bypass-approvals-and-sandbox"
 
   wait_until "$CODEX_READY_TIMEOUT" codex_pane_is_idle "$AGENT_PANE" || fail_stage bootstrap \
@@ -329,6 +338,12 @@ wrapup_round_is_open() {
 
 stage_wrapup() {
   local remaining threshold
+  # A fresh Codex session can report 100% remaining, where a threshold capped at
+  # 99% cannot open a round. Submit a bounded context-burning turn and wait for
+  # its idle prompt before reading the value used to set the threshold.
+  pane_submit "$AGENT_PANE" "seq 1 60000"
+  wait_until "$CODEX_READY_TIMEOUT" codex_pane_is_idle "$AGENT_PANE" || fail_stage wrap-up \
+    "Codex did not return to an idle prompt after the context-burning turn within ${CODEX_READY_TIMEOUT}s"
   remaining="$(pane_ctx_remaining "$AGENT_PANE")"
   [[ -n "$remaining" ]] || fail_stage wrap-up \
     "no remaining-context reading in pane $AGENT_PANE; the daemon cannot cross a threshold it cannot read"

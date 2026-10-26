@@ -625,14 +625,35 @@ def test_the_controller_is_a_checked_in_executable() -> None:
 
 
 def test_bootstrap_failure_keeps_launcher_output_and_elapsed_time() -> None:
-    """A loaded-host bootstrap expiry must identify the launcher that did not finish."""
+    """Bootstrap must prepare Codex before diagnosing a loaded-host launch expiry."""
     controller = CONTROLLER.read_text(encoding="utf-8")
+    inside = CONTROLLER.with_name("overseer-live-exercise-inside.sh").read_text(encoding="utf-8")
 
     assert "readonly DAEMON_TIMEOUT=600" in controller
     assert "bootstrap_started_at=$SECONDS" in controller
     assert '"$evidence/overseer-start.log"' in controller
     assert 'tail -n 3 -- "$overseer_start_output"' in controller
     assert "after ${elapsed}s" in controller
+    assert ': >"$HOME/.zshrc"' in inside
+    assert inside.index(': >"$HOME/.zshrc"') < inside.index('if [[ "$backend" == herdr ]]')
+
+    config = '''[tui]
+status_line = ["model-with-reasoning", "current-dir", "context-remaining"]
+
+[projects."$repo"]
+trust_level = "trusted"'''
+    assert config in controller
+    assert controller.index('cat >"$codex_home/config.toml"') < controller.index(
+        '"codex --dangerously-bypass-approvals-and-sandbox"'
+    )
+    assert 'pane_submit "$AGENT_PANE" "cd $(printf \'%q\' "$repo")"' in controller
+    assert controller.index('"cd $(printf \'%q\' "$repo")"') < controller.index(
+        '"codex --dangerously-bypass-approvals-and-sandbox"'
+    )
+    assert 'pane_submit "$AGENT_PANE" "seq 1 60000"' in controller
+    assert controller.index('"seq 1 60000"') < controller.index(
+        'remaining="$(pane_ctx_remaining "$AGENT_PANE")"'
+    )
 
 
 def test_the_scratch_home_never_writes_through_to_the_hosts_runtime_prefix(
