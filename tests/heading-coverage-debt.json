@@ -1886,35 +1886,56 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A switch to a never-onboarded profile keeps the host's onboarding and trust",
-    "work_item": "overseer-hc7j",
+    "work_item": "overseer-znzi47",
     "first_seen": "2026-10-26"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A global state file that fails validation prevents the install",
-    "work_item": "overseer-hc7j",
+    "work_item": "overseer-ks3ydu",
     "first_seen": "2026-10-26"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed post-install write restores the pre-switch account",
-    "work_item": "overseer-hc7j",
+    "work_item": "overseer-5o3ebm",
     "first_seen": "2026-10-26"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed restore names every file left unrestored",
-    "work_item": "overseer-hc7j",
+    "work_item": "overseer-5o3ebm",
     "first_seen": "2026-10-26"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A session that reinstates the previous identity reads as a switch that did not take effect",
-    "work_item": "overseer-hc7j",
+    "work_item": "overseer-ux7ryt",
+    "first_seen": "2026-10-26"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A live Codex thread named around its topic is surfaced as misnamed, not adopted",
+    "work_item": "overseer-uzvcbn.6",
+    "first_seen": "2026-10-26"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A misnamed Codex track is adopted on the round after it is renamed to its topic",
+    "work_item": "overseer-uzvcbn.6",
+    "first_seen": "2026-10-26"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Supervisor, other-track and out-of-repository threads are never misnamed candidates",
+    "work_item": "overseer-uzvcbn.6",
     "first_seen": "2026-10-26"
   }
 ]
