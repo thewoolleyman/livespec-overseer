@@ -135,8 +135,8 @@ files degrade with a warning; they never crash the supervision loop.
 
 ## Acting safety
 
-Other than the narrowly scoped herdr successor-launch exception below,
-every keystroke-bearing act is suppressed unless the target pane is
+Other than the narrowly scoped herdr successor-launch and first-run onboarding
+exceptions below, every keystroke-bearing act is suppressed unless the target pane is
 positively identified as this track's supervised session, satisfies that act's
 runtime-specific input predicate, is settled, and shows no structured gate or
 human wait — with the stalled-picker charter-reminder exception below, which inverts the
@@ -161,7 +161,9 @@ the whole pane is. Bare-shell panes MUST never be
 pasted into except for the herdr successor-launch exception below. Gated and human-waiting panes
 MUST never be pasted into by any DAEMON informational act EXCEPT the
 stalled-picker charter reminder under its own complete predicate, which MUST NOT
-be widened to any other daemon act, pane class, or topic class. Multi-line
+be widened to any other daemon act, pane class, or topic class. The first-run
+onboarding exception below is not an informational act and is not a widening of
+that reminder. Multi-line
 payloads are delivered as one atomic paste, never typed line-by-line. Restart
 is stricter than informational paste:
 even a fresh certifiable `ready` MUST NOT restart while any busy evidence,
@@ -181,6 +183,17 @@ is a replacement continuation, not an informational paste: it MUST NOT widen
 any of the five informational acts above, admit input into another bare shell,
 or relax a generating, gate, human-wait, ambiguity, or declaration guard for
 any other act. All launch prerequisites in the restart contract still apply.
+
+The first-run onboarding exception permits ONLY the keystrokes of spec.md
+§"First-run onboarding screens", on the acting path, into a pane positively
+identified as this track's supervised session that shows, by exact match, the
+theme picker, the security-notes screen, or a workspace-trust prompt whose
+folder equals the track's recorded repository path. Each keystroke MUST be
+preceded by a re-read confirming the same screen is still shown. A bare Enter
+MUST NOT be sent while the workspace-trust prompt's selection is on its exit
+option. This exception MUST NOT admit input into any other structured gate,
+human wait, foreign pane, or pane of ambiguous identity, and it MUST NOT relax
+a guard for any other act.
 
 ## Factory routing
 

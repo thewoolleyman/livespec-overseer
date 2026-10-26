@@ -3761,5 +3761,37 @@
     "test": "tests.integration.test_live_exercise_agent_client_unsafe_root.test_an_install_root_the_exercise_writes_is_refused_by_name",
     "work_item": "overseer-fr8f",
     "reason": "Integration-tier, under tests/integration: covers the scenario's clause that an install root which is the operator home itself, ~/.claude, ~/.codex or ~/.config is refused before any terminal backend starts, naming that root. Parametrized over all four, each with a launcher whose exec line executes content inside that root, and each asserting an empty evidence directory. RED against the pre-fix runner, which had no refusal at all and reached the namespace launch."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## First-run onboarding screens",
+    "test": "TODO",
+    "work_item": "overseer-q156",
+    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-q156 with the implementation; ratified 2026-10-26 under the blocked-onboarding-classification revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A tracked session on a first-run onboarding screen is resolved to its input prompt",
+    "test": "TODO",
+    "work_item": "overseer-q156",
+    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-q156 with the implementation; ratified 2026-10-26 under the blocked-onboarding-classification revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A workspace-trust prompt for a folder other than the track's repository is never accepted",
+    "test": "TODO",
+    "work_item": "overseer-q156",
+    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-q156 with the implementation; ratified 2026-10-26 under the blocked-onboarding-classification revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The read-only list path reports an onboarding screen without keystroking it",
+    "test": "TODO",
+    "work_item": "overseer-q156",
+    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-q156 with the implementation; ratified 2026-10-26 under the blocked-onboarding-classification revise (spec-first)."
   }
 ]

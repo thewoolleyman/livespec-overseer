@@ -5546,3 +5546,43 @@ And the only operator-home paths the runner binds for the agent client are the l
 And when the client cannot be made runnable inside the namespace, the runner refuses before any terminal backend starts, naming the client name or path it could not resolve
 
 And when the install root of what the launcher executes is the operator home itself, `~/.claude`, `~/.codex` or `~/.config`, the runner refuses before any terminal backend starts, naming that root
+
+## Scenario: A tracked session on a first-run onboarding screen is resolved to its input prompt
+
+Given a tracked Claude Code pane whose recorded repository is `/data/projects/example`
+
+And the pane shows the theme picker
+
+When the daemon evaluates the track on the acting path
+
+Then the daemon reports the track as `blocked-onboarding` and logs one event naming the pane and the theme picker
+
+And the daemon selects Dark mode and submits it only after re-reading the pane and confirming the theme picker is still shown
+
+And when the pane next shows the security-notes screen the daemon submits it after the same re-read
+
+And when the pane next shows the workspace-trust prompt for `/data/projects/example` the daemon moves the selection to the accept option and submits it, never sending a bare Enter while the selection is on the exit option
+
+And the daemon logs every keystroke it sent
+
+## Scenario: A workspace-trust prompt for a folder other than the track's repository is never accepted
+
+Given a tracked Claude Code pane whose recorded repository is `/data/projects/example`
+
+And the pane shows the workspace-trust prompt for `/data/projects/other`
+
+When the daemon evaluates the track on the acting path
+
+Then the daemon sends no keystroke to the pane
+
+And the daemon reports the track as `blocked-onboarding` on an attention row naming the pane, the workspace-trust prompt, and `/data/projects/other`
+
+## Scenario: The read-only list path reports an onboarding screen without keystroking it
+
+Given a tracked Claude Code pane showing the security-notes screen
+
+When the read-only list path reports the track
+
+Then the track is reported as `blocked-onboarding`
+
+And no keystroke is sent to the pane

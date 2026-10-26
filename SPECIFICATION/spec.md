@@ -77,7 +77,9 @@ Declaring is mandatory once a wrap-up has been received: a session chooses
 WHICH value fits, but declining all four does not buy a reprieve — the track
 is reported as not responding and sits untouched until a person intervenes.
 
-Pane text remains trusted ONLY for the busy / idle / gate signals. Ambiguous,
+Pane text remains trusted ONLY for the busy / idle / gate signals and for the
+exact-match classification of §"First-run onboarding screens", including the
+workspace-trust prompt's folder. Ambiguous,
 unrecognized, or conflicting evidence suppresses action — the safe direction.
 Recognized background-shell evidence is not itself ambiguous: it may coexist
 with one of the narrowly qualified informational pastes below, but it never
@@ -1129,6 +1131,47 @@ member that disappears while its wind-down round is open MUST be surfaced as
 attention — supervision died mid-brief and the ledger entry is at risk; one
 that disappears with no round open is surfaced only through the ordinary
 supervision offer.
+
+## First-run onboarding screens
+
+A tracked Claude Code session can come up on a first-run onboarding screen
+instead of its input prompt: the THEME PICKER, the SECURITY-NOTES screen
+("Press Enter to continue"), or the WORKSPACE-TRUST prompt, whose default
+selection is its exit option. These screens are harness setup, not a human
+decision about the tracked work, and a session parked on one makes no progress
+and declares nothing.
+
+The daemon MUST classify a tracked pane showing any of these screens as
+`blocked-onboarding`: a distinct kind of waiting on a human, reported under
+its own status rather than the generic blocked-on-human one, and never as
+session-gone, idle, or busy. Like any structured gate it suppresses the
+keep-going nudge and the wrap-up paste. Classification MUST rest on an exact match of the screen's
+pane text; unrecognized, partial, or conflicting text MUST NOT be classified
+`blocked-onboarding` and suppresses action as ambiguous evidence does. On the
+first observation of each onboarding episode the daemon MUST log one event
+naming the pane, the screen, and, for the workspace-trust prompt, the prompted
+folder.
+
+These three screens are the ONE bounded exception to the rule that a fresh
+session showing a structured gate is never keystroked, carved out of
+constraints.md §"Acting safety" as its first-run onboarding exception. On the acting path only,
+the daemon MAY resolve them:
+
+- the theme picker, by selecting Dark mode and submitting it;
+- the security-notes screen, by submitting it;
+- the workspace-trust prompt, by moving the selection to its accept option and
+  submitting it, ONLY when the prompted folder equals the track's recorded
+  repository path.
+
+Before every keystroke the daemon MUST re-read the pane and confirm that the
+same screen is still shown, and it MUST log each keystroke it sends. The daemon
+MUST NOT send a bare Enter while the workspace-trust prompt's selection is on its
+exit option. When the trust prompt names a folder other than the track's
+recorded repository, or a screen cannot be matched exactly, the daemon MUST send
+nothing and MUST surface the track as an attention row naming the pane and the
+screen. The read-only list path MUST report `blocked-onboarding` without sending
+any keystroke. A pane that is not a tracked session MUST NOT be keystroked by
+this rule.
 
 ## Non-interference with tracked work
 
