@@ -1122,6 +1122,54 @@ classified as AMBIGUOUS and reported to the human, and no launch occurs. A
 live process's identity MUST still be established from exact live process
 evidence; an index MUST NOT override live evidence.
 
+A LIVE carrier of a supported runtime running in a mapped track's recorded
+pane — the pane resolved under contracts.md §"Durable stores"'s backend,
+instance and pane coordinate rules, so no alias on another server or
+generation matches — whose session identity cannot be established from exact
+per-carrier evidence MUST be reported with a distinct `unidentified-session`
+status and MUST NOT be reported as session-gone: a live carrier is not a gone
+session, and §"Session-name derivation"'s misnamed surfacing applies only to a
+track whose session is gone. The daemon MUST log one event when the track
+enters that status, naming the pane, the carrier's process identifier and the
+refusing condition (ambiguous repository sessions, or no live candidate); per
+§"Notify, never block" its dedup identity is the unidentified condition for
+the track, so a change of refusing condition or carrier process alone does not
+re-emit it, and it re-arms when the condition clears. An unidentified track is
+ambiguous evidence: it receives no adoption, wrap-up, nudge or restart.
+
+A carrier in the recorded pane is identified only by exact per-carrier
+evidence that also ties the session to THIS track: a session identifier the
+terminal backend reports for that pane's agent, accepted only when the
+runtime's own state database binds it to the track's repository, AND either
+its thread name equals the track's derived session name or the identifier
+equals the session identity the row already records, AND it is not adopted by
+or bound to another track. This is exact-name adoption with per-carrier
+evidence, not an exception to it: a carrier whose name merely contains the
+derived session name stays unidentified-session. Once a carrier is
+identified, the daemon adopts its session, re-records the row's session
+identity, and re-captures the WHOLE launch profile from the live process per
+§"The launch profile"; a profile field it cannot read from permitted sources
+leaves the profile stale under contracts.md §"Durable stores", so it is
+surfaced and the restart is skipped. This applies whether the recorded
+identity belonged to another runtime or to an earlier session of the same
+runtime, provided that recorded session's process is gone from the pane. A
+recorded session whose process is still alive in the pane keeps its identity
+and launch profile, and no other carrier in that pane is adopted. Re-recording
+never rewrites an open round's round-open identity.
+
+A row whose stored pane no longer exists on its recorded backend instance
+MUST be rebound when exactly one pane on that instance runs an identified
+carrier whose thread name equals the row's derived session name, whose session
+the state database binds to the row's repository, and which is not bound to
+another track; this is the coordinate update exact-name adoption performs,
+with the state-database binding as an added condition, and every rebind MUST
+log the old and new pane identifiers. When no such pane exists, the stored
+coordinate is unchanged and ordinary classification applies — session-gone,
+or misnamed per §"Session-name derivation". When more than one exists, the
+stored coordinate is unchanged and the track reads unidentified-session with
+the refusing condition ambiguous panes, naming every candidate pane. A done
+track and a discovered-but-unassigned plan never read unidentified-session.
+
 A tracked session MAY have an attended SUPERVISOR session beside it (the
 authoring permissions are in §"Non-interference with tracked work"). That
 pair member is itself a SUPERVISED ENTITY under this whole specification:
