@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.35.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.34.8...v5.35.0) (2026-10-26)
+
+
+### Features
+
+* classify Claude first-run onboarding ([4676e60](https://github.com/thewoolleyman/livespec-overseer/commit/4676e600e3c9cb4bb965b529ac85275f8614d5ad))
+
 ## [5.34.8](https://github.com/thewoolleyman/livespec-overseer/compare/v5.34.7...v5.34.8) (2026-10-26)
 
 
