@@ -125,6 +125,8 @@ audit and provisioning semantics are defined in contracts.md §"The LLM
 credential-provider operation". Neither operation inherits the warning-only
 fallback below.
 
+The ONE exception within the caam operation is its own writes of the host agent's global state file and settings file, and its restore of the credential, (spec.md §"Account rotation and quota supervision", **Installing an account MUST swap identity only**). Those writes and that restore MUST meet the whole-file atomic-replacement guarantee of the next paragraph, and they are serialized by the operation's switch lock rather than by this section's advisory locks. They do NOT inherit the warning-only fallback: a failed write restores the pre-switch state and fails the switch loudly, as that clause defines.
+
 Writes to the overseer's own stores replace the whole file atomically: a
 reader observes the previous or the new complete content, never a partial
 write, even across a crash mid-write. Concurrent writers — the daemon and

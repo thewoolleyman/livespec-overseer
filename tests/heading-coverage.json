@@ -3793,5 +3793,45 @@
     "test": "TODO",
     "work_item": "overseer-q156",
     "reason": "Owed integration-tier test (tests/integration), to be written by overseer-q156 with the implementation; ratified 2026-10-26 under the blocked-onboarding-classification revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A switch to a never-onboarded profile keeps the host's onboarding and trust",
+    "test": "TODO",
+    "work_item": "overseer-hc7j",
+    "reason": "Owed integration-tier test (tests/integration) over the shipped rotation pass, to be written by overseer-hc7j with the implementation; ratified 2026-10-26 under the caam-identity-only-switch-write revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A global state file that fails validation prevents the install",
+    "test": "TODO",
+    "work_item": "overseer-hc7j",
+    "reason": "Owed integration-tier test (tests/integration) over the shipped rotation pass, to be written by overseer-hc7j with the implementation; ratified 2026-10-26 under the caam-identity-only-switch-write revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A failed post-install write restores the pre-switch account",
+    "test": "TODO",
+    "work_item": "overseer-hc7j",
+    "reason": "Owed integration-tier test (tests/integration) over the shipped rotation pass, to be written by overseer-hc7j with the implementation; ratified 2026-10-26 under the caam-identity-only-switch-write revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A failed restore names every file left unrestored",
+    "test": "TODO",
+    "work_item": "overseer-hc7j",
+    "reason": "Owed integration-tier test (tests/integration) over the shipped rotation pass, to be written by overseer-hc7j with the implementation; ratified 2026-10-26 under the caam-identity-only-switch-write revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A session that reinstates the previous identity reads as a switch that did not take effect",
+    "test": "TODO",
+    "work_item": "overseer-hc7j",
+    "reason": "Owed integration-tier test (tests/integration) over the shipped rotation pass, to be written by overseer-hc7j with the implementation; ratified 2026-10-26 under the caam-identity-only-switch-write revise (spec-first)."
   }
 ]
