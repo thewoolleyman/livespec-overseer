@@ -1881,5 +1881,40 @@
     "heading": "## Scenario: The read-only list path reports an onboarding screen without keystroking it",
     "work_item": "overseer-q156",
     "first_seen": "2026-10-26"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A switch to a never-onboarded profile keeps the host's onboarding and trust",
+    "work_item": "overseer-hc7j",
+    "first_seen": "2026-10-26"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A global state file that fails validation prevents the install",
+    "work_item": "overseer-hc7j",
+    "first_seen": "2026-10-26"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A failed post-install write restores the pre-switch account",
+    "work_item": "overseer-hc7j",
+    "first_seen": "2026-10-26"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A failed restore names every file left unrestored",
+    "work_item": "overseer-hc7j",
+    "first_seen": "2026-10-26"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A session that reinstates the previous identity reads as a switch that did not take effect",
+    "work_item": "overseer-hc7j",
+    "first_seen": "2026-10-26"
   }
 ]

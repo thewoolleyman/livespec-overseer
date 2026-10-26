@@ -5586,3 +5586,69 @@ When the read-only list path reports the track
 Then the track is reported as `blocked-onboarding`
 
 And no keystroke is sent to the pane
+
+## Scenario: A switch to a never-onboarded profile keeps the host's onboarding and trust
+
+Given the live `~/.claude.json` records completed onboarding and trust for `/data/projects/example`
+
+And the destination profile's stored `~/.claude.json` carries its own `oauthAccount` and `userID` but records no onboarding and trusts no repository
+
+When the account-rotation operation switches to the destination profile
+
+Then the live `~/.claude.json` carries the destination profile's `oauthAccount` and `userID`
+
+And it still records completed onboarding and trust for `/data/projects/example`
+
+And the live settings file is byte-identical to its pre-switch content except for a reasoning-effort value the effort floor raised
+
+And both files were written by renaming a same-directory temporary file with owner-only permissions while the switch lock was held
+
+## Scenario: A global state file that fails validation prevents the install
+
+Given the live `~/.claude.json` or the destination profile's stored `~/.claude.json` cannot be parsed, or the stored copy lacks `oauthAccount` or `userID`
+
+When the account-rotation operation attempts to switch to the destination profile
+
+Then the account manager is not invoked
+
+And the live `~/.claude.json`, settings file and credential are unchanged
+
+And the operation emits a clearly-marked failure line naming a reason distinct from every other switch failure and exits non-zero
+
+## Scenario: A failed post-install write restores the pre-switch account
+
+Given the account manager has installed the destination profile
+
+And the write of the merged live `~/.claude.json` fails
+
+When the account-rotation operation handles the failure
+
+Then the credential, the live `~/.claude.json` and the settings file are restored to their pre-switch bytes in that order
+
+And the previous account is active
+
+And the operation emits a clearly-marked failure line naming a reason distinct from every other switch failure and exits non-zero
+
+## Scenario: A failed restore names every file left unrestored
+
+Given the account manager has installed the destination profile and the write of the merged live `~/.claude.json` has failed
+
+And the restore of the credential fails
+
+When the account-rotation operation handles the failure
+
+Then it still attempts the restores of the live `~/.claude.json` and the settings file
+
+And it emits a clearly-marked failure line naming a further distinct reason and every file left unrestored, and exits non-zero
+
+And it reports no switch, hold or success on that pass
+
+## Scenario: A session that reinstates the previous identity reads as a switch that did not take effect
+
+Given the account-rotation operation has written the merged live `~/.claude.json` for the destination profile
+
+And a host agent session then rewrites its `oauthAccount` to the previous account
+
+When the operation verifies the switch
+
+Then it reports the switch as not having taken effect, with a clearly-marked failure line, and exits non-zero

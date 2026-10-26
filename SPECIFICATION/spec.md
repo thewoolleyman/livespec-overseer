@@ -1527,6 +1527,16 @@ These three MUST NOT weaken any other rule. A candidate that is not live-verifie
 
 **Effort MUST be re-asserted as a floor.** Installing an account's snapshot restores a settings file that carries the reasoning-effort key, so a rotation silently overwrites it. The operation MUST restore the configured effort when the live value is lower, MUST leave a deliberately higher value untouched, and MUST rewrite only that key, preserving hook, environment, plugin and integration configuration in the same file.
 
+**Installing an account MUST swap identity only.** The account manager's restore replaces the host agent's whole global state file (`~/.claude.json`) and settings file with the copies the destination profile was backed up from. A profile backed up before onboarding, or before a repository was trusted, would therefore silently return every session started afterwards to first-run onboarding. The ACCOUNT-IDENTITY KEYS of the global state file are exactly `oauthAccount` and `userID`; every other key is host state.
+
+While holding the switch lock and BEFORE invoking the account manager, the operation MUST read and parse the live global state file, the live settings file and the destination profile's stored global state file, MUST confirm that the stored copy carries both account-identity keys, and MUST capture the pre-switch bytes of the live global state file, settings file and credential. When any of those reads, parses or checks fails, the operation MUST NOT invoke the account manager, MUST change no file, and MUST report the switch as failed with a reason distinct from every other switch failure.
+
+After the account manager installs the destination, the operation MUST write the live global state file as the captured pre-switch content with each account-identity key replaced by the destination profile's value, and MUST write the live settings file as the captured pre-switch bytes changed only where **Effort MUST be re-asserted as a floor** rewrites them. Each write MUST be atomic: a temporary file in the same directory, renamed into place, with owner-only permissions, made while the switch lock is held.
+
+When either write fails, the operation MUST restore the captured pre-switch bytes, each restore atomic in the same way, in this order: the credential, then the global state file, then the settings file. Every restore MUST be attempted whatever the outcome of an earlier one. It MUST then report the switch as failed with a reason distinct from every other switch failure and leave the pre-switch account active. A restore that itself fails MUST be reported as a further distinct failure naming every file left unrestored, and the operation MUST NOT report a switch, a hold or a success on that pass.
+
+The post-switch verification of **Switching** MUST also confirm that the live global state file's `oauthAccount` names the destination account, and MUST report the switch as not having taken effect when it does not.
+
 **Fail loudly.** Every failure path MUST emit a clearly-marked failure line and exit non-zero, including unexpected failures, so that a missing binary or an unwritable state directory can never present as a quiet success.
 
 ## LLM provider credential management
