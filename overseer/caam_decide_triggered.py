@@ -34,7 +34,13 @@ from caam_decide_report import (
     trigger_line,
     with_note,
 )
-from caam_decision import eligible_profiles, rank_profiles, scoped_reserve
+from caam_decision import (
+    eligible_profiles,
+    five_hour_remaining_floor,
+    rank_profiles,
+    scoped_reserve,
+    weekly_reserve,
+)
 from caam_fast_drain import FAST_DRAIN_TRIGGER, ShortWindowProjection, fast_drain_trigger_line
 from caam_refusal_lines import REFUSAL_TRIGGER, refusal_exclusion_reason, refusal_trigger_line
 from caam_rotation_arm import (
@@ -46,6 +52,7 @@ from caam_rotation_arm import (
     short_window_triggered,
 )
 from caam_scoped_selection import none_holds_scoped_above_reserve, scoped_alone_trigger
+from caam_weekly_reserve import can_serve_now, weekly_reserve_decision
 
 __all__: list[str] = [
     "triggered_choice",
@@ -73,19 +80,64 @@ def triggered_choice(
         )
     )
     decision_line = _decision_line(request=request, arm=arm, projection=projection)
-    eligible = eligible_profiles(
-        profiles=arm_candidates(request=request, arm=arm),
-        active=arm_active_account(request=request, arm=arm),
+    active = arm_active_account(request=request, arm=arm)
+    candidates = arm_candidates(request=request, arm=arm)
+    serveability_candidates = eligible_profiles(
+        profiles=candidates,
+        active=active,
         force=request.context.flags.force,
         dimension=arm.bound.dimension,
         protection_floors=request.protection_floors,
+        reserve_released=True,
+        scoped_margin_exception=False,
+    )
+    strict_capacity = capacity_selection(
+        profiles=rank_profiles(
+            profiles=serveability_candidates.profiles, scoped_pin=arm.scoped_pin
+        ),
+        load=arm.load,
+        refusal_held=False,
+    )
+    usable_names = tuple(
+        profile.name
+        for profile in strict_capacity.profiles
+        if can_serve_now(profile=profile, short_floor=five_hour_remaining_floor())
+    )
+    active_profile = next(
+        (profile for profile in request.profiles if profile.name == request.active_name), None
+    )
+    if (
+        active_profile is not None
+        and not arm.refusal.holds_active
+        and projection is None
+        and can_serve_now(profile=active_profile, short_floor=five_hour_remaining_floor())
+    ):
+        usable_names = (*usable_names, request.active_name)
+    reserve = weekly_reserve_decision(
+        profiles=request.profiles,
+        usable_names=usable_names,
+        protection_floors=request.protection_floors,
+        reserve=weekly_reserve(),
+    )
+    eligible = eligible_profiles(
+        profiles=candidates,
+        active=active,
+        force=request.context.flags.force,
+        dimension=arm.bound.dimension,
+        protection_floors=request.protection_floors,
+        reserve_released=reserve.released,
+        release_note=reserve.note,
     )
     # The capacity test runs AFTER the ranking rather than inside it: ranking is
     # a perishability order with no capacity term in it, and the test is an
     # eligibility rule that happens to read a capacity weight. Filtering a
     # ranked tuple preserves the order the ranking chose.
     selection = capacity_selection(
-        profiles=rank_profiles(profiles=eligible.profiles, scoped_pin=arm.scoped_pin),
+        profiles=tuple(
+            profile
+            for profile in rank_profiles(profiles=eligible.profiles, scoped_pin=arm.scoped_pin)
+            if can_serve_now(profile=profile, short_floor=five_hour_remaining_floor())
+        ),
         load=arm.load,
         refusal_held=arm.refusal.holds_active,
     )
