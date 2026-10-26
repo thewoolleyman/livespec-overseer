@@ -1,5 +1,4 @@
 """Pre-idle active branch group for the supervisor evaluation cascade."""
-# livespec-lloc-soft-band-owner: overseer-au3pt3.15
 
 from __future__ import annotations
 
@@ -10,8 +9,10 @@ import _supervisor_attention
 import _supervisor_blocked
 import _supervisor_busy
 import _supervisor_busy_delivery
+import _supervisor_onboarding
 import registry
 import signals
+from _supervisor_active_models import ActiveDecision
 from _supervisor_records import InjectState, Observation
 
 if TYPE_CHECKING:
@@ -19,17 +20,6 @@ if TYPE_CHECKING:
     from _supervisor_evaluate_attention import EvaluationAttention
 
 __all__: list[str] = ["ActiveDecision", "ActiveRequest", "active_decision"]
-
-
-@dataclass(frozen=True, kw_only=True)
-class ActiveDecision:
-    status: str
-    note: str | None
-    ready: bool
-    blocked: str | None
-    blocked_age: float | None
-    blocked_age_label: str | None
-    active_conditions: set[str]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -84,6 +74,9 @@ def active_decision(*, request: ActiveRequest) -> ActiveDecision | None:
             blocked_age_label=None,
             active_conditions=active_conditions,
         )
+    onboarding = _supervisor_onboarding.active_decision(request=request)
+    if onboarding is not None:
+        return onboarding
     attention_request = _supervisor_attention.AttentionRequest(
         sup=request.sup,
         track=request.track,

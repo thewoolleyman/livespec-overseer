@@ -137,6 +137,7 @@ def row_view(*, request: RowViewRequest) -> RowView:
             request.obs.gate
             or request.obs.claude_status == "waiting"
             or request.obs.blocked is not None
+            or request.status == "blocked-onboarding"
         ),
         round_open=request.obs.injection_stamp is not None,
         acked=request.obs.acked,

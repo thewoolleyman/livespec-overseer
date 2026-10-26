@@ -3766,33 +3766,33 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## First-run onboarding screens",
-    "test": "TODO",
+    "test": "tests.integration.test_claude_onboarding_screens.test_first_run_onboarding_is_classified_and_resolved_after_each_reread",
     "work_item": "overseer-q156",
-    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-q156 with the implementation; ratified 2026-10-26 under the blocked-onboarding-classification revise (spec-first)."
+    "reason": "Integration-tier coverage of the exact Claude Code v2.1.310 theme picker, security-notes screen, and workspace-trust prompt, including the re-read-before-key action sequence."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A tracked session on a first-run onboarding screen is resolved to its input prompt",
-    "test": "TODO",
+    "test": "tests.integration.test_claude_onboarding_screens.test_first_run_onboarding_is_classified_and_resolved_after_each_reread",
     "work_item": "overseer-q156",
-    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-q156 with the implementation; ratified 2026-10-26 under the blocked-onboarding-classification revise (spec-first)."
+    "reason": "Integration-tier coverage of the exact Claude Code v2.1.310 theme picker, security-notes screen, and workspace-trust prompt, including the re-read-before-key action sequence."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A workspace-trust prompt for a folder other than the track's repository is never accepted",
-    "test": "TODO",
+    "test": "tests.integration.test_claude_onboarding_screens.test_foreign_workspace_trust_is_an_attention_row_without_a_keystroke",
     "work_item": "overseer-q156",
-    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-q156 with the implementation; ratified 2026-10-26 under the blocked-onboarding-classification revise (spec-first)."
+    "reason": "Integration-tier coverage that a foreign workspace-trust prompt remains an attention row and receives no keystroke."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The read-only list path reports an onboarding screen without keystroking it",
-    "test": "TODO",
+    "test": "tests.integration.test_claude_onboarding_screens.test_read_only_onboarding_reports_without_keystroking",
     "work_item": "overseer-q156",
-    "reason": "Owed integration-tier test (tests/integration), to be written by overseer-q156 with the implementation; ratified 2026-10-26 under the blocked-onboarding-classification revise (spec-first)."
+    "reason": "Integration-tier coverage that the read-only path reports an exact onboarding screen without sending a key."
   },
   {
     "spec_root": "SPECIFICATION",
