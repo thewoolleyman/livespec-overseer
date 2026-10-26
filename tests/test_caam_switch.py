@@ -97,6 +97,26 @@ class FakeActivator:
         return self.process
 
 
+class RestoringActivator(FakeActivator):
+    """A caam activation that restores all files from the target vault."""
+
+    def __init__(self, *, home: Path, **kwargs: object) -> None:
+        super().__init__(**kwargs)
+        self.home = home
+
+    def __call__(self, *, args: tuple[str, ...], timeout: float) -> FakeProcess:
+        process = super().__call__(args=args, timeout=timeout)
+        if process.returncode == 0:
+            profile = self.home / ".local/share/caam/vault/claude" / args[-1]
+            for relative in (".credentials.json", ".claude.json", "settings.json"):
+                live = self.home / ".claude" / relative
+                if relative == ".claude.json":
+                    live = self.home / relative
+                live.parent.mkdir(parents=True, exist_ok=True)
+                live.write_bytes((profile / relative).read_bytes())
+        return process
+
+
 class FakeActive:
     def __init__(self, *profiles: str | None) -> None:
         self.profiles = list(profiles)
@@ -111,6 +131,68 @@ def write_creds(*, path: Path, access_value: str) -> None:
         json.dumps({"claudeAiOauth": {"accessToken": access_value, "expiresAt": 9999999999000}}),
         encoding="utf-8",
     )
+
+
+def write_json(*, path: Path, body: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
+
+
+def test_switch_keeps_live_onboarding_trust_and_settings_while_replacing_identity(
+    *, tmp_path: Path
+):
+    module = caam_switch_module()
+    target = tmp_path / ".local/share/caam/vault/claude/target"
+    live_profile = tmp_path / ".claude.json"
+    live_settings = tmp_path / ".claude/settings.json"
+    live_body = {
+        "oauthAccount": {"accountUuid": "active"},
+        "userID": "active-user",
+        "hasCompletedOnboarding": True,
+        "lastOnboardingVersion": "2.1.310",
+        "projects": {"/trusted": {"hasTrustDialogAccepted": True}},
+        "custom": {"keep": "this"},
+    }
+    write_json(path=live_profile, body=live_body)
+    live_profile.chmod(0o644)
+    write_json(
+        path=target / ".claude.json",
+        body={"oauthAccount": {"accountUuid": "target"}, "userID": "target-user"},
+    )
+    before_settings = b'{\n  "theme": "dark",\n  "effortLevel": "high"\n}\n'
+    live_settings.parent.mkdir(parents=True, exist_ok=True)
+    live_settings.write_bytes(before_settings)
+    (target / "settings.json").write_text('{"effortLevel":"low"}\n', encoding="utf-8")
+    write_creds(path=target / ".credentials.json", access_value="target-value")
+    write_creds(path=tmp_path / ".claude/.credentials.json", access_value="active-value")
+    lock = FakeLock()
+    activator = RestoringActivator(home=tmp_path)
+    activator.lock = lock
+
+    result = module.switch_account(
+        request=module.SwitchRequest(
+            active_name="active",
+            target=ProfileUsage(name="target", source="live", usage=usage()),
+            current=usage(five_hour=90.0),
+            state={"profiles": {}},
+            home=tmp_path,
+            now=1000.0,
+            active_reader=FakeActive("active"),
+            fetcher=lambda *, creds_path, now=None: (usage(), None),
+            activator=activator,
+            lock_factory=FakeLockFactory(lock=lock),
+            save=lambda *, state: None,
+        )
+    )
+
+    assert result.reason == module.REASON_SWITCHED
+    assert json.loads(live_profile.read_text(encoding="utf-8")) == {
+        **live_body,
+        "oauthAccount": {"accountUuid": "target"},
+        "userID": "target-user",
+    }
+    assert live_settings.read_bytes() == before_settings
+    assert live_profile.stat().st_mode & 0o777 == 0o600
 
 
 def test_contended_lock_holds_without_waiting_and_saves_state(*, tmp_path: Path):
