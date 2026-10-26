@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.36.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.35.0...v5.36.0) (2026-10-26)
+
+
+### Features
+
+* reject invalid caam global state ([7b5a1df](https://github.com/thewoolleyman/livespec-overseer/commit/7b5a1df4fd9bea72e9a60f9ddc5952e17c7a86ee))
+
 ## [5.35.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.34.8...v5.35.0) (2026-10-26)
 
 
