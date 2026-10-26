@@ -176,3 +176,9 @@ would otherwise live in.
 - New protocol behavior ships with its scenario and its pinning test in the
   same change, so the scenario file and the deterministic suite cannot
   drift apart.
+- A live proof that renames, misnames, restarts, sends keys to, closes or
+  re-briefs a supervised session MUST run against a SACRIFICIAL seat: a fresh
+  session started for a small, inactive plan unrelated to any active work,
+  torn down once the proof is captured. It MUST NEVER use one of the
+  operator's active sessions as its subject or reproduction, even when that
+  session currently exhibits the defect being proved.
