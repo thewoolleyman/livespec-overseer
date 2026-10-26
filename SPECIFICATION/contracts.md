@@ -867,6 +867,20 @@ A done track (spec.md §"The terminal declaration") is never a member as a
 misnamed Codex track; it renders the quiet `done` status. Discovered-but-unassigned
 tracks remain outside this membership.
 
+Membership also includes an UNIDENTIFIED-SESSION track, as defined in spec.md
+§"Supervised runtimes": a mapped track whose recorded pane runs a live
+carrier of a supported runtime whose session no exact per-carrier evidence
+establishes, or whose vanished stored pane has more than one qualifying rebind
+candidate. For that track this member is distinct from, and never concurrent
+with, the session-gone and misnamed members. This is a distinct report-only
+member with normal coordinates; it participates in the NEEDS YOU count and
+window badge, is edge-triggered with the dedup identity spec.md states, and
+authorizes no act. Its rendered note MUST name the pane or candidate panes,
+the carrier's process identifier where one exists, and the refusing
+condition. It clears when the session is identified and adopted, or when its
+defining condition ends, after which ordinary classification applies. A done
+track and discovered-but-unassigned tracks remain outside this membership.
+
 ## The account-rotation operation
 
 **Pi package discovery.** Repository-root `package.json` MUST be regular UTF-8 JSON whose `pi.skills` value is exactly `["./.claude-plugin/.pi-plugin/skills"]`, so Pi discovers the namespaced bindings required by both operator operations. Its package version remains outside operation-version lockstep.

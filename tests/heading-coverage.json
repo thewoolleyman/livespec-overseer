@@ -3857,5 +3857,37 @@
     "test": "TODO",
     "work_item": "overseer-uzvcbn.6",
     "reason": "Owed integration-tier test over the shipped supervision round, to be written by overseer-uzvcbn.6 with the implementation; ratified 2026-10-26 under the codex-track-misnamed-alert revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A live Codex carrier with no exact session evidence reads unidentified, never gone",
+    "test": "TODO",
+    "work_item": "overseer-5eqavc",
+    "reason": "Owed integration-tier test over the shipped supervision round, to be written by overseer-5eqavc with the implementation; ratified 2026-10-26 under the codex-unidentified-session revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A backend-reported session named for the track identifies the carrier and re-records the row",
+    "test": "TODO",
+    "work_item": "overseer-5eqavc",
+    "reason": "Owed integration-tier test over the shipped supervision round, to be written by overseer-5eqavc with the implementation; ratified 2026-10-26 under the codex-unidentified-session revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A row whose stored pane is gone is rebound only to a single qualifying pane",
+    "test": "TODO",
+    "work_item": "overseer-5eqavc",
+    "reason": "Owed integration-tier test over the shipped supervision round, to be written by overseer-5eqavc with the implementation; ratified 2026-10-26 under the codex-unidentified-session revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A live recorded session keeps its identity beside a second carrier",
+    "test": "TODO",
+    "work_item": "overseer-5eqavc",
+    "reason": "Owed integration-tier test over the shipped supervision round, to be written by overseer-5eqavc with the implementation; ratified 2026-10-26 under the codex-unidentified-session revise (spec-first)."
   }
 ]

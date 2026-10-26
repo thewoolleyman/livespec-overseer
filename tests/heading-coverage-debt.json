@@ -1909,5 +1909,33 @@
     "heading": "## Scenario: Supervisor, other-track and out-of-repository threads are never misnamed candidates",
     "work_item": "overseer-uzvcbn.6",
     "first_seen": "2026-10-26"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A live Codex carrier with no exact session evidence reads unidentified, never gone",
+    "work_item": "overseer-5eqavc",
+    "first_seen": "2026-10-26"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A backend-reported session named for the track identifies the carrier and re-records the row",
+    "work_item": "overseer-5eqavc",
+    "first_seen": "2026-10-26"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A row whose stored pane is gone is rebound only to a single qualifying pane",
+    "work_item": "overseer-5eqavc",
+    "first_seen": "2026-10-26"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A live recorded session keeps its identity beside a second carrier",
+    "work_item": "overseer-5eqavc",
+    "first_seen": "2026-10-26"
   }
 ]

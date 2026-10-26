@@ -5698,3 +5698,59 @@ When a supervision round runs
 Then the track shows its session-gone row and no `codex-track-misnamed` row
 
 And none of those threads is adopted, renamed or otherwise acted on
+
+## Scenario: A live Codex carrier with no exact session evidence reads unidentified, never gone
+
+Given a mapped, not-done Codex track whose recorded pane runs a live Codex carrier holding no rollout file open
+
+And a sibling live Codex carrier runs in the same repository, so repository sessions are ambiguous
+
+And the terminal backend reports no session identifier for that pane's agent
+
+When supervision rounds run
+
+Then the track reads `unidentified-session`, not session-gone and not misnamed
+
+And exactly one event names the pane, the carrier's process identifier and the ambiguous-repository-sessions condition
+
+And the carrier is not adopted, wrapped up, nudged or restarted
+
+## Scenario: A backend-reported session named for the track identifies the carrier and re-records the row
+
+Given a mapped track with derived session name N whose row records a Claude session identity whose process is gone from its recorded pane
+
+And that pane now runs a live Codex carrier for which the terminal backend reports session identifier S, whose thread name is N
+
+And the Codex state database binds S to the track's repository, and S is bound to no other track
+
+When a supervision round runs
+
+Then the session S is adopted for the track
+
+And the row records session S's identity and a launch profile re-captured whole from the live Codex process
+
+## Scenario: A live recorded session keeps its identity beside a second carrier
+
+Given a mapped track whose row records a Claude session identity whose process is still alive in its recorded pane
+
+And a Codex carrier with backend-reported session S, bound to the track's repository, also runs in that pane
+
+When a supervision round runs
+
+Then the row keeps its Claude identity and launch profile
+
+And no Codex session is adopted, and nothing is restarted
+
+## Scenario: A row whose stored pane is gone is rebound only to a single qualifying pane
+
+Given a mapped track with derived session name N whose stored pane no longer exists on its recorded backend instance
+
+And exactly one pane on that instance runs an identified Codex carrier whose thread name is N and whose session the state database binds to the row's repository
+
+When a supervision round runs
+
+Then the row is rebound to that pane and an event names the old and new pane identifiers
+
+And when two such panes exist instead, the stored coordinate is unchanged and the track reads `unidentified-session` naming both panes
+
+And when none exists, the stored coordinate is unchanged and the track reads session-gone
