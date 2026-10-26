@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 from types import ModuleType
 
+import pytest
 from caam_decision import (
     ActiveAccount,
     ProfileUsage,
@@ -97,6 +98,18 @@ class FakeActivator:
         return self.process
 
 
+class OverwritingActivator(FakeActivator):
+    def __init__(self, *, paths: tuple[Path, Path, Path]) -> None:
+        super().__init__(process=FakeProcess(returncode=1, stderr="rejected"))
+        self.paths = paths
+
+    def __call__(self, *, args: tuple[str, ...], timeout: float) -> FakeProcess:
+        process = super().__call__(args=args, timeout=timeout)
+        for path in self.paths:
+            path.write_bytes(b"overwritten by caam\n")
+        return process
+
+
 class FakeActive:
     def __init__(self, *profiles: str | None) -> None:
         self.profiles = list(profiles)
@@ -111,6 +124,106 @@ def write_creds(*, path: Path, access_value: str) -> None:
         json.dumps({"claudeAiOauth": {"accessToken": access_value, "expiresAt": 9999999999000}}),
         encoding="utf-8",
     )
+
+
+@pytest.fixture(autouse=True)
+def switch_global_state(*, tmp_path: Path) -> None:
+    """Seed the state files the switch validates before activation."""
+    write_creds(
+        path=tmp_path / ".claude/.credentials.json",
+        access_value="active-value",
+    )
+    (tmp_path / ".claude.json").write_text(
+        '{"oauthAccount":{"accountUuid":"active"},"userID":"active-user"}\n',
+        encoding="utf-8",
+    )
+    settings = tmp_path / ".claude/settings.json"
+    settings.parent.mkdir(parents=True, exist_ok=True)
+    settings.write_text('{"effortLevel":"high"}\n', encoding="utf-8")
+    stored = tmp_path / ".local/share/caam/vault/claude/target/.claude.json"
+    stored.parent.mkdir(parents=True, exist_ok=True)
+    stored.write_text(
+        '{"oauthAccount":{"accountUuid":"target"},"userID":"target-user"}\n',
+        encoding="utf-8",
+    )
+
+
+def test_invalid_stored_global_state_refuses_before_activation_without_changing_live_files(
+    *, tmp_path: Path
+):
+    module = caam_switch_module()
+    live_profile = tmp_path / ".claude.json"
+    live_settings = tmp_path / ".claude/settings.json"
+    live_creds = tmp_path / ".claude/.credentials.json"
+    target = tmp_path / ".local/share/caam/vault/claude/target"
+    live_profile.write_text(
+        '{"oauthAccount":{"accountUuid":"active"},"userID":"active-user"}\n',
+        encoding="utf-8",
+    )
+    live_settings.parent.mkdir(parents=True, exist_ok=True)
+    live_settings.write_bytes(b'{"effortLevel":"high"}\n')
+    target.mkdir(parents=True, exist_ok=True)
+    (target / ".claude.json").write_text(
+        '{"oauthAccount":{"accountUuid":"target"}}\n', encoding="utf-8"
+    )
+    write_creds(path=target / ".credentials.json", access_value="target-value")
+    write_creds(path=live_creds, access_value="active-value")
+    before = tuple(path.read_bytes() for path in (live_creds, live_profile, live_settings))
+    lock = FakeLock()
+    activator = FakeActivator()
+    activator.lock = lock
+
+    result = module.switch_account(
+        request=module.SwitchRequest(
+            active_name="active",
+            target=ProfileUsage(name="target", source="live", usage=usage()),
+            current=usage(five_hour=90.0),
+            state={"profiles": {}},
+            home=tmp_path,
+            now=1000.0,
+            active_reader=FakeActive("active"),
+            fetcher=lambda *, creds_path, now=None: (usage(), None),
+            activator=activator,
+            lock_factory=FakeLockFactory(lock=lock),
+            save=lambda *, state: None,
+        )
+    )
+
+    assert activator.calls == []
+    assert result.exit_code == 2
+    assert tuple(path.read_bytes() for path in (live_creds, live_profile, live_settings)) == before
+
+
+def test_rejected_activation_restores_every_pre_switch_file_byte_for_byte(*, tmp_path: Path):
+    module = caam_switch_module()
+    live_creds = tmp_path / ".claude/.credentials.json"
+    live_profile = tmp_path / ".claude.json"
+    live_settings = tmp_path / ".claude/settings.json"
+    target_creds = tmp_path / ".local/share/caam/vault/claude/target/.credentials.json"
+    write_creds(path=target_creds, access_value="target-value")
+    before = tuple(path.read_bytes() for path in (live_creds, live_profile, live_settings))
+    lock = FakeLock()
+    activator = OverwritingActivator(paths=(live_creds, live_profile, live_settings))
+    activator.lock = lock
+
+    result = module.switch_account(
+        request=module.SwitchRequest(
+            active_name="active",
+            target=ProfileUsage(name="target", source="live", usage=usage()),
+            current=usage(five_hour=90.0),
+            state={"profiles": {}},
+            home=tmp_path,
+            now=1000.0,
+            active_reader=FakeActive("active"),
+            fetcher=lambda *, creds_path, now=None: (usage(), None),
+            activator=activator,
+            lock_factory=FakeLockFactory(lock=lock),
+            save=lambda *, state: None,
+        )
+    )
+
+    assert result.exit_code == 2
+    assert tuple(path.read_bytes() for path in (live_creds, live_profile, live_settings)) == before
 
 
 def test_contended_lock_holds_without_waiting_and_saves_state(*, tmp_path: Path):

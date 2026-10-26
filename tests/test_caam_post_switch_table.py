@@ -279,6 +279,17 @@ def test_the_switched_flag_is_set_only_by_a_switch_that_moved_the_credential(
         access_value="target-value",
     )
     write_creds(path=moved_home / ".claude/.credentials.json", access_value="target-value")
+    (moved_home / ".claude.json").write_text(
+        '{"oauthAccount":{"accountUuid":"active"},"userID":"active-user"}\n',
+        encoding="utf-8",
+    )
+    settings = moved_home / ".claude/settings.json"
+    settings.parent.mkdir(parents=True, exist_ok=True)
+    settings.write_text('{"effortLevel":"high"}\n', encoding="utf-8")
+    (moved_home / ".local/share/caam/vault/claude/target/.claude.json").write_text(
+        '{"oauthAccount":{"accountUuid":"target"},"userID":"target-user"}\n',
+        encoding="utf-8",
+    )
     moved = _switch(
         home=moved_home, active_reader=FakeActive("active"), lock=lock, activator=activator
     )
