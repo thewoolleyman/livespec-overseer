@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Final, Protocol, cast
+from typing import Final
 
 from _caam_switch_host import (
     SwitchLock,
@@ -14,9 +13,24 @@ from _caam_switch_host import (
     acquire_switch_lock,
     caam_activate,
 )
+from _caam_switch_render import target_summary
+from _caam_switch_state import (
+    LiveSwitchState,
+    StateValidationError,
+    apply_activated_state,
+    capture_live_state,
+    restore_rejected_state,
+)
+from _caam_switch_types import (
+    ActivateRunner,
+    ActiveReader,
+    CaamProcess,
+    SaveState,
+    UsageFetcher,
+)
+from _caam_switch_verify import activation_message, switch_did_not_stick
 from caam_decision import ProfileUsage, UsageRecord, decision_switched
-from caam_profile_state import caam_vault, live_creds_path
-from caam_usage import read_creds
+from caam_profile_state import caam_vault
 
 __all__: list[str] = [
     "ACTIVATE_TIMEOUT_S",
@@ -24,6 +38,7 @@ __all__: list[str] = [
     "REASON_FAIL_ACTIVATE",
     "REASON_FAIL_DID_NOT_STICK",
     "REASON_FAIL_ERROR",
+    "REASON_FAIL_STATE_VALIDATION",
     "REASON_FAIL_TARGET_CREDENTIAL",
     "REASON_HOLD_ACTIVE_CHANGED",
     "REASON_HOLD_LOCK_HELD",
@@ -59,33 +74,7 @@ REASON_FAIL_TARGET_CREDENTIAL: Final = "fail-target-credential"
 REASON_FAIL_ACTIVATE: Final = "fail-activate"
 REASON_FAIL_DID_NOT_STICK: Final = "fail-did-not-stick"
 REASON_FAIL_ERROR: Final = "fail-error"
-
-
-class CaamProcess(Protocol):
-    returncode: int
-    stdout: str
-    stderr: str
-
-
-class ActivateRunner(Protocol):
-    def __call__(self, *, args: tuple[str, ...], timeout: float) -> CaamProcess: ...
-
-
-class ActiveReader(Protocol):
-    def __call__(self) -> str | None: ...
-
-
-class SaveState(Protocol):
-    def __call__(self, *, state: dict[str, object]) -> None: ...
-
-
-class UsageFetcher(Protocol):
-    def __call__(
-        self,
-        *,
-        creds_path: Path,
-        now: float | None = None,
-    ) -> tuple[UsageRecord | None, str | None]: ...
+REASON_FAIL_STATE_VALIDATION: Final = "fail-state-validation"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -138,51 +127,57 @@ def _switch_account_uncaught(*, request: SwitchRequest) -> SwitchResult:
         return SwitchResult(exit_code=0, reason=REASON_HOLD_LOCK_HELD, lines=(_HOLD_LOCKED,))
 
     with lock:
-        active_under_lock = request.active_reader()
-        if active_under_lock != request.active_name:
-            request.save(state=request.state)
-            return SwitchResult(
-                exit_code=0,
-                reason=REASON_HOLD_ACTIVE_CHANGED,
-                lines=(
-                    "hold: active changed "
-                    f"{request.active_name} -> {active_under_lock} while deciding; "
-                    "re-evaluating next tick",
-                ),
-            )
+        return _switch_under_lock(request=request)
 
-        usage, why = request.fetcher(
-            creds_path=caam_vault(home=request.home) / request.target.name / ".credentials.json",
-            now=request.now,
+
+def _switch_under_lock(*, request: SwitchRequest) -> SwitchResult:
+    active_under_lock = request.active_reader()
+    if active_under_lock != request.active_name:
+        request.save(state=request.state)
+        return SwitchResult(
+            exit_code=0,
+            reason=REASON_HOLD_ACTIVE_CHANGED,
+            lines=(
+                "hold: active changed "
+                f"{request.active_name} -> {active_under_lock} while deciding; "
+                "re-evaluating next tick",
+            ),
         )
-        if usage is None:
-            request.save(state=request.state)
-            return SwitchResult(
-                exit_code=2,
-                reason=REASON_FAIL_TARGET_CREDENTIAL,
-                lines=(
-                    "FAIL refusing to switch to "
-                    f"{request.target.name} -- its stored credential does not work right now "
-                    f"({why}). Installing it would break every running session.",
-                ),
-            )
-
-        process = request.activator(
-            args=("activate", _TOOL, request.target.name),
-            timeout=ACTIVATE_TIMEOUT_S,
+    usage, why = request.fetcher(
+        creds_path=caam_vault(home=request.home) / request.target.name / ".credentials.json",
+        now=request.now,
+    )
+    if usage is None:
+        request.save(state=request.state)
+        return SwitchResult(
+            exit_code=2,
+            reason=REASON_FAIL_TARGET_CREDENTIAL,
+            lines=(
+                "FAIL refusing to switch to "
+                f"{request.target.name} -- its stored credential does not work right now "
+                f"({why}). Installing it would break every running session.",
+            ),
         )
-        if process.returncode != 0:
-            request.save(state=request.state)
-            return SwitchResult(
-                exit_code=2,
-                reason=REASON_FAIL_ACTIVATE,
-                lines=(
-                    f"FAIL caam activate {request.target.name}: "
-                    f"{_process_message(process=process)}",
-                ),
-            )
-
-    if _switch_did_not_stick(home=request.home, target_name=request.target.name):
+    try:
+        preserved_state = capture_live_state(home=request.home, target_name=request.target.name)
+    except (OSError, StateValidationError) as exc:
+        request.save(state=request.state)
+        return SwitchResult(
+            exit_code=2,
+            reason=REASON_FAIL_STATE_VALIDATION,
+            lines=(f"FAIL refusing to switch: {exc}",),
+        )
+    activation_failure = _activate(request=request, state=preserved_state)
+    if activation_failure is not None:
+        return activation_failure
+    try:
+        apply_activated_state(state=preserved_state)
+        did_not_stick = switch_did_not_stick(home=request.home, target_name=request.target.name)
+    except (OSError, RuntimeError, subprocess.SubprocessError, TypeError, ValueError):
+        restore_rejected_state(state=preserved_state)
+        raise
+    if did_not_stick:
+        restore_rejected_state(state=preserved_state)
         request.save(state=request.state)
         return SwitchResult(
             exit_code=2,
@@ -194,7 +189,6 @@ def _switch_account_uncaught(*, request: SwitchRequest) -> SwitchResult:
                 "over the swap. Re-run to retry.",
             ),
         )
-
     request.state["last_switch"] = {
         "at": request.now,
         "from": request.active_name,
@@ -209,33 +203,30 @@ def _switch_account_uncaught(*, request: SwitchRequest) -> SwitchResult:
             decision_switched(
                 active_name=request.active_name,
                 current_five_hour_remaining=request.current.five_hour_remaining,
-                target=_target_summary(target=request.target, now=request.now),
+                target=target_summary(target=request.target, now=request.now),
             ),
         ),
     )
 
 
-def _process_message(*, process: CaamProcess) -> str:
-    message = process.stderr.strip() or process.stdout.strip()
-    return message
-
-
-def _switch_did_not_stick(*, home: Path, target_name: str) -> bool:
-    target_token, _ = read_creds(
-        path=caam_vault(home=home) / target_name / ".credentials.json",
-    )
-    live, _ = read_creds(path=live_creds_path(home=home))
-    return target_token is not None and live is not None and target_token != live
-
-
-def _target_summary(*, target: ProfileUsage, now: float):
-    from caam_rendering import SwitchTargetSummary
-
-    usage = cast(UsageRecord, target.usage)
-    return SwitchTargetSummary(
-        name=target.name,
-        weekly_remaining=usage.seven_day_remaining,
-        weekly_reset=usage.seven_day_resets_at,
-        source=target.source,
-        now=datetime.fromtimestamp(now, tz=timezone.utc),
+def _activate(*, request: SwitchRequest, state: LiveSwitchState) -> SwitchResult | None:
+    try:
+        process = request.activator(
+            args=("activate", _TOOL, request.target.name),
+            timeout=ACTIVATE_TIMEOUT_S,
+        )
+    except (OSError, RuntimeError, subprocess.SubprocessError, TypeError, ValueError):
+        restore_rejected_state(state=state)
+        raise
+    if process.returncode == 0:
+        return None
+    restore_rejected_state(state=state)
+    request.save(state=request.state)
+    return SwitchResult(
+        exit_code=2,
+        reason=REASON_FAIL_ACTIVATE,
+        lines=(
+            f"FAIL caam activate {request.target.name}: "
+            f"{activation_message(stdout=process.stdout, stderr=process.stderr)}",
+        ),
     )
