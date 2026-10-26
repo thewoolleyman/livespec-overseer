@@ -121,9 +121,10 @@ def _mapped_codex_supervisor(*, tmp_path):
         fake=fake,
         watch_repos=[str(repo)],
         codex_home=str(codex_home),
-        codex_pids_of_comm=host["pids_of_comm"],
+        codex_pids_of_comm=host["readers"].pids_of_comm,
         codex_fd_targets_of=rollout_fds,
-        codex_cwd_of=host["cwd_of"],
+        codex_cwd_of=host["readers"].cwd_of,
+        codex_foreground_pgrp_of=host["readers"].foreground_pgrp_of,
         ppid_of=lambda *, pid: {9000: 7001}.get(pid),
     )
     registry.append_mapping(

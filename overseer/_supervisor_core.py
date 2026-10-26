@@ -87,6 +87,7 @@ import _supervisor_nudge_marker
 import _supervisor_observe
 import _supervisor_otel_seam
 import _supervisor_recovery
+import _supervisor_reexec_env
 import _supervisor_render
 import _supervisor_restart
 import _supervisor_restart_model_snapshot
@@ -109,12 +110,6 @@ from _supervisor_view import RowView
 __all__: list[str] = ["Supervisor"]
 
 CodexSessionMap = dict[tuple[str, str], codex_sessions.CodexSession]
-
-
-def _process_execve(
-    *, path: str, argv: list[str], env: Mapping[str, str]
-) -> None:  # pragma: no cover
-    os.execve(path, argv, env)  # noqa: S606
 
 
 # --------------------------------------------------------------------------- #
@@ -153,7 +148,7 @@ class Supervisor:
     # environment rather than by the executable named on the command line. It was
     # `os.execv` until an inherited plugin-cache `PYTHONPATH` silently overrode a
     # correctly-selected runtime; see `_supervisor_reexec_env` for the measurement.
-    execve: Callable[..., None] = _process_execve
+    execve: Callable[..., None] = _supervisor_reexec_env.process_execve
     environ: Callable[[], dict[str, str]] = field(default_factory=lambda: lambda: dict(os.environ))
     reexec_min_interval_seconds: float = 3600.0
     extra_repos: list[str] = field(default_factory=list)
@@ -206,6 +201,7 @@ class Supervisor:
     codex_home: str | os.PathLike[str] | None = None
     codex_pids_of_comm: _seams.CommToPidList = codex_sessions.proc_pids_of_comm
     codex_fd_targets_of: _seams.PidToStrList = codex_sessions.proc_fd_targets
+    codex_foreground_pgrp_of: _seams.PidToOptionalInt = codex_sessions.proc_foreground_pgrp
     # Host-precondition seams (default: the real `/proc` + a real PATH lookup; the
     # beside-tests' `_sup` factory defaults them to a SUPPORTED-looking host so the
     # suite never depends on the RUNNER having tmux). Linux + tmux is a DECLARED

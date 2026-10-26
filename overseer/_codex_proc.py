@@ -32,6 +32,7 @@ from _seams import (
     CommToPidList,
     PidToIntList,
     PidToOptionalBytes,
+    PidToOptionalInt,
     PidToOptionalStr,
     PidToStrList,
 )
@@ -57,6 +58,7 @@ __all__: list[str] = [
     "proc_cwd",
     "proc_environ_value",
     "proc_fd_targets",
+    "proc_foreground_pgrp",
     "proc_pids_of_comm",
     "rollout_id",
 ]
@@ -78,6 +80,7 @@ _ROLLOUT_RE = re.compile(
 # Codex session's helper sits one level down and brings a handful of processes with it;
 # the bound is what keeps a pathological (or cyclic) process tree from stalling a tick.
 MAX_HELPER_PROCESSES = 64
+_STAT_REQUIRED_FIELDS = 6
 
 
 # --------------------------------------------------------------------------- #
@@ -106,6 +109,35 @@ def proc_cwd(*, pid: int) -> str | None:
         return str(Path(f"/proc/{pid}/cwd").readlink())
     except OSError:
         return None
+
+
+def proc_foreground_pgrp(*, pid: int) -> int | None:
+    """The foreground terminal process group of ``pid``, or None when it has none.
+
+    A Codex TUI runs in its pane terminal's foreground group. Its app-server helpers
+    create detached sessions instead, even when their ``comm`` and cwd match the TUI.
+    ``stat`` fields 5, 7, and 8 are the process group, controlling terminal, and
+    terminal foreground group respectively.
+    """
+    try:
+        raw = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    cut = raw.rfind(")")
+    if cut == -1:
+        return None
+    fields = raw[cut + 1 :].split()
+    if len(fields) < _STAT_REQUIRED_FIELDS:
+        return None
+    try:
+        pgrp = int(fields[2])
+        tty_number = int(fields[4])
+        foreground_pgrp = int(fields[5])
+    except ValueError:
+        return None
+    if tty_number == 0 or foreground_pgrp <= 0 or pgrp != foreground_pgrp:
+        return None
+    return foreground_pgrp
 
 
 def proc_pids_of_comm(*, comm: str) -> list[int]:
@@ -152,7 +184,8 @@ class CodexHostReaders:
 
     ``environ_of`` is here for ONE purpose: :func:`codex_carriers` asks each carrier
     which Codex home it runs under, and that question has to be answered before the
-    cwd and fd readers are allowed anywhere near it.
+    cwd and fd readers are allowed anywhere near it. ``foreground_pgrp_of`` establishes
+    that the process is the pane TUI rather than a detached app-server helper.
 
     The defaults are the real host, so ``CodexHostReaders()`` reads this machine; the
     beside-tests build one from fakes and never touch the real ``/proc`` or ``~/.codex``.
@@ -164,6 +197,7 @@ class CodexHostReaders:
     fd_targets_of: PidToStrList = proc_fd_targets
     children_of: PidToIntList = proc_children
     environ_of: PidToOptionalBytes = proc_environ
+    foreground_pgrp_of: PidToOptionalInt = proc_foreground_pgrp
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -171,7 +205,7 @@ class CodexCarriers:
     """Every live Codex carrier on the host, split by whether it is THIS daemon's.
 
     ``scoped`` is the set whose evidence may be read; ``all_pids`` is kept because the
-    rollout walk needs it for a different job — it stops at ANY carrier, in or out of
+    rollout walk needs it for a different job — it stops at ANY TUI carrier, in or out of
     scope, so a ``codex resume`` launched from another session's shell tool is never
     attributed to the carrier that spawned it. That stop-set is pid identity alone and
     reads nothing from a process, which is why it stays host-wide.
@@ -224,12 +258,15 @@ def codex_carriers(
     codex_home: Path,
     pids_of_comm: CommToPidList = proc_pids_of_comm,
     environ_of: PidToOptionalBytes = proc_environ,
+    foreground_pgrp_of: PidToOptionalInt | None = None,
 ) -> CodexCarriers:
     """Live Codex carriers, scoped to the ones running under ``codex_home``.
 
-    The scan itself is host-wide and has to be: ``comm`` is the only thing that says a
-    process is a Codex carrier at all. What is scoped is which of those carriers count
-    as EVIDENCE, and the Codex home is the seam the daemon's own joins already turn on —
+    The scan itself is host-wide and has to be: ``comm`` plus membership in a terminal
+    foreground group identifies a Codex TUI. A detached helper can share the binary's
+    ``comm`` and repository cwd, so cannot be a carrier without terminal evidence. What
+    is scoped is which of those carriers count as EVIDENCE, and the Codex home is the
+    seam the daemon's own joins already turn on —
     the index that names a session, the rollout filenames that carry its id and the
     state database that binds it to a repository all live under ONE home. A carrier
     under a different one cannot be named by this daemon's index and cannot have a row
@@ -242,7 +279,8 @@ def codex_carriers(
     exercise) stops reading the operator's real sessions, and the fleet daemon stops
     reading the exercise's stub.
     """
-    found = tuple(pids_of_comm(comm=CODEX_COMM))
+    foreground = proc_foreground_pgrp if foreground_pgrp_of is None else foreground_pgrp_of
+    found = tuple(pid for pid in pids_of_comm(comm=CODEX_COMM) if foreground(pid=pid) is not None)
     return CodexCarriers(
         all_pids=found,
         scoped=tuple(

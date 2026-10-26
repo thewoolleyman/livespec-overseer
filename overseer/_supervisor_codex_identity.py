@@ -188,6 +188,7 @@ def pane_codex_carriers(
             codex_home=_resolved_codex_home(readers=readers),
             pids_of_comm=readers.pids_of_comm,
             environ_of=readers.environ_of,
+            foreground_pgrp_of=readers.foreground_pgrp_of,
         ).scoped
     )
     candidates = live_rollout_ids(carriers=carriers, readers=readers)

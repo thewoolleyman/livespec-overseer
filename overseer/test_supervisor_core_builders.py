@@ -20,6 +20,7 @@ def make_supervisor(*, tmp_path, fake, **kwargs):
     # a simulated session (see test_refresh_and_adopt_route_codex_through_injected_seams).
     kwargs.setdefault("codex_home", str(tmp_path / "codex-home-none"))
     kwargs.setdefault("codex_pids_of_comm", lambda *, comm: [])
+    kwargs.setdefault("codex_foreground_pgrp_of", lambda *, pid: pid)
     # Hermetic runtime-model capture by default: no transcript source, so a capture
     # test that does not inject a fake reader touches NO real ~/.claude and falls back
     # to the launch model exactly as before. A runtime-model test overrides this.

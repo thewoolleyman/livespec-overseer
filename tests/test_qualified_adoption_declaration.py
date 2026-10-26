@@ -199,6 +199,7 @@ def _scenario(*, tmp_path: Path) -> AdoptionScenario:
         codex_home=codex_home,
         codex_pids_of_comm=lambda *, comm: [2002] if comm == "codex" else [],
         codex_fd_targets_of=lambda *, pid: [f"rollout-now-{session_id}.jsonl"],
+        codex_foreground_pgrp_of=lambda *, pid: pid if pid == 2002 else None,
         codex_cwd_of=lambda *, pid: str(repo_b) if pid == 2002 else None,
         children_of=lambda *, pid: [],
         out=io.StringIO(),

@@ -10,7 +10,6 @@ import _claude_sessions_proc
 import _supervisor_discovery
 import _supervisor_launch_profile_refresh
 import _supervisor_restart
-import codex_sessions
 import registry
 import signals
 from _supervisor_launch_profile import (
@@ -437,7 +436,7 @@ def test_codex_profile_source_skips_live_session_outside_tmux(*, tmp_path):
             pane_pid_to_session={},
             ppid_of=lambda *, pid: None,
             starttime_of=lambda *, pid: None,
-            codex_readers=codex_sessions.CodexHostReaders(codex_home=codex_home, **host),
+            codex_readers=replace(host["readers"], codex_home=codex_home),
         )
         == {}
     )
