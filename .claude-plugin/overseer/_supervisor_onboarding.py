@@ -33,24 +33,34 @@ _SECURITY = "security-notes screen"
 _TRUST = "workspace-trust prompt"
 _THEME_LINES = (
     "Let's get started.",
+    "",
     "Choose the text style that looks best with your terminal",
+    "",
     "❯ Dark mode",
     "  Light mode",
     "  Dark mode (colorblind-friendly)",
     "  Light mode (colorblind-friendly)",
+    "",
     "To change this later, run /theme",
 )
 _SECURITY_LINES = (
     "Security notes:",
+    "",
     "1. Claude can make mistakes",
     "You should always review Claude's responses, especially when running code.",
+    "",
     "2. Due to prompt injection risks, only use it with code you trust",
     "For more details see:",
     "https://code.claude.com/docs/en/security",
+    "",
     "Press Enter to continue…",
 )
-_TRUST_PREFIX = (
+_TRUST_BEFORE_FOLDER = (
     "Accessing workspace:",
+    "",
+)
+_TRUST_AFTER_FOLDER = (
+    "",
     (
         "Quick safety check: Is this a project you created or one you trust? "
         "(Like your own code, a well-known"
@@ -59,8 +69,11 @@ _TRUST_PREFIX = (
         "open source project, or work from your team). If not, take a moment "
         "to review what's in this folder first."
     ),
+    "",
     "Claude Code'll be able to read, edit, and execute files here.",
+    "",
     "Security guide",
+    "",
 )
 _TRUST_EXIT = ("❯ No, exit", "  Yes, I trust this folder")
 _TRUST_ACCEPT = ("  No, exit", "❯ Yes, I trust this folder")
@@ -151,27 +164,37 @@ def active_decision(*, request: ActiveRequest) -> ActiveDecision | None:
 
 def _trust_screen(*, lines: tuple[str, ...]) -> OnboardingScreen | None:
     """Recognise the workspace-trust screen and its current selection exactly."""
-    if len(lines) != len(_TRUST_PREFIX) + 3 or lines[0] != _TRUST_PREFIX[0]:
+    folder_index = len(_TRUST_BEFORE_FOLDER)
+    after_folder = folder_index + 1
+    options_index = after_folder + len(_TRUST_AFTER_FOLDER)
+    if len(lines) != options_index + len(_TRUST_EXIT):
         return None
-    folder = lines[1]
-    if not folder.startswith("/") or tuple(lines[2:6]) != _TRUST_PREFIX[1:]:
+    folder = lines[folder_index]
+    expected_layout = (*_TRUST_BEFORE_FOLDER, folder, *_TRUST_AFTER_FOLDER)
+    if not folder.startswith("/") or tuple(lines[:options_index]) != expected_layout:
         return None
-    options = tuple(lines[6:])
+    options = tuple(lines[options_index:])
     if options == _TRUST_EXIT:
-        return OnboardingScreen(name=_TRUST, folder=folder, selection="exit")
-    if options == _TRUST_ACCEPT:
-        return OnboardingScreen(name=_TRUST, folder=folder, selection="accept")
-    return None
+        selection = "exit"
+    elif options == _TRUST_ACCEPT:
+        selection = "accept"
+    else:
+        selection = None
+    return (
+        OnboardingScreen(name=_TRUST, folder=folder, selection=selection)
+        if selection is not None
+        else None
+    )
 
 
 def _lines(*, capture: str) -> tuple[str, ...]:
-    """The ANSI-free complete display, preserving meaningful option indentation."""
+    """The ANSI-free complete display, retaining its interior layout exactly."""
     lines = [signals.strip_ansi(text=line).rstrip() for line in capture.splitlines()]
     while lines and not lines[0]:
         _ = lines.pop(0)
     while lines and not lines[-1]:
         _ = lines.pop()
-    return tuple(line for line in lines if line)
+    return tuple(lines)
 
 
 def _note(*, screen: OnboardingScreen) -> str:
