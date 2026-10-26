@@ -1853,5 +1853,33 @@
     "heading": "## Scenario: A release on serveability grounds does not release a protection floor",
     "work_item": "overseer-2fjvy6",
     "first_seen": "2026-10-25"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## First-run onboarding screens",
+    "work_item": "overseer-q156",
+    "first_seen": "2026-10-26"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A tracked session on a first-run onboarding screen is resolved to its input prompt",
+    "work_item": "overseer-q156",
+    "first_seen": "2026-10-26"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A workspace-trust prompt for a folder other than the track's repository is never accepted",
+    "work_item": "overseer-q156",
+    "first_seen": "2026-10-26"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The read-only list path reports an onboarding screen without keystroking it",
+    "work_item": "overseer-q156",
+    "first_seen": "2026-10-26"
   }
 ]

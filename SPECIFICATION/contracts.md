@@ -316,7 +316,10 @@ The restart itself guarantees:
   only — recorded round-scoped so it cannot outlive its round, branched on
   the observed input-box state rather than on busy-ness, and never escalated
   to a second kill. A fresh session showing a structured gate is reported as
-  waiting on a human and never keystroked, with the round held open.
+  waiting on a human and never keystroked, with the round held open; the one
+  exception is the first-run onboarding exception of constraints.md §"Acting
+  safety", under which such a session is reported `blocked-onboarding` and its
+  onboarding screens alone are resolved.
 - The restart never changes the track's runtime (per spec.md §"Supervised
   runtimes").
 
@@ -477,7 +480,9 @@ MUST NOT name a runtime, a launch mode, or an approval or sandbox policy as
 inherently unable to render a structured question unless that inability is
 established by CURRENT runtime evidence. A live structured gate MUST continue to
 classify the pane as waiting on a human, suppressing both the nudge and the
-wrap-up paste; and the ABSENCE of a gate MUST NOT be read as proof that the
+wrap-up paste (a pane on a first-run onboarding screen is such a pane, reported
+under the distinct `blocked-onboarding` status of spec.md §"First-run
+onboarding screens"); and the ABSENCE of a gate MUST NOT be read as proof that the
 session can obtain human input by some other means. The `blocked:` token, its
 surfacing behavior, and its restart prohibition are unchanged by this rule.
 
@@ -628,8 +633,12 @@ the daemon degrades and warns rather than crashing.
   the track is not waiting on a human; a consumer testing whether a track is
   parked on a picker MUST use `picker_open`, which exists precisely so that
   test does not depend on the status vocabulary; and a consumer that must act
-  on a human-waiting track MUST treat the published `blocked:human` and
-  picker-stall statuses alike for that purpose. That promotion IS the
+  on a human-waiting track MUST treat the published `blocked:human`,
+  picker-stall, and `blocked-onboarding` statuses alike for that purpose. A
+  track classified `blocked-onboarding` (spec.md §"First-run onboarding
+  screens") MUST be published under `blocked-onboarding` however long its
+  capture is unchanged, and is NEVER promoted to the picker-stall status;
+  `picker_open` still reports its open picker. That promotion IS the
   "picker-stall surface" and the "picker-stall status" that the NEEDS YOU
   membership paragraph below names in distinguishing itself from them: the two
   are one mechanism under two names, and this rule is the referent for both.
