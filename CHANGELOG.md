@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.34.8](https://github.com/thewoolleyman/livespec-overseer/compare/v5.34.7...v5.34.8) (2026-10-26)
+
+
+### Bug Fixes
+
+* retain Codex TUI as app-server rollout carrier ([dcb0e2c](https://github.com/thewoolleyman/livespec-overseer/commit/dcb0e2cb137c6420514d6048ea36576f04e5a829))
+
 ## [5.34.7](https://github.com/thewoolleyman/livespec-overseer/compare/v5.34.6...v5.34.7) (2026-10-25)
 
 
