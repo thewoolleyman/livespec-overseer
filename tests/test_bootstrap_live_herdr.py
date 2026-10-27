@@ -58,7 +58,7 @@ import socket
 import subprocess
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -66,6 +66,7 @@ from typing import Any
 import pytest
 from test_herdr_live_observations import (
     PANE_CWD,
+    BoundedPoll,
     pane_ids,
     process_info_reply,
     raw_request,
@@ -92,6 +93,10 @@ ACCEPT_POLL = 0.5
 INSTALL_TIMEOUT = 600.0
 SENTINEL_COMMAND = "sleep 600"
 SENTINEL_NAME = "sleep"
+# `_foreground` has always had this liveness floor. Retrying an incomplete
+# process reply stays inside it; the retry does not buy tolerance by widening
+# what the live bootstrap exercise waits for.
+FOREGROUND_POLL = BoundedPoll(seconds=DAEMON_TIMEOUT)
 
 # A per-exercise suffix for the herdr session name, on top of this process's pid.
 # The pid alone was not enough: both exercises here are function-scoped, so the
@@ -231,10 +236,86 @@ def _geometry(*, socket_path: str, pane_id: str) -> tuple[dict[str, int], str]:
     return tops, str(layout["focused_pane_id"])
 
 
-def _foreground(*, socket_path: str, pane_id: str) -> Any:
-    reading = read_foreground(reply=process_info_reply(socket_path=socket_path, pane_id=pane_id))
-    assert reading is not None, f"no usable process reading for {pane_id!r}"
-    return reading
+def _foreground(
+    *,
+    socket_path: str,
+    pane_id: str,
+    read: Callable[[], Mapping[str, Any]] | None = None,
+    poll: BoundedPoll = FOREGROUND_POLL,
+) -> Any:
+    """Read a pane foreground within its existing bound, discarding incomplete replies."""
+    source = read
+    if source is None:
+
+        def default_read() -> Mapping[str, Any]:
+            return process_info_reply(socket_path=socket_path, pane_id=pane_id)
+
+        source = default_read
+    deadline = poll.monotonic() + poll.seconds
+    while poll.monotonic() < deadline:
+        reading = read_foreground(reply=source())
+        if reading is not None:
+            return reading
+        poll.sleep(POLL_SECONDS)
+    pytest.fail(f"unusable process reading for {pane_id!r} persisted for {poll.seconds}s")
+
+
+def _scripted_poll(*, seconds: float, ticks: list[float]) -> BoundedPoll:
+    """A deterministic bounded poll whose clock advances through `ticks`."""
+    remaining = list(ticks)
+
+    def monotonic() -> float:
+        return remaining.pop(0) if remaining else 1e9
+
+    return BoundedPoll(seconds=seconds, monotonic=monotonic, sleep=lambda _seconds: None)
+
+
+def test_foreground_discards_one_unusable_reading_before_returning_a_usable_one() -> None:
+    """A transient incomplete process reply does not abort placement observation."""
+    pane_id = "w1:p1"
+    usable = {
+        "result": {
+            "process_info": {
+                "pane_id": pane_id,
+                "shell_pid": 417,
+                "foreground_process_group_id": 417,
+                "foreground_processes": [
+                    {"pid": 417, "name": "dash", "cmdline": "dash", "cwd": "/tmp"}
+                ],
+            }
+        }
+    }
+    replies = [
+        {"result": {"process_info": {"pane_id": pane_id}}},
+        usable,
+    ]
+
+    def read() -> dict[str, Any]:
+        return replies.pop(0)
+
+    reading = _foreground(
+        socket_path="scripted.sock",
+        pane_id=pane_id,
+        read=read,
+        poll=_scripted_poll(seconds=1.0, ticks=[0.0, 0.1, 0.2, 2.0]),
+    )
+
+    assert reading == read_foreground(reply=usable)
+    assert replies == [], "the unusable reading must be discarded before the usable one returns"
+
+
+def test_foreground_names_the_pane_when_every_reading_until_deadline_is_unusable() -> None:
+    """An unreadable pane expires with its unusable process reading named."""
+    pane_id = "w1:p1"
+    unusable = {"result": {"process_info": {"pane_id": pane_id}}}
+
+    with pytest.raises(pytest.fail.Exception, match="unusable process reading for 'w1:p1'"):
+        _foreground(
+            socket_path="scripted.sock",
+            pane_id=pane_id,
+            read=lambda: unusable,
+            poll=_scripted_poll(seconds=1.0, ticks=[0.0, 0.1, 2.0]),
+        )
 
 
 def _await_occupant(*, socket_path: str, pane_id: str, name: str) -> int:
