@@ -177,6 +177,7 @@ class StubCodex:
         record = {
             "id": self.session_id,
             "thread_name": thread_name,
+            "cwd": str(Path.cwd()),
             "updated_at": datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
         with index.open("a", encoding="utf-8") as handle:
@@ -199,6 +200,8 @@ class StubCodex:
             self._run_shell(command=submitted[1:].strip())
             return
         time.sleep(self.turn_seconds)
+        if submitted == "seq 1 60000":
+            self.ctx_percent = min(self.ctx_percent, 98)
         self.transcript.append("(stub turn complete)")
         self.draw()
 
@@ -300,7 +303,7 @@ def main(*, argv: list[str] | None = None) -> int:
     _, _unknown = parser.parse_known_args(argv)
     session = StubCodex(
         home=codex_home(),
-        ctx_percent=int(os.environ.get("STUB_CODEX_CTX_PERCENT", "60")),
+        ctx_percent=int(os.environ.get("STUB_CODEX_CTX_PERCENT", "100")),
         never_idle=os.environ.get("STUB_CODEX_NEVER_IDLE") == "1",
         output=sys.stdout,
     )
