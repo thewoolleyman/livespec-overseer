@@ -479,8 +479,10 @@ def test_stick_verification_fails_when_session_reinstates_previous_identity(
     module = caam_switch_module()
     profile_before, _, installs, live_profile, _ = switch_snapshot(home=tmp_path)
     apply_activated_state = module.apply_activated_state
+    activations: list[object] = []
 
     def reinstate_previous_identity(*, state: object) -> None:
+        activations.append(state)
         apply_activated_state(state=state)
         live_profile.write_text(json.dumps(profile_before), encoding="utf-8")
 
@@ -490,6 +492,7 @@ def test_stick_verification_fails_when_session_reinstates_previous_identity(
 
     assert result.exit_code == 2
     assert result.reason == module.REASON_FAIL_DID_NOT_STICK
+    assert len(activations) == 1
     assert result.lines == (
         "FAIL switch to target did not take effect -- the live credential or oauthAccount no "
         "longer matches the target snapshot. A running Claude session most likely refreshed "
