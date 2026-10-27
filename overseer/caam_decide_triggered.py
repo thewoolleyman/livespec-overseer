@@ -37,6 +37,7 @@ from caam_decide_report import (
 from caam_decision import eligible_profiles, rank_profiles, scoped_reserve
 from caam_fast_drain import FAST_DRAIN_TRIGGER, ShortWindowProjection, fast_drain_trigger_line
 from caam_refusal_lines import REFUSAL_TRIGGER, refusal_exclusion_reason, refusal_trigger_line
+from caam_reserve_selection import ScheduledReserveSelectionRequest, scheduled_eligible_profiles
 from caam_rotation_arm import (
     RotationArm,
     RotationChoice,
@@ -57,6 +58,7 @@ def triggered_choice(
     request: RotationRequest,
     arm: RotationArm,
     projection: ShortWindowProjection | None = None,
+    active_fast_draining: bool = False,
 ) -> RotationChoice:
     # Provenance, not just capability: the hold below is licensed only where
     # the pin is the WHOLE reason this pass is leaving. A forced pass is
@@ -73,12 +75,31 @@ def triggered_choice(
         )
     )
     decision_line = _decision_line(request=request, arm=arm, projection=projection)
-    eligible = eligible_profiles(
-        profiles=arm_candidates(request=request, arm=arm),
-        active=arm_active_account(request=request, arm=arm),
-        force=request.context.flags.force,
-        dimension=arm.bound.dimension,
-        protection_floors=request.protection_floors,
+    active = arm_active_account(request=request, arm=arm)
+    candidates = arm_candidates(request=request, arm=arm)
+    eligible = (
+        scheduled_eligible_profiles(
+            request=ScheduledReserveSelectionRequest(
+                profiles=request.profiles,
+                candidates=candidates,
+                active=active,
+                active_name=request.active_name,
+                force=request.context.flags.force,
+                dimension=arm.bound.dimension,
+                protection_floors=request.protection_floors,
+                load=arm.load,
+                active_fast_draining=active_fast_draining or projection is not None,
+                active_refusal_held=arm.refusal.holds_active,
+            )
+        )
+        if request.scheduled
+        else eligible_profiles(
+            profiles=candidates,
+            active=active,
+            force=request.context.flags.force,
+            dimension=arm.bound.dimension,
+            protection_floors=request.protection_floors,
+        )
     )
     # The capacity test runs AFTER the ranking rather than inside it: ranking is
     # a perishability order with no capacity term in it, and the test is an
