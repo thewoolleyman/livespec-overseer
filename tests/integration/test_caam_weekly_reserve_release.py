@@ -73,6 +73,32 @@ def test_scenario_the_weekly_reserve_is_released_when_no_account_above_it_can_se
     assert "at-short-floor" in released
 
 
+def test_scenario_a_released_reserve_admits_a_positive_below_floor_candidate(
+    *, tmp_path: Path
+) -> None:
+    """Release returns candidates to ordinary selection, not the rotation floor."""
+    harness = RotationHarness(
+        home=tmp_path,
+        active="spend-blocked",
+        usages={
+            "spend-blocked": spend_blocked_usage(weekly=70.0),
+            "at-short-floor": usage(five_hour_remaining=15.0, seven_day_remaining=70.0),
+            "below-reserve": usage(five_hour_remaining=1.0, seven_day_remaining=8.0),
+        },
+        live_plans={
+            "spend-blocked": LARGE_PLAN,
+            "at-short-floor": LARGE_PLAN,
+            "below-reserve": LARGE_PLAN,
+        },
+    )
+
+    code, lines = harness.run(at=NOW, scheduled=True)
+
+    assert code == 0
+    assert harness.switches == ["below-reserve"]
+    assert any("weekly reserve was released" in line for line in lines)
+
+
 def test_scenario_a_protected_spend_blocked_active_releases_an_exhausted_reserve(
     *, tmp_path: Path
 ) -> None:
