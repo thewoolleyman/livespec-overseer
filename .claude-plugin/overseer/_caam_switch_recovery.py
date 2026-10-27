@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import subprocess
+from collections.abc import Callable
 
 from _caam_switch_state import (
     LiveSwitchState,
     StateRestoreError,
-    apply_activated_state,
     restore_rejected_state,
 )
 from _caam_switch_types import (
@@ -22,11 +22,11 @@ __all__: list[str] = ["post_install_outcome"]
 
 
 def post_install_outcome(
-    *, request: SwitchRequest, state: LiveSwitchState
+    *, request: SwitchRequest, state: LiveSwitchState, apply_state: Callable[..., None]
 ) -> tuple[bool, SwitchResult | None]:
     """Repair installed state or name every live file whose restoration failed."""
     try:
-        apply_activated_state(state=state)
+        apply_state(state=state)
         return (
             switch_did_not_stick(home=request.home, target_name=request.target.name),
             None,

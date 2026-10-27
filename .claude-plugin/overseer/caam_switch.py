@@ -17,6 +17,7 @@ from _caam_switch_render import target_summary
 from _caam_switch_state import (
     LiveSwitchState,
     StateValidationError,
+    apply_activated_state,
     capture_live_state,
     restore_rejected_state,
 )
@@ -117,6 +118,7 @@ def _switch_under_lock(*, request: SwitchRequest) -> SwitchResult:
     did_not_stick, post_install_failure = post_install_outcome(
         request=request,
         state=preserved_state,
+        apply_state=apply_activated_state,
     )
     if post_install_failure is not None:
         return post_install_failure
