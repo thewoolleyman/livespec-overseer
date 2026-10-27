@@ -63,3 +63,29 @@ def test_scenario_the_weekly_reserve_is_released_when_no_account_above_it_can_se
     released = next(line for line in lines if "weekly reserve was released" in line)
     assert "spend-blocked" in released
     assert "at-short-floor" in released
+
+
+def test_scenario_a_release_on_serveability_grounds_does_not_release_a_protection_floor(
+    *, tmp_path: Path
+) -> None:
+    """A released fleet reserve must retain every account-specific floor."""
+    harness = RotationHarness(
+        home=tmp_path,
+        active="active",
+        usages={
+            "active": usage(five_hour_remaining=15.0, seven_day_remaining=70.0),
+            "protected": usage(five_hour_remaining=90.0, seven_day_remaining=90.0),
+        },
+        live_plans={"active": LARGE_PLAN, "protected": LARGE_PLAN},
+    )
+
+    code, lines = harness.run(
+        at=NOW,
+        scheduled=True,
+        protected_accounts=(("protected", "90"),),
+    )
+
+    assert code == 0
+    assert harness.switches == []
+    assert any("weekly reserve was released" in line for line in lines)
+    assert any("protected account floors reached" in line for line in lines)
