@@ -386,6 +386,37 @@ def test_a_backend_reported_session_identifies_its_own_carrier_among_repo_siblin
     assert world.sup.live_codex[(TRACKED_COORDINATE, "topic")].session_id == SESSION_ID
 
 
+def test_a_reported_same_repository_session_with_the_wrong_thread_name_stays_unidentified(
+    *, tmp_path
+):
+    """A pane report alone cannot steal a sibling track's session."""
+    _module = codex_identity()
+    shared = tmp_path / "wrong-thread"
+    shared.mkdir()
+    world = make_world(
+        tmp_path=shared,
+        rows=[(shared / "repo", "topic", DEAD_TMUX, "claude:dead:topic")],
+    )
+    write_state_database(
+        path=world.home / "state_2.sqlite",
+        rows=[
+            (SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+            (OPERATOR_SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+        ],
+    )
+    (world.home / "session_index.jsonl").write_text(
+        json.dumps({"id": SESSION_ID, "thread_name": "a-sibling-track"}) + "\n",
+        encoding="utf-8",
+    )
+    world.sup.tmux.pane_agent_session = lambda *, session: (
+        SESSION_ID if session == TRACKED_COORDINATE else None
+    )
+
+    world.sup.refresh_codex_sessions()
+
+    assert (TRACKED_COORDINATE, "topic") not in world.sup.live_codex
+
+
 # --- assertion 2: the dead tmux coordinate is rebound, old and new logged ------------
 
 
@@ -417,25 +448,28 @@ def test_a_row_whose_recorded_identity_is_not_codex_is_never_rebound(*, tmp_path
     assert TRACKED_COORDINATE not in log
 
 
-def test_a_stored_herdr_coordinate_is_left_to_its_own_backend_rules(*, tmp_path):
-    """This rebind answers a DEAD TMUX locator only; a herdr target has its own re-key.
-
-    The sharp control: the live pane IS resolved to this row's recorded identity, so the
-    refusal is the stored coordinate's backend and nothing else.
-    """
+def test_a_gone_herdr_coordinate_is_rebound_to_its_single_named_codex_successor(*, tmp_path):
+    """A dead Herdr pane is replaced only by the one carrier named for this track."""
     _module = codex_rebind()
     qualified = tmp_path / "qualified"
     qualified.mkdir()
     dead_pane = coordinate(pane_id="w9:p9")
     world = make_world(
         tmp_path=qualified,
-        rows=[(qualified / "repo", "topic", dead_pane, f"codex:{SESSION_ID}")],
+        rows=[(qualified / "repo", "topic", dead_pane, "claude:dead:topic")],
+    )
+    (world.home / "session_index.jsonl").write_text(
+        json.dumps({"id": SESSION_ID, "thread_name": "topic"}) + "\n",
+        encoding="utf-8",
     )
 
     _outcome, log = resolve(world=world, act=True)
 
-    assert row_of(store=world.store).tmux == dead_pane
-    assert TRACKED_COORDINATE not in log
+    row = row_of(store=world.store)
+    assert row.tmux == TRACKED_COORDINATE
+    assert row.observed_session_identity == f"codex:{SESSION_ID}"
+    assert dead_pane in log
+    assert TRACKED_COORDINATE in log
 
 
 def test_a_recorded_identity_no_live_pane_resolves_to_leaves_the_coordinate_alone(*, tmp_path):
@@ -558,6 +592,58 @@ def test_an_unidentifiable_codex_pane_is_reported_as_such_and_not_as_session_gon
         status="session-gone"
     )
     assert row_of(store=world.store).tmux == DEAD_TMUX
+
+
+def test_a_claude_recorded_row_with_ambiguous_live_codex_is_unidentified_once(*, tmp_path):
+    """A seat that switched runtimes gets a diagnostic, not a false gone verdict."""
+    _module = codex_rebind()
+    ambiguous = tmp_path / "ambiguous-claude"
+    ambiguous.mkdir()
+    world = make_world(
+        tmp_path=ambiguous,
+        rows=[(ambiguous / "repo", "topic", DEAD_TMUX, "claude:dead:topic")],
+    )
+    write_state_database(
+        path=world.home / "state_2.sqlite",
+        rows=[
+            (SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+            (OPERATOR_SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+        ],
+    )
+
+    outcome, first_log = resolve(world=world, act=True)
+    _second_outcome, second_log = resolve(world=world, act=True)
+
+    assert outcome.status == "codex-unidentified"
+    assert TRACKED_COORDINATE in first_log
+    assert str(TRACKED_PID) in first_log
+    assert "ambiguous repository sessions" in first_log
+    assert second_log == ""
+
+
+def test_a_live_codex_replaces_a_dead_claude_identity_and_recaptures_its_profile(*, tmp_path):
+    """The live process, rather than the stale row, chooses the next restart runtime."""
+    _module = codex_rebind()
+    world = make_world(
+        tmp_path=tmp_path,
+        rows=[(tmp_path / "repo", "topic", TRACKED_COORDINATE, "claude:dead:topic")],
+    )
+    (world.home / "session_index.jsonl").write_text(
+        json.dumps({"id": SESSION_ID, "thread_name": "topic"}) + "\n",
+        encoding="utf-8",
+    )
+
+    outcome, _log = resolve(world=world, act=True)
+
+    assert isinstance(outcome, _supervisor_evaluate_target.EvaluateTarget)
+    row = row_of(store=world.store)
+    assert row.observed_session_identity == f"codex:{SESSION_ID}"
+    assert row.model_profile == {
+        "harness": "codex",
+        "model": "gpt-5.6-luna",
+        "statusline_model": "gpt-5.5 high",
+        "wrapper": None,
+    }
 
 
 # --- assertion 6: the read-only list path reports without rewriting ------------------
