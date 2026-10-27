@@ -48,6 +48,12 @@ __all__: list[str] = [
 
 def rotation_choice(*, request: RotationRequest) -> RotationChoice:
     arm = resolve_arm(request=request)
+    # Compute this before selecting the governing trigger: even when a
+    # higher-precedence trigger chooses the report and switch semantics, an
+    # active account that will reach its floor cannot defend the reserve.
+    projection = (
+        fast_drain_projection(burn=arm.burn, current=request.current) if request.scheduled else None
+    )
     threshold_triggered = triggered(
         usage=request.current,
         active_name=request.active_name,
@@ -55,14 +61,15 @@ def rotation_choice(*, request: RotationRequest) -> RotationChoice:
         scoped_pin=arm.scoped_pin,
     )
     if request.context.flags.force or threshold_triggered or arm.refusal.holds_active:
-        return triggered_choice(request=request, arm=arm)
+        return triggered_choice(
+            request=request,
+            arm=arm,
+            active_fast_draining=projection is not None,
+        )
     # The fast-drain trigger, which governs only where none of those fired. It
     # never fires on an invocation without the scheduled marker, which already
     # rotates under contracts.md **Mode resolution** and has no interval at all
     # to project across.
-    projection = (
-        fast_drain_projection(burn=arm.burn, current=request.current) if request.scheduled else None
-    )
     if projection is not None:
         return triggered_choice(request=request, arm=arm, projection=projection)
     return _drain_choice(request=request, arm=arm)

@@ -141,15 +141,7 @@ def scheduled_eligible_profiles(*, request: ScheduledReserveSelectionRequest) ->
 def _admitted_after_reserve_decision(
     *, candidates: tuple[ProfileUsage, ...], reserve_enforced: bool
 ) -> tuple[ProfileUsage, ...]:
-    """Retain exhausted above-reserve candidates only while the reserve does.
-
-    A released reserve admits below-reserve accounts to ordinary eligibility,
-    whose cannot-serve-immediately boundary is zero rather than the rotation
-    floor. A positive below-floor short window therefore remains selectable.
-    Accounts still above the reserve retain that floor boundary: they cannot
-    defend the reserve and must not win the released pass ahead of a newly
-    admitted lower account.
-    """
+    """Keep unusable accounts above, but not at, the reserve out of a release."""
     if reserve_enforced:
         return candidates
     reserve = weekly_reserve()
@@ -158,7 +150,7 @@ def _admitted_after_reserve_decision(
         for profile in candidates
         if profile.usage is not None
         and (
-            profile.usage.seven_day_remaining < reserve
+            profile.usage.seven_day_remaining <= reserve
             or profile.usage.five_hour_remaining > five_hour_remaining_floor()
         )
     )

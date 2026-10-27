@@ -99,6 +99,30 @@ def test_scenario_a_released_reserve_admits_a_positive_below_floor_candidate(
     assert any("weekly reserve was released" in line for line in lines)
 
 
+def test_scenario_a_released_reserve_reaches_the_weekly_boundary_candidate(
+    *, tmp_path: Path
+) -> None:
+    """Release leaves the weekly boundary to ordinary candidate selection."""
+    harness = RotationHarness(
+        home=tmp_path,
+        active="spend-blocked",
+        usages={
+            "spend-blocked": spend_blocked_usage(weekly=70.0),
+            "weekly-boundary": usage(five_hour_remaining=1.0, seven_day_remaining=10.0),
+        },
+        live_plans={
+            "spend-blocked": LARGE_PLAN,
+            "weekly-boundary": LARGE_PLAN,
+        },
+    )
+
+    code, lines = harness.run(at=NOW, scheduled=True)
+
+    assert code == 0
+    assert harness.switches == ["weekly-boundary"]
+    assert any("weekly reserve was released" in line for line in lines)
+
+
 def test_scenario_a_protected_spend_blocked_active_releases_an_exhausted_reserve(
     *, tmp_path: Path
 ) -> None:
@@ -264,6 +288,45 @@ def test_scenario_an_active_account_projected_to_reach_the_floor_releases_the_re
 
     assert first_code == 0
     assert code == 0
+    assert harness.switches == ["below"]
+    assert any("weekly reserve was released" in line and "active" in line for line in lines)
+
+
+def test_scenario_a_scoped_trigger_still_releases_a_fast_draining_active_reserve(
+    *, tmp_path: Path
+) -> None:
+    """A higher-precedence scoped trigger cannot hide active fast drain."""
+    harness = RotationHarness(
+        home=tmp_path,
+        active="active",
+        usages={
+            "active": usage(
+                five_hour_remaining=75.0,
+                seven_day_remaining=70.0,
+                fable_remaining=80.0,
+            ),
+            "below": usage(
+                five_hour_remaining=90.0,
+                seven_day_remaining=8.0,
+                fable_remaining=80.0,
+            ),
+        },
+        live_plans={"active": LARGE_PLAN, "below": LARGE_PLAN},
+    )
+    harness.seed_state(state={"session_models": {"session": "fable"}})
+
+    first_code, _first_lines = harness.run(at=NOW, scheduled=True)
+    harness.read(
+        name="active",
+        record=usage(
+            five_hour_remaining=36.0,
+            seven_day_remaining=70.0,
+            fable_remaining=0.0,
+        ),
+    )
+    code, lines = harness.run(at=NOW + PASS_INTERVAL, scheduled=True)
+
+    assert first_code == code == 0
     assert harness.switches == ["below"]
     assert any("weekly reserve was released" in line and "active" in line for line in lines)
 

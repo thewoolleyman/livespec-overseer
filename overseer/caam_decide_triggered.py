@@ -58,6 +58,7 @@ def triggered_choice(
     request: RotationRequest,
     arm: RotationArm,
     projection: ShortWindowProjection | None = None,
+    active_fast_draining: bool = False,
 ) -> RotationChoice:
     # Provenance, not just capability: the hold below is licensed only where
     # the pin is the WHOLE reason this pass is leaving. A forced pass is
@@ -87,7 +88,7 @@ def triggered_choice(
                 dimension=arm.bound.dimension,
                 protection_floors=request.protection_floors,
                 load=arm.load,
-                active_fast_draining=projection is not None,
+                active_fast_draining=active_fast_draining or projection is not None,
                 active_refusal_held=arm.refusal.holds_active,
             )
         )
