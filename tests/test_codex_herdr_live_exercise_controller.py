@@ -77,6 +77,7 @@ from overseer import runtime_prefix
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CONTROLLER = REPO_ROOT / "scripts" / "overseer-live-exercise-codex-herdr.sh"
 VERIFIER = REPO_ROOT / "scripts" / "overseer_live_exercise_evidence.py"
+STUB_SHIM_PREPARER = REPO_ROOT / "scripts" / "overseer-live-exercise-stub-shims.sh"
 
 REQUIRED_STAGES = (
     "bootstrap",
@@ -320,21 +321,6 @@ def outside_codex_processes() -> Iterator[list[subprocess.Popen[bytes]]]:
         shutil.rmtree(root, ignore_errors=True)
 
 
-# The stub reaches the checkout by path rather than by install: it is test
-# infrastructure, and putting it on the exercise's `PYTHONPATH` would also put it
-# where the shipped modules resolve from.
-_STUB_LAUNCHER = """#!/usr/bin/env python3
-import os
-import sys
-
-{environment}
-sys.path.insert(0, {tests_dir!r})
-
-import stub_codex
-
-raise SystemExit(stub_codex.main())
-"""
-
 # One unrelated `codex`-named process, standing in for a session of the operator's own.
 # It presents the surfaces the shipped Codex join reads -- `comm`, a HELD rollout fd and
 # a `session_index.jsonl` record naming it -- and every path it names is in its OWN Codex
@@ -380,10 +366,6 @@ finally:
 # carries `--session`" becomes an OBSERVATION of the commands actually issued
 # rather than a grep over the script's source, which could not see a command
 # assembled at runtime.
-_HERDR_SHIM = """#!/usr/bin/env bash
-printf '%s\\n' "$*" >>{log!r}
-exec {real_herdr!r} "$@"
-"""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -507,20 +489,28 @@ def _exercise_bin(*, root: Path, never_idle: bool) -> tuple[Path, Path]:
     """A bin directory holding the stub `codex` and the logging `herdr` shim."""
     binaries = root / "bin"
     binaries.mkdir()
-    real_herdr = shutil.which("herdr")
-    assert real_herdr is not None, "require_herdr() should already have skipped"
-    environment = 'os.environ["STUB_CODEX_NEVER_IDLE"] = "1"' if never_idle else ""
-    _write_executable(
-        path=binaries / "codex",
-        body=_STUB_LAUNCHER.format(
-            environment=environment, tests_dir=str(Path(__file__).resolve().parent)
-        ),
-    )
     herdr_log = root / "herdr-commands.log"
-    _write_executable(
-        path=binaries / "herdr",
-        body=_HERDR_SHIM.format(log=str(herdr_log), real_herdr=real_herdr),
+    prepared = subprocess.run(  # noqa: S603 - fixed repo-owned setup script
+        [
+            str(STUB_SHIM_PREPARER),
+            "--bin-dir",
+            str(binaries),
+            "--codex-script",
+            str(REPO_ROOT / "tests" / "stub_codex.py"),
+            "--herdr-log",
+            str(herdr_log),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
     )
+    assert prepared.returncode == 0, prepared.stderr
+    if never_idle:
+        launcher = (binaries / "codex").read_text(encoding="utf-8")
+        (binaries / "codex").write_text(
+            launcher.replace("exec python3 ", "export STUB_CODEX_NEVER_IDLE=1\nexec python3 ", 1),
+            encoding="utf-8",
+        )
     return binaries, herdr_log
 
 
@@ -622,6 +612,37 @@ def test_the_controller_is_a_checked_in_executable() -> None:
     """The exercise coordinator runs this by path, so the bit is part of shipping it."""
     assert CONTROLLER.is_file(), f"the controller is missing from the repository: {CONTROLLER}"
     assert os.access(CONTROLLER, os.X_OK), f"the controller is not executable: {CONTROLLER}"
+
+
+def test_checked_in_stub_shim_preparer_makes_replayable_agent_and_backend_shims(
+    tmp_path: Path,
+) -> None:
+    """The proof runner can create both temporary shims from one tracked command."""
+    binaries = tmp_path / "shims"
+    log = tmp_path / "herdr-commands.log"
+
+    prepared = subprocess.run(  # noqa: S603 - fixed repo-owned setup script
+        [
+            str(STUB_SHIM_PREPARER),
+            "--bin-dir",
+            str(binaries),
+            "--codex-script",
+            str(REPO_ROOT / "tests" / "stub_codex.py"),
+            "--herdr-log",
+            str(log),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert prepared.returncode == 0, prepared.stderr
+    assert os.access(binaries / "codex", os.X_OK)
+    assert os.access(binaries / "herdr", os.X_OK)
+    assert str(REPO_ROOT / "tests" / "stub_codex.py") in (binaries / "codex").read_text(
+        encoding="utf-8"
+    )
+    assert str(log) in (binaries / "herdr").read_text(encoding="utf-8")
 
 
 def test_backend_starts_after_the_scratch_home_has_a_zshrc() -> None:
