@@ -13,6 +13,7 @@ from caam_profile_state import caam_vault, live_creds_path
 
 __all__: list[str] = [
     "LiveSwitchState",
+    "StateRestoreError",
     "StateValidationError",
     "apply_activated_state",
     "capture_live_state",
@@ -29,6 +30,14 @@ class StateValidationError(Exception):
 
     def __init__(self, *, path: Path, reason: str) -> None:
         super().__init__(f"{path} {reason}")
+
+
+class StateRestoreError(Exception):
+    """One or more live files could not be restored after a rejected switch."""
+
+    def __init__(self, *, paths: tuple[Path, ...]) -> None:
+        self.paths = paths
+        super().__init__(", ".join(str(path) for path in paths))
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -78,10 +87,19 @@ def capture_live_state(*, home: Path, target_name: str) -> LiveSwitchState:
 
 
 def restore_rejected_state(*, state: LiveSwitchState) -> None:
-    """Return all three caam-overwritten live files to their captured bytes."""
-    _atomic_write(path=state.credential_path, body=state.credential_bytes)
-    _atomic_write(path=state.profile_path, body=state.profile_bytes)
-    _atomic_write(path=state.settings_path, body=state.settings_bytes)
+    """Attempt every restore in credential, global-state, settings order."""
+    unrestored: list[Path] = []
+    for path, body in (
+        (state.credential_path, state.credential_bytes),
+        (state.profile_path, state.profile_bytes),
+        (state.settings_path, state.settings_bytes),
+    ):
+        try:
+            _atomic_write(path=path, body=body)
+        except OSError:
+            unrestored.append(path)
+    if unrestored:
+        raise StateRestoreError(paths=tuple(unrestored))
 
 
 def apply_activated_state(*, state: LiveSwitchState) -> None:
