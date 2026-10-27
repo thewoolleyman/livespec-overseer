@@ -423,9 +423,9 @@ def test_stick_verification_failure_reports_fail_after_lock_release_and_saves(*,
 
     assert result.exit_code == 2
     assert result.lines == (
-        "FAIL switch to target did not stick -- the live credential no longer matches the "
-        "snapshot. A running Claude session most likely refreshed its own token over the "
-        "swap. Re-run to retry.",
+        "FAIL switch to target did not take effect -- the live credential or oauthAccount no "
+        "longer matches the target snapshot. A running Claude session most likely refreshed "
+        "its own identity over the swap. Re-run to retry.",
     )
     assert lock.released
     assert saved == [{"profiles": {}}]
@@ -442,6 +442,10 @@ def test_success_records_last_switch_saves_and_reports_switch(*, tmp_path: Path)
         access_value="target-value",
     )
     write_creds(path=tmp_path / ".claude/.credentials.json", access_value="target-value")
+    (tmp_path / ".claude.json").write_text(
+        '{"oauthAccount":{"accountUuid":"target"},"userID":"target-user"}\n',
+        encoding="utf-8",
+    )
 
     result = module.switch_account(
         request=module.SwitchRequest(
@@ -467,6 +471,30 @@ def test_success_records_last_switch_saves_and_reports_switch(*, tmp_path: Path)
     assert saved == [
         {"profiles": {}, "last_switch": {"at": 1787356770.0, "from": "active", "to": "target"}}
     ]
+
+
+def test_stick_verification_fails_when_session_reinstates_previous_identity(
+    *, monkeypatch, tmp_path: Path
+) -> None:
+    module = caam_switch_module()
+    profile_before, _, installs, live_profile, _ = switch_snapshot(home=tmp_path)
+    apply_activated_state = module.apply_activated_state
+
+    def reinstate_previous_identity(*, state: object) -> None:
+        apply_activated_state(state=state)
+        live_profile.write_text(json.dumps(profile_before), encoding="utf-8")
+
+    monkeypatch.setattr(module, "apply_activated_state", reinstate_previous_identity)
+
+    result = switch_from_snapshot(module=module, home=tmp_path, installs=installs)
+
+    assert result.exit_code == 2
+    assert result.reason == module.REASON_FAIL_DID_NOT_STICK
+    assert result.lines == (
+        "FAIL switch to target did not take effect -- the live credential or oauthAccount no "
+        "longer matches the target snapshot. A running Claude session most likely refreshed "
+        "its own identity over the swap. Re-run to retry.",
+    )
 
 
 def switch_snapshot(
