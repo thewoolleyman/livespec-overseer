@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.37.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.37.1...v5.37.2) (2026-10-27)
+
+
+### Bug Fixes
+
+* cover caam post-install rollback ([e53a7b7](https://github.com/thewoolleyman/livespec-overseer/commit/e53a7b76bc2f2edd4679b32965879f4417adce70))
+* preserve caam switch activation seam ([36012d8](https://github.com/thewoolleyman/livespec-overseer/commit/36012d872295f60369349e0bd1272b00bbde5bf7))
+* report every failed caam state restoration ([01dfa0c](https://github.com/thewoolleyman/livespec-overseer/commit/01dfa0cf17c3a2e20ce5ef3f17baf043c9d08a51))
+
 ## [5.37.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.37.0...v5.37.1) (2026-10-27)
 
 
