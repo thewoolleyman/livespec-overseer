@@ -22,6 +22,8 @@ sitting on an account that serves nothing -- so it gets its own line.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from _caam_rotation_span import switch_trigger
 from caam_candidate_diagnosis import CandidatePopulation
 from caam_capacity_select import capacity_selection
@@ -34,9 +36,16 @@ from caam_decide_report import (
     trigger_line,
     with_note,
 )
-from caam_decision import eligible_profiles, rank_profiles, scoped_reserve
+from caam_decision import (
+    five_hour_remaining_floor,
+    rank_profiles,
+    scoped_reserve,
+    weekly_reserve,
+)
 from caam_fast_drain import FAST_DRAIN_TRIGGER, ShortWindowProjection, fast_drain_trigger_line
 from caam_refusal_lines import REFUSAL_TRIGGER, refusal_exclusion_reason, refusal_trigger_line
+from caam_release_note import empty_release_note
+from caam_reserve_selection import ReserveSelection, eligible_profiles_for_reserve
 from caam_rotation_arm import (
     RotationArm,
     RotationChoice,
@@ -46,6 +55,7 @@ from caam_rotation_arm import (
     short_window_triggered,
 )
 from caam_scoped_selection import none_holds_scoped_above_reserve, scoped_alone_trigger
+from caam_weekly_reserve import WeeklyReserveRequest, weekly_reserve_decision
 
 __all__: list[str] = [
     "triggered_choice",
@@ -73,13 +83,51 @@ def triggered_choice(
         )
     )
     decision_line = _decision_line(request=request, arm=arm, projection=projection)
-    eligible = eligible_profiles(
-        profiles=arm_candidates(request=request, arm=arm),
-        active=arm_active_account(request=request, arm=arm),
+    active = arm_active_account(request=request, arm=arm)
+    candidates = arm_candidates(request=request, arm=arm)
+    reserve = weekly_reserve_decision(
+        request=WeeklyReserveRequest(
+            profiles=request.profiles,
+            candidates=candidates,
+            active=active,
+            force=request.context.flags.force,
+            dimension=arm.bound.dimension,
+            protection_floors=request.protection_floors,
+            load=arm.load,
+            active_fast_draining=projection is not None,
+            active_refusal_held=arm.refusal.holds_active,
+        )
+    )
+    # A released reserve never turns a candidate at the short-window floor into
+    # a destination.  Such a row was relevant to deciding that the reserve
+    # protects nothing, but it cannot carry a request through the next pass.
+    if not reserve.enforce:
+        candidates = tuple(
+            profile
+            for profile in candidates
+            if profile.usage is not None
+            and profile.usage.five_hour_remaining > five_hour_remaining_floor()
+        )
+    eligible = eligible_profiles_for_reserve(
+        profiles=candidates,
+        active=active,
         force=request.context.flags.force,
         dimension=arm.bound.dimension,
-        protection_floors=request.protection_floors,
+        selection=ReserveSelection(
+            enforce=reserve.enforce,
+            note=reserve.note,
+            protection_floors=request.protection_floors,
+        ),
     )
+    if not eligible.profiles and eligible.note is not None:
+        hold_note = empty_release_note(
+            profiles=request.profiles,
+            protection_floors=request.protection_floors,
+            weekly_reserve=weekly_reserve(),
+            active_name=request.active_name,
+        )
+        if hold_note.startswith("hold: protected account floors reached"):
+            eligible = replace(eligible, note=f"{hold_note}; {eligible.note}")
     # The capacity test runs AFTER the ranking rather than inside it: ranking is
     # a perishability order with no capacity term in it, and the test is an
     # eligibility rule that happens to read a capacity weight. Filtering a
