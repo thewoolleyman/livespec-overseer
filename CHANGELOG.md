@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.37.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.37.0...v5.37.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* verify caam switch identity ([cc16a77](https://github.com/thewoolleyman/livespec-overseer/commit/cc16a7793873018c92c27325ff4e67a577444b8a))
+
 ## [5.37.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.36.0...v5.37.0) (2026-10-26)
 
 
