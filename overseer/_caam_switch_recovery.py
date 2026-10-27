@@ -18,7 +18,20 @@ from _caam_switch_types import (
 )
 from _caam_switch_verify import switch_did_not_stick
 
-__all__: list[str] = ["post_install_outcome"]
+__all__: list[str] = ["post_install_outcome", "restore_failure"]
+
+
+def restore_failure(*, request: SwitchRequest, restoration: StateRestoreError) -> SwitchResult:
+    """Report a rollback that could not restore every captured live file."""
+    request.save(state=request.state)
+    return SwitchResult(
+        exit_code=2,
+        reason=REASON_FAIL_RESTORE,
+        lines=(
+            f"FAIL switch to {request.target.name}: restoration failed for "
+            f"{', '.join(str(path) for path in restoration.paths)}.",
+        ),
+    )
 
 
 def post_install_outcome(

@@ -12,10 +12,11 @@ from _caam_switch_host import (
     acquire_switch_lock,
     caam_activate,
 )
-from _caam_switch_recovery import post_install_outcome
+from _caam_switch_recovery import post_install_outcome, restore_failure
 from _caam_switch_render import target_summary
 from _caam_switch_state import (
     LiveSwitchState,
+    StateRestoreError,
     StateValidationError,
     apply_activated_state,
     capture_live_state,
@@ -80,6 +81,8 @@ REASON_HOLD_LOCK_HELD: Final = "hold-lock-held"
 def switch_account(*, request: SwitchRequest) -> SwitchResult:
     try:
         return _switch_account_uncaught(request=request)
+    except StateRestoreError as restoration:
+        return restore_failure(request=request, restoration=restoration)
     except (OSError, RuntimeError, subprocess.SubprocessError, TypeError, ValueError) as exc:
         request.save(state=request.state)
         return SwitchResult(
