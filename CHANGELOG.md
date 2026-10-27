@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.38.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.37.2...v5.38.0) (2026-10-27)
+
+
+### Features
+
+* release unusable weekly reserve ([f23283b](https://github.com/thewoolleyman/livespec-overseer/commit/f23283b7d89dade7ecd7a751b5770166ac832fbb))
+
 ## [5.37.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.37.1...v5.37.2) (2026-10-27)
 
 
