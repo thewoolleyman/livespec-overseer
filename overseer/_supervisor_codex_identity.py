@@ -88,6 +88,7 @@ class CodexPaneCarrier:
     coordinate: str
     cwd: str
     session_id: str | None
+    refusing_condition: str | None = None
     # Herdr records the session the agent in THIS pane reports.  Unlike a rollout fd
     # on a shared app-server, this evidence belongs to the carrier rather than to a
     # process tree that may serve several TUIs.
@@ -150,6 +151,27 @@ def carrier_session_id(
     exactly as the runtime-model reader resolves it, and the ACTIVE database is the only
     one consulted. Ambiguity and every unusable-source condition resolve to None.
     """
+    session_id, _condition = _carrier_session_binding(
+        pid=pid,
+        cwd=cwd,
+        candidates=candidates,
+        codex_home=codex_home,
+        environ_of=environ_of,
+        reported_session_id=reported_session_id,
+    )
+    return session_id
+
+
+def _carrier_session_binding(
+    *,
+    pid: int,
+    cwd: str,
+    candidates: frozenset[str],
+    codex_home: str | os.PathLike[str] | None,
+    environ_of: PidToOptionalBytes,
+    reported_session_id: str | None,
+) -> tuple[str | None, str]:
+    """The carrier's established id and the closed reason when it has none."""
     home = _codex_runtime_model.carrier_codex_home(
         pid=pid, environ_of=environ_of, fallback=codex_home
     )
@@ -157,7 +179,7 @@ def carrier_session_id(
         codex_home=home if home is not None else codex_sessions.default_codex_home()
     )
     if database is None:
-        return None
+        return None, "no live candidate"
     bound = [
         candidate
         for candidate in sorted(candidates)
@@ -166,8 +188,16 @@ def carrier_session_id(
         )
     ]
     if reported_session_id is not None:
-        return reported_session_id if reported_session_id in bound else None
-    return bound[0] if len(bound) == 1 else None
+        return (
+            (reported_session_id, "")
+            if reported_session_id in bound
+            else (None, "no live candidate")
+        )
+    if len(bound) == 1:
+        return bound[0], ""
+    if len(bound) > 1:
+        return None, "ambiguous repository sessions"
+    return None, "no live candidate"
 
 
 def _reported_session_id(*, sup: Supervisor, coordinate: str) -> str | None:
@@ -223,19 +253,21 @@ def pane_codex_carriers(
         if coordinate is None or not cwd:
             continue
         reported = _reported_session_id(sup=sup, coordinate=coordinate)
+        session_id, refusing_condition = _carrier_session_binding(
+            pid=pid,
+            cwd=cwd,
+            candidates=candidates,
+            codex_home=readers.codex_home,
+            environ_of=sup.environ_of,
+            reported_session_id=reported,
+        )
         found.append(
             CodexPaneCarrier(
                 pid=pid,
                 coordinate=coordinate,
                 cwd=cwd,
-                session_id=carrier_session_id(
-                    pid=pid,
-                    cwd=cwd,
-                    candidates=candidates,
-                    codex_home=readers.codex_home,
-                    environ_of=sup.environ_of,
-                    reported_session_id=reported,
-                ),
+                session_id=session_id,
+                refusing_condition=refusing_condition or None,
                 reported_session_id=reported,
             )
         )
@@ -258,6 +290,7 @@ def identity_bound_codex_sessions(
     inside that row's repository, and two rows recording one identity bind nothing.
     """
     rows = registry.read_valid_mapping(store_path=sup.store_path)
+    names = codex_sessions.read_thread_names(codex_home=_resolved_codex_home(readers=readers))
     bound: dict[tuple[str, str], codex_sessions.CodexSession] = {}
     for carrier in pane_codex_carriers(
         sup=sup, pane_pid_to_session=pane_pid_to_session, readers=readers
@@ -265,25 +298,22 @@ def identity_bound_codex_sessions(
         if carrier.session_id is None:
             continue
         identity = f"{CODEX_IDENTITY_PREFIX}{carrier.session_id}"
-        names = codex_sessions.read_thread_names(codex_home=_resolved_codex_home(readers=readers))
         claiming = [
             row
             for row in rows
             if (
                 row.observed_session_identity == identity
-                or (
-                    carrier.reported_session_id is not None
-                    and names.get(carrier.session_id)
-                    == registry.tmux_id(
-                        repo=row.repo,
-                        topic=row.topic,
-                        colliding=sup.colliding_topics,
-                    )
+                or names.get(carrier.session_id)
+                == registry.tmux_id(
+                    repo=row.repo,
+                    topic=row.topic,
+                    colliding=sup.colliding_topics,
                 )
             )
-            and signals.path_in_repo(pane_current_path=carrier.cwd, repo=row.repo)
         ]
-        if len(claiming) != 1:
+        if len(claiming) != 1 or not signals.path_in_repo(
+            pane_current_path=carrier.cwd, repo=claiming[0].repo
+        ):
             continue
         bound[(carrier.coordinate, claiming[0].topic)] = codex_sessions.CodexSession(
             pid=carrier.pid,

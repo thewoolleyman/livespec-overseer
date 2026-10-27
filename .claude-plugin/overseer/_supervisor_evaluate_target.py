@@ -70,7 +70,7 @@ def _unresolved_target(
     none of them: a live Codex pane in this repo whose identity could not be resolved
     means the daemon cannot SAY, which is the opposite of `session-gone`.
     """
-    if _supervisor_codex_rebind.unidentified_codex_pane(sup=sup, track=track):
+    if _supervisor_codex_rebind.report_unidentified_codex_pane(sup=sup, track=track):
         return RowView(
             topic=track.topic,
             repo=track.repo,
