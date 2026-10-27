@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import subprocess
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
@@ -22,14 +21,25 @@ from _caam_switch_state import (
     restore_rejected_state,
 )
 from _caam_switch_types import (
+    ACTIVATE_TIMEOUT_S,
+    REASON_FAIL_ACTIVATE,
+    REASON_FAIL_DID_NOT_STICK,
+    REASON_FAIL_ERROR,
+    REASON_FAIL_POST_INSTALL_WRITE,
+    REASON_FAIL_STATE_VALIDATION,
+    REASON_FAIL_TARGET_CREDENTIAL,
+    REASON_HOLD_ACTIVE_CHANGED,
+    REASON_SWITCHED,
     ActivateRunner,
     ActiveReader,
     CaamProcess,
     SaveState,
+    SwitchRequest,
+    SwitchResult,
     UsageFetcher,
 )
 from _caam_switch_verify import activation_message, switch_did_not_stick
-from caam_decision import ProfileUsage, UsageRecord, decision_switched
+from caam_decision import decision_switched
 from caam_profile_state import caam_vault
 
 __all__: list[str] = [
@@ -38,6 +48,7 @@ __all__: list[str] = [
     "REASON_FAIL_ACTIVATE",
     "REASON_FAIL_DID_NOT_STICK",
     "REASON_FAIL_ERROR",
+    "REASON_FAIL_POST_INSTALL_WRITE",
     "REASON_FAIL_STATE_VALIDATION",
     "REASON_FAIL_TARGET_CREDENTIAL",
     "REASON_HOLD_ACTIVE_CHANGED",
@@ -57,55 +68,10 @@ __all__: list[str] = [
     "switch_account",
 ]
 
-ACTIVATE_TIMEOUT_S: Final = 60.0
 LOCK_REL: Final = Path(".local/state/caam-usage-rotate/switch.lock")
 _TOOL: Final = "claude"
 _HOLD_LOCKED: Final = "hold: another caam-anthropic-loop holds the switch lock"
-
-# The seven outcomes a switch attempt can reach, named HERE rather than
-# reconstructed downstream from the operator lines below. Two of them exit ZERO
-# without moving anything and three exit two for entirely different causes, so a
-# reader keyed on the exit code alone cannot tell a lock contention from a
-# credential that would have broken every running session.
-REASON_SWITCHED: Final = "switched"
 REASON_HOLD_LOCK_HELD: Final = "hold-lock-held"
-REASON_HOLD_ACTIVE_CHANGED: Final = "hold-active-changed"
-REASON_FAIL_TARGET_CREDENTIAL: Final = "fail-target-credential"
-REASON_FAIL_ACTIVATE: Final = "fail-activate"
-REASON_FAIL_DID_NOT_STICK: Final = "fail-did-not-stick"
-REASON_FAIL_ERROR: Final = "fail-error"
-REASON_FAIL_STATE_VALIDATION: Final = "fail-state-validation"
-
-
-@dataclass(frozen=True, kw_only=True)
-class SwitchResult:
-    exit_code: int
-    lines: tuple[str, ...]
-    # Which of the seven outcomes above this is. Required rather than defaulted:
-    # every branch that builds a result knows why it got there, and a default would
-    # let a new one ship reporting somebody else's reason.
-    reason: str
-    # True on the ONE path that actually moved the live credential. An exit code
-    # of zero does not mean that: a lock held by another pass, and an active
-    # account that changed while this pass was deciding, both hold successfully
-    # and return zero. Anything keyed on the code alone would treat those as
-    # switches.
-    switched: bool = False
-
-
-@dataclass(frozen=True, kw_only=True)
-class SwitchRequest:
-    active_name: str
-    target: ProfileUsage
-    current: UsageRecord
-    state: dict[str, object]
-    home: Path
-    now: float
-    active_reader: ActiveReader
-    fetcher: UsageFetcher
-    activator: ActivateRunner
-    lock_factory: SwitchLockFactory
-    save: SaveState
 
 
 def switch_account(*, request: SwitchRequest) -> SwitchResult:
@@ -131,6 +97,60 @@ def _switch_account_uncaught(*, request: SwitchRequest) -> SwitchResult:
 
 
 def _switch_under_lock(*, request: SwitchRequest) -> SwitchResult:
+    preflight_failure = _preflight_failure(request=request)
+    if preflight_failure is not None:
+        return preflight_failure
+    try:
+        preserved_state = capture_live_state(home=request.home, target_name=request.target.name)
+    except (OSError, StateValidationError) as exc:
+        request.save(state=request.state)
+        return SwitchResult(
+            exit_code=2,
+            reason=REASON_FAIL_STATE_VALIDATION,
+            lines=(f"FAIL refusing to switch: {exc}",),
+        )
+    activation_failure = _activate(request=request, state=preserved_state)
+    if activation_failure is not None:
+        return activation_failure
+    try:
+        apply_activated_state(state=preserved_state)
+        did_not_stick = switch_did_not_stick(home=request.home, target_name=request.target.name)
+    except (OSError, RuntimeError, subprocess.SubprocessError, TypeError, ValueError) as exc:
+        restore_rejected_state(state=preserved_state)
+        request.save(state=request.state)
+        return SwitchResult(
+            exit_code=2,
+            reason=REASON_FAIL_POST_INSTALL_WRITE,
+            lines=(
+                "FAIL switch to "
+                f"{request.target.name}: post-install write failed "
+                f"({type(exc).__name__}: {exc}); restored pre-switch state.",
+            ),
+        )
+    if did_not_stick:
+        return _did_not_stick_failure(request=request, state=preserved_state)
+    request.state["last_switch"] = {
+        "at": request.now,
+        "from": request.active_name,
+        "to": request.target.name,
+    }
+    request.save(state=request.state)
+    return SwitchResult(
+        exit_code=0,
+        reason=REASON_SWITCHED,
+        switched=True,
+        lines=(
+            decision_switched(
+                active_name=request.active_name,
+                current_five_hour_remaining=request.current.five_hour_remaining,
+                target=target_summary(target=request.target, now=request.now),
+            ),
+        ),
+    )
+
+
+def _preflight_failure(*, request: SwitchRequest) -> SwitchResult | None:
+    """Return a hold or refusal discovered before live-state capture."""
     active_under_lock = request.active_reader()
     if active_under_lock != request.active_name:
         request.save(state=request.state)
@@ -158,53 +178,20 @@ def _switch_under_lock(*, request: SwitchRequest) -> SwitchResult:
                 f"({why}). Installing it would break every running session.",
             ),
         )
-    try:
-        preserved_state = capture_live_state(home=request.home, target_name=request.target.name)
-    except (OSError, StateValidationError) as exc:
-        request.save(state=request.state)
-        return SwitchResult(
-            exit_code=2,
-            reason=REASON_FAIL_STATE_VALIDATION,
-            lines=(f"FAIL refusing to switch: {exc}",),
-        )
-    activation_failure = _activate(request=request, state=preserved_state)
-    if activation_failure is not None:
-        return activation_failure
-    try:
-        apply_activated_state(state=preserved_state)
-        did_not_stick = switch_did_not_stick(home=request.home, target_name=request.target.name)
-    except (OSError, RuntimeError, subprocess.SubprocessError, TypeError, ValueError):
-        restore_rejected_state(state=preserved_state)
-        raise
-    if did_not_stick:
-        restore_rejected_state(state=preserved_state)
-        request.save(state=request.state)
-        return SwitchResult(
-            exit_code=2,
-            reason=REASON_FAIL_DID_NOT_STICK,
-            lines=(
-                "FAIL switch to "
-                f"{request.target.name} did not take effect -- the live credential or "
-                "oauthAccount no longer matches the target snapshot. A running Claude session "
-                "most likely refreshed its own identity over the swap. Re-run to retry.",
-            ),
-        )
-    request.state["last_switch"] = {
-        "at": request.now,
-        "from": request.active_name,
-        "to": request.target.name,
-    }
+    return None
+
+
+def _did_not_stick_failure(*, request: SwitchRequest, state: LiveSwitchState) -> SwitchResult:
+    restore_rejected_state(state=state)
     request.save(state=request.state)
     return SwitchResult(
-        exit_code=0,
-        reason=REASON_SWITCHED,
-        switched=True,
+        exit_code=2,
+        reason=REASON_FAIL_DID_NOT_STICK,
         lines=(
-            decision_switched(
-                active_name=request.active_name,
-                current_five_hour_remaining=request.current.five_hour_remaining,
-                target=target_summary(target=request.target, now=request.now),
-            ),
+            "FAIL switch to "
+            f"{request.target.name} did not take effect -- the live credential or "
+            "oauthAccount no longer matches the target snapshot. A running Claude session "
+            "most likely refreshed its own identity over the swap. Re-run to retry.",
         ),
     )
 
