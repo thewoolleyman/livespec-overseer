@@ -184,9 +184,9 @@ def _switch_under_lock(*, request: SwitchRequest) -> SwitchResult:
             reason=REASON_FAIL_DID_NOT_STICK,
             lines=(
                 "FAIL switch to "
-                f"{request.target.name} did not stick -- the live credential no longer matches "
-                "the snapshot. A running Claude session most likely refreshed its own token "
-                "over the swap. Re-run to retry.",
+                f"{request.target.name} did not take effect -- the live credential or "
+                "oauthAccount no longer matches the target snapshot. A running Claude session "
+                "most likely refreshed its own identity over the swap. Re-run to retry.",
             ),
         )
     request.state["last_switch"] = {
