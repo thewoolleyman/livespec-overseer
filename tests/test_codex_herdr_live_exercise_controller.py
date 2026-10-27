@@ -624,6 +624,18 @@ def test_the_controller_is_a_checked_in_executable() -> None:
     assert os.access(CONTROLLER, os.X_OK), f"the controller is not executable: {CONTROLLER}"
 
 
+def test_backend_starts_after_the_scratch_home_has_a_zshrc() -> None:
+    """A zsh pane must not consume the exercise input with its first-run menu."""
+    inside = (REPO_ROOT / "scripts" / "overseer-live-exercise-inside.sh").read_text(
+        encoding="utf-8"
+    )
+
+    zshrc_seed = ': >"$HOME/.zshrc"'
+    backend_start = 'if [[ "$backend" == herdr ]]; then\n  herdr --session "$instance" server'
+    assert zshrc_seed in inside
+    assert inside.index(zshrc_seed) < inside.index(backend_start)
+
+
 def test_bootstrap_failure_keeps_launcher_output_and_elapsed_time() -> None:
     """A loaded-host bootstrap expiry must identify the launcher that did not finish."""
     controller = CONTROLLER.read_text(encoding="utf-8")
