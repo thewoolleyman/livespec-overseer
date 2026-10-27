@@ -166,6 +166,8 @@ def eligible_profiles(
     force: bool,
     dimension: str,
     protection_floors: Mapping[str, float] = NO_PROTECTION_FLOORS,
+    enforce_reserve: bool | None = None,
+    reserve_note: str | None = None,
 ) -> EligibleProfiles:
     reserve = weekly_reserve()
     # The relative-headroom margin asks a candidate to beat the balance the
@@ -203,6 +205,14 @@ def eligible_profiles(
                 ),
             ),
             protection_floors=protection_floors,
+        )
+
+    if enforce_reserve is not None:
+        eligible = _select(enforce_reserve=enforce_reserve)
+        return EligibleProfiles(
+            profiles=eligible,
+            reserve_released=not enforce_reserve,
+            note=reserve_note,
         )
 
     eligible = _select(enforce_reserve=True)

@@ -34,7 +34,12 @@ from caam_decide_report import (
     trigger_line,
     with_note,
 )
-from caam_decision import eligible_profiles, rank_profiles, scoped_reserve
+from caam_decision import (
+    eligible_profiles,
+    five_hour_remaining_floor,
+    rank_profiles,
+    scoped_reserve,
+)
 from caam_fast_drain import FAST_DRAIN_TRIGGER, ShortWindowProjection, fast_drain_trigger_line
 from caam_refusal_lines import REFUSAL_TRIGGER, refusal_exclusion_reason, refusal_trigger_line
 from caam_rotation_arm import (
@@ -46,6 +51,7 @@ from caam_rotation_arm import (
     short_window_triggered,
 )
 from caam_scoped_selection import none_holds_scoped_above_reserve, scoped_alone_trigger
+from caam_weekly_reserve import weekly_reserve_decision
 
 __all__: list[str] = [
     "triggered_choice",
@@ -73,13 +79,48 @@ def triggered_choice(
         )
     )
     decision_line = _decision_line(request=request, arm=arm, projection=projection)
-    eligible = eligible_profiles(
-        profiles=arm_candidates(request=request, arm=arm),
-        active=arm_active_account(request=request, arm=arm),
+    active = arm_active_account(request=request, arm=arm)
+    candidates = arm_candidates(request=request, arm=arm)
+    reserve = weekly_reserve_decision(
+        profiles=request.profiles,
+        candidates=candidates,
+        active=active,
         force=request.context.flags.force,
         dimension=arm.bound.dimension,
         protection_floors=request.protection_floors,
+        load=arm.load,
+        active_fast_draining=projection is not None,
     )
+    # A released reserve never turns a candidate at the short-window floor into
+    # a destination.  Such a row was relevant to deciding that the reserve
+    # protects nothing, but it cannot carry a request through the next pass.
+    if not reserve.enforce:
+        candidates = tuple(
+            profile
+            for profile in candidates
+            if profile.usage is not None
+            and profile.usage.five_hour_remaining > five_hour_remaining_floor()
+        )
+    eligible = eligible_profiles(
+        profiles=candidates,
+        active=active,
+        force=request.context.flags.force,
+        dimension=arm.bound.dimension,
+        protection_floors=request.protection_floors,
+        enforce_reserve=reserve.enforce,
+        reserve_note=reserve.note,
+    )
+    # Preserve the established empty-set diagnosis until the reporting slice can
+    # distinguish a release-only hold from the legacy all-under-reserve case.
+    # A populated released set always carries the serveability decision's note.
+    if not eligible.profiles:
+        eligible = eligible_profiles(
+            profiles=candidates,
+            active=active,
+            force=request.context.flags.force,
+            dimension=arm.bound.dimension,
+            protection_floors=request.protection_floors,
+        )
     # The capacity test runs AFTER the ranking rather than inside it: ranking is
     # a perishability order with no capacity term in it, and the test is an
     # eligibility rule that happens to read a capacity weight. Filtering a
