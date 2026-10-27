@@ -15,6 +15,7 @@ __all__: list[str] = [
     "REASON_FAIL_DID_NOT_STICK",
     "REASON_FAIL_ERROR",
     "REASON_FAIL_POST_INSTALL_WRITE",
+    "REASON_FAIL_RESTORE",
     "REASON_FAIL_STATE_VALIDATION",
     "REASON_FAIL_TARGET_CREDENTIAL",
     "REASON_HOLD_ACTIVE_CHANGED",
@@ -36,6 +37,7 @@ REASON_FAIL_ACTIVATE: Final = "fail-activate"
 REASON_FAIL_DID_NOT_STICK: Final = "fail-did-not-stick"
 REASON_FAIL_ERROR: Final = "fail-error"
 REASON_FAIL_POST_INSTALL_WRITE: Final = "fail-post-install-write"
+REASON_FAIL_RESTORE: Final = "fail-restore"
 REASON_FAIL_STATE_VALIDATION: Final = "fail-state-validation"
 
 

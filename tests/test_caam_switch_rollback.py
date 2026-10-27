@@ -87,6 +87,70 @@ def test_post_activation_error_restores_captured_live_files(*, monkeypatch, tmp_
     assert tuple(path.read_bytes() for path in (credential, profile, settings)) == before
 
 
+def test_post_activation_error_names_every_file_the_restore_cannot_write(
+    *, monkeypatch, tmp_path: Path
+) -> None:
+    module = importlib.import_module("caam_switch")
+    state_module = importlib.import_module("_caam_switch_state")
+    credential = tmp_path / ".claude/.credentials.json"
+    profile = tmp_path / ".claude.json"
+    settings = tmp_path / ".claude/settings.json"
+    target = tmp_path / ".local/share/caam/vault/claude/target/.claude.json"
+    credential.parent.mkdir(parents=True)
+    settings.parent.mkdir(parents=True, exist_ok=True)
+    target.parent.mkdir(parents=True)
+    _write_live_files(
+        credential=credential,
+        profile=profile,
+        settings=settings,
+        target=target,
+    )
+    writes: list[Path] = []
+    atomic_write = state_module._atomic_write
+
+    def fail_write_and_two_restores(*, path: Path, body: bytes) -> None:
+        writes.append(path)
+        if path == profile and writes.count(profile) == 1:
+            raise OSError("profile write failed")
+        if path in (credential, settings):
+            raise OSError(f"cannot restore {path.name}")
+        atomic_write(path=path, body=body)
+
+    usage = UsageRecord(
+        five_hour_remaining=10.0,
+        seven_day_remaining=10.0,
+        five_hour_resets_at=None,
+        seven_day_resets_at=None,
+        fable_remaining=None,
+        fable_resets_at=None,
+    )
+    monkeypatch.setattr(state_module, "_atomic_write", fail_write_and_two_restores)
+    result = module.switch_account(
+        request=module.SwitchRequest(
+            active_name="active",
+            target=ProfileUsage(name="target", source="live", usage=usage),
+            current=usage,
+            state={},
+            home=tmp_path,
+            now=0.0,
+            active_reader=lambda: "active",
+            fetcher=lambda *, creds_path, now: (usage, None),
+            activator=lambda *, args, timeout: SimpleNamespace(returncode=0, stdout="", stderr=""),
+            lock_factory=lambda *, lock_path: nullcontext(),
+            save=lambda *, state: None,
+        )
+    )
+
+    assert result.exit_code == 2
+    assert result.reason == "fail-restore"
+    assert result.lines == (
+        "FAIL switch to target: post-install write failed "
+        "(OSError: profile write failed); restoration failed for "
+        f"{credential}, {settings}.",
+    )
+    assert writes == [profile, credential, profile, settings]
+
+
 @pytest.mark.parametrize("profile_body", [b"not json", b"[]"])
 def test_capture_rejects_invalid_live_global_state(*, profile_body: bytes, tmp_path: Path) -> None:
     state = importlib.import_module("_caam_switch_state")

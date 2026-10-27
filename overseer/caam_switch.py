@@ -12,11 +12,11 @@ from _caam_switch_host import (
     acquire_switch_lock,
     caam_activate,
 )
+from _caam_switch_recovery import post_install_outcome
 from _caam_switch_render import target_summary
 from _caam_switch_state import (
     LiveSwitchState,
     StateValidationError,
-    apply_activated_state,
     capture_live_state,
     restore_rejected_state,
 )
@@ -26,6 +26,7 @@ from _caam_switch_types import (
     REASON_FAIL_DID_NOT_STICK,
     REASON_FAIL_ERROR,
     REASON_FAIL_POST_INSTALL_WRITE,
+    REASON_FAIL_RESTORE,
     REASON_FAIL_STATE_VALIDATION,
     REASON_FAIL_TARGET_CREDENTIAL,
     REASON_HOLD_ACTIVE_CHANGED,
@@ -38,7 +39,7 @@ from _caam_switch_types import (
     SwitchResult,
     UsageFetcher,
 )
-from _caam_switch_verify import activation_message, switch_did_not_stick
+from _caam_switch_verify import activation_message
 from caam_decision import decision_switched
 from caam_profile_state import caam_vault
 
@@ -49,6 +50,7 @@ __all__: list[str] = [
     "REASON_FAIL_DID_NOT_STICK",
     "REASON_FAIL_ERROR",
     "REASON_FAIL_POST_INSTALL_WRITE",
+    "REASON_FAIL_RESTORE",
     "REASON_FAIL_STATE_VALIDATION",
     "REASON_FAIL_TARGET_CREDENTIAL",
     "REASON_HOLD_ACTIVE_CHANGED",
@@ -112,21 +114,12 @@ def _switch_under_lock(*, request: SwitchRequest) -> SwitchResult:
     activation_failure = _activate(request=request, state=preserved_state)
     if activation_failure is not None:
         return activation_failure
-    try:
-        apply_activated_state(state=preserved_state)
-        did_not_stick = switch_did_not_stick(home=request.home, target_name=request.target.name)
-    except (OSError, RuntimeError, subprocess.SubprocessError, TypeError, ValueError) as exc:
-        restore_rejected_state(state=preserved_state)
-        request.save(state=request.state)
-        return SwitchResult(
-            exit_code=2,
-            reason=REASON_FAIL_POST_INSTALL_WRITE,
-            lines=(
-                "FAIL switch to "
-                f"{request.target.name}: post-install write failed "
-                f"({type(exc).__name__}: {exc}); restored pre-switch state.",
-            ),
-        )
+    did_not_stick, post_install_failure = post_install_outcome(
+        request=request,
+        state=preserved_state,
+    )
+    if post_install_failure is not None:
+        return post_install_failure
     if did_not_stick:
         return _did_not_stick_failure(request=request, state=preserved_state)
     request.state["last_switch"] = {
