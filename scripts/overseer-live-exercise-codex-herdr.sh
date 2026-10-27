@@ -251,6 +251,17 @@ print(json.dumps({"repos": [sys.argv[1]]}))
   : >>"$HOME/.livespec-overseer.jsonl"
 }
 
+configure_scratch_codex() {
+  mkdir -p -- "$codex_home"
+  cat >"$codex_home/config.toml" <<EOF
+[tui]
+status_line = ["model-with-reasoning", "current-dir", "context-remaining"]
+
+[projects."$repo"]
+trust_level = "trusted"
+EOF
+}
+
 # --------------------------------------------------------------------------- #
 # Stage 1 — bootstrap
 # --------------------------------------------------------------------------- #
@@ -258,6 +269,7 @@ print(json.dumps({"repos": [sys.argv[1]]}))
 stage_bootstrap() {
   local overseer_start_output bootstrap_started_at elapsed launcher_output
   ensure_scratch_plan
+  configure_scratch_codex
   hd workspace create --cwd "$repo" --label "$topic" >/dev/null 2>&1
 
   # Export into the RETAINED SHELL rather than onto one command line. The daemon's
@@ -266,7 +278,8 @@ stage_bootstrap() {
   # replacement failure whose message names the shell, not the environment.
   pane_submit "$AGENT_PANE" \
     "export HOME=$HOME CODEX_HOME=$codex_home HERDR_SOCKET_PATH=$HERDR_SOCKET_PATH PATH=$PATH"
-  pane_submit "$AGENT_PANE" "codex --dangerously-bypass-approvals-and-sandbox"
+  pane_submit "$AGENT_PANE" \
+    "cd $(printf %q "$repo") && codex --dangerously-bypass-approvals-and-sandbox"
 
   wait_until "$CODEX_READY_TIMEOUT" codex_pane_is_idle "$AGENT_PANE" || fail_stage bootstrap \
     "no idle Codex TUI in pane $AGENT_PANE within ${CODEX_READY_TIMEOUT}s (shipped is_codex_idle_input never held)"
@@ -327,11 +340,23 @@ wrapup_round_is_open() {
   [[ "$(snapshot_row round_open)" == "True" ]]
 }
 
-stage_wrapup() {
-  local remaining threshold
+context_is_below_wrapup_cap() {
+  local remaining
   remaining="$(pane_ctx_remaining "$AGENT_PANE")"
-  [[ -n "$remaining" ]] || fail_stage wrap-up \
-    "no remaining-context reading in pane $AGENT_PANE; the daemon cannot cross a threshold it cannot read"
+  [[ "$remaining" =~ ^[0-9]+$ ]] && ((remaining < 99))
+}
+
+stage_wrapup() {
+  local fresh_remaining remaining threshold
+  fresh_remaining="$(pane_ctx_remaining "$AGENT_PANE")"
+  [[ "$fresh_remaining" == 100 ]] || fail_stage wrap-up \
+    "the fresh Codex session did not report 100% remaining context (reported '${fresh_remaining:-none}')"
+  pane_submit "$AGENT_PANE" "seq 1 60000"
+  wait_until "$CODEX_READY_TIMEOUT" context_is_below_wrapup_cap || fail_stage wrap-up \
+    "the context burn did not bring fresh Codex below the 99% threshold cap within ${CODEX_READY_TIMEOUT}s"
+  remaining="$(pane_ctx_remaining "$AGENT_PANE")"
+  [[ "$remaining" =~ ^[0-9]+$ ]] || fail_stage wrap-up \
+    "no numeric remaining-context reading in pane $AGENT_PANE after context burn"
   # Just ABOVE live remaining context, per `overseer/AGENTS.md` "How to exercise it
   # live" item 4: that is what opens a round on demand instead of waiting for a
   # real session to burn its window down.
@@ -348,7 +373,7 @@ stage_wrapup() {
   wait_until "$WRAPUP_TIMEOUT" wrapup_round_is_open || fail_stage wrap-up \
     "the daemon opened no wrap-up round within ${WRAPUP_TIMEOUT}s against threshold ${threshold}% with ${remaining}% remaining"
   pass_stage wrap-up \
-    "the daemon injected its wind-down and opened a round at threshold ${threshold}% against ${remaining}% remaining"
+    "the controller observed fresh ${fresh_remaining}% context, burned it to ${remaining}%, then the daemon injected its wind-down and opened a round at threshold ${threshold}%"
 }
 
 # --------------------------------------------------------------------------- #

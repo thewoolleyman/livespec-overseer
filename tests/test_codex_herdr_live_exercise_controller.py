@@ -636,6 +636,27 @@ def test_backend_starts_after_the_scratch_home_has_a_zshrc() -> None:
     assert inside.index(zshrc_seed) < inside.index(backend_start)
 
 
+def test_controller_configures_codex_launch_and_context_burn() -> None:
+    """The controller must prepare a prompt-ready Codex before opening a round."""
+    _assert_controller_has_codex_launch_prerequisites(
+        controller=CONTROLLER.read_text(encoding="utf-8")
+    )
+
+
+def _assert_controller_has_codex_launch_prerequisites(*, controller: str) -> None:
+    """Check the source contracts that make the real-client launch deterministic."""
+    expected = (
+        'status_line = ["model-with-reasoning", "current-dir", "context-remaining"]',
+        '[projects."$repo"]',
+        'trust_level = "trusted"',
+        'cd $(printf %q "$repo") && codex --dangerously-bypass-approvals-and-sandbox',
+        'pane_submit "$AGENT_PANE" "seq 1 60000"',
+        '[[ "$fresh_remaining" == 100 ]]',
+        "((remaining < 99))",
+    )
+    assert all(value in controller for value in expected)
+
+
 def test_bootstrap_failure_keeps_launcher_output_and_elapsed_time() -> None:
     """A loaded-host bootstrap expiry must identify the launcher that did not finish."""
     controller = CONTROLLER.read_text(encoding="utf-8")
@@ -836,6 +857,28 @@ def test_a_stub_codex_run_records_every_lifecycle_stage_and_verifies(
     # 8. Neither the exercise server nor the shell in its pane inherited one of this
     #    process's terminal-owner values.
     _assert_nothing_inherited_the_pane_environment(run=run, decoys=operator_pane_environment)
+
+    _assert_codex_launch_prerequisites_observed(run=run, records=records)
+
+
+def _assert_codex_launch_prerequisites_observed(
+    *, run: ExerciseRun, records: list[dict[str, str]]
+) -> None:
+    """Observe the prepared config, repository cwd and context burn from one run."""
+    config = (run.home / ".codex" / "config.toml").read_text(encoding="utf-8")
+    repo = run.evidence.parent / "repo"
+    assert 'status_line = ["model-with-reasoning", "current-dir", "context-remaining"]' in config
+    assert f'[projects."{repo}"]\ntrust_level = "trusted"' in config
+    index = run.home / ".codex" / "session_index.jsonl"
+    indexed = [json.loads(line) for line in index.read_text(encoding="utf-8").splitlines()]
+    assert indexed and all(record.get("cwd") == str(repo) for record in indexed)
+    wrapup = next(record for record in records if record["stage"] == "wrap-up")
+    burned = re.search(r"fresh (\d+)%.*burned.*?(\d+)%.*threshold (\d+)%", wrapup["detail"])
+    assert burned is not None, f"wrap-up evidence did not record fresh and burned context: {wrapup}"
+    fresh, remaining, threshold = (int(value) for value in burned.groups())
+    assert fresh == 100
+    assert remaining < 99 < threshold + 1
+    assert remaining < threshold
 
 
 def _assert_pane_inside_the_exercise_instance(*, run: ExerciseRun, diagnostic: str) -> None:
