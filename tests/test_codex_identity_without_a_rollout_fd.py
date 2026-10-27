@@ -355,6 +355,37 @@ def test_an_unresolvable_carrier_cwd_leaves_every_session_unidentified(*, tmp_pa
     assert world.sup.live_codex == {}
 
 
+def test_a_backend_reported_session_identifies_its_own_carrier_among_repo_siblings(*, tmp_path):
+    """Pane-scoped Herdr evidence disambiguates two sessions in one repository.
+
+    Repository membership alone must refuse: both ids below belong to ``repo``.  The
+    backend's per-pane report names one id, and the index's exact thread name confirms
+    that it belongs to this track rather than merely being a same-repository sibling.
+    """
+    _module = codex_identity()
+    shared = tmp_path / "reported"
+    shared.mkdir()
+    world = make_world(tmp_path=shared)
+    write_state_database(
+        path=world.home / "state_2.sqlite",
+        rows=[
+            (SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+            (OPERATOR_SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+        ],
+    )
+    (world.home / "session_index.jsonl").write_text(
+        json.dumps({"id": SESSION_ID, "thread_name": "topic"}) + "\n",
+        encoding="utf-8",
+    )
+    world.sup.tmux.pane_agent_session = lambda *, session: (
+        SESSION_ID if session == TRACKED_COORDINATE else None
+    )
+
+    world.sup.refresh_codex_sessions()
+
+    assert world.sup.live_codex[(TRACKED_COORDINATE, "topic")].session_id == SESSION_ID
+
+
 # --- assertion 2: the dead tmux coordinate is rebound, old and new logged ------------
 
 

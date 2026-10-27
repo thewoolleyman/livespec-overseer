@@ -88,6 +88,10 @@ class CodexPaneCarrier:
     coordinate: str
     cwd: str
     session_id: str | None
+    # Herdr records the session the agent in THIS pane reports.  Unlike a rollout fd
+    # on a shared app-server, this evidence belongs to the carrier rather than to a
+    # process tree that may serve several TUIs.
+    reported_session_id: str | None = None
 
 
 def _resolved_codex_home(*, readers: codex_sessions.CodexHostReaders) -> Path:
@@ -137,6 +141,7 @@ def carrier_session_id(
     candidates: frozenset[str],
     codex_home: str | os.PathLike[str] | None,
     environ_of: PidToOptionalBytes,
+    reported_session_id: str | None = None,
 ) -> str | None:
     """The ONE live session this carrier's own state database binds to its repository.
 
@@ -160,7 +165,24 @@ def carrier_session_id(
             database=database, session_id=candidate, cwd=cwd
         )
     ]
+    if reported_session_id is not None:
+        return reported_session_id if reported_session_id in bound else None
     return bound[0] if len(bound) == 1 else None
+
+
+def _reported_session_id(*, sup: Supervisor, coordinate: str) -> str | None:
+    """The terminal backend's per-pane Codex session report, if this driver has one.
+
+    Legacy tmux has no comparable report, so a missing reader is deliberately an
+    absence of evidence rather than an error.  The mixed Herdr driver supplies this
+    narrow read; keeping the optional call here lets older, injected pane doubles keep
+    their ordinary read-only behavior.
+    """
+    reader = getattr(sup.tmux, "pane_agent_session", None)
+    if not callable(reader):
+        return None
+    value = reader(session=coordinate)
+    return value if isinstance(value, str) and value else None
 
 
 def pane_codex_carriers(
@@ -200,6 +222,7 @@ def pane_codex_carriers(
         cwd = readers.cwd_of(pid=pid)
         if coordinate is None or not cwd:
             continue
+        reported = _reported_session_id(sup=sup, coordinate=coordinate)
         found.append(
             CodexPaneCarrier(
                 pid=pid,
@@ -211,7 +234,9 @@ def pane_codex_carriers(
                     candidates=candidates,
                     codex_home=readers.codex_home,
                     environ_of=sup.environ_of,
+                    reported_session_id=reported,
                 ),
+                reported_session_id=reported,
             )
         )
     return tuple(found)
@@ -240,10 +265,22 @@ def identity_bound_codex_sessions(
         if carrier.session_id is None:
             continue
         identity = f"{CODEX_IDENTITY_PREFIX}{carrier.session_id}"
+        names = codex_sessions.read_thread_names(codex_home=_resolved_codex_home(readers=readers))
         claiming = [
             row
             for row in rows
-            if row.observed_session_identity == identity
+            if (
+                row.observed_session_identity == identity
+                or (
+                    carrier.reported_session_id is not None
+                    and names.get(carrier.session_id)
+                    == registry.tmux_id(
+                        repo=row.repo,
+                        topic=row.topic,
+                        colliding=sup.colliding_topics,
+                    )
+                )
+            )
             and signals.path_in_repo(pane_current_path=carrier.cwd, repo=row.repo)
         ]
         if len(claiming) != 1:
