@@ -145,9 +145,10 @@ def _admitted_after_reserve_decision(
 
     A released reserve admits below-reserve accounts to ordinary eligibility,
     whose cannot-serve-immediately boundary is zero rather than the rotation
-    floor.  Accounts still above the reserve retain that floor boundary: they
-    cannot defend the reserve and must not win the released pass ahead of a
-    newly admitted, immediately usable lower account.
+    floor. A positive below-floor short window therefore remains selectable.
+    Accounts still above the reserve retain that floor boundary: they cannot
+    defend the reserve and must not win the released pass ahead of a newly
+    admitted lower account.
     """
     if reserve_enforced:
         return candidates
