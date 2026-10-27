@@ -12,8 +12,16 @@ import pytest
 from caam_decision import ProfileUsage, UsageRecord
 
 
+def _write_live_files(*, credential: Path, profile: Path, settings: Path, target: Path) -> None:
+    credential.write_bytes(b"live credential\n")
+    profile.write_text('{"oauthAccount":{"accountUuid":"active"},"userID":"active"}\n')
+    settings.write_text('{"effortLevel":"high"}\n')
+    target.write_text('{"oauthAccount":{"accountUuid":"target"},"userID":"target"}\n')
+
+
 def test_post_activation_error_restores_captured_live_files(*, monkeypatch, tmp_path: Path) -> None:
     module = importlib.import_module("caam_switch")
+    state_module = importlib.import_module("_caam_switch_state")
     credential = tmp_path / ".claude/.credentials.json"
     profile = tmp_path / ".claude.json"
     settings = tmp_path / ".claude/settings.json"
@@ -21,17 +29,30 @@ def test_post_activation_error_restores_captured_live_files(*, monkeypatch, tmp_
     credential.parent.mkdir(parents=True)
     settings.parent.mkdir(parents=True, exist_ok=True)
     target.parent.mkdir(parents=True)
-    credential.write_bytes(b"live credential\n")
-    profile.write_text('{"oauthAccount":{"accountUuid":"active"},"userID":"active"}\n')
-    settings.write_text('{"effortLevel":"high"}\n')
-    target.write_text('{"oauthAccount":{"accountUuid":"target"},"userID":"target"}\n')
+    _write_live_files(
+        credential=credential,
+        profile=profile,
+        settings=settings,
+        target=target,
+    )
     before = tuple(path.read_bytes() for path in (credential, profile, settings))
 
-    def fail_after_activation(*, state: object) -> None:
-        del state
-        raise RuntimeError("state repair failed")
+    writes: list[Path] = []
+    atomic_write = state_module._atomic_write
 
-    monkeypatch.setattr(module, "apply_activated_state", fail_after_activation)
+    def fail_profile_write_after_activation(*, path: Path, body: bytes) -> None:
+        writes.append(path)
+        if path == profile and writes.count(profile) == 1:
+            raise OSError("profile write failed")
+        atomic_write(path=path, body=body)
+
+    def install_then_succeed(**_: object) -> SimpleNamespace:
+        credential.write_bytes(b"installed credential\n")
+        profile.write_text('{"oauthAccount":{"accountUuid":"target"},"userID":"target"}\n')
+        settings.write_text('{"effortLevel":"low"}\n')
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(state_module, "_atomic_write", fail_profile_write_after_activation)
     usage = UsageRecord(
         five_hour_remaining=10.0,
         seven_day_remaining=10.0,
@@ -50,14 +71,19 @@ def test_post_activation_error_restores_captured_live_files(*, monkeypatch, tmp_
             now=0.0,
             active_reader=lambda: "active",
             fetcher=lambda *, creds_path, now: (usage, None),
-            activator=lambda *, args, timeout: SimpleNamespace(returncode=0, stdout="", stderr=""),
+            activator=install_then_succeed,
             lock_factory=lambda *, lock_path: nullcontext(),
             save=lambda *, state: None,
         )
     )
 
     assert result.exit_code == 2
-    assert result.lines == ("FAIL RuntimeError: state repair failed",)
+    assert result.reason == module.REASON_FAIL_POST_INSTALL_WRITE
+    assert result.lines == (
+        "FAIL switch to target: post-install write failed "
+        "(OSError: profile write failed); restored pre-switch state.",
+    )
+    assert writes == [profile, credential, profile, settings]
     assert tuple(path.read_bytes() for path in (credential, profile, settings)) == before
 
 
