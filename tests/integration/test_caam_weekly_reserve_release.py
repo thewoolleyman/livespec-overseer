@@ -389,7 +389,7 @@ def test_scenario_an_account_above_the_reserve_that_is_not_live_verified_release
     assert first_code == 0
     assert code == 0
     assert harness.switches == ["below"]
-    assert any("weekly reserve was released" in line and "unverified" in line for line in lines)
+    assert any("no unprotected account is above it" in line for line in lines)
 
 
 def test_scenario_a_protected_account_above_the_reserve_does_not_keep_it_in_force(

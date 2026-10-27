@@ -108,7 +108,8 @@ def _above_unprotected(
     return tuple(
         profile
         for profile in rows
-        if profile.usage is not None
+        if profile.source == "live"
+        and profile.usage is not None
         and profile.usage.seven_day_remaining >= reserve
         and protection_floor_for(name=profile.name, protection_floors=protection_floors) <= 0.0
     )
