@@ -3235,7 +3235,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The weekly reserve is released when the protected active account is spend-blocked and every other account above it is exhausted",
-    "test": "tests.integration.test_caam_weekly_reserve_release.test_scenario_the_weekly_reserve_is_released_when_no_account_above_it_can_serve",
+    "test": "tests.integration.test_caam_weekly_reserve_release.test_scenario_a_protected_spend_blocked_active_releases_an_exhausted_reserve",
     "work_item": "overseer-2fjvy6",
     "reason": "Owned by the code child of plan caam-weekly-reserve-release-ignores-serveability, which drives this scenario through the shipped rotation pass at integration tier with a scheduled invocation, injecting only provider usage."
   },
@@ -3251,7 +3251,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An account above the reserve that would reach the floor before the next pass does not keep the reserve in force",
-    "test": "tests.integration.test_caam_weekly_reserve_release.test_scenario_an_active_account_projected_to_reach_the_floor_releases_the_reserve",
+    "test": "tests.integration.test_caam_weekly_reserve_release.test_scenario_an_above_reserve_candidate_that_fails_capacity_releases_the_reserve",
     "work_item": "overseer-2fjvy6",
     "reason": "Owned by the code child of plan caam-weekly-reserve-release-ignores-serveability, which drives this scenario through the shipped rotation pass at integration tier with a scheduled invocation, injecting only provider usage."
   },
@@ -3283,7 +3283,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The reserve decision precedes the capacity test's release for a refusal-held active account",
-    "test": "tests.integration.test_caam_weekly_reserve_release.test_scenario_a_refusal_held_account_above_the_reserve_releases_it",
+    "test": "tests.integration.test_caam_weekly_reserve_release.test_scenario_reserve_release_precedes_the_refusal_capacity_release",
     "work_item": "overseer-2fjvy6",
     "reason": "Owned by the code child of plan caam-weekly-reserve-release-ignores-serveability, which drives this scenario through the shipped rotation pass at integration tier with a scheduled invocation, injecting only provider usage."
   },
@@ -3291,7 +3291,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The capacity test's release reaches candidates the reserve's release admitted",
-    "test": "tests.integration.test_caam_weekly_reserve_release.test_scenario_a_refusal_held_account_above_the_reserve_releases_it",
+    "test": "tests.integration.test_caam_weekly_reserve_release.test_scenario_reserve_release_precedes_the_refusal_capacity_release",
     "work_item": "overseer-2fjvy6",
     "reason": "Owned by the code child of plan caam-weekly-reserve-release-ignores-serveability, which drives this scenario through the shipped rotation pass at integration tier with a scheduled invocation, injecting only provider usage."
   },
@@ -3299,7 +3299,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The scoped-model margin exception does not keep the weekly reserve in force",
-    "test": "tests.integration.test_caam_weekly_reserve_release.test_scenario_an_account_above_the_reserve_that_lacks_the_margin_releases_it",
+    "test": "tests.integration.test_caam_weekly_reserve_release.test_scenario_the_scoped_margin_exception_does_not_keep_the_reserve",
     "work_item": "overseer-2fjvy6",
     "reason": "Owned by the code child of plan caam-weekly-reserve-release-ignores-serveability, which drives this scenario through the shipped rotation pass at integration tier with a scheduled invocation, injecting only provider usage."
   },
