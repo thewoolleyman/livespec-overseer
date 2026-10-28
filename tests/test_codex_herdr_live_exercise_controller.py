@@ -70,7 +70,15 @@ from pathlib import Path
 
 import herdr_identity
 import pytest
-from herdr_live_server import raw_request, require_herdr, start_server, stop_server, unique_session
+from herdr_live_server import (
+    create_workspace,
+    herdr_cli,
+    herdr_installed,
+    raw_request,
+    start_server,
+    stop_server,
+    unique_session,
+)
 
 from overseer import runtime_prefix
 
@@ -110,6 +118,15 @@ _OUTSIDE_ROOT_PREFIX = "ovx-operator-"
 _OUTSIDE_READY_TIMEOUT = 30.0
 _OUTSIDE_STOP_TIMEOUT = 10.0
 _OUTSIDE_POLL_SECONDS = 0.1
+# The capability probe. The daemon bound IS the controller's own `DAEMON_TIMEOUT` (a test
+# pins the two together), so a host whose daemon cannot write a status snapshot inside
+# the window the exercise would have waited is skipped, naming that, instead of failing
+# the same wait minutes later (work-item `overseer-trgq2p`).
+_TERMINAL_PROBE_TIMEOUT = 30.0
+_DAEMON_PROBE_TIMEOUT = 600.0
+_PROBE_POLL_SECONDS = 0.5
+_PROBE_TOPIC = "probe-topic"
+_STATUS_SNAPSHOT_NAME = ".livespec-overseer-status.json"
 # The daemon-owned runtime prefix, relative to HOME. `overseer-start` provisions
 # `<HOME>/.local/share/livespec-overseer/runtime/<version>`, and the venv it builds
 # there bakes that ABSOLUTE path into its own interpreter shebang -- which is why a
@@ -536,9 +553,193 @@ def _scrub_coverage_env(*, env: dict[str, str]) -> dict[str, str]:
     }
 
 
+def _hermetic_environment(*, home: Path, root: Path) -> dict[str, str]:
+    """The environment every process this exercise (or its probe) starts runs under.
+
+    `TMUX_TMPDIR` is pointed into the scratch root because `overseer-start` and the
+    daemon probe the DEFAULT tmux server, and that server is resolved from the
+    environment and the uid, not from HOME: on the release host it is the operator's
+    own, with the operator's own panes, while in the factory it is whatever the sandbox
+    configured. A scratch directory makes it the same empty answer in every venue.
+    """
+    environment = _scrub_terminal_owner_env(env=_scrub_coverage_env(env=dict(os.environ)))
+    environment["HOME"] = str(home)
+    environment["CODEX_HOME"] = str(home / ".codex")
+    tmux_dir = root / "tmux"
+    tmux_dir.mkdir(exist_ok=True)
+    environment["TMUX_TMPDIR"] = str(tmux_dir)
+    return environment
+
+
+@contextlib.contextmanager
+def _process_home(*, home: Path) -> Iterator[None]:
+    """`HOME` of THIS process, because herdr's server socket is derived from it."""
+    previous = os.environ.get("HOME")
+    os.environ["HOME"] = str(home)
+    try:
+        yield
+    finally:
+        if previous is None:  # pragma: no cover - HOME is always set on this host
+            del os.environ["HOME"]
+        else:
+            os.environ["HOME"] = previous
+
+
+class _TerminalUnusableError(Exception):
+    """A herdr terminal could not be brought up; the message names what is missing."""
+
+
+@contextlib.contextmanager
+def _probe_pane(*, root: Path) -> Iterator[tuple[str, str]]:
+    """One owned herdr server and its root pane, as `(session, pane_id)`.
+
+    Raises :class:`_TerminalUnusableError` when there is no herdr binary or no server that
+    answers a request. A binary on PATH proves neither.
+    """
+    if not herdr_installed():
+        raise _TerminalUnusableError("no usable terminal: the `herdr` binary is not on PATH")
+    home = root / "terminal-home"
+    home.mkdir(exist_ok=True)
+    session = unique_session(label="probe")
+    with _process_home(home=home):
+        try:
+            server = start_server(
+                scratch=root / "terminal-server",
+                session=session,
+                env=_hermetic_environment(home=home, root=root),
+            )
+            pane = create_workspace(
+                socket_path=server.socket_path, label=_PROBE_TOPIC, cwd=str(root)
+            )
+        except (AssertionError, OSError, subprocess.SubprocessError) as failed:
+            raise _TerminalUnusableError(
+                f"no usable terminal: herdr could not start a server and pane ({failed})"
+            ) from failed
+        try:
+            yield session, pane
+        finally:
+            stop_server(session=session)
+
+
+def _await_pane_text(*, session: str, pane: str, needle: str, timeout: float) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        shown = herdr_cli(args=["--session", session, "pane", "read", pane, "--source", "visible"])
+        if needle in shown.stdout:
+            return True
+        time.sleep(_PROBE_POLL_SECONDS)
+    return False
+
+
+def _probe_terminal(*, root: Path, timeout: float) -> str:
+    """Empty when a herdr pane runs a command and shows its output, else what is missing.
+
+    Tests the capability itself: a server that ANSWERS a request, a pane that EXECUTES a
+    command, and that command's output READ BACK.
+    """
+    try:
+        with _probe_pane(root=root) as (session, pane):
+            ran = herdr_cli(args=["--session", session, "pane", "run", pane, "echo ovx-$((40+2))"])
+            if ran.returncode == 0 and _await_pane_text(
+                session=session, pane=pane, needle="ovx-42", timeout=timeout
+            ):
+                return ""
+            return (
+                "no usable terminal: a herdr pane did not run a command and show its "
+                f"output within {timeout}s"
+            )
+    except _TerminalUnusableError as unusable:
+        return str(unusable)
+
+
+def _watched_probe_repo(*, home: Path, root: Path) -> None:
+    """A gitignored-`tmp/` scratch repo the daemon is told to watch, as the controller does."""
+    repo = root / "probe-repo"
+    (repo / "plan" / _PROBE_TOPIC).mkdir(parents=True)
+    _ = (repo / ".gitignore").write_text("tmp/\n", encoding="utf-8")
+    git = ["git", "-C", str(repo)]
+    for argv in (
+        ["init", "-q"],
+        ["add", "-A"],
+        ["-c", "user.email=probe@invalid", "-c", "user.name=probe", "commit", "-qm", "probe"],
+    ):
+        _ = subprocess.run([*git, *argv], capture_output=True, check=True)  # noqa: S603
+    _ = (home / ".livespec-overseer-repos.json").write_text(
+        json.dumps({"repos": [str(repo)]}), encoding="utf-8"
+    )
+    (home / ".livespec-overseer.jsonl").touch()
+
+
+def _probe_daemon(*, daemon: Path, home: Path, root: Path, timeout: float) -> str:
+    """Empty when this daemon writes its status snapshot inside `timeout`, else why not.
+
+    The daemon is started the way `overseer-start` starts it: typed into a herdr pane,
+    because it refuses to run with no controlling terminal (and with no `tmux` on PATH),
+    over a watched scratch repo -- the inputs the controller's `daemon_is_up` waits on.
+    """
+    _watched_probe_repo(home=home, root=root)
+    snapshot = home / _STATUS_SNAPSHOT_NAME
+    log = root / "probe-daemon.log"
+    try:
+        with _probe_pane(root=root) as (session, pane):
+            exports = f"export HOME={home} CODEX_HOME={home / '.codex'} PATH={os.environ['PATH']}"
+            for command in (exports, f"cd {root} && {daemon} 2>> {log}"):
+                _ = herdr_cli(args=["--session", session, "pane", "run", pane, command])
+            deadline = time.monotonic() + timeout
+            while time.monotonic() < deadline:
+                if snapshot.is_file():
+                    return ""
+                time.sleep(_PROBE_POLL_SECONDS)
+    except _TerminalUnusableError as unusable:
+        return str(unusable)
+    tail = log.read_text(encoding="utf-8", errors="replace")[-400:].strip() if log.is_file() else ""
+    return (
+        f"no usable overseer daemon: no status snapshot at {snapshot} within {timeout}s "
+        f"(daemon log tail: {tail or '<empty>'})"
+    )
+
+
+_CAPABILITY_GAPS: dict[str, str] = {}
+
+
+def _capability_gap(*, name: str, probe: Callable[[Path], str]) -> str:
+    """`probe`'s verdict in a disposable root, measured once per process."""
+    if name not in _CAPABILITY_GAPS:
+        root = Path(tempfile.mkdtemp(prefix=_SHORT_ROOT_PREFIX))
+        try:
+            _CAPABILITY_GAPS[name] = probe(root)
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+    return _CAPABILITY_GAPS[name]
+
+
+def _provisioned_daemon_gap(root: Path) -> str:
+    try:
+        home = _scratch_home(root=root)
+        daemon = _daemon_executable(home=home)
+    except (AssertionError, OSError, subprocess.SubprocessError) as failed:
+        return f"no usable overseer daemon: its runtime could not be provisioned ({failed})"
+    return _probe_daemon(daemon=daemon, home=home, root=root, timeout=_DAEMON_PROBE_TIMEOUT)
+
+
+def _require_exercise_capability(*, daemon: bool) -> None:
+    """Skip, naming what is missing, unless this host can run the exercise at all."""
+    gaps = [
+        _capability_gap(
+            name="terminal",
+            probe=lambda root: _probe_terminal(root=root, timeout=_TERMINAL_PROBE_TIMEOUT),
+        )
+    ]
+    if daemon:
+        gaps.append(_capability_gap(name="daemon", probe=_provisioned_daemon_gap))
+    missing = [gap for gap in gaps if gap]
+    if missing:
+        pytest.skip("; ".join(missing))
+
+
 def _run_controller(*, root: Path, never_idle: bool, timeout: float) -> ExerciseRun:
     """Start one exercise herdr instance and drive the controller against it."""
-    require_herdr()
+    _require_exercise_capability(daemon=not never_idle)
     home = _scratch_home(root=root)
     binaries, herdr_log = _exercise_bin(root=root, never_idle=never_idle)
     evidence = root / "evidence"
@@ -548,13 +749,12 @@ def _run_controller(*, root: Path, never_idle: bool, timeout: float) -> Exercise
     # and everything the controller writes share one disposable root. The
     # terminal-owner scrub is what keeps a test process that is ITSELF inside a herdr
     # pane from lending its coordinates to the instance this run owns.
-    environment = _scrub_terminal_owner_env(env=_scrub_coverage_env(env=dict(os.environ)))
-    environment["HOME"] = str(home)
-    # A Herdr replacement is spawned by the SERVER, not by the controller's
-    # original pane shell.  Give that server the scratch Codex home before it
-    # starts, otherwise the initial stub (whose shell is later exported below)
-    # and its successor write rollouts to different indexes.
-    environment["CODEX_HOME"] = str(home / ".codex")
+    #
+    # A Herdr replacement is spawned by the SERVER, not by the controller's original
+    # pane shell, so the environment carries the scratch Codex home before the server
+    # starts: otherwise the initial stub (whose shell is later exported below) and its
+    # successor write rollouts to different indexes.
+    environment = _hermetic_environment(home=home, root=root)
     environment["PATH"] = f"{binaries}{os.pathsep}{environment['PATH']}"
     session = unique_session(label=_SESSION_LABEL)
     previous_home = os.environ.get("HOME")
@@ -673,6 +873,72 @@ def test_stub_shim_preparer_needs_no_herdr_on_path(tmp_path: Path) -> None:
 
     assert prepared.returncode == 0, prepared.stderr
     assert os.access(binaries / "herdr", os.X_OK)
+
+
+def test_the_daemon_probe_bound_is_the_controllers_own_bound() -> None:
+    """A host is skipped only for what the exercise itself would have waited out."""
+    controller = CONTROLLER.read_text(encoding="utf-8")
+    declared = re.search(r"^readonly DAEMON_TIMEOUT=(\d+)$", controller, re.MULTILINE)
+
+    assert declared is not None, "the controller no longer declares DAEMON_TIMEOUT"
+    assert float(declared.group(1)) == _DAEMON_PROBE_TIMEOUT
+
+
+def test_the_terminal_probe_names_a_missing_herdr(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PATH", str(tmp_path))
+
+    gap = _probe_terminal(root=tmp_path, timeout=1.0)
+
+    assert gap.startswith("no usable terminal:")
+    assert "herdr" in gap
+
+
+def _stub_daemon(*, root: Path, body: str) -> tuple[Path, Path]:
+    """A stand-in `overseerd` whose behaviour is `body`, and the HOME it will run under."""
+    _require_exercise_capability(daemon=False)
+    home = root / "home"
+    home.mkdir()
+    daemon = root / "overseerd"
+    _write_executable(path=daemon, body=f"#!/bin/sh\n{body}\n")
+    return daemon, home
+
+
+def test_the_daemon_probe_accepts_a_daemon_whose_status_snapshot_appears(short_root: Path) -> None:
+    daemon, home = _stub_daemon(
+        root=short_root,
+        body=f"""printf '{{"rows": []}}' > "$HOME/{_STATUS_SNAPSHOT_NAME}"; sleep 30""",
+    )
+
+    assert _probe_daemon(daemon=daemon, home=home, root=short_root, timeout=20.0) == ""
+
+
+def test_the_daemon_probe_names_a_daemon_that_refuses_to_start(short_root: Path) -> None:
+    daemon, home = _stub_daemon(root=short_root, body="echo refusing-to-start >&2; exit 3")
+
+    gap = _probe_daemon(daemon=daemon, home=home, root=short_root, timeout=3.0)
+
+    assert gap.startswith("no usable overseer daemon: no status snapshot at ")
+    assert "within 3.0s" in gap
+    assert "refusing-to-start" in gap
+
+
+def test_a_missing_capability_skips_the_exercise_and_names_what_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setitem(_CAPABILITY_GAPS, "terminal", "")
+    monkeypatch.setitem(_CAPABILITY_GAPS, "daemon", "")
+    _require_exercise_capability(daemon=True)
+
+    monkeypatch.setitem(_CAPABILITY_GAPS, "daemon", "no usable overseer daemon: probe-daemon-gap")
+    _require_exercise_capability(daemon=False)
+    with pytest.raises(pytest.skip.Exception, match="probe-daemon-gap"):
+        _require_exercise_capability(daemon=True)
+
+    monkeypatch.setitem(_CAPABILITY_GAPS, "terminal", "no usable terminal: probe-terminal-gap")
+    with pytest.raises(pytest.skip.Exception, match="probe-terminal-gap"):
+        _require_exercise_capability(daemon=False)
 
 
 def test_backend_starts_after_the_scratch_home_has_a_zshrc() -> None:
@@ -908,6 +1174,10 @@ def test_a_stub_codex_run_records_every_lifecycle_stage_and_verifies(
     # 8. Neither the exercise server nor the shell in its pane inherited one of this
     #    process's terminal-owner values.
     _assert_nothing_inherited_the_pane_environment(run=run, decoys=operator_pane_environment)
+    scoped_tmux = f"TMUX_TMPDIR={short_root / 'tmux'}"
+    assert (
+        scoped_tmux in run.server_environ
+    ), f"the exercise server was not scoped away from the host's tmux server: {scoped_tmux}"
 
     _assert_codex_launch_prerequisites_observed(run=run, records=records)
 
