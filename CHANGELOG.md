@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.38.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.38.0...v5.38.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* make Codex exercise proof setup replayable ([c8fadf7](https://github.com/thewoolleyman/livespec-overseer/commit/c8fadf70c94bc91af34baaada88e4b19f3b2b46b))
+* prepare Codex herdr live exercise ([a5fa823](https://github.com/thewoolleyman/livespec-overseer/commit/a5fa823653ce1ef1e9840da5ad0f23846f79ee15))
+* resolve the real herdr when the stub shim runs, not when it is prepared ([6eb599d](https://github.com/thewoolleyman/livespec-overseer/commit/6eb599d9f4da994b9a238449bfeee34bf80a46dc))
+
 ## [5.38.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.37.2...v5.38.0) (2026-10-27)
 
 
