@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.38.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.38.1...v5.38.2) (2026-10-28)
+
+
+### Bug Fixes
+
+* report capacity release and unverified above-reserve accounts in caam reserve release ([57e599f](https://github.com/thewoolleyman/livespec-overseer/commit/57e599f4639de4a1042e66e4883fe874e2da345a))
+
 ## [5.38.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.38.0...v5.38.1) (2026-10-28)
 
 
