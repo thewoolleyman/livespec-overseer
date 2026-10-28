@@ -35,6 +35,7 @@ from caam_rendering import with_reasons
 __all__: list[str] = [
     "CapacitySelection",
     "capacity_hold_line",
+    "capacity_release_note",
     "capacity_selection",
 ]
 
@@ -54,6 +55,7 @@ class CapacitySelection:
 
     profiles: tuple[ProfileUsage, ...]
     excluded_every: bool = False
+    released: bool = False
 
 
 def capacity_selection(
@@ -78,7 +80,7 @@ def capacity_selection(
     if admitted or not profiles:
         return CapacitySelection(profiles=admitted)
     if refusal_held:
-        return CapacitySelection(profiles=profiles)
+        return CapacitySelection(profiles=profiles, released=True)
     return CapacitySelection(profiles=(), excluded_every=True)
 
 
@@ -93,6 +95,14 @@ def capacity_hold_line(*, reasons: tuple[str, ...] = ()) -> str:
     return with_reasons(
         line="hold: no candidate can carry the current load until the next pass",
         reasons=reasons,
+    )
+
+
+def capacity_release_note() -> str:
+    """The note a pass carries when a refusing active account released the test."""
+    return (
+        "note: capacity test was released because the refusal-held active account "
+        "serves nothing and no candidate can carry the current load until the next pass"
     )
 
 

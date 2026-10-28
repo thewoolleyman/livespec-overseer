@@ -357,17 +357,10 @@ def test_scenario_a_refusal_held_account_above_the_reserve_releases_it(*, tmp_pa
     assert any("weekly reserve was released" in line and "above" in line for line in lines)
 
 
-def test_scenario_reserve_release_precedes_the_refusal_capacity_release(*, tmp_path: Path) -> None:
-    """A refusal-held active releases the reserve before capacity's own release.
-
-    Both candidates fail the normal capacity test under the remembered provider
-    load.  The above-reserve candidate therefore cannot preserve the reserve;
-    its release admits the lower one, and only then does the refusal-held
-    capacity release select that lower account.  Reversing those two decisions
-    leaves no lower-reserve candidate for the capacity exception to reach.
-    """
+def _refusal_held_harness(*, home: Path, below_plan: str) -> RotationHarness:
+    """A refusal-held active, a capacity-failing account above the reserve, one below."""
     harness = RotationHarness(
-        home=tmp_path,
+        home=home,
         active="refusing-active",
         usages={
             "refusing-active": usage(five_hour_remaining=60.0, seven_day_remaining=70.0),
@@ -376,7 +369,7 @@ def test_scenario_reserve_release_precedes_the_refusal_capacity_release(*, tmp_p
                 seven_day_remaining=70.0,
                 seven_day_reset_s=3 * 86_400.0,
             ),
-            "below-small": usage(
+            "below": usage(
                 five_hour_remaining=50.0,
                 seven_day_remaining=8.0,
                 seven_day_reset_s=2 * 86_400.0,
@@ -385,7 +378,7 @@ def test_scenario_reserve_release_precedes_the_refusal_capacity_release(*, tmp_p
         live_plans={
             "refusing-active": LARGE_PLAN,
             "above-small": SMALL_PLAN,
-            "below-small": SMALL_PLAN,
+            "below": below_plan,
         },
     )
     harness.seed_state(state={FLEET_LOAD: {"load": 70.0 / PASS_INTERVAL, "at": NOW}})
@@ -394,12 +387,72 @@ def test_scenario_reserve_release_precedes_the_refusal_capacity_release(*, tmp_p
         recorded_at=NOW - 60.0,
         resets_at_epoch=NOW + 10 * PASS_INTERVAL,
     )
+    return harness
+
+
+def test_scenario_reserve_release_precedes_the_refusal_capacity_release(*, tmp_path: Path) -> None:
+    """The reserve's release admits a lower account that passes capacity on its own.
+
+    The above-reserve candidate fails the normal capacity test under the
+    remembered provider load, so it cannot preserve the reserve; releasing the
+    reserve admits the lower account, which carries the load, so the capacity
+    test is NOT released and the report says only that the reserve was.
+    """
+    harness = _refusal_held_harness(home=tmp_path, below_plan=LARGE_PLAN)
 
     code, lines = harness.run(at=NOW, scheduled=True)
 
     assert code == 0
-    assert harness.switches == ["below-small"]
-    assert any("weekly reserve was released" in line and "above-small" in line for line in lines)
+    assert harness.switches == ["below"]
+    assert any(
+        "weekly reserve was released" in line
+        and "above-small" in line
+        and "refusing-active" in line
+        for line in lines
+    )
+    assert not any("capacity test was released" in line for line in lines)
+
+
+def test_scenario_the_capacity_release_reaches_candidates_the_reserve_release_admitted(
+    *, tmp_path: Path
+) -> None:
+    """Both candidates fail capacity, so the refusal-held release picks by ranking."""
+    harness = _refusal_held_harness(home=tmp_path, below_plan=SMALL_PLAN)
+
+    code, lines = harness.run(at=NOW, scheduled=True)
+
+    assert code == 0
+    assert harness.switches == ["below"]
+    assert any(
+        "weekly reserve was released" in line and "capacity test was released" in line
+        for line in lines
+    )
+
+
+def test_scenario_a_capacity_hold_without_a_refusal_states_no_capacity_release(
+    *, tmp_path: Path
+) -> None:
+    """Without a refusal the capacity test is never released: the pass holds."""
+    harness = RotationHarness(
+        home=tmp_path,
+        active="active",
+        usages={
+            "active": usage(five_hour_remaining=25.0, seven_day_remaining=70.0),
+            "above-small": usage(five_hour_remaining=50.0, seven_day_remaining=70.0),
+        },
+        live_plans={"active": LARGE_PLAN, "above-small": SMALL_PLAN},
+    )
+
+    first_code, _first_lines = harness.run(at=NOW, scheduled=True)
+    harness.read(name="active", record=usage(five_hour_remaining=15.0, seven_day_remaining=70.0))
+    code, lines = harness.run(at=NOW + PASS_INTERVAL, scheduled=True)
+
+    assert first_code == code == 0
+    assert harness.switches == []
+    assert any(
+        "no candidate can carry the current load until the next pass" in line for line in lines
+    )
+    assert not any("capacity test was released" in line for line in lines)
 
 
 def test_scenario_the_scoped_margin_exception_does_not_keep_the_reserve(*, tmp_path: Path) -> None:
@@ -478,7 +531,38 @@ def test_scenario_an_account_above_the_reserve_that_is_not_live_verified_release
     assert first_code == 0
     assert code == 0
     assert harness.switches == ["below"]
+    assert any(
+        "no unprotected account above it was usable" in line and "unverified" in line
+        for line in lines
+    )
+
+
+def test_scenario_an_unverified_account_below_the_reserve_is_not_reported_above_it(
+    *, tmp_path: Path
+) -> None:
+    """Every unprotected account is below the reserve, verified or not."""
+    harness = RotationHarness(
+        home=tmp_path,
+        active="active",
+        usages={
+            "active": usage(five_hour_remaining=80.0, seven_day_remaining=8.0),
+            "unverified": usage(five_hour_remaining=90.0, seven_day_remaining=9.0),
+            "below": usage(five_hour_remaining=90.0, seven_day_remaining=8.0),
+        },
+        live_plans={"active": LARGE_PLAN, "unverified": LARGE_PLAN, "below": LARGE_PLAN},
+    )
+
+    first_code, _first_lines = harness.run(at=NOW, scheduled=True)
+    harness.read(
+        name="active",
+        record=usage(five_hour_remaining=15.0, seven_day_remaining=8.0),
+    )
+    harness.failed_profiles.add("unverified")
+    code, lines = harness.run(at=NOW + PASS_INTERVAL, scheduled=True)
+
+    assert first_code == code == 0
     assert any("no unprotected account is above it" in line for line in lines)
+    assert not any("unverified)" in line for line in lines)
 
 
 def test_scenario_a_protected_account_above_the_reserve_does_not_keep_it_in_force(
