@@ -33,8 +33,6 @@ done
 
 [[ -n "$bin_dir" && -n "$codex_script" && -n "$herdr_log" ]] || usage
 codex_script="$(realpath -e -- "$codex_script")"
-real_herdr="$(command -v herdr)"
-real_herdr="$(realpath -e -- "$real_herdr")"
 
 mkdir -p -- "$bin_dir"
 {
@@ -44,7 +42,17 @@ mkdir -p -- "$bin_dir"
 {
   printf '%s\n' '#!/usr/bin/env bash' 'set -euo pipefail'
   printf 'printf '\''%%s\\n'\'' "$*" >> %q\n' "$herdr_log"
-  printf 'exec %q "$@"\n' "$real_herdr"
+  # The real herdr is looked up when the shim runs, past the shim's own directory,
+  # so preparing shims needs no herdr on PATH (CI containers carry none).
+  printf '%s\n' \
+    'self_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"' \
+    'search_path=":${PATH}:"' \
+    'search_path="${search_path//:$self_dir:/:}"' \
+    'real_herdr="$(PATH="${search_path#:}" command -v herdr)" || {' \
+    '  echo "herdr shim: no real herdr on PATH" >&2' \
+    '  exit 127' \
+    '}' \
+    'exec "$real_herdr" "$@"'
 } >"$bin_dir/herdr"
 chmod 755 "$bin_dir/codex" "$bin_dir/herdr"
 

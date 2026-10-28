@@ -645,6 +645,36 @@ def test_checked_in_stub_shim_preparer_makes_replayable_agent_and_backend_shims(
     assert str(log) in (binaries / "herdr").read_text(encoding="utf-8")
 
 
+def test_stub_shim_preparer_needs_no_herdr_on_path(tmp_path: Path) -> None:
+    """A container without herdr can still prepare the shims."""
+    binaries = tmp_path / "shims"
+    bare_path = tmp_path / "bare"
+    bare_path.mkdir()
+    for tool in ("bash", "dirname", "env", "mkdir", "chmod", "realpath", "printf", "cat"):
+        found = shutil.which(tool)
+        if found is not None:
+            (bare_path / tool).symlink_to(found)
+
+    prepared = subprocess.run(  # noqa: S603 - fixed repo-owned setup script
+        [
+            str(STUB_SHIM_PREPARER),
+            "--bin-dir",
+            str(binaries),
+            "--codex-script",
+            str(REPO_ROOT / "tests" / "stub_codex.py"),
+            "--herdr-log",
+            str(tmp_path / "herdr-commands.log"),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={"PATH": str(bare_path)},
+    )
+
+    assert prepared.returncode == 0, prepared.stderr
+    assert os.access(binaries / "herdr", os.X_OK)
+
+
 def test_backend_starts_after_the_scratch_home_has_a_zshrc() -> None:
     """A zsh pane must not consume the exercise input with its first-run menu."""
     inside = (REPO_ROOT / "scripts" / "overseer-live-exercise-inside.sh").read_text(
