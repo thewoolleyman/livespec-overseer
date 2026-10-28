@@ -3291,7 +3291,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The capacity test's release reaches candidates the reserve's release admitted",
-    "test": "tests.integration.test_caam_weekly_reserve_release.test_scenario_reserve_release_precedes_the_refusal_capacity_release",
+    "test": "tests.integration.test_caam_weekly_reserve_release.test_scenario_the_capacity_release_reaches_candidates_the_reserve_release_admitted",
     "work_item": "overseer-2fjvy6",
     "reason": "Owned by the code child of plan caam-weekly-reserve-release-ignores-serveability, which drives this scenario through the shipped rotation pass at integration tier with a scheduled invocation, injecting only provider usage."
   },

@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from _caam_rotation_span import switch_trigger
 from caam_candidate_diagnosis import CandidatePopulation
-from caam_capacity_select import capacity_selection
+from caam_capacity_select import capacity_release_note, capacity_selection
 from caam_decide_report import (
     hold_no_candidate,
     hold_no_capacity,
@@ -111,6 +111,12 @@ def triggered_choice(
         refusal_held=arm.refusal.holds_active,
     )
     ranked = selection.profiles
+    notes = tuple(
+        note
+        for note in (eligible.note, capacity_release_note() if selection.released else None)
+        if note is not None
+    )
+    note = "; ".join(notes) if notes else None
     pin_unsatisfiable = scoped_alone and none_holds_scoped_above_reserve(
         profiles=ranked, reserve=scoped_reserve()
     )
@@ -157,7 +163,7 @@ def triggered_choice(
         )
     return RotationChoice(
         target=ranked[0],
-        decision_line=with_note(line=decision_line, note=eligible.note),
+        decision_line=with_note(line=decision_line, note=note),
         # The dimension that BOUND is what made this pass leave, and it is
         # known only here -- the switch itself never sees why it was asked.
         trigger=_switch_trigger_name(request=request, arm=arm, projection=projection),
