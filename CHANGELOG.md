@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.39.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.38.2...v5.39.0) (2026-10-29)
+
+
+### Features
+
+* **pre-push:** pin the delegated pre-push gate opt-in (overseer-cakxxq) ([a42cb22](https://github.com/thewoolleyman/livespec-overseer/commit/a42cb220be93aa80fa401ccf5d7a04731f468159))
+
 ## [5.38.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.38.1...v5.38.2) (2026-10-28)
 
 
