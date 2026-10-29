@@ -150,6 +150,9 @@ exec env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin "$
     env = _scrub_coverage_env(env=os.environ.copy())
     env["PATH"] = f"{bin_dir}:{env['PATH']}"
     env["PRE_PUSH_CHANGED_FILE"] = changed_file
+    # Run as a host that cannot delegate the gate: a delegating host (readable
+    # /etc/ci-runner/gates.kubeconfig) would otherwise exec the delegated gate.
+    env["GATES_KUBECONFIG"] = str(tmp_path / "absent-gates.kubeconfig")
 
     completed = subprocess.run(  # noqa: S603
         [bash, str(script)],
