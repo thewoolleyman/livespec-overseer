@@ -62,6 +62,10 @@ livespec-dev-tooling = { git = "https://github.com/thewoolleyman/livespec-dev-to
 livespec-runtime = { git = "https://github.com/thewoolleyman/livespec-runtime.git", tag = "v0.29.1" }
 
 [tool.livespec_dev_tooling]
+# Opts this repository in to the delegated pre-push gate (spec v069,
+# non-functional-requirements.md Constraints): a push from a host that can read
+# the gates kubeconfig is gated as a k3s cluster Job; any other host gates locally.
+delegated_gate = true
 # Two tests need a real Python child, and in both cases the thing under test is a
 # property only a real process has. Each passes a fixed argv and scrubs coverage
 # instrumentation from the child, which is the other half of this allowance.
