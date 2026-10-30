@@ -99,7 +99,6 @@ def _input_guards_pass(*, obs: Observation) -> bool:
     return (
         obs_input_empty(obs=obs)
         and not obs.gate
-        and not obs.malformed
         and obs.claude_status != "waiting"
         and (declared is None or declared.token not in _HOLDING_TOKENS)
     )

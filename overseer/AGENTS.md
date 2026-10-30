@@ -327,7 +327,8 @@ live-outside-tmux fallback entirely — hiding a Claude alive outside tmux behin
 Reading notes: `threshold` = the track's `ctx_threshold` override, else the
 daemon-wide `warn_percent` (default 50). A malformed `.overseer-state` token is
 surfaced as a row note and treated as **no declaration** (fail-closed) — it never
-authorizes an ACT (restart / injection), though it is not inert: the `BAD state file`
+authorizes a restart, and the low-context wrap-up is still pasted exactly as for a pane
+with no state file, though it is not inert: the `BAD state file`
 note puts the row in `NEEDS YOU`, and (being a non-null `declared`) it suppresses the
 keep-going nudge on an idle-above-threshold session, which then renders plain `idle`
 (both the safe direction). Two act-only guards are folded for clarity: `cStream →

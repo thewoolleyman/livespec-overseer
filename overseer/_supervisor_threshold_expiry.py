@@ -146,7 +146,6 @@ def fresh_guarded_paste_observation(
         or fresh.claude_status == "waiting"
         or blocked
         or ready
-        or fresh.malformed
         or fresh.acked
     ):
         return None
@@ -167,7 +166,6 @@ def _busy_delivery_guarded(
             fresh.declared is not None
             and fresh.declared.token in (signals.STATE_BLOCKED, signals.STATE_READY)
         )
-        or fresh.malformed
         or fresh.acked
     ):
         return None

@@ -138,7 +138,6 @@ def test_codex_shell_only_evidence_does_not_withhold_or_void_a_certified_ready(*
     [
         ("blocked: need human", "blocked:human"),
         (signals.STATE_WINDING_DOWN, "winding-down"),
-        ("nonsense", "warned"),
     ],
 )
 def test_declarations_suppress_shell_only_wrapup(*, tmp_path, state_value, expected_status):
@@ -155,6 +154,23 @@ def test_declarations_suppress_shell_only_wrapup(*, tmp_path, state_value, expec
 
     assert view.status == expected_status
     assert wrapup_count(fake=fake) == 0
+    assert not fake.has(method="respawn")
+
+
+def test_malformed_declaration_does_not_suppress_shell_only_wrapup(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    sup.claude_status_by_session = {session: "shell"}
+    declare(repo=repo, topic=topic, value="nonsense", mtime=1001.0)
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert view.status == "warned"
+    assert wrapup_count(fake=fake) == 1
     assert not fake.has(method="respawn")
 
 
