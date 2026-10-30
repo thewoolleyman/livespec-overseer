@@ -138,7 +138,6 @@ def test_codex_shell_only_evidence_does_not_withhold_or_void_a_certified_ready(*
     [
         ("blocked: need human", "blocked:human"),
         (signals.STATE_WINDING_DOWN, "winding-down"),
-        ("nonsense", "warned"),
     ],
 )
 def test_declarations_suppress_shell_only_wrapup(*, tmp_path, state_value, expected_status):

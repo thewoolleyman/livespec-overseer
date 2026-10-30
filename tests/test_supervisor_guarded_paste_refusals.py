@@ -303,11 +303,16 @@ def test_guarded_paste_refuses_ready_declaration(*, tmp_path, monkeypatch):
     )
 
 
-def test_guarded_paste_refuses_malformed_declaration(*, tmp_path, monkeypatch):
-    _assert_clause_refuses(
-        tmp_path=tmp_path,
-        monkeypatch=monkeypatch,
-        obs=_observation(malformed=True),
+def test_guarded_paste_accepts_malformed_declaration_as_no_declaration(*, tmp_path, monkeypatch):
+    obs = _observation(malformed=True)
+    assert (
+        _guard_result(
+            tmp_path=tmp_path,
+            monkeypatch=monkeypatch,
+            obs=obs,
+            require_below_threshold=True,
+        )
+        is obs
     )
 
 
