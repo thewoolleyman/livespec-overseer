@@ -900,6 +900,38 @@ to surface their unassigned plans at all. Declaring a repository that has no
 session assigned yet is the normal case — that is exactly how a brand-new
 plan becomes visible as startable.
 
+A repository the operator wishes to keep unsupervised MUST be declared as
+HELD — a recorded entry in the same declaration carrying at minimum the
+repository path, a non-empty reason, and the timestamp at which the hold was
+declared — rather than by removing the repository's active watch-set entry.
+Representing a deliberate non-supervision by deletion alone MUST NOT be the
+mechanism, because deletion is indistinguishable from a repository that was
+never watched or one removed by accident.
+
+A held repository MUST NOT be admitted to the watch-set: its supervision
+behavior is unchanged — it is not watched, no track is discovered for it, and
+no session of it is restarted. Only its REPRESENTATION changes.
+
+A repository MUST NOT be simultaneously an active watch-set entry and a held
+entry. The DECLARED held-set and the EFFECTIVE watch-set MUST NOT silently
+disagree: a repository declared in both MUST be surfaced as a conflict rather
+than silently resolved. While the conflict stands the repository is not
+admitted, per contracts.md §"Durable stores", and the surfaced conflict is what
+keeps that outcome from being silent.
+
+The operation MUST surface each held repository on the same observability
+surface that already reports supervised state, as a HELD condition
+distinguishable from a repository that is absent from the declaration —
+whether it was never watched or was removed. "This repository is deliberately
+unsupervised" MUST be a fact the machine can state, not one that lives only in
+a configuration comment.
+
+A held entry MAY carry an optional review-by date. Independently of whether one
+is set, the operation MUST surface the hold's AGE (declared-at to now) wherever
+it surfaces the held repository, so a hold that is never reviewed becomes more
+visible over time rather than persisting silently. Where a review-by date is
+set and has passed, that MUST be surfaced as well.
+
 ## Track discovery and the mapping store
 
 The track list is re-discovered every observation cycle: for each watched

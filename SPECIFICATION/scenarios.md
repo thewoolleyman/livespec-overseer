@@ -773,6 +773,46 @@ opens, reads, or hashes plan-tree handoff files as authorization And it
 points the session at ledger-held plan state instead
 
 
+## Scenario: A held repository is declared and is not watched
+
+Given a watch-set declaration whose held-set names a checkout that exists on disk and contains a plan directory
+
+When the daemon discovers tracks
+
+Then no track is discovered for that repository
+
+And no session of it is restarted
+
+## Scenario: A held repository is surfaced distinctly from a never-watched one
+
+Given one repository declared held and another named in neither the watch-set nor the held-set
+
+When the daemon writes its status snapshot
+
+Then the held repository appears in the held representation carrying its reason, its declared-at, and its hold age
+
+And the repository named in neither does not appear as held
+
+## Scenario: A repository declared both watched and held is surfaced as a conflict
+
+Given a watch-set declaration naming one repository in both the watch-set and the held-set
+
+When the daemon resolves the watch-set
+
+Then the repository is not admitted to the watch-set
+
+And the disagreement is surfaced as a declared/effective conflict rather than silently resolved
+
+## Scenario: A hold's age is surfaced so an unreviewed hold cannot hide
+
+Given a held entry whose declared-at is well in the past and which carries no review-by date
+
+When the daemon surfaces the held repository
+
+Then the hold's age is surfaced alongside it
+
+And where a held entry's review-by date has passed, that is surfaced as well
+
 ## Scenario: A respawn prompt names the plan epic and repository so a cold-open session can resolve it
 
 Given a track whose mapping row records the plan's ledger epic id
@@ -2311,6 +2351,18 @@ And every substantive path succeeds using only the standard library or its in-tr
 And it does not import a third-party library from the installed environment
 
 And failure to establish the isolated companion emits internal-bug with exit 70 before substantive mutation
+
+## Scenario: A vendored library's own module-load imports satisfy the standalone condition
+
+Given a multi-module library vendored under overseer/_vendor/ whose module-load imports resolve only to its own submodules and the standard library
+
+And a vendored module whose module-load import names a third-party package that is not vendored under the same overseer/_vendor/ tree
+
+When the vendoring exemption's standalone condition is evaluated over every import the vendored code evaluates at module load
+
+Then the library importing only its own submodules and the standard library satisfies the standalone condition
+
+And the module importing the unvendored third-party package fails it, whether that import is made by the library's top-level module or by one of its own submodules
 
 ## Scenario: An issued target reference cannot be reassigned
 

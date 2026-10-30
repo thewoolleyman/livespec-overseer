@@ -3897,5 +3897,45 @@
     "test": "TODO",
     "work_item": "overseer-5eqavc",
     "reason": "Owed integration-tier test over the shipped supervision round, to be written by overseer-5eqavc with the implementation; ratified 2026-10-26 under the codex-unidentified-session revise (spec-first)."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A vendored library's own module-load imports satisfy the standalone condition",
+    "test": "TODO",
+    "work_item": "overseer-a3m6",
+    "reason": "A real integration-tier test is owed, and work-item overseer-a3m6 owns landing it. Ratified spec-first by the 2026-10-30 delegated revise of vendored-exemption-intra-package-imports; the owed integration-tier test MUST replace this TODO, proving both directions of condition (b): own-submodule plus standard-library module-load imports pass, and a module-load import of an unvendored third-party package fails."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A held repository is declared and is not watched",
+    "test": "TODO",
+    "work_item": "overseer-zidpiu.5",
+    "reason": "A real integration-tier test is owed, and work-item overseer-zidpiu.5 owns landing it. Ratified spec-first by the 2026-10-30 delegated revise of watch-set-held-repo-declaration-and-observability; the implementation child under overseer-zidpiu (realizing overseer-zidpiu.5) MUST replace this TODO with an integration-tier test driving a real Supervisor tick over a watch-set declaration carrying a holds array."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A held repository is surfaced distinctly from a never-watched one",
+    "test": "TODO",
+    "work_item": "overseer-zidpiu.5",
+    "reason": "A real integration-tier test is owed, and work-item overseer-zidpiu.5 owns landing it. Ratified spec-first by the 2026-10-30 delegated revise of watch-set-held-repo-declaration-and-observability; the implementation child under overseer-zidpiu (realizing overseer-zidpiu.5) MUST replace this TODO with an integration-tier test driving a real Supervisor tick over a watch-set declaration carrying a holds array."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A repository declared both watched and held is surfaced as a conflict",
+    "test": "TODO",
+    "work_item": "overseer-zidpiu.5",
+    "reason": "A real integration-tier test is owed, and work-item overseer-zidpiu.5 owns landing it. Ratified spec-first by the 2026-10-30 delegated revise of watch-set-held-repo-declaration-and-observability; the implementation child under overseer-zidpiu (realizing overseer-zidpiu.5) MUST replace this TODO with an integration-tier test driving a real Supervisor tick over a watch-set declaration carrying a holds array."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A hold's age is surfaced so an unreviewed hold cannot hide",
+    "test": "TODO",
+    "work_item": "overseer-zidpiu.5",
+    "reason": "A real integration-tier test is owed, and work-item overseer-zidpiu.5 owns landing it. Ratified spec-first by the 2026-10-30 delegated revise of watch-set-held-repo-declaration-and-observability; the implementation child under overseer-zidpiu (realizing overseer-zidpiu.5) MUST replace this TODO with an integration-tier test driving a real Supervisor tick over a watch-set declaration carrying a holds array."
   }
 ]
