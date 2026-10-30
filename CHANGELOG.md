@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.40.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.39.0...v5.40.0) (2026-10-30)
+
+
+### Features
+
+* **overseer:** surface a live Codex thread named around its topic as misnamed ([033e5ec](https://github.com/thewoolleyman/livespec-overseer/commit/033e5ec89bb600de3c1fccdf87f090bdb44bf999))
+
 ## [5.39.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.38.2...v5.39.0) (2026-10-29)
 
 
