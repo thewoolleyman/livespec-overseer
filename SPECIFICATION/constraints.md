@@ -66,8 +66,9 @@ other installed location, and MUST NOT declare it as an installed runtime
 dependency.
 
 (b) **Standalone.** Every import the vendored code evaluates at module load
-MUST resolve either to the standard library or to another library vendored
-under the same `overseer/_vendor/` tree. A library whose runtime dependencies
+MUST resolve either to the standard library or within the same
+`overseer/_vendor/` tree - to the vendored library's own modules or to another
+library vendored there. A library whose runtime dependencies
 cannot themselves all be vendored under (a)-(c) MUST NOT be vendored under this
 exemption. Modules shipped inside a vendored library that import anything
 outside that set - optional integrations with type checkers, test frameworks,

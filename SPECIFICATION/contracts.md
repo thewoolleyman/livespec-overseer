@@ -638,7 +638,18 @@ the daemon degrades and warns rather than crashing.
   hand-edited operator file, so it is parsed leniently: comments and
   trailing commas are tolerated. Admission per spec.md §"The watch-set
   declaration". An absent or unparsable declaration degrades to an empty
-  watch-set with a warning, never a crash.
+  watch-set with a warning, never a crash. The document MAY also carry a
+  `holds` array alongside `repos`, declaring the held repositories of
+  spec.md §"The watch-set declaration". Each element is an object with
+  REQUIRED string fields `repo` (the checkout path), `reason` (non-empty),
+  and `declared_at` (an ISO-8601 UTC timestamp), and an OPTIONAL string
+  `review_by` (an ISO-8601 date). The `holds` array is parsed with the same
+  leniency as the rest of the file, and a hold element that is unparsable or
+  missing a required field MUST degrade that ELEMENT to inert with a warning
+  rather than crashing or discarding the whole declaration. A repository
+  named in a valid `holds` element MUST NOT be admitted to the watch-set even
+  if it also appears in `repos`; a repository appearing in both MUST be
+  surfaced as a declared/effective conflict per spec.md.
 - **The status snapshot** (`~/.livespec-overseer-status.json`) — the daemon
   MUST rewrite it atomically on each completed tick. Its governed top-level
   fields are integer `schema_version`, `daemon_instance_id`, monotonically
@@ -650,6 +661,14 @@ the daemon degrades and warns rather than crashing.
   picker WITHOUT keying on `status`, which is not stable for that purpose —
   and `session_identity`, a token derived from the live session join and
   sufficient for a consumer to detect that the session behind a row changed.
+  Held repositories (spec.md §"The watch-set declaration") MUST be
+  represented on the snapshot in a distinct held representation — never as an
+  evaluated-track row — carrying at minimum each held repository's `repo`,
+  `reason`, `declared_at`, and computed hold age, plus `review_by` when the
+  held entry carries one, and marking a repository that is also named in
+  `repos` as a declared/effective conflict. A held repository MUST be
+  distinguishable on the snapshot from a repository that is merely absent
+  from the declaration.
   The row's `status` is the daemon's derived classification of the track, in
   the sense governed by spec.md §"The stalled-picker charter reminder"; it is
   NOT the session's state-file declaration. The status the daemon EVALUATES for

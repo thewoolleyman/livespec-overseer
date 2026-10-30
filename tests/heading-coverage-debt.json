@@ -1832,5 +1832,40 @@
     "heading": "## Scenario: A malformed state value is moved aside and named in the next wrap-up",
     "work_item": "overseer-c2oqve",
     "first_seen": "2026-10-30"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A vendored library's own module-load imports satisfy the standalone condition",
+    "work_item": "overseer-a3m6",
+    "first_seen": "2026-10-30"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A held repository is declared and is not watched",
+    "work_item": "overseer-zidpiu.5",
+    "first_seen": "2026-10-30"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A held repository is surfaced distinctly from a never-watched one",
+    "work_item": "overseer-zidpiu.5",
+    "first_seen": "2026-10-30"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A repository declared both watched and held is surfaced as a conflict",
+    "work_item": "overseer-zidpiu.5",
+    "first_seen": "2026-10-30"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A hold's age is surfaced so an unreviewed hold cannot hide",
+    "work_item": "overseer-zidpiu.5",
+    "first_seen": "2026-10-30"
   }
 ]
