@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import _supervisor_codex_misnamed
 import _supervisor_evaluate_active
 import _supervisor_evaluate_attention
 import _supervisor_evaluate_idle
@@ -72,6 +73,7 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
     resolved = _supervisor_evaluate_target.resolve_evaluate_target(sup=sup, track=track, act=act)
     if isinstance(resolved, RowView):
         return resolved
+    _supervisor_codex_misnamed.rearm_misnamed_alert(sup=sup, track=track, act=act)
     track, repo, topic = resolved.track, resolved.repo, resolved.topic
     session, key, target = resolved.session, resolved.key, resolved.pane
 
