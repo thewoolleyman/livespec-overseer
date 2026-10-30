@@ -133,7 +133,7 @@ submitted when it can be; submission is still confirmed by the box emptying.
 
 What still cancels the paste is evidence about the input, never about busyness:
 typed input, an open picker or structured gate, a runtime-reported human wait,
-`ready`, `blocked:`, fresh `winding-down`, `done`, a malformed state value, or
+`ready`, `blocked:`, fresh `winding-down`, `done`, or
 unknown/ambiguous identity or input evidence. Claude needs a positively available
 input box (empty, or a generated placeholder proven by its dim terminal styling);
 for a busy pane the settle compares that INPUT region across the two captures, not

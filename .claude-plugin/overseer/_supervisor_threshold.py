@@ -72,7 +72,7 @@ def threshold(*, request: ThresholdRequest) -> ThresholdDecision:
     # actively winding down). A STALE ACK resumes escalating — an ACK must not
     # become an infinite stall — but still never authorizes an act.
     raw_ready = obs.declared is not None and obs.declared.token == signals.STATE_READY
-    if request.act and not obs.acked and not obs.malformed and not raw_ready:
+    if request.act and not obs.acked and not raw_ready:
         fresh = _fresh_threshold_observation(request=request)
         if fresh is None:
             return ThresholdDecision(status="settling", active_conditions=active_conditions)
