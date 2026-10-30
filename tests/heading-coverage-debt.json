@@ -1801,27 +1801,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A live Codex thread named around its topic is surfaced as misnamed, not adopted",
-    "work_item": "overseer-uzvcbn.6",
-    "first_seen": "2026-10-26"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A misnamed Codex track is adopted on the round after it is renamed to its topic",
-    "work_item": "overseer-uzvcbn.6",
-    "first_seen": "2026-10-26"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: Supervisor, other-track and out-of-repository threads are never misnamed candidates",
-    "work_item": "overseer-uzvcbn.6",
-    "first_seen": "2026-10-26"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: A live Codex carrier with no exact session evidence reads unidentified, never gone",
     "work_item": "overseer-5eqavc",
     "first_seen": "2026-10-26"

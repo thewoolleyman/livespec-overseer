@@ -6,12 +6,12 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, cast
 
+import _supervisor_codex_misnamed
 import _supervisor_codex_rebind
 import _supervisor_herdr_moved
 import _supervisor_herdr_stall
 import _supervisor_launch
 import _supervisor_observe
-import _supervisor_offer
 import herdr_identity
 import registry
 from _supervisor_config import track_key
@@ -45,7 +45,7 @@ def _unavailable_target(
     )
     if recovery is not None:
         return recovery
-    return _supervisor_offer.no_managed_pane_row(sup=sup, track=track, session=session)
+    return _supervisor_codex_misnamed.gone_row(sup=sup, track=track, session=session, act=act)
 
 
 def _unresolved_target(
@@ -284,7 +284,7 @@ def resolve_evaluate_target(
         # appears at all. The daemon lists PLANS, not panes: a tmux name reaches the
         # table only as a mapping's column value, and `_no_managed_pane_row` already
         # reports `tmux=None` so no dead terminal is named.
-        return _supervisor_offer.no_managed_pane_row(sup=sup, track=track, session=session)
+        return _supervisor_codex_misnamed.gone_row(sup=sup, track=track, session=session, act=act)
 
     return EvaluateTarget(
         track=track,

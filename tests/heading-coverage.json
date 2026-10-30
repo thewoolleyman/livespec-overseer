@@ -3846,25 +3846,22 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A live Codex thread named around its topic is surfaced as misnamed, not adopted",
-    "test": "TODO",
-    "work_item": "overseer-uzvcbn.6",
-    "reason": "Owed integration-tier test over the shipped supervision round, to be written by overseer-uzvcbn.6 with the implementation; ratified 2026-10-26 under the codex-track-misnamed-alert revise (spec-first)."
+    "test": "tests.test_codex_track_misnamed.test_a_live_thread_named_around_its_topic_is_surfaced_as_misnamed_and_not_acted_on",
+    "reason": "Drives the shipped supervision round over a Codex seat auto-titled `Resume <topic>`: one codex-track-misnamed row naming pane, thread id, actual name and the /rename repair, no session-gone row, no adoption, wrap-up or restart, ready file untouched; the once-per-condition notification is pinned by the notification tests in the same module."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A misnamed Codex track is adopted on the round after it is renamed to its topic",
-    "test": "TODO",
-    "work_item": "overseer-uzvcbn.6",
-    "reason": "Owed integration-tier test over the shipped supervision round, to be written by overseer-uzvcbn.6 with the implementation; ratified 2026-10-26 under the codex-track-misnamed-alert revise (spec-first)."
+    "test": "tests.test_codex_track_misnamed.test_the_session_is_adopted_on_the_round_after_it_is_renamed_to_its_topic",
+    "reason": "Renames the indexed thread to exactly the derived session name and runs the next round: the mapping binds the live pane and the misnamed row clears."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Supervisor, other-track and out-of-repository threads are never misnamed candidates",
-    "test": "TODO",
-    "work_item": "overseer-uzvcbn.6",
-    "reason": "Owed integration-tier test over the shipped supervision round, to be written by overseer-uzvcbn.6 with the implementation; ratified 2026-10-26 under the codex-track-misnamed-alert revise (spec-first)."
+    "test": "tests.test_codex_track_misnamed.test_supervisor_other_track_and_out_of_repository_threads_are_never_candidates",
+    "reason": "Runs a round with a -supervisor thread, another discovered track's exactly-named thread containing the topic, and an out-of-repository Resume thread: the track keeps its session-gone row and no misnamed row or notification appears."
   },
   {
     "spec_root": "SPECIFICATION",

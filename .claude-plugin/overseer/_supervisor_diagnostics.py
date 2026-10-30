@@ -80,6 +80,7 @@ class AlertRequest:
     pane: str | None
     message: str
     condition: str
+    identity: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -193,6 +194,8 @@ def surface(
 
 
 def _alert_identity(*, request: AlertRequest, message: str) -> str:
+    if request.identity is not None:
+        return request.identity
     if request.condition == "escalation-exhausted":
         return json.dumps(
             {

@@ -50,6 +50,7 @@ ATTENTION_STATUSES = (
     # A live Codex pane in the track's repo that the identity chain could not resolve.
     # It is attention because the daemon can neither drive the track nor say it is gone,
     # and only a human can tell the two apart (`overseer-iffpgw`).
+    "codex-track-misnamed",
     "codex-unidentified",
     "codex-unindexed",
     "currency-blocked",
@@ -123,6 +124,9 @@ _STATUS_COLOR = {
     "blocked-onboarding": _ANSI_YELLOW,
     # Yellow, not red: nothing is known to be lost. The daemon has a live Codex pane it
     # cannot NAME, which is the opposite claim from `session-gone`.
+    # Yellow, not red: a live Codex thread exists and only its NAME needs the operator's
+    # `/rename`, which is the opposite claim from `session-gone`.
+    "codex-track-misnamed": _ANSI_YELLOW,
     "codex-unidentified": _ANSI_YELLOW,
     "codex-unindexed": _ANSI_YELLOW,
     "currency-blocked": _ANSI_YELLOW,
