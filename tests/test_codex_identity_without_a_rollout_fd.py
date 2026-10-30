@@ -283,6 +283,7 @@ def test_the_shared_app_servers_rollout_set_names_no_carrier_of_its_own(*, tmp_p
         cwd_of=world.sup.codex_cwd_of,
         fd_targets_of=world.sup.codex_fd_targets_of,
         children_of=world.sup.children_of,
+        environ_of=world.sup.environ_of,
         foreground_pgrp_of=world.sup.codex_foreground_pgrp_of,
     )
 
