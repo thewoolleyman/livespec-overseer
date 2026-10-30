@@ -706,6 +706,24 @@ And the track is treated as having declared nothing
 
 And no act is ever authorized by the malformed value
 
+And it does not suppress the low-context wrap-up
+
+## Scenario: A malformed state value is moved aside and named in the next wrap-up
+
+Given a tracked session whose state file's first line is not one of the protocol's values
+
+When the daemon observes the track on a tick
+
+Then it renames the state file to .overseer-state.rejected in the same track directory, replacing any earlier rejected copy
+
+And the track is treated as having declared nothing
+
+And the track remains surfaced to the operator, by the rejected value, while the rejected copy stands
+
+And the next wrap-up delivered to that track names the rejected value and the four session-writable values
+
+But a state file the session rewrote with a valid value after the observation is not moved
+
 ## Scenario: A blocked declaration is relayed, not answered
 
 Given a session that wrote blocked with a one-line reason

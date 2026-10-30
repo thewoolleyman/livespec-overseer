@@ -29,14 +29,39 @@ expect no restart.
 
 Contract rules:
 
-- Any value outside the table is malformed: surfaced to the operator and
-  treated as NO declaration (fail-closed). It is never coerced or
-  fuzzy-matched, though it does suppress the keep-going nudge — the safe
-  direction for an ambiguous file.
+- Any value outside the table is malformed: surfaced to the operator by
+  name and treated as NO declaration (fail-closed). It is never coerced or
+  fuzzy-matched. While it stands it suppresses the keep-going nudge — the
+  safe direction for an ambiguous file — but it MUST NOT suppress the
+  low-context wrap-up of §"The wrap-up injection": a track carrying a
+  malformed value MUST receive the wrap-up exactly as the same track with no
+  state file would.
+- MALFORMED-VALUE REJECTION. On the tick the daemon observes a malformed
+  value in an entity's state file at its canonical state path, it MUST rename
+  that file to `.overseer-state.rejected` in the same track directory,
+  replacing any earlier rejected copy, BEFORE that tick composes any wrap-up
+  for the track. The rename MUST be guarded by the same-token,
+  same-modification-time guard of §"The wrap-up injection": it fires only
+  while the file still holds the first line and modification time the daemon
+  observed, so a valid declaration the session wrote in the meantime is never
+  moved. A path-aliased state file MUST NOT be renamed, and neither may the
+  state file of a track that is done because its plan is archived (spec.md
+  §"The terminal declaration"): that track receives no act and keeps its quiet
+  `done` row. The rejected copy is evidence only: the daemon MUST NOT read it
+  as a declaration and it MUST NOT authorize any act. A failed rename MUST be
+  surfaced to the operator and leaves the track treated as no declaration.
+  While the rejected copy stands the track MUST remain an attention member
+  through the malformed-value membership of §"Attention surface", naming the
+  rejected value — except a track done because its plan is archived, which
+  remains a member only through live gate evidence.
 - Beyond the token, the file's contents are never inspected — no handoff
   hash, no payload. What a session hands its successor is its own business.
 - The daemon DELETES the file as it restarts the session, together with the
   round's stamp, so a declaration can never re-trigger.
+- The daemon MUST delete the rejected copy, if one stands, together with the
+  state file as it restarts the session. A session or the operator MAY delete
+  it at any time; doing so clears the membership above and changes nothing
+  else.
 - The daemon's removal of its own nudge marker fires only while the file
   still holds `idle-with-context-left` — it can never clobber a value the
   session wrote in the meantime.
@@ -355,7 +380,8 @@ that entity's own key.
   unreadable input cancels the act for that tick. A change in busy evidence
   alone MUST NOT cancel it. A certifiable `ready` takes only the restart path
   after its stricter no-busy interlock passes; an uncertifiable `ready` remains report-only and is
-  not pasted into; a malformed state value remains fail-closed as no declaration.
+  not pasted into; a malformed state value remains fail-closed as no declaration
+  and MUST NOT suppress the paste.
   The `ready` exclusion applies UNIFORMLY to ANY `ready` token on disk —
   certifiable or not, background-shell evidence present or absent, whichever
   runtime — because the daemon MUST NOT keystroke over a standing declaration.
@@ -382,6 +408,10 @@ that entity's own key.
   source, named by repository path and epic id (with the instruction to
   APPEND a ledger entry on drift, never withhold the declaration), and
   states truthfully that only a `ready` declaration restarts the session.
+  While a rejected copy of the track's state file stands (§"The state file"),
+  every wrap-up MUST also carry one line naming the rejected value — the first
+  non-empty line of the rejected copy, with control characters removed and
+  truncated to at most 120 characters — and the four session-writable values.
 - Re-warns stop while a fresh `winding-down` acknowledgement stands, and no
   wrap-up at any band is pasted while a `done` declaration stands.
 - The message is delivered as ONE atomic paste followed by a verified
@@ -739,7 +769,8 @@ report-only members authorize no act regardless of who consumes them.
 
 Mechanical attention membership is: a blocked track, a non-responding track
 at the danger line, a track whose mapped session is gone, a malformed or
-path-aliased state value, a restart whose resume has not yet submitted, a
+path-aliased state value (including a malformed value whose rejected copy
+still stands), a restart whose resume has not yet submitted, a
 supervisor pair member that disappeared while its round was open, and the
 REPORT-ONLY bounded members of spec.md §"Fail-soft
 posture" — a known-low track that has been unable to open a round past its

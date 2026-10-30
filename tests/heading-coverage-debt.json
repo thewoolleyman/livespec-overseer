@@ -1846,5 +1846,12 @@
     "heading": "## Scenario: A live recorded session keeps its identity beside a second carrier",
     "work_item": "overseer-5eqavc",
     "first_seen": "2026-10-26"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A malformed state value is moved aside and named in the next wrap-up",
+    "work_item": "overseer-c2oqve",
+    "first_seen": "2026-10-30"
   }
 ]
