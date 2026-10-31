@@ -396,9 +396,9 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A malformed state value is moved aside and named in the next wrap-up",
-    "test": "TODO",
-    "work_item": "overseer-c2oqve",
-    "reason": "Ratified ahead of its implementation child under plan overseer-malformed-state-recovery; the implementation child MUST replace this TODO with an integration-tier test driving a real Supervisor tick over a malformed state file (rename to .overseer-state.rejected, guarded against a concurrent valid rewrite, and the rejected value named in the next wrap-up)."
+    "test": "tests.integration.test_malformed_state_rejection.test_scenario_a_malformed_state_value_is_moved_aside_and_treated_as_undeclared",
+    "work_item": "overseer-in5jgq",
+    "reason": "Integration-tier: drives a real Supervisor tick over a malformed canonical state file, replaces stale rejection evidence, verifies the move before wrap-up composition and attention projection, sanitizes a control byte in the surfaced value, and separately proves that a concurrent valid rewrite wins the token-and-modification-time guard."
   },
   {
     "spec_root": "SPECIFICATION",
