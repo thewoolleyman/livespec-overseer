@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -12,6 +13,7 @@ __all__: list[str] = [
     "STATE_DONE_VOIDED",
     "STATE_IDLE_NUDGE_CLEARED",
     "STATE_IDLE_WITH_CONTEXT_LEFT",
+    "STATE_PATH_MISMATCH",
     "STATE_READY",
     "STATE_READY_EXPIRED",
     "STATE_RESTARTED",
@@ -21,6 +23,9 @@ __all__: list[str] = [
     "marker_dir",
     "read_state",
     "ready_valid",
+    "rejected_state_path",
+    "rejected_value",
+    "rejected_value_notice",
     "state_path",
     "valid_session_token",
     "valid_token",
@@ -75,6 +80,35 @@ STATE_PATH_MISMATCH = "state-path-mismatch"
 def state_path(*, repo: str, topic: str) -> Path:
     """``<repo>/tmp/overseer/<topic>/.overseer-state`` — the ONE indicator file."""
     return marker_dir(repo=repo, topic=topic) / ".overseer-state"
+
+
+def rejected_state_path(*, repo: str, topic: str) -> Path:
+    """The malformed-state evidence file beside the canonical declaration path."""
+    return marker_dir(repo=repo, topic=topic) / ".overseer-state.rejected"
+
+
+def rejected_value(*, repo: str, topic: str) -> str | None:
+    """Return the safe, bounded first non-empty line of standing rejection evidence."""
+    path = rejected_state_path(repo=repo, topic=topic)
+    try:
+        if not path.is_file() or path.is_symlink():
+            return None
+        raw = path.read_text(encoding="utf-8")
+    except (OSError, ValueError):
+        return None
+    line = next((candidate for candidate in raw.split("\n") if candidate.strip()), "")
+    return "".join(char for char in line if unicodedata.category(char) != "Cc")[:120]
+
+
+def rejected_value_notice(*, repo: str, topic: str) -> str:
+    """The one-line recovery instruction owed while rejection evidence stands."""
+    value = rejected_value(repo=repo, topic=topic)
+    if value is None:
+        return ""
+    return (
+        f"RECOVERY: rejected state value: {value!r}. Write one of winding-down, ready, "
+        "blocked: <one-line reason>, or done[: <one-line summary>].\n\n"
+    )
 
 
 def _canonical_state_path_matches(*, path: Path, repo: str, topic: str) -> bool:

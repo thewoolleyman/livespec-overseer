@@ -42,6 +42,8 @@ class PrepareNotesRequest:
     ctx_stale_age: float | None
     compaction: _supervisor_compaction.CompactionTransition
     act: bool
+    rejected_value: str | None = None
+    rejected_from_malformed: str | None = None
 
 
 def prepare_evaluation_notes(*, request: PrepareNotesRequest) -> EvaluationNotes:
@@ -68,9 +70,14 @@ def prepare_evaluation_notes(*, request: PrepareNotesRequest) -> EvaluationNotes
         else None
     )
     active_conditions: set[str] = set()
-    if request.malformed and request.declared is not None:
+    malformed_token = request.rejected_value or (
+        request.declared.token
+        if request.malformed and request.declared is not None
+        else request.rejected_from_malformed
+    )
+    if malformed_token is not None:
         active_conditions.add("malformed-state")
-        note = f"BAD state file: {request.declared.token!r}"
+        note = f"BAD state file: {malformed_token!r}"
         if request.act:
             request.sup.alert(
                 repo=request.track.repo,
@@ -78,7 +85,7 @@ def prepare_evaluation_notes(*, request: PrepareNotesRequest) -> EvaluationNotes
                 session=request.session,
                 pane=request.pane,
                 message=(
-                    f"MALFORMED state file: {request.declared.token!r} is not one of "
+                    f"MALFORMED state file: {malformed_token!r} is not one of "
                     f"{', '.join(signals.STATE_TOKENS)} — treated as no declaration "
                     f"(the track will NOT be restarted)"
                 ),

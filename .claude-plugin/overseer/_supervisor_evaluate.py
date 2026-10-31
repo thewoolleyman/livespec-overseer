@@ -94,7 +94,7 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
     ctx_stale_age = obs.ctx_stale_age
     declared, malformed, blocked, ready = (
         obs.declared,
-        obs.malformed,
+        obs.malformed or obs.rejected_from_malformed is not None or obs.rejected_value is not None,
         obs.blocked,
         obs.ready,
     )
@@ -133,6 +133,8 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
             pane=target,
             declared=declared,
             malformed=malformed,
+            rejected_value=obs.rejected_value,
+            rejected_from_malformed=obs.rejected_from_malformed,
             blocked=blocked,
             ctx_stale_age=ctx_stale_age,
             compaction=obs.compaction,
