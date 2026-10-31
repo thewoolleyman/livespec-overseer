@@ -60,12 +60,19 @@ def _target(*, tmp_path: Path) -> str:
     )
 
 
-def _process(*, pid: int, starttime: str, executable: str, pgrp: int) -> SimpleNamespace:
+def _process(
+    *,
+    pid: int,
+    starttime: str,
+    executable: str,
+    pgrp: int,
+    argv: tuple[str, ...] | None = None,
+) -> SimpleNamespace:
     return SimpleNamespace(
         pid=pid,
         starttime=starttime,
         executable=executable,
-        argv=(executable,),
+        argv=(executable,) if argv is None else argv,
         process_group=pgrp,
         session_id=90,
     )
@@ -597,7 +604,7 @@ def test_durable_resume_retry_refuses_every_unproven_edge(
 
 
 def test_durable_resume_retry_accepts_a_successor_whose_executable_was_replaced(
-    *, tmp_path: Path
+    *, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     sup, fake, track, target = _world(tmp_path=tmp_path)
     recorded = _process(
@@ -608,6 +615,7 @@ def test_durable_resume_retry_accepts_a_successor_whose_executable_was_replaced(
         starttime="runtime-new",
         executable="/opt/claude/2.1.310 (deleted)",
         pgrp=300,
+        argv=recorded.argv,
     )
     transaction = _transaction(target=target, phase="resume-attempted")
     transaction["successor"] = _herdr_replacement_process.process_record(process=recorded)
@@ -628,6 +636,59 @@ def test_durable_resume_retry_accepts_a_successor_whose_executable_was_replaced(
     )
 
     assert reason is None
+    stalled = [
+        str(json.loads(line)["message"])
+        for line in capsys.readouterr().err.splitlines()
+        if line.startswith("{") and "stalled Herdr" in line
+    ]
+    assert len(stalled) == 1
+    assert f"{track.repo}::{track.topic}" in stalled[0]
+    assert target in stalled[0]
+    assert "successor no longer matches" in stalled[0] or "still in the composer" in stalled[0]
+    assert "claude:301:runtime-new:topic" in stalled[0]
+
+
+@pytest.mark.parametrize(
+    "live_argv",
+    [
+        pytest.param(("/opt/claude/2.1.310 (deleted)",), id="argv-gains-deleted-suffix"),
+        pytest.param(("/opt/claude/2.1.310", "--resume"), id="argv-gains-an-argument"),
+    ],
+)
+def test_durable_resume_retry_still_refuses_a_successor_whose_argv_changed(
+    *, tmp_path: Path, live_argv: tuple[str, ...]
+) -> None:
+    sup, fake, track, target = _world(tmp_path=tmp_path)
+    recorded = _process(
+        pid=301, starttime="runtime-new", executable="/opt/claude/2.1.310", pgrp=300
+    )
+    live = _process(
+        pid=301,
+        starttime="runtime-new",
+        executable="/opt/claude/2.1.310",
+        pgrp=300,
+        argv=live_argv,
+    )
+    transaction = _transaction(target=target, phase="resume-attempted")
+    transaction["successor"] = _herdr_replacement_process.process_record(process=recorded)
+    transaction["resume"] = "read the durable handoff"
+    _write(track=track, transaction=transaction)
+    snapshot = _snapshot()
+    snapshot.processes = (*snapshot.processes[:-1], live)
+    fake.herdr_replacement_snapshot = lambda *, session: snapshot
+    fake.panes[target] = idle_capture(ctx=100).replace("\n❯ \n", "\n❯ read the durable handoff\n")
+    fake.retry_prompt_enter_once = lambda **_kwargs: pytest.fail("must not press Enter")
+    sup.claude_identity_by_session[(target, track.topic)] = "claude:301:runtime-new:topic"
+
+    reason = _supervisor_herdr_successor.resume_proven_successor(
+        sup=sup,
+        track=track,
+        target=target,
+        transaction=transaction,
+    )
+
+    assert reason is not None
+    assert "successor no longer matches" in reason
 
 
 def test_durable_resume_retry_completes_when_transcript_proves_the_resume_was_consumed(

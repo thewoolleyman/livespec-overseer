@@ -90,13 +90,13 @@ def process_identity_matches(*, record: object, process: ProcessObservation) -> 
         return (
             durable["pid"],
             durable["starttime"],
-            tuple(str(arg).removesuffix(" (deleted)") for arg in durable_argv),
+            tuple(durable_argv),
             durable["process_group"],
             durable["session_id"],
         ) == (
             observed["pid"],
             observed["starttime"],
-            tuple(str(arg).removesuffix(" (deleted)") for arg in observed_argv),
+            tuple(observed_argv),
             observed["process_group"],
             observed["session_id"],
         )

@@ -61,14 +61,13 @@ def retry_recorded_resume(
         projects_dir=_claude_runtime_model.default_projects_dir(),
     )
     if delivered:
-        current["phase"] = "completed"
-        _herdr_replacement_store.durable_write(path=record_path, value=current)
-        sup.log(
-            message=(
-                f"completed stalled Herdr replacement for {track.repo}::{track.topic} at pane "
-                f"{target}; reason pending resume text was already consumed; live session "
-                f"{sup.claude_identity_by_session[(target, track.topic)]}"
-            )
+        _complete_stalled(
+            sup=sup,
+            track=track,
+            target=target,
+            current=current,
+            record_path=record_path,
+            reason="pending resume text was already consumed",
         )
         return None
     if signals.is_structured_gate(capture_text=capture) or not expected or not exact_pending:
@@ -79,13 +78,39 @@ def retry_recorded_resume(
     _herdr_replacement_store.durable_write(path=record_path, value=current)
     submitted, effect_unknown = _retry_enter(sup=sup, target=target, resume=cast(str, resume))
     if submitted:
-        current["phase"] = "completed"
-        _herdr_replacement_store.durable_write(path=record_path, value=current)
+        _complete_stalled(
+            sup=sup,
+            track=track,
+            target=target,
+            current=current,
+            record_path=record_path,
+            reason="pending resume text was still in the composer and Enter submitted it",
+        )
         return None
     return (
         "pending resume Enter outcome is unknown"
         if effect_unknown
         else "pending resume Enter was not confirmed"
+    )
+
+
+def _complete_stalled(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    target: str,
+    current: dict[str, object],
+    record_path: Path,
+    reason: str,
+) -> None:
+    current["phase"] = "completed"
+    _herdr_replacement_store.durable_write(path=record_path, value=current)
+    sup.log(
+        message=(
+            f"completed stalled Herdr replacement for {track.repo}::{track.topic} at pane "
+            f"{target}; reason {reason}; live session "
+            f"{sup.claude_identity_by_session[(target, track.topic)]}"
+        )
     )
 
 
