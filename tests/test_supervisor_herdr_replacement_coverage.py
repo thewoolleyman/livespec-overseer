@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
 
+import _claude_runtime_model
 import _herdr_replacement_authorization
 import _herdr_replacement_process
 import _herdr_replacement_store
@@ -592,6 +594,163 @@ def test_durable_resume_retry_refuses_every_unproven_edge(
 
     assert reason is not None
     assert message in reason
+
+
+def test_durable_resume_retry_accepts_a_successor_whose_executable_was_replaced(
+    *, tmp_path: Path
+) -> None:
+    sup, fake, track, target = _world(tmp_path=tmp_path)
+    recorded = _process(
+        pid=301, starttime="runtime-new", executable="/opt/claude/2.1.310", pgrp=300
+    )
+    live = _process(
+        pid=301,
+        starttime="runtime-new",
+        executable="/opt/claude/2.1.310 (deleted)",
+        pgrp=300,
+    )
+    transaction = _transaction(target=target, phase="resume-attempted")
+    transaction["successor"] = _herdr_replacement_process.process_record(process=recorded)
+    transaction["resume"] = "read the durable handoff"
+    _write(track=track, transaction=transaction)
+    snapshot = _snapshot()
+    snapshot.processes = (*snapshot.processes[:-1], live)
+    fake.herdr_replacement_snapshot = lambda *, session: snapshot
+    fake.panes[target] = idle_capture(ctx=100).replace("\n❯ \n", "\n❯ read the durable handoff\n")
+    fake.retry_prompt_enter_once = lambda **_kwargs: (True, False)
+    sup.claude_identity_by_session[(target, track.topic)] = "claude:301:runtime-new:topic"
+
+    reason = _supervisor_herdr_successor.resume_proven_successor(
+        sup=sup,
+        track=track,
+        target=target,
+        transaction=transaction,
+    )
+
+    assert reason is None
+
+
+def test_durable_resume_retry_completes_when_transcript_proves_the_resume_was_consumed(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sup, fake, track, target = _world(tmp_path=tmp_path)
+    runtime = _process(pid=301, starttime="runtime-new", executable="/usr/bin/node", pgrp=300)
+    transaction = _transaction(target=target, phase="resume-attempted")
+    transaction["successor"] = _herdr_replacement_process.process_record(process=runtime)
+    transaction["resume"] = "read the durable handoff"
+    _write(track=track, transaction=transaction)
+    fake.herdr_replacement_snapshot = lambda *, session: _snapshot()
+    fake.panes[target] = idle_capture(ctx=100)
+    sup.claude_identity_by_session[(target, track.topic)] = "claude:301:runtime-new:topic"
+    monkeypatch.setattr(
+        _claude_runtime_model,
+        "resume_delivery_evidenced",
+        lambda **_kwargs: True,
+        raising=False,
+    )
+
+    reason = _supervisor_herdr_successor.resume_proven_successor(
+        sup=sup,
+        track=track,
+        target=target,
+        transaction=transaction,
+    )
+
+    assert reason is None
+
+
+def test_resume_delivery_evidence_accepts_the_submitted_user_turn(*, tmp_path: Path) -> None:
+    sessions_dir, projects_dir = _resume_evidence_dirs(tmp_path=tmp_path)
+    _write_resume_transcript(
+        sessions_dir=sessions_dir,
+        projects_dir=projects_dir,
+        lines=[{"type": "user", "message": {"content": "read the durable handoff"}}],
+    )
+
+    assert _claude_runtime_model.resume_delivery_evidenced(
+        pid=301,
+        resume="read the durable handoff",
+        since=1000.0,
+        sessions_dir=sessions_dir,
+        projects_dir=projects_dir,
+    )
+
+
+def test_resume_delivery_evidence_accepts_a_later_assistant_turn(*, tmp_path: Path) -> None:
+    sessions_dir, projects_dir = _resume_evidence_dirs(tmp_path=tmp_path)
+    _write_resume_transcript(
+        sessions_dir=sessions_dir,
+        projects_dir=projects_dir,
+        lines=[{"type": "assistant", "timestamp": "1970-01-01T00:16:41+00:00", "message": {}}],
+    )
+
+    assert _claude_runtime_model.resume_delivery_evidenced(
+        pid=301,
+        resume="read the durable handoff",
+        since=1000.0,
+        sessions_dir=sessions_dir,
+        projects_dir=projects_dir,
+    )
+
+
+@pytest.mark.parametrize(
+    "lines",
+    [
+        ["not json"],
+        [{"type": "user", "message": {"content": "different text"}}],
+        [{"type": "assistant", "timestamp": "1970-01-01T00:16:40+00:00", "message": {}}],
+    ],
+)
+def test_resume_delivery_evidence_rejects_unproven_transcript_lines(
+    *, tmp_path: Path, lines: list[object]
+) -> None:
+    sessions_dir, projects_dir = _resume_evidence_dirs(tmp_path=tmp_path)
+    _write_resume_transcript(sessions_dir=sessions_dir, projects_dir=projects_dir, lines=lines)
+
+    assert not _claude_runtime_model.resume_delivery_evidenced(
+        pid=301,
+        resume="read the durable handoff",
+        since=1000.0,
+        sessions_dir=sessions_dir,
+        projects_dir=projects_dir,
+    )
+
+
+def test_resume_delivery_evidence_fails_soft_when_the_transcript_cannot_be_resolved(
+    *, tmp_path: Path
+) -> None:
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+
+    assert not _claude_runtime_model.resume_delivery_evidenced(
+        pid=301,
+        resume="read the durable handoff",
+        since=1000.0,
+        sessions_dir=sessions_dir,
+        projects_dir=tmp_path / "projects",
+    )
+
+
+def _resume_evidence_dirs(*, tmp_path: Path) -> tuple[Path, Path]:
+    sessions_dir = tmp_path / "sessions"
+    projects_dir = tmp_path / "projects"
+    sessions_dir.mkdir()
+    (sessions_dir / "301.json").write_text(
+        json.dumps({"sessionId": "session-1", "cwd": "/repo"}), encoding="utf-8"
+    )
+    return sessions_dir, projects_dir
+
+
+def _write_resume_transcript(
+    *, sessions_dir: Path, projects_dir: Path, lines: list[object]
+) -> None:
+    del sessions_dir
+    transcript = projects_dir / "-repo" / "session-1.jsonl"
+    transcript.parent.mkdir(parents=True)
+    transcript.write_text(
+        "\n".join(json.dumps(line) if isinstance(line, dict) else line for line in lines),
+        encoding="utf-8",
+    )
 
 
 def test_out_of_band_runtime_retires_a_stalled_resume_transaction_and_its_round(

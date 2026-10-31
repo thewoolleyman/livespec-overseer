@@ -12,6 +12,7 @@ __all__: list[str] = [
     "ReplacementSnapshot",
     "predecessor",
     "predecessor_still_live",
+    "process_identity_matches",
     "process_record",
     "proven_successor",
     "replacement_still_owned",
@@ -72,6 +73,35 @@ def process_record(*, process: ProcessObservation) -> dict[str, object]:
         "process_group": process.process_group,
         "session_id": process.session_id,
     }
+
+
+def process_identity_matches(*, record: object, process: ProcessObservation) -> bool:
+    """Match a successor without treating a replaced executable inode as identity.
+
+    An updater may replace the executable on disk while the process keeps running;
+    `/proc/<pid>/exe` then gains a `` (deleted)`` suffix. PID generation, argv,
+    process group, and session remain the safety fence for a recorded successor.
+    """
+    durable = cast(dict[str, object], record)
+    observed = process_record(process=process)
+    try:
+        durable_argv = cast(Sequence[object], durable["argv"])
+        observed_argv = cast(Sequence[object], observed["argv"])
+        return (
+            durable["pid"],
+            durable["starttime"],
+            tuple(str(arg).removesuffix(" (deleted)") for arg in durable_argv),
+            durable["process_group"],
+            durable["session_id"],
+        ) == (
+            observed["pid"],
+            observed["starttime"],
+            tuple(str(arg).removesuffix(" (deleted)") for arg in observed_argv),
+            observed["process_group"],
+            observed["session_id"],
+        )
+    except (KeyError, TypeError):
+        return False
 
 
 def predecessor_still_live(
