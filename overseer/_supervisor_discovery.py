@@ -36,12 +36,15 @@ from _supervisor_view import RowView
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
+_IDENTITY_PARTS = 4
+
 __all__: list[str] = [
     "adopt_sessions",
     "archive_gc",
     "auto_link",
     "build_rows",
     "refresh_claude_status",
+    "refresh_claude_track",
     "refresh_codex_sessions",
     "resolve_watch",
     "sessions_dir",
@@ -122,6 +125,7 @@ def refresh_claude_status(*, sup: Supervisor) -> None:
         ),
     )
     pane_pids = sup.tmux.pane_pid_sessions()
+    sup.claude_pane_pid_to_session = pane_pids
     # `status` feeds the busy check (last-wins is fine); `names` feeds the identity gate's
     # `topic in names` parity check (R2) and is a SET so a helper Claude in the same tmux
     # session cannot shadow the track's name (review SF5). Both from the same registry.
@@ -137,6 +141,11 @@ def refresh_claude_status(*, sup: Supervisor) -> None:
         ppid_of=sup.ppid_of,
         starttime_of=sup.starttime_of,
     )
+    sup.claude_joined_pids = {
+        int(identity.split(":", 3)[1])
+        for identity in sup.claude_identity_by_session.values()
+        if identity.split(":", 3)[1].isdigit()
+    }
     sup.claude_names_by_session = claude_sessions.names_by_tmux_session(
         sessions_dir=sessions_dir(sup=sup),
         pane_pid_to_session=pane_pids,
@@ -144,6 +153,46 @@ def refresh_claude_status(*, sup: Supervisor) -> None:
         starttime_of=sup.starttime_of,
     )
     refresh_codex_sessions(sup=sup)
+
+
+def refresh_claude_track(*, sup: Supervisor, session: str, topic: str) -> None:
+    """Refresh this track's registry-gated facts from its already-joined PID.
+
+    The cycle-wide registry pass identifies the PID and obtains the one pane-PID map.
+    Evaluation rereads only that PID's file; it never makes another tmux pane-listing
+    request, while status, name, and identity cannot become stale behind a long cycle.
+    """
+    identity = sup.claude_identity_by_session.get((session, topic))
+    if identity is None:
+        return
+    parts = identity.split(":", 3)
+    if len(parts) != _IDENTITY_PARTS or not parts[1].isdigit():
+        return
+    pid = int(parts[1])
+    if pid not in sup.claude_joined_pids:
+        return
+    live = claude_sessions.read_live_session(
+        sessions_dir=sessions_dir(sup=sup), pid=pid, starttime_of=sup.starttime_of
+    )
+    joined = (
+        claude_sessions.resolve_tmux_session(
+            pid=pid, pane_pid_to_session=sup.claude_pane_pid_to_session, ppid_of=sup.ppid_of
+        )
+        if live is not None
+        else None
+    )
+    names = sup.claude_names_by_session.get(session)
+    if names is not None:
+        names.discard(topic)
+    _ = sup.claude_identity_by_session.pop((session, topic), None)
+    if live is None or joined != session:
+        _ = sup.claude_status_by_session.pop(session, None)
+        return
+    sup.claude_status_by_session[session] = live.status
+    sup.claude_names_by_session.setdefault(session, set()).add(live.name)
+    sup.claude_identity_by_session[(session, live.name)] = (
+        f"claude:{live.pid}:{live.proc_start}:{live.name}"
+    )
 
 
 def unindexed_codex_rows(*, sup: Supervisor) -> list[RowView]:

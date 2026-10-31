@@ -28,6 +28,7 @@ from _seams import PidToOptionalStr
 __all__: list[str] = [
     "ClaudeSession",
     "default_sessions_dir",
+    "read_live_session",
     "read_live_sessions",
 ]
 
@@ -75,30 +76,45 @@ def read_live_sessions(
     except OSError:
         return out
     for file in files:
-        try:
-            data = json.loads(file.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            continue
-        pid = data.get("pid")
-        name = data.get("name")
-        name_source = data.get("nameSource")
-        cwd = data.get("cwd")
-        proc_start = data.get("procStart")
-        status = data.get("status")
-        if not isinstance(pid, int) or not isinstance(name, str) or not isinstance(cwd, str):
-            continue
-        if not name or not cwd or proc_start is None:
-            continue
-        if starttime_of(pid=pid) != str(proc_start):
-            continue  # dead PID, or reused by an unrelated process
-        out.append(
-            ClaudeSession(
-                pid=pid,
-                name=name,
-                cwd=cwd,
-                status=status if isinstance(status, str) else "",
-                proc_start=str(proc_start),
-                name_source=name_source if isinstance(name_source, str) else "",
-            )
-        )
+        live = _read_live_session_file(file=file, starttime_of=starttime_of)
+        if live is not None:
+            out.append(live)
     return out
+
+
+def read_live_session(
+    *,
+    sessions_dir: str | os.PathLike[str],
+    pid: int,
+    starttime_of: PidToOptionalStr = proc_starttime,
+) -> ClaudeSession | None:
+    """One live registry session reread by its already-joined PID."""
+    live = _read_live_session_file(
+        file=Path(sessions_dir) / f"{pid}.json", starttime_of=starttime_of
+    )
+    return live if live is not None and live.pid == pid else None
+
+
+def _read_live_session_file(*, file: Path, starttime_of: PidToOptionalStr) -> ClaudeSession | None:
+    try:
+        data = json.loads(file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    pid, name, cwd = data.get("pid"), data.get("name"), data.get("cwd")
+    proc_start, status, name_source = (
+        data.get("procStart"),
+        data.get("status"),
+        data.get("nameSource"),
+    )
+    if not isinstance(pid, int) or not isinstance(name, str) or not isinstance(cwd, str):
+        return None
+    if not name or not cwd or proc_start is None or starttime_of(pid=pid) != str(proc_start):
+        return None
+    return ClaudeSession(
+        pid=pid,
+        name=name,
+        cwd=cwd,
+        status=status if isinstance(status, str) else "",
+        proc_start=str(proc_start),
+        name_source=name_source if isinstance(name_source, str) else "",
+    )

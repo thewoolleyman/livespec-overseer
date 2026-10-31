@@ -267,6 +267,8 @@ class Supervisor:
     # tmux session preserves the prior repo+process gate (fail-soft).
     claude_names_by_session: dict[str, set[str]] = field(default_factory=dict, init=False)
     claude_identity_by_session: dict[tuple[str, str], str] = field(default_factory=dict, init=False)
+    claude_pane_pid_to_session: dict[int, str] = field(default_factory=dict, init=False)
+    claude_joined_pids: set[int] = field(default_factory=set, init=False)
     # {tmux_session: CodexSession} for every live NAMED codex session, recomputed each
     # tick beside claude_status_by_session. Membership IS the exact answer to "is this pane
     # Codex?" — the pane command says `bun` (the launcher), which is too generic to

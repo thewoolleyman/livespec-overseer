@@ -31,6 +31,7 @@ __all__: list[str] = [
     "proc_environ",
     "proc_ppid",
     "proc_starttime",
+    "read_live_session",
     "read_live_sessions",
     "resolve_tmux_session",
     "status_by_tmux_session",
@@ -80,4 +81,17 @@ def read_live_sessions(
     _sync_reader_paths()
     return _claude_sessions_registry.read_live_sessions(
         sessions_dir=sessions_dir, starttime_of=starttime_of
+    )
+
+
+def read_live_session(
+    *,
+    sessions_dir: str | os.PathLike[str],
+    pid: int,
+    starttime_of: PidToOptionalStr = proc_starttime,
+) -> ClaudeSession | None:
+    """Reread one live Claude registry file without scanning the registry directory."""
+    _sync_reader_paths()
+    return _claude_sessions_registry.read_live_session(
+        sessions_dir=sessions_dir, pid=pid, starttime_of=starttime_of
     )
