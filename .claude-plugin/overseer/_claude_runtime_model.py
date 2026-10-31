@@ -36,7 +36,9 @@ scope here; the launch-profile caller gates this reader on the Claude harness.
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Iterable
+from datetime import datetime
 from pathlib import Path
 from typing import cast
 
@@ -47,6 +49,7 @@ __all__: list[str] = [
     "default_projects_dir",
     "latest_top_level_model",
     "read_runtime_model",
+    "resume_delivery_evidenced",
     "runtime_model_of",
 ]
 
@@ -92,8 +95,8 @@ def latest_top_level_model(*, lines: Iterable[str]) -> str | None:
 def _transcript_path(
     *,
     pid: int,
-    sessions_dir: str | Path,
-    projects_dir: str | Path,
+    sessions_dir: str | os.PathLike[str],
+    projects_dir: str | os.PathLike[str],
 ) -> Path | None:
     session_file = Path(sessions_dir) / f"{pid}.json"
     try:
@@ -132,6 +135,42 @@ def read_runtime_model(
     except OSError:
         return None
     return latest_top_level_model(lines=text.splitlines())
+
+
+def resume_delivery_evidenced(
+    *,
+    pid: int,
+    resume: str,
+    since: float,
+    sessions_dir: str | os.PathLike[str],
+    projects_dir: str | os.PathLike[str],
+) -> bool:
+    """Whether a Claude transcript proves a pending Herdr resume already progressed.
+
+    A submitted top-level user turn carrying the exact durable payload proves delivery.
+    So does a later assistant turn: the session could only produce it after the pending
+    prompt was written. Missing or malformed transcript data contributes no evidence.
+    """
+    path = _transcript_path(pid=pid, sessions_dir=sessions_dir, projects_dir=projects_dir)
+    if path is None:
+        return False
+    try:
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            record = cast(dict[str, object], json.loads(line))
+            message = cast(dict[str, object], record.get("message"))
+            if record.get("type") == "user" and message.get("content") == resume:
+                return True
+            if (
+                record.get("type") == "assistant"
+                and datetime.fromisoformat(
+                    cast(str, record["timestamp"]).replace("Z", "+00:00")
+                ).timestamp()
+                > since
+            ):
+                return True
+    except (AttributeError, KeyError, OSError, TypeError, ValueError):
+        return False
+    return False
 
 
 def runtime_model_of(*, pid: int) -> str | None:
