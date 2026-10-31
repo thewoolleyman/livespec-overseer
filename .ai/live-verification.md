@@ -44,6 +44,17 @@ Nothing in the loop required looking at the daemon after shipping.
    behavior closes after that observation, and the close reason quotes it: the
    log line, the row status, the version. A merged PR or a green CI run is not
    the observation.
+5. **Prove on a sacrificial seat, and know what that rule does NOT cover.** A
+   live proof that renames, misnames, restarts, sends keys to, closes or
+   re-briefs a supervised session runs against a sacrificial seat, never an
+   active operator session (`SPECIFICATION/non-functional-requirements.md`
+   §"Scenarios"). That rule is about PROOFS. It does not forbid a coordinator
+   from typing into a session's pane: a coordinator MUST unblock a session stuck
+   at a decision picker it cannot otherwise answer, by typing what the picker
+   needs, and then MUST send the same answer in words by cross-session message.
+   Outside unblocking, a session does not type into another session's input
+   field, because that collides with the operator's own typing. The over-broad
+   reading of this rule froze a seat for hours on 2026-10-31 (`overseer-wcsd`).
 
 ## How to read the live daemon
 
