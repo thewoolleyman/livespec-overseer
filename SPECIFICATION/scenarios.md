@@ -5918,3 +5918,39 @@ Then the row is rebound to that pane and an event names the old and new pane ide
 And when two such panes exist instead, the stored coordinate is unchanged and the track reads `unidentified-session` naming both panes
 
 And when none exists, the stored coordinate is unchanged and the track reads session-gone
+
+## Scenario: Every cycle records its own timing
+
+Given a running daemon supervising tracks on a Herdr server
+
+When a cycle completes
+
+Then the event history carries one diagnostic line for that cycle naming its wall time and the seconds spent in discovery, per-track observation and acts
+
+And that line names the count and total seconds of each kind of Herdr request the cycle issued
+
+And the line is not an operator alert
+
+## Scenario: A slow cycle is surfaced once with its dominant phase
+
+Given a running daemon whose previous cycle completed within 30 seconds
+
+When a cycle takes longer than 30 seconds
+
+Then the daemon emits one slow-cycle surface notice naming that cycle's wall time, its dominant phase and that phase's share of the wall time
+
+And the notice carries no track coordinates
+
+And no act is paused or skipped because of it
+
+## Scenario: A run of slow cycles is surfaced once until a cycle completes in time
+
+Given a daemon that has emitted a slow-cycle surface notice
+
+When the following cycles also take longer than 30 seconds
+
+Then the daemon emits no further slow-cycle notice
+
+When a cycle then completes within 30 seconds and a later cycle takes longer than 30 seconds
+
+Then the daemon emits one new slow-cycle notice for that later cycle
