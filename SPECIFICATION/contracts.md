@@ -27,6 +27,34 @@ lands, then `ready` (or `blocked: …`) when the session actually stops. A
 session whose work is complete MAY instead end with `done`, and MUST then
 expect no restart.
 
+THE DECLARATION COMMAND. The overseer ships one command, `overseer-declare`,
+as the session's declaration channel. It MUST offer one form per
+session-writable value — `winding-down`, `ready`, `blocked <reason>`, and
+`done [<summary>]` — plus `clear`. It MUST accept an explicit repository and
+entity topic, so a worker and a supervisor pair member each address their OWN
+state file, and a `ready` written for an entity reports whether a restart is
+armed by that entity's own round, never another's. It MUST validate before it
+writes: a `blocked` reason MUST be non-empty, and a reason or summary MUST be
+a single line free of control characters and at most 200 characters. A
+refused value MUST exit non-zero, name the accepted forms, and leave any
+existing state file untouched, so the command can never write a malformed
+value. Every write MUST be atomic.
+
+`clear` deletes the entity's state file only when it holds a session-written
+value or the daemon's `idle-with-context-left` marker; it re-reads the file
+immediately before deleting and MUST NOT delete one whose first line or
+modification time changed since it was classified. Any other daemon-written
+value is evidence the daemon relies on: `clear` leaves it in place, reports
+it, and exits zero, because no session declaration stands. An absent file is
+likewise success. `clear` followed by a declaration form satisfies every
+clear-before-resume obligation of spec.md (§"The terminal declaration",
+§"Wind-down expiry on context recovery").
+
+A hand-written state file remains READ exactly as before — a valid value is
+honored and a malformed one is rejected per the rules below — and the
+maintainer MAY still write or remove it by hand. It is not a sanctioned
+channel for a session, and no daemon-authored text may instruct one.
+
 Contract rules:
 
 - Any value outside the table is malformed: surfaced to the operator by
@@ -127,6 +155,20 @@ Contract rules:
   passes. An aliased path MUST be surfaced by name and treated as NO
   declaration, so one entity's write can never satisfy another entity's
   authorization.
+- Every daemon-authored text that asks a session to declare or to clear a
+  declaration — the wrap-up of §"The wrap-up injection" for a worker or a
+  supervisor pair member, the keep-going nudge, the pair-stall nudge, the
+  ready-expiry notice, the rejected-value line, and the instruction to clear
+  a `done` before taking new work — MUST name the `overseer-declare`
+  invocation for each value it asks for, carrying that entity's repository
+  and topic. The invocation MUST be an ABSOLUTE path to the `overseer-declare`
+  executable of the runtime the composing daemon is running, which exists and
+  is executable when the text is composed, so it resolves for a Claude and a
+  Codex session alike and never depends on the session's command search path.
+  The text MUST NOT instruct the session to write, echo into, redirect into,
+  or delete the state file by hand; it MAY name the state-file path as what
+  the command writes. It MUST carry the fixed sentence "Declare only through
+  overseer-declare; never write or delete the state file by hand."
 
 ## The restart interlock
 
@@ -403,8 +445,10 @@ that entity's own key.
   into one message. At 30% remaining and below the message switches from
   suggestion to insistent demand.
 - Message obligations: every wrap-up names the session's live
-  remaining-context percentage, the state-file path with the four writable
-  values (naming `done` as the declaration for finished work), the ledger-held plan state as the successor's durable read-first
+  remaining-context percentage, the four writable values, each as its
+  `overseer-declare` invocation per §"The state file" (naming `done` as the
+  declaration for finished work), together with the state-file path the
+  command writes, the ledger-held plan state as the successor's durable read-first
   source, named by repository path and epic id (with the instruction to
   APPEND a ledger entry on drift, never withhold the declaration), and
   states truthfully that only a `ready` declaration restarts the session.

@@ -1860,5 +1860,26 @@
     "heading": "## Scenario: A hold's age is surfaced so an unreviewed hold cannot hide",
     "work_item": "overseer-zidpiu.5",
     "first_seen": "2026-10-30"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The declaration command refuses a value the daemon would reject",
+    "work_item": "overseer-ryc6sh",
+    "first_seen": "2026-10-31"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The declaration command clears only what a session may clear",
+    "work_item": "overseer-ryc6sh",
+    "first_seen": "2026-10-31"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Every declaration instruction names the declaration command",
+    "work_item": "overseer-3fkaqf",
+    "first_seen": "2026-10-31"
   }
 ]

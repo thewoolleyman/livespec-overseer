@@ -403,6 +403,30 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: The declaration command refuses a value the daemon would reject",
+    "test": "TODO",
+    "work_item": "overseer-ryc6sh",
+    "reason": "Ratified ahead of its implementation child under plan overseer-validated-state-command (epic overseer-kwkx74); overseer-ryc6sh MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The declaration command clears only what a session may clear",
+    "test": "TODO",
+    "work_item": "overseer-ryc6sh",
+    "reason": "Ratified ahead of its implementation child under plan overseer-validated-state-command (epic overseer-kwkx74); overseer-ryc6sh MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Every declaration instruction names the declaration command",
+    "test": "TODO",
+    "work_item": "overseer-3fkaqf",
+    "reason": "Ratified ahead of its implementation child under plan overseer-validated-state-command (epic overseer-kwkx74); overseer-3fkaqf MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A blocked declaration is relayed, not answered",
     "test": "tests.integration.test_discovery_and_relay.test_scenario_a_blocked_declaration_is_relayed_not_answered",
     "reason": "Integration-tier: the pane is deliberately deep in the DANGER band, so `blocked` has to win a precedence contest rather than merely be the only thing happening — the same test above the threshold would pass even if `blocked` were checked last. Asserts the reason is relayed as stderr text naming every coordinate plus a jump command, and that the pane is neither keystroked nor respawned. SABOTAGE-VERIFIED 2026-07-26: removing the gate branch's `or blocked is not None` disjunct makes the track read `danger` and get a wrap-up pasted; reducing `alert` to `repo::topic` reddens the coordinate assertions."
