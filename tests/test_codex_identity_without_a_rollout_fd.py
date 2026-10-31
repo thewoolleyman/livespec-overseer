@@ -34,7 +34,10 @@ from pathlib import Path
 import _supervisor_evaluate_target
 import _supervisor_view
 import codex_sessions
+import herdr_adapter
+import herdr_calls
 import herdr_identity
+import pane_router
 import registry
 from test_supervisor_builders import adopt_sup, codex_idle_capture, make_plan
 from test_supervisor_fakes import FakeTmux
@@ -354,6 +357,196 @@ def test_an_unresolvable_carrier_cwd_leaves_every_session_unidentified(*, tmp_pa
     world.sup.refresh_codex_sessions()
 
     assert world.sup.live_codex == {}
+
+
+def test_a_backend_reported_session_identifies_its_own_carrier_among_repo_siblings(*, tmp_path):
+    """Pane-scoped backend evidence resolves a named track among repo siblings."""
+    _module = codex_identity()
+    shared = tmp_path / "reported"
+    shared.mkdir()
+    world = make_world(
+        tmp_path=shared,
+        rows=[(shared / "repo", "topic", DEAD_TMUX, "claude:dead:topic")],
+        cwds={
+            TRACKED_PID: str(shared / "repo"),
+            OPERATOR_PID: str(shared / "repo"),
+            APP_SERVER_PID: "/",
+            PANELESS_PID: str(shared / "repo"),
+        },
+    )
+    write_state_database(
+        path=world.home / "state_2.sqlite",
+        rows=[
+            (SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+            (OPERATOR_SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+        ],
+    )
+    (world.home / "session_index.jsonl").write_text(
+        json.dumps({"id": SESSION_ID, "thread_name": "topic"}) + "\n",
+        encoding="utf-8",
+    )
+    world.sup.tmux.pane_agent_session = lambda *, session: (
+        SESSION_ID if session == TRACKED_COORDINATE else None
+    )
+
+    world.sup.refresh_codex_sessions()
+
+    live = world.sup.live_codex
+    assert (TRACKED_COORDINATE, "topic") in live
+    assert live[(TRACKED_COORDINATE, "topic")].session_id == SESSION_ID
+
+
+def test_a_backend_report_cannot_claim_a_session_recorded_by_another_track(*, tmp_path):
+    """A reported carrier does not steal a session another mapping row already owns."""
+    _module = codex_identity()
+    shared = tmp_path / "reported-bound-elsewhere"
+    shared.mkdir()
+    world = make_world(
+        tmp_path=shared,
+        rows=[(shared / "repo", "topic", DEAD_TMUX, "claude:dead:topic")],
+        cwds={
+            TRACKED_PID: str(shared / "repo"),
+            OPERATOR_PID: str(shared / "repo"),
+            APP_SERVER_PID: "/",
+            PANELESS_PID: str(shared / "repo"),
+        },
+    )
+    add_row(
+        store=world.store,
+        repo=world.other_repo,
+        topic="another-track",
+        tmux="another-pane",
+        identity=f"codex:{SESSION_ID}",
+    )
+    write_state_database(
+        path=world.home / "state_2.sqlite",
+        rows=[
+            (SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+            (OPERATOR_SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+        ],
+    )
+    (world.home / "session_index.jsonl").write_text(
+        json.dumps({"id": SESSION_ID, "thread_name": "topic"}) + "\n",
+        encoding="utf-8",
+    )
+    world.sup.tmux.pane_agent_session = lambda *, session: (
+        SESSION_ID if session == TRACKED_COORDINATE else None
+    )
+
+    world.sup.refresh_codex_sessions()
+
+    assert (TRACKED_COORDINATE, "topic") not in world.sup.live_codex
+
+
+def test_a_live_recorded_claude_blocks_a_reported_codex_carrier_in_its_pane(*, tmp_path):
+    """Live Claude evidence retains its identity and launch profile over a Codex report."""
+    _module = codex_identity()
+    claude_identity = "claude:123:456:topic"
+    profile = {"harness": "claude", "model": "claude-opus", "wrapper": None}
+    world = make_world(
+        tmp_path=tmp_path,
+        rows=[(tmp_path / "repo", "topic", TRACKED_COORDINATE, claude_identity)],
+    )
+    registry.record_model_profile(
+        repo=str(world.repo), topic="topic", model_profile=profile, store_path=world.store
+    )
+    world.sup.claude_identity_by_session[(TRACKED_COORDINATE, "topic")] = claude_identity
+    (world.home / "session_index.jsonl").write_text(
+        json.dumps({"id": SESSION_ID, "thread_name": "topic"}) + "\n",
+        encoding="utf-8",
+    )
+    world.sup.tmux.pane_agent_session = lambda *, session: (
+        SESSION_ID if session == TRACKED_COORDINATE else None
+    )
+
+    world.sup.refresh_codex_sessions()
+
+    assert (TRACKED_COORDINATE, "topic") not in world.sup.live_codex
+    row = row_of(store=world.store)
+    assert row.observed_session_identity == claude_identity
+    assert row.model_profile == profile
+    assert not world.sup.tmux.has(method="respawn")
+
+
+def test_a_rollout_backed_codex_carrier_cannot_displace_a_live_recorded_claude(*, tmp_path):
+    """The live-Claude exclusion holds for EVERY adoption source, not only the identity one.
+
+    Here the Codex carrier in the pane holds its own indexed rollout, so the ordinary
+    fd join answers for it. The recorded Claude process is still alive in that pane, so
+    no Codex session is adopted for the track and nothing about the row changes.
+    """
+    _module = codex_identity()
+    claude_identity = "claude:123:456:topic"
+    profile = {"harness": "claude", "model": "claude-opus", "wrapper": None}
+    world = make_world(
+        tmp_path=tmp_path,
+        rows=[(tmp_path / "repo", "topic", TRACKED_COORDINATE, claude_identity)],
+        indexed=SESSION_ID,
+    )
+    # Only the tracked carrier holds a rollout, so the ordinary join names its pane.
+    held = [rollout(codex_home=world.home, session_id=SESSION_ID)]
+    world.sup.codex_fd_targets_of = lambda *, pid: held if pid == TRACKED_PID else []
+    registry.record_model_profile(
+        repo=str(world.repo), topic="topic", model_profile=profile, store_path=world.store
+    )
+    world.sup.claude_identity_by_session[(TRACKED_COORDINATE, "topic")] = claude_identity
+
+    world.sup.refresh_codex_sessions()
+
+    assert (TRACKED_COORDINATE, "topic") not in world.sup.live_codex
+    row = row_of(store=world.store)
+    assert row.observed_session_identity == claude_identity
+    assert row.model_profile == profile
+    assert not world.sup.tmux.has(method="respawn")
+
+
+def test_the_production_pane_driver_supplies_the_backend_reported_session(*, tmp_path):
+    """The identity reader consumes the mixed pane driver's own `pane_agent_session`."""
+    _module = codex_identity()
+    shared = tmp_path / "production-reader"
+    shared.mkdir()
+    world = make_world(
+        tmp_path=shared,
+        rows=[(shared / "repo", "topic", DEAD_TMUX, "claude:dead:topic")],
+        cwds={
+            TRACKED_PID: str(shared / "repo"),
+            OPERATOR_PID: str(shared / "repo"),
+            APP_SERVER_PID: "/",
+            PANELESS_PID: str(shared / "repo"),
+        },
+    )
+    write_state_database(
+        path=world.home / "state_2.sqlite",
+        rows=[
+            (SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+            (OPERATOR_SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+        ],
+    )
+    (world.home / "session_index.jsonl").write_text(
+        json.dumps({"id": SESSION_ID, "thread_name": "topic"}) + "\n",
+        encoding="utf-8",
+    )
+
+    class ListingHerdr:
+        def list_panes(self, *, target):
+            row = herdr_calls.PaneRow(
+                pane_id=target.pane_id,
+                tab_id="w2H:t1",
+                workspace_id="w2H",
+                cwd=str(world.repo),
+                foreground_cwd=str(world.repo),
+                focused=False,
+                reported_codex_session_id=SESSION_ID if target.pane_id == "w2H:p3" else "",
+            )
+            return herdr_adapter.PaneListing(ok=True, panes=(row,), error="")
+
+    driver = pane_router.MixedPaneDriver(tmux=world.sup.tmux, herdr=ListingHerdr())
+    world.sup.tmux.pane_agent_session = driver.pane_agent_session
+
+    world.sup.refresh_codex_sessions()
+
+    live = world.sup.live_codex
+    assert live[(TRACKED_COORDINATE, "topic")].session_id == SESSION_ID
 
 
 # --- assertion 2: the dead tmux coordinate is rebound, old and new logged ------------
