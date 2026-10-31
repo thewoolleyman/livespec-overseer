@@ -57,7 +57,8 @@ def _short_window_departure_allows(
     reset = resets_at(timestamp=raw_reset if isinstance(raw_reset, str) else None)
     usage = cast(UsageRecord, profile.usage)
     if reset == inf:
-        return usage.five_hour_remaining >= _FULLY_REPLENISHED
+        short = usage.limit(kind="five_hour")
+        return short is not None and short.remaining >= _FULLY_REPLENISHED
     return now >= reset
 
 
@@ -86,13 +87,15 @@ def drain_target(
             active_protected
             or not is_protected(profile=profile, protection_floors=protection_floors)
         )
-        and profile.usage.seven_day_remaining
+        and (weekly := profile.usage.limit(kind="seven_day")) is not None
+        and weekly.remaining
         >= max(
             weekly_reserve(),
             protection_floor_for(name=profile.name, protection_floors=protection_floors),
         )
         + min_headroom_gain()
-        and profile.usage.five_hour_remaining >= five_hour_remaining_floor() + min_headroom_gain()
+        and (short := profile.usage.limit(kind="five_hour")) is not None
+        and short.remaining >= five_hour_remaining_floor() + min_headroom_gain()
         and (
             not active.scoped_pin
             or (

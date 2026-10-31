@@ -158,5 +158,8 @@ def _exhausted(*, profile: ProfileUsage, protection_floors: Mapping[str, float])
             ),
         )
         <= 0.0
-        or usage.five_hour_remaining <= _NOTHING_LEFT
+        or (
+            (short := usage.limit(kind="five_hour")) is not None
+            and short.remaining <= _NOTHING_LEFT
+        )
     )

@@ -118,7 +118,14 @@ def spend_capped(*, usage: UsageRecord | None) -> bool:
         and usage.extra_usage is not None
         and usage.extra_usage.spend_limit_reached
         and (
-            usage.five_hour_remaining <= _NOTHING_LEFT or usage.seven_day_remaining <= _NOTHING_LEFT
+            (
+                (short := usage.limit(kind="five_hour")) is not None
+                and short.remaining <= _NOTHING_LEFT
+            )
+            or (
+                (weekly := usage.limit(kind="seven_day")) is not None
+                and weekly.remaining <= _NOTHING_LEFT
+            )
         )
     )
 

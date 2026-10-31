@@ -90,8 +90,11 @@ def fast_drain_projection(
     """
     if burn is None or burn <= 0:
         return None
+    short = current.limit(kind="five_hour")
+    if short is None:
+        return None
     horizon = projection_horizon_s()
-    remaining = current.five_hour_remaining - burn * horizon
+    remaining = short.remaining - burn * horizon
     if remaining > five_hour_remaining_floor():
         return None
     return ShortWindowProjection(burn=burn, remaining=remaining, horizon=horizon)
@@ -101,9 +104,12 @@ def fast_drain_trigger_line(
     *, active_name: str, current: UsageRecord, projection: ShortWindowProjection
 ) -> str:
     """Why this pass is leaving, in the figures the table cannot supply."""
+    short = current.limit(kind="five_hour")
+    if short is None:
+        return "trigger: projected short-window drain unavailable without a short-window limit"
     return (
         "trigger: projected short-window drain -- "
-        f"{active_name} has {current.five_hour_remaining:.0f}% 5-hour left, "
+        f"{active_name} has {short.remaining:.0f}% 5-hour left, "
         f"falling {projection.per_horizon:.0f}% per {_horizon(projection=projection)}, "
         f"projected {projection.remaining:.0f}% at the end of the horizon -- "
         "comparing candidates on five_hour"
@@ -119,14 +125,17 @@ def fast_drain_switch_line(
 ) -> str:
     """The switch line for a move made on this trigger, with its own reason."""
     usage = cast(UsageRecord, target.usage)
+    short = usage.limit(kind="five_hour")
+    if short is None:
+        return f"SWITCHED {active_name} -> {target.name} (target has no short-window limit)"
     now_dt = datetime.fromtimestamp(now, tz=timezone.utc)
     return (
         f"SWITCHED {active_name} -> {target.name} "
         "(projected short-window drain; burn "
         f"{projection.per_horizon:.0f}% per {_horizon(projection=projection)}, "
         f"projected {projection.remaining:.0f}% at the end of the horizon; target has "
-        f"{usage.five_hour_remaining:.0f}% 5-hour left, resets in "
-        f"{until(timestamp=usage.five_hour_resets_at, now=now_dt)})"
+        f"{short.remaining:.0f}% 5-hour left, resets in "
+        f"{until(timestamp=short.resets_at, now=now_dt)})"
     )
 
 

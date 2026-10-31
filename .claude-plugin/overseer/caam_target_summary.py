@@ -17,7 +17,7 @@ def target_summary(*, target: ProfileUsage, now: float) -> SwitchTargetSummary:
     usage = cast(UsageRecord, target.usage)
     return SwitchTargetSummary(
         name=target.name,
-        weekly_remaining=usage.seven_day_remaining,
+        weekly_remaining=usage.seven_day_remaining or 0.0,
         weekly_reset=usage.seven_day_resets_at,
         source=target.source,
         now=datetime.fromtimestamp(now, tz=timezone.utc),

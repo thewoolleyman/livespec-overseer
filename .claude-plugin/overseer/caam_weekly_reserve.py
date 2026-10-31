@@ -109,7 +109,8 @@ def _above_unprotected(
         profile
         for profile in rows
         if profile.usage is not None
-        and profile.usage.seven_day_remaining >= reserve
+        and (weekly := profile.usage.limit(kind="seven_day")) is not None
+        and weekly.remaining >= reserve
         and protection_floor_for(name=profile.name, protection_floors=protection_floors) <= 0.0
     )
 
@@ -126,7 +127,8 @@ def _active_usable(
         and not active_fast_draining
         and not active_refusal_held
         and not spend_capped(usage=active.usage)
-        and active.usage.five_hour_remaining > five_hour_remaining_floor()
+        and (short := active.usage.limit(kind="five_hour")) is not None
+        and short.remaining > five_hour_remaining_floor()
     )
 
 
@@ -143,7 +145,8 @@ def _usable_candidates(
             profile
             for profile in request.candidates
             if profile.usage is not None
-            and profile.usage.five_hour_remaining > five_hour_remaining_floor()
+            and (short := profile.usage.limit(kind="five_hour")) is not None
+            and short.remaining > five_hour_remaining_floor()
             and not spend_capped(usage=profile.usage)
         ),
         active_name=request.active.name,

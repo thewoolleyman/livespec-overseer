@@ -127,6 +127,9 @@ def _carries(*, profile: ProfileUsage, load: CapacityLoad) -> bool:
     usage = profile.usage
     if usage is None:
         return True
+    short = usage.limit(kind="five_hour")
+    if short is None:
+        return True
     burn = load.projected_burn(weight=capacity_weight(capacity=profile.capacity))
-    projected = usage.five_hour_remaining - burn * projection_horizon_s()
+    projected = short.remaining - burn * projection_horizon_s()
     return projected > five_hour_remaining_floor()

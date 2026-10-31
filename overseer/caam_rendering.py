@@ -8,7 +8,7 @@ from math import inf
 from typing import Protocol
 
 from caam_capacity import AccountCapacity, capacity_cell
-from caam_decision_models import ExtraUsage
+from caam_decision_models import ExtraUsage, UsageLimit
 from caam_scoped_model import SCOPED_MODEL
 from caam_spend_report import extra_usage_cells
 
@@ -37,13 +37,14 @@ __all__: list[str] = [
 
 
 class RenderableUsageRecord(Protocol):
-    five_hour_remaining: float
-    seven_day_remaining: float
+    five_hour_remaining: float | None
+    seven_day_remaining: float | None
     five_hour_resets_at: str | None
     seven_day_resets_at: str | None
     fable_remaining: float | None
     fable_resets_at: str | None
     extra_usage: ExtraUsage | None
+    limits: tuple[UsageLimit, ...]
 
 
 class RenderableProfileUsage(Protocol):
@@ -250,16 +251,34 @@ def row_line(*, row: RenderableProfileUsage, active_name: str, now: datetime) ->
     # Every cell is the stored figure printed as it stands: the record already
     # holds what each allowance has LEFT, which is what these columns are named
     # for and what the operator reads them as.
-    fable = f"{row.usage.fable_remaining:.0f}%" if row.usage.fable_remaining is not None else "-"
+    short = _percent_cell(value=row.usage.five_hour_remaining, absent="none")
+    weekly = _percent_cell(value=row.usage.seven_day_remaining, absent="-")
+    if row.usage.five_hour_remaining is None:
+        source = f"{source}; no 5h limit"
+    unknown = _unknown_limits(usage=row.usage)
+    if unknown:
+        source = f"{source}; {unknown}"
+    fable = _percent_cell(value=row.usage.fable_remaining, absent="-")
     extra_state, extra_left = extra_usage_cells(extra_usage=row.usage.extra_usage)
     return (
         f"{row.name:<13} {current_cell(is_active=is_active)} "
-        f"{row.usage.five_hour_remaining:6.0f}% "
+        f"{short:>7} "
         f"{until(timestamp=row.usage.five_hour_resets_at, now=now):>13} "
-        f"{row.usage.seven_day_remaining:8.0f}% "
+        f"{weekly:>9} "
         f"{until(timestamp=row.usage.seven_day_resets_at, now=now):>13} "
         f"{fable:>9} {until(timestamp=row.usage.fable_resets_at, now=now):>13} "
         f"{extra_state:>7} {extra_left:>8}  {capacity:<{CAPACITY_COL}}  {source}"
+    )
+
+
+def _percent_cell(*, value: float | None, absent: str) -> str:
+    return absent if value is None else f"{value:.0f}%"
+
+
+def _unknown_limits(*, usage: RenderableUsageRecord) -> str:
+    known = {"five_hour", "weekly_all", "weekly_scoped"}
+    return ", ".join(
+        f"{limit.kind} {limit.remaining:.0f}%" for limit in usage.limits if limit.kind not in known
     )
 
 

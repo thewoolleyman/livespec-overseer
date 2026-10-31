@@ -101,6 +101,10 @@ def replace_baseline(
     than amplifying one percentage step into a large rate. Anything else is
     replaced, because it cannot be measured against at all.
     """
+    short = current.limit(kind="five_hour")
+    if short is None:
+        _ = state.pop(SHORT_WINDOW_BASELINE, None)
+        return
     stored = baseline_reading(state=state)
     if (
         stored is not None
@@ -111,8 +115,8 @@ def replace_baseline(
         return
     state[SHORT_WINDOW_BASELINE] = {
         "account": active_name,
-        "remaining": current.five_hour_remaining,
-        "resets_at": current.five_hour_resets_at,
+        "remaining": short.remaining,
+        "resets_at": short.resets_at,
         "at": now,
     }
 
@@ -125,6 +129,9 @@ def burn_rate(
     Read BEFORE the baseline is replaced on every pass: a pass that overwrote
     the baseline first would measure every fall against its own reading.
     """
+    short = current.limit(kind="five_hour")
+    if short is None:
+        return None
     baseline = baseline_reading(state=state)
     if baseline is None:
         return None
@@ -136,7 +143,7 @@ def burn_rate(
         or _activated_after(state=state, baseline=baseline)
     ):
         return None
-    return (baseline.remaining - current.five_hour_remaining) / elapsed
+    return (baseline.remaining - short.remaining) / elapsed
 
 
 def _same_short_window(*, baseline: BaselineReading, current: UsageRecord) -> bool:
@@ -148,7 +155,10 @@ def _same_short_window(*, baseline: BaselineReading, current: UsageRecord) -> bo
     number, and neither is within any tolerance.
     """
     stored = resets_at(timestamp=baseline.resets_at)
-    reading = resets_at(timestamp=current.five_hour_resets_at)
+    short = current.limit(kind="five_hour")
+    if short is None:
+        return False
+    reading = resets_at(timestamp=short.resets_at)
     return abs(reading - stored) <= _RESET_TOLERANCE_S
 
 

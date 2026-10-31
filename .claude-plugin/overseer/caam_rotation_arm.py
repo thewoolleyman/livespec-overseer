@@ -200,4 +200,5 @@ def short_window_triggered(
     refused = arm.refusal.active
     if refused is not None and refused.refusal.window == WINDOW_FIVE_HOUR:
         return True
-    return request.current.five_hour_remaining <= five_hour_remaining_floor()
+    short = request.current.limit(kind="five_hour")
+    return short is not None and short.remaining <= five_hour_remaining_floor()

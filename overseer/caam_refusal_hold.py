@@ -196,9 +196,9 @@ def _lapsed(*, remembered: RememberedRefusal, reading: UsageRecord | None, now: 
 
 
 def _window_remaining(*, reading: UsageRecord, window: str) -> float:
-    if window == WINDOW_FIVE_HOUR:
-        return reading.five_hour_remaining
-    return reading.seven_day_remaining
+    kind = "five_hour" if window == WINDOW_FIVE_HOUR else "seven_day"
+    limit = reading.limit(kind=kind)
+    return 0.0 if limit is None else limit.remaining
 
 
 def _window_reset(*, reading: UsageRecord, window: str) -> str | None:

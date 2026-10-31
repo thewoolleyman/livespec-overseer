@@ -150,7 +150,13 @@ def _admitted_after_reserve_decision(
         for profile in candidates
         if profile.usage is not None
         and (
-            profile.usage.seven_day_remaining <= reserve
-            or profile.usage.five_hour_remaining > five_hour_remaining_floor()
+            (
+                (weekly := profile.usage.limit(kind="seven_day")) is not None
+                and weekly.remaining <= reserve
+            )
+            or (
+                (short := profile.usage.limit(kind="five_hour")) is not None
+                and short.remaining > five_hour_remaining_floor()
+            )
         )
     )

@@ -8,7 +8,13 @@ from collections.abc import Mapping
 from datetime import datetime
 from math import inf
 
-from caam_decision_models import ActiveAccount, EligibleProfiles, ProfileUsage, UsageRecord
+from caam_decision_models import (
+    ActiveAccount,
+    EligibleProfiles,
+    ProfileUsage,
+    UsageLimit,
+    UsageRecord,
+)
 from caam_decision_protection import (
     NO_PROTECTION_FLOORS,
     CandidatePolicy,
@@ -49,6 +55,7 @@ __all__: list[str] = [
     "EligibleProfiles",
     "ProfileUsage",
     "SwitchTargetSummary",
+    "UsageLimit",
     "UsageRecord",
     "active_at_or_below_scoped_reserve",
     "binding",
@@ -91,24 +98,40 @@ def binding(
     active_name: str | None = None,
     protection_floors: Mapping[str, float] = NO_PROTECTION_FLOORS,
 ) -> tuple[str, float, str]:
+    short = usage.limit(kind="five_hour")
+    weekly = usage.limit(kind="seven_day")
     protection_floor = protection_floor_for(name=active_name, protection_floors=protection_floors)
     # First, because it outranks every percentage below it: a spend-capped
     # account has no included or paid path left, so naming the other healthy
     # window as the reason the pass is leaving would report a figure that has
     # stopped meaning anything about what this account can do.
     if spend_capped(usage=usage):
-        return ("five_hour", usage.five_hour_remaining, "extra-usage spend limit")
-    if usage.five_hour_remaining <= five_hour_remaining_floor():
-        return ("five_hour", usage.five_hour_remaining, "5-hour window")
-    if protection_floor > 0 and raw_weekly_left(usage=usage) <= protection_floor:
+        binding_limit = short or weekly
+        return (
+            "five_hour" if short is not None else "seven_day",
+            0.0 if binding_limit is None else binding_limit.remaining,
+            "extra-usage spend limit",
+        )
+    if short is not None and short.remaining <= five_hour_remaining_floor():
+        return ("five_hour", short.remaining, "5-hour window")
+    if (
+        weekly is not None
+        and protection_floor > 0
+        and raw_weekly_left(usage=usage) <= protection_floor
+    ):
         return (
             "seven_day",
-            usage.seven_day_remaining,
+            weekly.remaining,
             f"protection floor for {active_name} ({protection_floor:g}%)",
         )
-    if weekly_left(usage=usage) < weekly_reserve():
-        return ("seven_day", usage.seven_day_remaining, "weekly reserve")
-    return ("five_hour", usage.five_hour_remaining, "5-hour window")
+    if weekly is not None and weekly_left(usage=usage) < weekly_reserve():
+        return ("seven_day", weekly.remaining, "weekly reserve")
+    fallback = short or weekly
+    return (
+        "five_hour" if short is not None else "seven_day" if weekly is not None else "unknown",
+        0.0 if fallback is None else fallback.remaining,
+        "5-hour window" if short is not None else "weekly allowance",
+    )
 
 
 def triggered(
@@ -128,11 +151,17 @@ def triggered(
     # cannot serve a request is a reason to leave whatever any session happens to
     # be doing on it.
     protection_floor = protection_floor_for(name=active_name, protection_floors=protection_floors)
+    short = usage.limit(kind="five_hour")
+    weekly = usage.limit(kind="seven_day")
     return (
         spend_capped(usage=usage)
-        or usage.five_hour_remaining <= five_hour_remaining_floor()
-        or weekly_left(usage=usage) < weekly_reserve()
-        or (protection_floor > 0 and raw_weekly_left(usage=usage) <= protection_floor)
+        or (short is not None and short.remaining <= five_hour_remaining_floor())
+        or (weekly is not None and weekly_left(usage=usage) < weekly_reserve())
+        or (
+            weekly is not None
+            and protection_floor > 0
+            and raw_weekly_left(usage=usage) <= protection_floor
+        )
         or (scoped_pin and active_at_or_below_scoped_reserve(usage=usage, reserve=scoped_reserve()))
     )
 

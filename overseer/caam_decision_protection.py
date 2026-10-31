@@ -105,11 +105,13 @@ def candidate_holds_scoped_above_reserve(*, usage: UsageRecord | None, reserve: 
 
 
 def weekly_left(*, usage: UsageRecord, protection_floor: float = 0.0) -> float:
-    return max(0.0, usage.seven_day_remaining - protection_floor)
+    weekly = usage.limit(kind="seven_day")
+    return 0.0 if weekly is None else max(0.0, weekly.remaining - protection_floor)
 
 
 def raw_weekly_left(*, usage: UsageRecord) -> float:
-    return usage.seven_day_remaining
+    weekly = usage.limit(kind="seven_day")
+    return 0.0 if weekly is None else weekly.remaining
 
 
 def dimension_remaining(
@@ -125,7 +127,8 @@ def dimension_remaining(
     """
     if dimension == "seven_day":
         return weekly_left(usage=usage, protection_floor=protection_floor)
-    return {"five_hour": usage.five_hour_remaining}.get(dimension, -inf)
+    short = usage.limit(kind="five_hour")
+    return short.remaining if dimension == "five_hour" and short is not None else -inf
 
 
 def protection_floor_for(
@@ -170,7 +173,8 @@ def is_eligible(
     return (
         usage is not None
         and not spend_capped(usage=usage)
-        and dimension in {"five_hour", "seven_day"}
+        and usage.limit(kind=dimension) is not None
+        and current.limit(kind=dimension) is not None
         and dimension_remaining(usage=usage, dimension=dimension, protection_floor=protection_floor)
         - dimension_remaining(
             usage=current,
@@ -179,7 +183,13 @@ def is_eligible(
         )
         >= gain_needed
         and weekly_left(usage=usage, protection_floor=protection_floor) > 0.0
-        and usage.five_hour_remaining > _NOTHING_LEFT
+        and (
+            dimension != "five_hour"
+            or (
+                (short := usage.limit(kind="five_hour")) is not None
+                and short.remaining > _NOTHING_LEFT
+            )
+        )
     )
 
 
@@ -278,7 +288,8 @@ def _gain_needed_for(*, policy: CandidatePolicy, usage: UsageRecord) -> float:
     if (
         floor is not None
         and candidate_holds_scoped_above_reserve(usage=usage, reserve=policy.scoped_reserve)
-        and usage.five_hour_remaining > floor
+        and (short := usage.limit(kind="five_hour")) is not None
+        and short.remaining > floor
     ):
         return -inf
     return policy.gain_needed

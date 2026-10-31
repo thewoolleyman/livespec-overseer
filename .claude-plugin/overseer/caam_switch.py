@@ -140,7 +140,7 @@ def _switch_under_lock(*, request: SwitchRequest) -> SwitchResult:
         lines=(
             decision_switched(
                 active_name=request.active_name,
-                current_five_hour_remaining=request.current.five_hour_remaining,
+                current_five_hour_remaining=request.current.five_hour_remaining or 0.0,
                 target=target_summary(target=request.target, now=request.now),
             ),
         ),

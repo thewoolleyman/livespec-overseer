@@ -11,6 +11,7 @@ __all__: list[str] = [
     "EligibleProfiles",
     "ExtraUsage",
     "ProfileUsage",
+    "UsageLimit",
     "UsageRecord",
     "WindowDollars",
 ]
@@ -54,6 +55,23 @@ class ExtraUsage:
 
 
 @dataclass(frozen=True, kw_only=True)
+class UsageLimit:
+    """One provider-reported allowance, always in percentage remaining.
+
+    The provider may add or omit allowance kinds as a plan changes.  Keep the
+    reported set intact so a missing short window is distinguishable from an
+    exhausted one and a future kind remains observable instead of making the
+    whole account dark.
+    """
+
+    kind: str
+    remaining: float
+    resets_at: str | None
+    model: str | None = None
+    dollars: WindowDollars | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
 class UsageRecord:
     """What each of an account's allowances has LEFT, as a percentage.
 
@@ -78,8 +96,8 @@ class UsageRecord:
     the meter was read at all.
     """
 
-    five_hour_remaining: float
-    seven_day_remaining: float
+    five_hour_remaining: float | None
+    seven_day_remaining: float | None
     five_hour_resets_at: str | None
     seven_day_resets_at: str | None
     fable_remaining: float | None
@@ -87,6 +105,29 @@ class UsageRecord:
     extra_usage: ExtraUsage | None = None
     five_hour_dollars: WindowDollars | None = None
     seven_day_dollars: WindowDollars | None = None
+
+    @property
+    def limits(self) -> tuple[UsageLimit, ...]:
+        """The provider's complete limit set, absent on legacy constructed records."""
+        return getattr(self, "_limits", ())
+
+    def limit(self, *, kind: str) -> UsageLimit | None:
+        """Return a named generic limit, retaining legacy fixtures as a fallback."""
+        aliases = {"five_hour": "five_hour", "seven_day": "weekly_all"}
+        provider_kind = aliases.get(kind, kind)
+        if self.limits:
+            return next((limit for limit in self.limits if limit.kind == provider_kind), None)
+        remaining = {
+            "five_hour": self.five_hour_remaining,
+            "seven_day": self.seven_day_remaining,
+        }.get(kind)
+        resets_at = {
+            "five_hour": self.five_hour_resets_at,
+            "seven_day": self.seven_day_resets_at,
+        }.get(kind)
+        if remaining is None:
+            return None
+        return UsageLimit(kind=provider_kind, remaining=remaining, resets_at=resets_at)
 
 
 @dataclass(frozen=True, kw_only=True)
