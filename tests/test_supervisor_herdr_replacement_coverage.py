@@ -592,3 +592,40 @@ def test_durable_resume_retry_refuses_every_unproven_edge(
 
     assert reason is not None
     assert message in reason
+
+
+def test_out_of_band_runtime_retires_a_stalled_resume_transaction_and_its_round(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sup, fake, track, target = _world(tmp_path=tmp_path)
+    transaction = _transaction(target=target, phase="resume-attempted")
+    transaction["successor"] = _herdr_replacement_process.process_record(
+        process=_process(pid=301, starttime="runtime-new", executable="/usr/bin/node", pgrp=300)
+    )
+    transaction["resume"] = "read the durable handoff"
+    _write(track=track, transaction=transaction)
+    registry.write_injection_stamp(
+        repo=track.repo,
+        topic=track.topic,
+        ts=1000.0,
+        session_identity="claude:201:runtime-old:topic",
+        stamp_path=sup.stamp_path,
+    )
+    _ = arm_ready_marker(repo=Path(track.repo), topic=track.topic, mtime=1001.0)
+    sup.claude_identity_by_session[(target, track.topic)] = "claude:401:runtime-oob:topic"
+    monkeypatch.setattr(sup, "build_rows", lambda *, act: [track])
+    fake.herdr_terminate = lambda **_kwargs: pytest.fail("retirement must not signal")
+    fake.herdr_launch = lambda **_kwargs: pytest.fail("retirement must not launch")
+
+    rows = sup.tick(act=True)
+
+    record = (
+        _herdr_replacement_store.scratch_path(track=track) / _herdr_replacement_store.RECORD_NAME
+    )
+    assert not record.exists()
+    assert (
+        registry.read_injection_stamp(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
+        is None
+    )
+    assert signals.read_state(repo=track.repo, topic=track.topic) is None
+    assert [row.status for row in rows] != ["replacement-failed"]
