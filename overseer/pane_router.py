@@ -15,6 +15,7 @@ import herdr_adapter
 import herdr_initial_start
 import herdr_replacement
 import herdr_write
+import pane_router_cycle
 import pane_router_initial_start
 import pane_router_ownership
 import pane_router_read_facade
@@ -33,6 +34,7 @@ __all__: list[str] = [
     "PROCESS_PID",
     "PROCESS_PPID",
     "MixedPaneDriver",
+    "begin_cycle",
     "current_process_coordinate",
     "default_pane_driver",
     "register_coordinates",
@@ -80,7 +82,14 @@ class MixedPaneDriver:
     herdr_endpoints: Callable[[], Iterable[str]] = pane_router_ownership.default_herdr_endpoints
     tmux_run: tmux_process.TextProcessRun = tmux_process.TEXT_PROCESS_RUN
     coordinates: set[str] = field(default_factory=set)
+    herdr_cycle_cache: pane_router_cycle.HerdrCycleCache = field(
+        default_factory=pane_router_cycle.HerdrCycleCache
+    )
     prompt_states: dict[str, pane_router_submit_signals.PromptState] = field(default_factory=dict)
+
+    def begin_cycle(self) -> None:
+        """Start a fresh snapshot of Herdr observations for one supervisor tick."""
+        self.herdr_cycle_cache.clear()
 
     register_coordinates = pane_router_read_facade.register_coordinates
     capture_pane = pane_router_read_facade.capture_pane
@@ -215,6 +224,12 @@ def default_pane_driver() -> PaneDriver:
 def register_coordinates(*, driver: PaneDriver, coordinates: Iterable[str]) -> None:
     if isinstance(driver, MixedPaneDriver):
         driver.register_coordinates(coordinates=coordinates)
+
+
+def begin_cycle(*, driver: PaneDriver) -> None:
+    """Clear a mixed driver's per-tick Herdr snapshot, leaving fakes untouched."""
+    if isinstance(driver, MixedPaneDriver):
+        driver.begin_cycle()
 
 
 def current_process_coordinate() -> str | None:

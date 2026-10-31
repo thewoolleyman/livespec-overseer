@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field
 from typing import Protocol, cast
 
 import herdr_adapter
 import herdr_identity
 import pane_discovery
+import pane_router_cycle
 import terminal_probes
 import tmux_bootstrap_driver
 import tmux_process
@@ -17,8 +18,6 @@ import tmuxio
 from tmuxio_protocols import PaneDriver
 
 __all__: list[str] = ["HerdrObserver", "PaneRoutingReads"]
-
-_CLAUDE_IDENTITY_PARTS = 4
 
 
 class HerdrObserver(Protocol):
@@ -37,19 +36,6 @@ class HerdrObserver(Protocol):
     ) -> herdr_adapter.ForegroundReading: ...
 
 
-def _recorded_claude_process_identity(*, value: str | None) -> tuple[int, str] | None:
-    """Return the PID generation carried by a canonical Claude identity."""
-    parts = (value or "").split(":", 3)
-    if len(parts) != _CLAUDE_IDENTITY_PARTS or parts[0] != "claude":
-        return None
-    _, pid_text, starttime, _ = parts
-    try:
-        pid = int(pid_text)
-    except ValueError:
-        return None
-    return pid, starttime
-
-
 @dataclass(kw_only=True)
 class PaneRoutingReads:
     """Read panes without losing a qualified target's recorded instance."""
@@ -59,6 +45,9 @@ class PaneRoutingReads:
     herdr_endpoints: Callable[[], Iterable[str]]
     tmux_run: tmux_process.TextProcessRun
     coordinates: set[str]
+    herdr_cycle_cache: pane_router_cycle.HerdrCycleCache = field(
+        default_factory=pane_router_cycle.HerdrCycleCache
+    )
 
     def decode(self, *, value: str) -> herdr_identity.TargetDecoding:
         decoded = herdr_identity.decode_target(value=value)
@@ -101,7 +90,7 @@ class PaneRoutingReads:
     def pane_pid(self, *, session: str) -> int | None:
         decoded = self.decode(value=session)
         if decoded.herdr is not None:
-            reading = self.herdr.foreground(target=decoded.herdr)
+            reading = self.herdr_cycle_cache.foreground(observer=self.herdr, target=decoded.herdr)
             return cast(int | None, getattr(reading.process, "shell_pid", None))
         if decoded.tmux is not None:
             return self.tmux_driver(target=decoded.tmux).pane_pid(session=decoded.tmux.pane_id)
@@ -110,7 +99,7 @@ class PaneRoutingReads:
     def pane_current_command(self, *, session: str) -> str | None:
         decoded = self.decode(value=session)
         if decoded.herdr is not None:
-            reading = self.herdr.foreground(target=decoded.herdr)
+            reading = self.herdr_cycle_cache.foreground(observer=self.herdr, target=decoded.herdr)
             return cast(str | None, getattr(reading.process, "name", None))
         if decoded.tmux is not None:
             return self.tmux_driver(target=decoded.tmux).pane_current_command(
@@ -121,7 +110,7 @@ class PaneRoutingReads:
     def pane_current_path(self, *, session: str) -> str | None:
         decoded = self.decode(value=session)
         if decoded.herdr is not None:
-            reading = self.herdr.foreground(target=decoded.herdr)
+            reading = self.herdr_cycle_cache.foreground(observer=self.herdr, target=decoded.herdr)
             return cast(str | None, getattr(reading.process, "cwd", None))
         if decoded.tmux is not None:
             return self.tmux_driver(target=decoded.tmux).pane_current_path(
@@ -132,7 +121,7 @@ class PaneRoutingReads:
     def session_exists(self, *, session: str) -> bool:
         decoded = self.decode(value=session)
         if decoded.herdr is not None:
-            listing = self.herdr.list_panes(target=decoded.herdr)
+            listing = self.herdr_cycle_cache.listing(observer=self.herdr, target=decoded.herdr)
             return listing.ok and any(
                 pane.pane_id == decoded.herdr.pane_id for pane in listing.panes
             )
@@ -154,29 +143,13 @@ class PaneRoutingReads:
         target = self.decode(value=session).herdr
         if target is None:
             return None
-        peer = self.herdr.identify(socket_path=target.socket_path).peer
-        answering_generation = (
-            cast(int | None, getattr(peer, "pid", None)),
-            cast(str | None, getattr(peer, "starttime", None)),
+        return self.herdr_cycle_cache.relocated_coordinate(
+            observer=self.herdr,
+            target=target,
+            session=session,
+            observed_session_identity=observed_session_identity,
+            starttime_of=starttime_of,
         )
-        if answering_generation != (target.server_pid, target.server_starttime):
-            return None
-        recorded_identity = _recorded_claude_process_identity(value=observed_session_identity)
-        if recorded_identity is None:
-            return None
-        matches: list[herdr_identity.HerdrPaneTarget] = []
-        for pane in self.herdr.list_panes(target=target).panes:
-            candidate = replace(target, pane_id=pane.pane_id)
-            reading = self.herdr.foreground(target=candidate)
-            for process in filter(None, (reading.process,)):
-                actual_identity = (
-                    process.process_group_id,
-                    starttime_of(pid=process.process_group_id),
-                )
-                if actual_identity == recorded_identity:
-                    matches.append(candidate)
-        pane = matches[0] if len(matches) == 1 else None
-        return None if pane is None else herdr_identity.encode_herdr_target(target=pane)
 
     def _tmux_pid_coordinates(self) -> dict[int, str]:
         """Exact coordinates for panes on the tmux socket named by the environment."""

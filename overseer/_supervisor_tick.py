@@ -14,6 +14,7 @@ import _supervisor_mapping_health
 import _supervisor_pair
 import _supervisor_reexec
 import _supervisor_render
+import pane_router
 from _supervisor_view import RowView, needs_attention
 
 if TYPE_CHECKING:
@@ -24,7 +25,7 @@ __all__: list[str] = ["run_tick"]
 
 def run_tick(*, sup: Supervisor, act: bool = True) -> list[RowView]:
     """One loop iteration: build rows, evaluate each, render the table + attention block."""
-    views: list[RowView] = []
+    views = _cycle_views(sup=sup)
     null_added_at_keys: frozenset[_supervisor_mapping_health.MappingKey] = (
         _supervisor_mapping_health.explicit_null_added_at_keys(store_path=sup.store_path)
         if not act
@@ -93,6 +94,12 @@ def run_tick(*, sup: Supervisor, act: bool = True) -> list[RowView]:
     if act:
         _finish_acting_tick(sup=sup, views=views, surface_attention=surface_attention is not None)
     return views
+
+
+def _cycle_views(*, sup: Supervisor) -> list[RowView]:
+    """Start the tick with a fresh backend snapshot."""
+    pane_router.begin_cycle(driver=sup.tmux)
+    return []
 
 
 def _finish_acting_tick(
