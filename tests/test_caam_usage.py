@@ -7,6 +7,7 @@ import importlib
 import io
 import json
 import urllib.error
+from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
 
@@ -255,6 +256,145 @@ def test_absent_fable_limit_is_not_an_error(*, tmp_path: Path):
     assert usage is not None
     assert usage.fable_remaining is None
     assert usage.fable_resets_at is None
+
+
+def test_weekly_only_limits_are_a_readable_usage_record(*, tmp_path: Path):
+    """Ultra's lack of a five-hour allowance is a reading, not an error."""
+    module = caam_usage_module()
+    creds = tmp_path / ".credentials.json"
+    write_creds(path=creds, bearer="tok", expires_at_ms=9_000_000)
+    body = json.dumps(
+        {
+            "five_hour": None,
+            "limits": [
+                {
+                    "kind": "weekly_all",
+                    "percent": 95,
+                    "resets_at": "weekly-reset",
+                },
+                {
+                    "kind": "weekly_scoped",
+                    "percent": 20,
+                    "resets_at": "scoped-reset",
+                    "scope": {"model": {"display_name": "Fable"}},
+                },
+            ],
+        }
+    ).encode()
+
+    usage, why = module.fetch_usage(
+        creds_path=creds,
+        now=1000.0,
+        transport=RecordingTransport(response=Response(body=body)),
+    )
+
+    assert why is None
+    assert usage is not None
+    assert usage.five_hour_remaining is None
+    assert usage.seven_day_remaining == 5.0
+
+
+def test_weekly_only_row_names_the_absent_short_window(*, tmp_path: Path):
+    """A readable Ultra account must not look dark merely because 5h is absent."""
+    module = caam_usage_module()
+    creds = tmp_path / ".credentials.json"
+    write_creds(path=creds, bearer="tok", expires_at_ms=9_000_000)
+    body = json.dumps(
+        {
+            "limits": [
+                {
+                    "kind": "weekly_all",
+                    "percent": 95,
+                    "resets_at": "2026-11-07T00:00:00Z",
+                }
+            ]
+        }
+    ).encode()
+    usage, why = module.fetch_usage(
+        creds_path=creds,
+        now=1000.0,
+        transport=RecordingTransport(response=Response(body=body)),
+    )
+    assert why is None
+    assert usage is not None
+    decision = importlib.import_module("caam_decision")
+    row = decision.ProfileUsage(name="ultra", source="live", usage=usage)
+
+    table = decision.render_table(
+        rows=(row,),
+        active_name="ultra",
+        now=datetime(2026, 11, 1, tzinfo=timezone.utc),
+    )
+
+    assert "ultra" in table
+    assert "5%" in table
+    assert "no 5h limit" in table
+    assert "dark:" not in table
+
+
+def test_generic_limits_drive_each_reading_and_show_unknown_kinds(*, tmp_path: Path):
+    """A temporary short window is evaluated only while the response reports it."""
+    module = caam_usage_module()
+    creds = tmp_path / ".credentials.json"
+    write_creds(path=creds, bearer="tok", expires_at_ms=9_000_000)
+
+    def read(*, limits: list[dict[str, object]]) -> tuple[object, object]:
+        return module.fetch_usage(
+            creds_path=creds,
+            now=1000.0,
+            transport=RecordingTransport(
+                response=Response(body=json.dumps({"limits": limits}).encode())
+            ),
+        )
+
+    weekly_only, why = read(
+        limits=[
+            {"kind": "weekly_all", "percent": 20, "resets_at": "2026-11-07T00:00:00Z"},
+            {"kind": "experimental", "percent": 40, "resets_at": "later"},
+        ]
+    )
+    assert why is None
+    assert weekly_only is not None
+    decision = importlib.import_module("caam_decision")
+    assert decision.triggered(usage=weekly_only) is False
+    assert weekly_only.limit(kind="experimental") is not None
+    table = decision.render_table(
+        rows=(decision.ProfileUsage(name="ultra", source="live", usage=weekly_only),),
+        active_name="ultra",
+        now=datetime(2026, 11, 1, tzinfo=timezone.utc),
+    )
+    assert "experimental 60%" in table
+
+    temporary_short, why = read(
+        limits=[
+            {"kind": "five_hour", "percent": 90, "resets_at": "soon"},
+            {"kind": "weekly_all", "percent": 20, "resets_at": "2026-11-07T00:00:00Z"},
+        ]
+    )
+    assert why is None
+    assert temporary_short is not None
+    assert decision.triggered(usage=temporary_short) is True
+
+
+def test_malformed_generic_limits_remain_unreadable(*, tmp_path: Path):
+    module = caam_usage_module()
+    creds = tmp_path / ".credentials.json"
+    write_creds(path=creds, bearer="tok", expires_at_ms=9_000_000)
+
+    for body in (
+        {"limits": [{"kind": "weekly_all", "percent": 10}, None]},
+        {"limits": [{"kind": "weekly_all"}]},
+        {"limits": [{"percent": 10}]},
+        {"limits": [], "five_hour": {}, "seven_day": {"utilization": 10}},
+    ):
+        usage, why = module.fetch_usage(
+            creds_path=creds,
+            now=1000.0,
+            transport=RecordingTransport(response=Response(body=json.dumps(body).encode())),
+        )
+
+        assert usage is None
+        assert why == "unexpected response shape"
 
 
 def test_malformed_response_yields_unexpected_shape(*, tmp_path: Path):
