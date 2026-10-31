@@ -115,6 +115,11 @@ def test_active_process_reads_object_status_kind():
     assert not liveness.active_process(process_record={"status": {"kind": "succeeded"}})
 
 
+def test_active_process_reads_completed_errored_and_green_kinds_as_terminal():
+    for kind in ("completed", "errored", "green", "COMPLETED"):
+        assert not liveness.active_process(process_record={"status": {"kind": kind}})
+
+
 def test_remote_factory_liveness_fail_open_paths(*, tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
