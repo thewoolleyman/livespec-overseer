@@ -25,9 +25,12 @@ _TERMINAL_STATUSES = frozenset(
         "canceled",
         "cancelled",
         "closed",
+        "completed",
         "done",
         "error",
+        "errored",
         "failed",
+        "green",
         "merged",
         "success",
         "succeeded",
@@ -149,16 +152,19 @@ def factory_client(*, repo: Path, factory: str | None) -> str:
 
 
 def process_records_from_payload(*, stdout: str) -> list[dict[str, object]] | None:
-    parsed = jsonio.parse_object(text=stdout)
-    if jsonio.is_parse_failure(result=parsed):
+    try:
+        value = json.loads(stdout)
+    except json.JSONDecodeError:
         return None
-    payload = parsed.unwrap()
-    if payload is None:
-        return None
-    runs = jsonio.as_list(value=payload.get("runs"))
+    runs = jsonio.as_list(value=value)
     if runs is None:
-        runs = jsonio.as_list(value=payload.get("items"))
-    if runs is None:
+        payload = jsonio.as_object(value=value) or {}
+        runs = jsonio.as_list(value=payload.get("runs"))
+        if runs is None:
+            runs = jsonio.as_list(value=payload.get("items"))
+        if runs is None:
+            return None
+    elif not runs:
         return None
     return [item for raw in runs if (item := jsonio.as_object(value=raw)) is not None]
 
@@ -182,6 +188,11 @@ def run_matches_target(
 def active_process(*, process_record: dict[str, object]) -> bool:
     for key in ("status", "state", "conclusion"):
         status = string_field(record=process_record, key=key)
+        if status is None:
+            status_object = jsonio.as_object(value=process_record.get(key))
+            status = (
+                None if status_object is None else string_field(record=status_object, key="kind")
+            )
         if status is not None:
             return status.lower() not in _TERMINAL_STATUSES
     return True

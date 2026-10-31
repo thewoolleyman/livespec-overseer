@@ -775,6 +775,29 @@ daemon is surface-only (per spec.md §"Surface-only startup").
   `overseer[SURFACE]:`. Track-scoped alerts carry the full coordinates per
   spec.md §"Notify, never block"; daemon-level notices (a failed paste, a
   refused startup) carry none.
+
+  The daemon MUST write exactly one `overseer:` diagnostic line per cycle,
+  after that cycle's acts complete, carrying: the cycle's wall time in
+  seconds; the seconds spent in discovery, in per-track observation, and in
+  acts; and, for each kind of request the daemon issued to a Herdr server in
+  that cycle (a request kind is the Herdr operation invoked, such as a pane
+  listing, a pane read or a foreground-process query), the request count and
+  total seconds. A cycle that issued no Herdr request MUST still write the
+  line, with no Herdr request kinds listed. The line is a diagnostic, not an
+  alert: it MUST NOT be prefixed `overseer[SURFACE]:` and MUST NOT carry
+  track coordinates.
+
+  When a cycle's wall time exceeds 30 seconds, the daemon MUST emit one
+  daemon-level `overseer[SURFACE]:` notice of kind `slow-cycle` naming that
+  cycle's wall time, its dominant phase (the phase among discovery,
+  per-track observation and acts that took the most seconds), and that
+  phase's share of the wall time as a whole-number percentage. The notice
+  MUST be edge-triggered per spec.md §"Notify, never block": while
+  consecutive cycles each exceed 30 seconds the daemon MUST NOT emit a
+  further `slow-cycle` notice, and the condition MUST re-arm only when a
+  cycle completes within 30 seconds. Like every other daemon-level notice,
+  it MUST carry no track coordinates. The notice MUST NOT pause, skip or
+  alter any act; it only reports.
 - Startup gates, in order: an unsupported host is refused FIRST with the
   failed precondition named (per constraints.md §"Runtime requirements");
   then the daemon refuses if any watched repository fails the gitignore
