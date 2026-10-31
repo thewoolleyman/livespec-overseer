@@ -435,6 +435,36 @@ def test_a_backend_report_cannot_claim_a_session_recorded_by_another_track(*, tm
     assert (TRACKED_COORDINATE, "topic") not in world.sup.live_codex
 
 
+def test_a_live_recorded_claude_blocks_a_reported_codex_carrier_in_its_pane(*, tmp_path):
+    """Live Claude evidence retains its identity and launch profile over a Codex report."""
+    _module = codex_identity()
+    claude_identity = "claude:123:456:topic"
+    profile = {"harness": "claude", "model": "claude-opus", "wrapper": None}
+    world = make_world(
+        tmp_path=tmp_path,
+        rows=[(tmp_path / "repo", "topic", TRACKED_COORDINATE, claude_identity)],
+    )
+    registry.record_model_profile(
+        repo=str(world.repo), topic="topic", model_profile=profile, store_path=world.store
+    )
+    world.sup.claude_identity_by_session[(TRACKED_COORDINATE, "topic")] = claude_identity
+    (world.home / "session_index.jsonl").write_text(
+        json.dumps({"id": SESSION_ID, "thread_name": "topic"}) + "\n",
+        encoding="utf-8",
+    )
+    world.sup.tmux.pane_agent_session = lambda *, session: (
+        SESSION_ID if session == TRACKED_COORDINATE else None
+    )
+
+    world.sup.refresh_codex_sessions()
+
+    assert (TRACKED_COORDINATE, "topic") not in world.sup.live_codex
+    row = row_of(store=world.store)
+    assert row.observed_session_identity == claude_identity
+    assert row.model_profile == profile
+    assert not world.sup.tmux.has(method="respawn")
+
+
 # --- assertion 2: the dead tmux coordinate is rebound, old and new logged ------------
 
 
