@@ -182,3 +182,16 @@ would otherwise live in.
   torn down once the proof is captured. It MUST NEVER use one of the
   operator's active sessions as its subject or reproduction, even when that
   session currently exhibits the defect being proved.
+- The sacrificial-seat rule above governs LIVE PROOFS only: a session that
+  renames, misnames, restarts, sends keys to, closes or re-briefs a
+  supervised session IN ORDER TO PROVE a behaviour. It does not forbid any
+  other interaction with a session's pane, and in particular it MUST NOT be
+  read as forbidding a coordinator from typing into a session's pane.
+- A coordinator MUST unblock a session that is blocked at a decision picker
+  it cannot otherwise answer, by typing whatever that picker needs into the
+  session's pane, and then MUST send the same answer to that session in
+  words by cross-session message, so the session's conversation records
+  what was chosen and by whom.
+- Outside unblocking a session at a picker, a session SHOULD NOT type into
+  another session's input field, because keystrokes there collide with the
+  operator's own typing; it uses a cross-session message instead.

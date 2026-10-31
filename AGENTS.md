@@ -441,6 +441,24 @@ the same way.
   not what the specification REQUIRES. Only a spec-change-tier child routes to
   `propose-change`; escalating the rest deadlocks the archive gate that refuses
   while a child sits undisposed.
+- **The sacrificial-seat rule governs LIVE PROOFS only; it is not a ban on
+  typing into a pane.** `SPECIFICATION/non-functional-requirements.md`
+  §"Scenarios" requires that a live proof which renames, restarts, sends keys
+  to, closes or re-briefs a session run on a sacrificial seat. It says nothing
+  else. A coordinator MUST unblock a session stuck at a decision picker it
+  cannot otherwise answer, by typing whatever the picker needs into that
+  session's pane, and then MUST send the same answer in words by cross-session
+  message. Outside that, a session does not type into another session's input
+  field, because it collides with the maintainer's own typing; it messages
+  instead. Measured 2026-10-31 (`overseer-wcsd`): a handoff paraphrased the
+  rule as "never send keys to ANY active maintainer session", and a seat that
+  obeyed the paraphrase refused coordinator-directed unblocking and sat frozen
+  at its own picker for hours. The maintainer's ruling, verbatim on
+  `overseer-wcsd`: "if they are actually blocked on a picker and there is no
+  other way for you to unblock them, then there is, yes, absolutely, a mandate
+  to unblock them and to type whatever you need to in the pane." **Quote a
+  rule's scope when you carry it into a handoff;** a paraphrase that drops the
+  scope becomes a different rule.
 
 ## Prefer factory dispatch over interactive hand-implementation when the work is dispatch-safe
 
