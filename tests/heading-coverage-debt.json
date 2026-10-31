@@ -1916,5 +1916,26 @@
     "heading": "## Scenario: An unrecognised limit leaves the account readable and is shown",
     "work_item": "overseer-e6bvmt",
     "first_seen": "2026-10-31"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Every cycle records its own timing",
+    "work_item": "overseer-4j2tlu",
+    "first_seen": "2026-10-31"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A slow cycle is surfaced once with its dominant phase",
+    "work_item": "overseer-4j2tlu",
+    "first_seen": "2026-10-31"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A run of slow cycles is surfaced once until a cycle completes in time",
+    "work_item": "overseer-4j2tlu",
+    "first_seen": "2026-10-31"
   }
 ]
