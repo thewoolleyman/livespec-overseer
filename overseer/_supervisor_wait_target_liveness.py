@@ -185,6 +185,11 @@ def run_matches_target(
 def active_process(*, process_record: dict[str, object]) -> bool:
     for key in ("status", "state", "conclusion"):
         status = string_field(record=process_record, key=key)
+        if status is None:
+            status_object = jsonio.as_object(value=process_record.get(key))
+            status = (
+                None if status_object is None else string_field(record=status_object, key="kind")
+            )
         if status is not None:
             return status.lower() not in _TERMINAL_STATUSES
     return True
