@@ -88,6 +88,7 @@ class MixedPaneDriver:
     pane_pid = pane_router_read_facade.pane_pid
     pane_current_command = pane_router_read_facade.pane_current_command
     pane_current_path = pane_router_read_facade.pane_current_path
+    pane_agent_session = pane_router_read_facade.pane_agent_session
     session_exists = pane_router_read_facade.session_exists
     pane_pid_sessions = pane_router_read_facade.pane_pid_sessions
     renumbered_herdr_coordinate = pane_router_read_facade.renumbered_herdr_coordinate

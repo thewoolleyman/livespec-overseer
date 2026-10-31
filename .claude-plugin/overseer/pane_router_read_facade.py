@@ -12,6 +12,7 @@ from tmuxio_protocols import PaneDriver
 __all__: list[str] = [
     "ReadRouteHost",
     "capture_pane",
+    "pane_agent_session",
     "pane_by_title",
     "pane_current_command",
     "pane_current_path",
@@ -65,6 +66,23 @@ def pane_current_command(self: ReadRouteHost, *, session: str) -> str | None:
 
 def pane_current_path(self: ReadRouteHost, *, session: str) -> str | None:
     return reads(driver=self).pane_current_path(session=session)
+
+
+def pane_agent_session(self: ReadRouteHost, *, session: str) -> str | None:
+    """The Codex session id herdr reports for one qualified pane, if any.
+
+    Only a native herdr coordinate can carry a report; legacy and tmux targets have
+    no such backend evidence. An unreadable listing or a pane absent from it is
+    absence of evidence, never an id.
+    """
+    target = reads(driver=self).decode(value=session).herdr
+    if target is None:
+        return None
+    listing = self.herdr.list_panes(target=target)
+    for pane in listing.panes if listing.ok else ():
+        if pane.pane_id == target.pane_id:
+            return pane.reported_codex_session_id or None
+    return None
 
 
 def session_exists(self: ReadRouteHost, *, session: str) -> bool:

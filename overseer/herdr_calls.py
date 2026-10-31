@@ -87,6 +87,11 @@ class PaneRow:
     `foreground_cwd` is carried separately from `cwd` deliberately — the shell's
     cwd and the foreground child's cwd differ the moment anything runs, and the
     research warns against reading the former as the latter.
+
+    `reported_codex_session_id` is the Codex session id herdr's integration hook
+    reported for the pane (`agent_session` with `kind == "id"`), or `""` when the
+    pane carries no such report. It is optional evidence, so an absent or malformed
+    report never discards the row.
     """
 
     pane_id: str
@@ -95,6 +100,7 @@ class PaneRow:
     cwd: str
     foreground_cwd: str
     focused: bool
+    reported_codex_session_id: str = ""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -217,6 +223,21 @@ def visible_text(*, result: dict[str, object]) -> str | None:
     return None if parsed is None else parsed.text
 
 
+def _reported_codex_session_id(*, row: dict[str, object]) -> str:
+    """The id-kind Codex session the pane reports, or "" for anything else.
+
+    A `path` report, another agent's report, a blank value and a malformed member are
+    all the same thing here: no backend-reported identity. A path is never opened, so
+    only an id can identify a carrier.
+    """
+    report = jsonio.as_object(value=row.get("agent_session"))
+    if report is None:
+        return ""
+    if report.get("agent") != "codex" or report.get("kind") != "id":
+        return ""
+    return (_text_at(obj=report, name="value") or "").strip()
+
+
 def _pane_row(*, row: dict[str, object]) -> PaneRow | None:
     pane_id = _text_at(obj=row, name="pane_id")
     tab_id = _text_at(obj=row, name="tab_id")
@@ -238,6 +259,7 @@ def _pane_row(*, row: dict[str, object]) -> PaneRow | None:
         # reading: claiming focus the server did not report would let a caller
         # act on the wrong pane.
         focused=row.get("focused") is True,
+        reported_codex_session_id=_reported_codex_session_id(row=row),
     )
 
 
