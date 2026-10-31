@@ -88,6 +88,7 @@ class CodexPaneCarrier:
     coordinate: str
     cwd: str
     session_id: str | None
+    candidate_session_ids: tuple[str, ...]
 
 
 def _resolved_codex_home(*, readers: codex_sessions.CodexHostReaders) -> Path:
@@ -130,20 +131,20 @@ def live_rollout_ids(
     return frozenset(ids)
 
 
-def carrier_session_id(
+def _candidate_session_ids(
     *,
     pid: int,
     cwd: str,
     candidates: frozenset[str],
     codex_home: str | os.PathLike[str] | None,
     environ_of: PidToOptionalBytes,
-) -> str | None:
-    """The ONE live session this carrier's own state database binds to its repository.
+) -> tuple[str, ...]:
+    """The live sessions this carrier's state database binds to its repository.
 
     ``candidates`` is the live-id set, so a thread the database remembers but nothing is
     running is never a candidate. The carrier's own ``CODEX_HOME`` selects the database,
     exactly as the runtime-model reader resolves it, and the ACTIVE database is the only
-    one consulted. Ambiguity and every unusable-source condition resolve to None.
+    one consulted.
     """
     home = _codex_runtime_model.carrier_codex_home(
         pid=pid, environ_of=environ_of, fallback=codex_home
@@ -152,14 +153,37 @@ def carrier_session_id(
         codex_home=home if home is not None else codex_sessions.default_codex_home()
     )
     if database is None:
-        return None
-    bound = [
+        return ()
+    return tuple(
         candidate
         for candidate in sorted(candidates)
         if _codex_runtime_model.read_state_database_repository(
             database=database, session_id=candidate, cwd=cwd
         )
-    ]
+    )
+
+
+def carrier_session_id(
+    *,
+    pid: int,
+    cwd: str,
+    candidates: frozenset[str],
+    codex_home: str | os.PathLike[str] | None,
+    environ_of: PidToOptionalBytes,
+) -> str | None:
+    """The one live session this carrier's state database binds to its repository.
+
+    Ambiguity and every unusable-source condition resolve to None.  The unbound
+    candidate set remains on :class:`CodexPaneCarrier` so the supervisor can surface
+    why it refuses to name a live carrier.
+    """
+    bound = _candidate_session_ids(
+        pid=pid,
+        cwd=cwd,
+        candidates=candidates,
+        codex_home=codex_home,
+        environ_of=environ_of,
+    )
     return bound[0] if len(bound) == 1 else None
 
 
@@ -200,18 +224,20 @@ def pane_codex_carriers(
         cwd = readers.cwd_of(pid=pid)
         if coordinate is None or not cwd:
             continue
+        candidate_session_ids = _candidate_session_ids(
+            pid=pid,
+            cwd=cwd,
+            candidates=candidates,
+            codex_home=readers.codex_home,
+            environ_of=sup.environ_of,
+        )
         found.append(
             CodexPaneCarrier(
                 pid=pid,
                 coordinate=coordinate,
                 cwd=cwd,
-                session_id=carrier_session_id(
-                    pid=pid,
-                    cwd=cwd,
-                    candidates=candidates,
-                    codex_home=readers.codex_home,
-                    environ_of=sup.environ_of,
-                ),
+                session_id=(candidate_session_ids[0] if len(candidate_session_ids) == 1 else None),
+                candidate_session_ids=candidate_session_ids,
             )
         )
     return tuple(found)

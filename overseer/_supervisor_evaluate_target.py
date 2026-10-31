@@ -12,6 +12,7 @@ import _supervisor_herdr_moved
 import _supervisor_herdr_stall
 import _supervisor_launch
 import _supervisor_observe
+import _supervisor_unidentified_codex
 import herdr_identity
 import registry
 from _supervisor_config import track_key
@@ -65,20 +66,10 @@ def _unresolved_target(
     `reconcile_bare_shell` verifies before acting, so it is reconciled with this tick's
     real `act` rather than read-only.
 
-    Before any of that, the unidentifiable-Codex condition is ruled out, because every
-    route below ends in a claim about the track's session and that condition supports
-    none of them: a live Codex pane in this repo whose identity could not be resolved
-    means the daemon cannot SAY, which is the opposite of `session-gone`.
+    The unidentifiable-Codex condition is ruled out earlier, before even a stale mapped
+    coordinate is queried: every route here ends in a claim about the track's session,
+    while a live Codex pane whose identity could not be resolved supports none.
     """
-    if _supervisor_codex_rebind.unidentified_codex_pane(sup=sup, track=track):
-        return RowView(
-            topic=track.topic,
-            repo=track.repo,
-            tmux=None,
-            ctx=None,
-            status="unidentified-session",
-            note=_supervisor_codex_rebind.UNIDENTIFIED_NOTE,
-        )
     if refuses_recorded_target and sup.tmux.session_exists(session=session):
         recovery = _supervisor_herdr_stall.reconcile_and_alert(
             sup=sup,
@@ -204,6 +195,12 @@ def resolve_evaluate_target(
         act=act,
     )
 
+    unidentified = _supervisor_codex_rebind.unidentified_codex_pane(sup=sup, track=track)
+    if unidentified is not None:
+        return _supervisor_unidentified_codex.unidentified_codex_row(
+            sup=sup, track=track, carrier=unidentified, act=act
+        )
+
     # A recorded process generation is authoritative for Herdr. Positional pane ids
     # can be reused, so existence of the old id cannot prove that it still names this
     # track. If the generation scan found no unique match, refuse the pane even when
@@ -255,14 +252,9 @@ def resolve_evaluate_target(
         act=act,
         alert=act,
     )
-    if recovery is not None:
-        return recovery
-
-    # Identity gate (B3): the mapped session exists, but before reading its pane
-    # for any ACT we confirm it is really OUR Claude in OUR repo — never
-    # keystroke into a shell / wrong session / human split-pane.
-    if _unproven_herdr_target(sup=sup, track=track, session=session, target=target) or not (
-        _supervisor_observe.pane_is_managed(
+    if recovery is None and (
+        _unproven_herdr_target(sup=sup, track=track, session=session, target=target)
+        or not _supervisor_observe.pane_is_managed(
             sup=sup, target=target, repo=repo, topic=topic, session=session
         )
     ):
@@ -284,9 +276,10 @@ def resolve_evaluate_target(
         # appears at all. The daemon lists PLANS, not panes: a tmux name reaches the
         # table only as a mapping's column value, and `_no_managed_pane_row` already
         # reports `tmux=None` so no dead terminal is named.
-        return _supervisor_codex_misnamed.gone_row(sup=sup, track=track, session=session, act=act)
-
-    return EvaluateTarget(
+        recovery = _supervisor_codex_misnamed.gone_row(
+            sup=sup, track=track, session=session, act=act
+        )
+    return recovery or EvaluateTarget(
         track=track,
         repo=repo,
         topic=topic,
