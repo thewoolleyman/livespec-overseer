@@ -3998,5 +3998,29 @@
     "test": "TODO",
     "work_item": "overseer-e6bvmt",
     "reason": "A real integration-tier test is owed, and work-item overseer-e6bvmt owns landing it. Ratified spec-first by the 2026-10-31 delegated revise of caam-usage-model-an-account (v080) under plan caam-generic-limit-windows (epic overseer-rumvpf); overseer-e6bvmt MUST replace this TODO with an integration-tier test driving a caam pass over usage readings that carry no short-window limit or an unrecognised limit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Every cycle records its own timing",
+    "test": "TODO",
+    "work_item": "overseer-4j2tlu",
+    "reason": "Ratified in v081 (slow-cycle-phase-timing) ahead of its implementation child; a test at integration tier is owed, and overseer-4j2tlu MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A slow cycle is surfaced once with its dominant phase",
+    "test": "TODO",
+    "work_item": "overseer-4j2tlu",
+    "reason": "Ratified in v081 (slow-cycle-phase-timing) ahead of its implementation child; a test at integration tier is owed, and overseer-4j2tlu MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A run of slow cycles is surfaced once until a cycle completes in time",
+    "test": "TODO",
+    "work_item": "overseer-4j2tlu",
+    "reason": "Ratified in v081 (slow-cycle-phase-timing) ahead of its implementation child; a test at integration tier is owed, and overseer-4j2tlu MUST replace this TODO with a test at integration tier."
   }
 ]
