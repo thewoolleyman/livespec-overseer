@@ -78,7 +78,10 @@ def test_remote_factory_liveness_resolves_server_and_matches_active_run(*, tmp_p
           "livespec-orchestrator-beads-fabro": {
             "dispatcher": {
               "factories": {
-                "hp": { "server": "https://factory.example" }
+                "hp": {
+                  "server": "https://factory.example",
+                  "bin": "/factory/bin/fabro"
+                }
               }
             }
           }
@@ -113,7 +116,7 @@ def test_remote_factory_liveness_resolves_server_and_matches_active_run(*, tmp_p
         target_id="dispatch-1",
     )
     assert calls[-1][0][0] == [
-        "fabro",
+        "/factory/bin/fabro",
         "ps",
         "-a",
         "--json",

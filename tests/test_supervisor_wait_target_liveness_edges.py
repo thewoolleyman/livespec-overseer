@@ -48,6 +48,8 @@ def test_factory_server_handles_missing_config_shapes(*, tmp_path):
 
     assert liveness.factory_server(repo=repo, factory=None) is None
     assert liveness.factory_server(repo=repo, factory="hp") is None
+    assert liveness.factory_client(repo=repo, factory=None) == "fabro"
+    assert liveness.factory_client(repo=repo, factory="hp") == "fabro"
     write_config(repo=repo, text='{"other": {}}')
     assert liveness.factory_server(repo=repo, factory="hp") is None
     write_config(repo=repo, text='{"livespec-orchestrator-beads-fabro": {"other": {}}}')
@@ -71,10 +73,11 @@ def test_factory_server_handles_missing_config_shapes(*, tmp_path):
         repo=repo,
         text=(
             '{"livespec-orchestrator-beads-fabro": {"dispatcher": {"factories": '
-            '{"hp": {"server": 7}}}}}'
+            '{"hp": {"server": 7, "bin": "/factory/bin/fabro"}}}}}'
         ),
     )
     assert liveness.factory_server(repo=repo, factory="hp") is None
+    assert liveness.factory_client(repo=repo, factory="hp") == "/factory/bin/fabro"
 
 
 def test_payload_matching_and_active_status_helpers():
