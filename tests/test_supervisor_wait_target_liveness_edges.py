@@ -110,6 +110,11 @@ def test_process_records_accepts_top_level_factory_run_arrays():
     assert liveness.process_records_from_payload(stdout='[{"id": "run-1"}, 7]') == [{"id": "run-1"}]
 
 
+def test_active_process_reads_object_status_kind():
+    assert liveness.active_process(process_record={"status": {"kind": "running"}})
+    assert not liveness.active_process(process_record={"status": {"kind": "succeeded"}})
+
+
 def test_remote_factory_liveness_fail_open_paths(*, tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
