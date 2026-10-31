@@ -500,7 +500,7 @@ def test_a_live_pane_whose_resolved_identity_differs_never_moves_the_row(*, tmp_
 # --- assertion 5: an unidentifiable Codex pane is its own status ---------------------
 
 
-def test_an_unidentifiable_codex_pane_is_reported_as_unidentified_session_not_gone(*, tmp_path):
+def test_an_unidentifiable_codex_pane_is_reported_once_without_driving_it(*, tmp_path):
     """`session-gone` asserts the session is NOT THERE; here the daemon cannot tell.
 
     Two live sessions bound to one repository leave both unidentified, so the daemon has
@@ -519,15 +519,27 @@ def test_an_unidentifiable_codex_pane_is_reported_as_unidentified_session_not_go
         ],
     )
 
-    outcome, _log = resolve(world=world, act=True)
+    outcome, first_log = resolve(world=world, act=True)
+    repeated, repeated_log = resolve(world=world, act=True)
 
     assert not isinstance(outcome, _supervisor_evaluate_target.EvaluateTarget)
     assert outcome.status == "unidentified-session"
+    assert repeated.status == "unidentified-session"
     assert outcome.status in _supervisor_view.ATTENTION_STATUSES
     assert _supervisor_view.row_color(status=outcome.status) != _supervisor_view.row_color(
         status="session-gone"
     )
     assert row_of(store=world.store).tmux == DEAD_TMUX
+    events = [
+        json.loads(line) for line in (first_log + repeated_log).splitlines() if line.startswith("{")
+    ]
+    assert len(events) == 1
+    event = events[0]
+    assert event["event"] == "unidentified-session"
+    assert TRACKED_COORDINATE in event["message"]
+    assert str(TRACKED_PID) in event["message"]
+    assert "ambiguous repository sessions" in event["message"]
+    assert not world.sup.tmux.calls
 
 
 # --- assertion 6: the read-only list path reports without rewriting ------------------
