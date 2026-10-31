@@ -43,6 +43,7 @@ __all__: list[str] = [
     "archive_gc",
     "auto_link",
     "build_rows",
+    "current_claude_status",
     "refresh_claude_status",
     "refresh_claude_track",
     "refresh_codex_sessions",
@@ -193,6 +194,11 @@ def refresh_claude_track(*, sup: Supervisor, session: str, topic: str) -> None:
     sup.claude_identity_by_session[(session, live.name)] = (
         f"claude:{live.pid}:{live.proc_start}:{live.name}"
     )
+
+
+def current_claude_status(*, sup: Supervisor, session: str, topic: str) -> str | None:
+    refresh_claude_track(sup=sup, session=session, topic=topic)
+    return sup.claude_status_by_session.get(session)
 
 
 def unindexed_codex_rows(*, sup: Supervisor) -> list[RowView]:

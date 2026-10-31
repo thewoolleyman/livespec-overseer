@@ -10,6 +10,7 @@ The pane-identity pair (:func:`pane_is_managed` and its Claude half) lives here 
 the same reason — it answers `is this really OUR session`, which is a fact, not a
 decision.
 """
+# livespec-lloc-soft-band-owner: overseer-4z97.2
 
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import _supervisor_compaction
+import _supervisor_discovery
 import _supervisor_ready
 import claude_sessions
 import registry
@@ -251,7 +253,10 @@ def observe(
     # shells (false-working). `has_active_subshell` (`bg_shell`) remains ONLY the
     # runtime-agnostic FALLBACK for a session with no registry entry (Codex).
     # `claude_status is None` ⇒ not an adopted Claude session.
-    claude_status = sup.claude_status_by_session.get(session)
+    # Read after the capture, so the self-report is never older than the pane it pairs with.
+    claude_status = _supervisor_discovery.current_claude_status(
+        sup=sup, session=session, topic=topic
+    )
     claude_busy = claude_status in CLAUDE_BUSY_STATUSES
     is_codex = is_codex_track(sup=sup, session=session, repo=repo, topic=topic, target=target)
     codex_fallback = claude_status is None and bg_shell and is_codex
