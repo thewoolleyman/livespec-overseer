@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.42.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.42.0...v5.42.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* share Herdr cycle observations ([72d41df](https://github.com/thewoolleyman/livespec-overseer/commit/72d41df2af6266efb9c10363ff92d2214df743e3))
+
 ## [5.42.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.41.3...v5.42.0) (2026-10-31)
 
 
