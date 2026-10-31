@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.41.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.41.1...v5.41.2) (2026-10-31)
+
+
+### Bug Fixes
+
+* cover stalled Herdr resume recovery ([61aa78e](https://github.com/thewoolleyman/livespec-overseer/commit/61aa78ed48c174b122c92af55463ede14e09588d))
+
 ## [5.41.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.41.0...v5.41.1) (2026-10-31)
 
 
