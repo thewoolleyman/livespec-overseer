@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.41.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.41.2...v5.41.3) (2026-10-31)
+
+
+### Bug Fixes
+
+* route liveness through configured factory client ([aaa7bdc](https://github.com/thewoolleyman/livespec-overseer/commit/aaa7bdc7d83762b2841d663ca58f8ba04934163d))
+
 ## [5.41.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.41.1...v5.41.2) (2026-10-31)
 
 
