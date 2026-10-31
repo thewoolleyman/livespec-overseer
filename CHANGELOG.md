@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.42.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.41.3...v5.42.0) (2026-10-31)
+
+
+### Features
+
+* accept array-shaped factory process output ([813ae45](https://github.com/thewoolleyman/livespec-overseer/commit/813ae45e2402f898f4e7320ba75c0d15fd88b823))
+* read object-shaped factory run statuses ([ba323ef](https://github.com/thewoolleyman/livespec-overseer/commit/ba323ef26cd920d6f049265a62a7b0ab6f027e1f))
+
 ## [5.41.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.41.2...v5.41.3) (2026-10-31)
 
 
