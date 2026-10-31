@@ -18,10 +18,11 @@ c. reports a refusal or an unavailable channel BEFORE transmission distinguishab
 That three-part test is what :class:`MessageChannel` encodes: a channel that cannot
 name the identity it addresses cannot satisfy (a), and one that cannot distinguish
 its three outcomes cannot satisfy (b) or (c). A runtime offering nothing that meets
-all three delivers by the paste, which is why :func:`no_supported_channel` — the
-default provider — is the honest answer rather than a stub: no runtime this daemon
-drives has a measured channel yet, and a channel asserted rather than measured would
-route a wind-down into a transport nobody has proven accepts it.
+all three delivers by the paste. Claude Code's per-session UDS socket was measured
+against version 2.1.170: it addresses a live identity, but its sender resolves when
+the socket closes without parsing an acceptance acknowledgement. Its provider thus
+returns ``None`` rather than asserting a channel the receiver has not proven it
+accepted.
 
 Choosing the channel changes HOW a message is delivered, never WHETHER it is: every
 guard that governs the act's paste governs its channel delivery unchanged. This
@@ -34,6 +35,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
+
+from _claude_peer_channel import claude_peer_channel_provider
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -50,7 +53,6 @@ __all__: list[str] = [
     "MessageChannel",
     "channel_provider",
     "delivery_path",
-    "no_supported_channel",
     "resolve_channel",
 ]
 
@@ -134,34 +136,13 @@ class ChannelProvider(Protocol):
     ) -> MessageChannel | None: ...
 
 
-def no_supported_channel(
-    *,
-    sup: Supervisor,
-    runtime: str,
-    session: str,
-    topic: str,
-    identity: str | None,
-) -> MessageChannel | None:
-    """The default provider: no runtime offers a channel meeting all three tests.
-
-    Deliberately NOT a speculative transport. The candidate channels named by the
-    maintainer — herdr's ``agent prompt``, Claude Code's per-session peer socket,
-    Codex's app-server — each fail or cannot be measured from here: ``agent prompt``
-    addresses a PANE and types into it, and the other two exist only on the operator
-    host. Returning ``None`` makes every runtime paste exactly as it did before,
-    which is the contract's own answer for a runtime with no supported channel.
-    """
-    del sup, runtime, session, topic, identity
-    return None
-
-
 # The one resolution seam, a module-level provider in the same shape as
 # `_supervisor_wrapup_injection.wrapup_message_provider`. It lives HERE rather than on
 # the `Supervisor` dataclass because it is a property of the RUNTIME, not of a daemon
 # instance: every track on a given runtime resolves the same way, and the arguments
 # below already carry everything a per-session answer needs. Rebind it through this
 # module, never through a facade re-export.
-channel_provider: ChannelProvider = no_supported_channel
+channel_provider: ChannelProvider = claude_peer_channel_provider
 
 
 def resolve_channel(
