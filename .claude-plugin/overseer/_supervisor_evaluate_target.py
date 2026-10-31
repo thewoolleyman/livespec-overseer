@@ -76,7 +76,7 @@ def _unresolved_target(
             repo=track.repo,
             tmux=None,
             ctx=None,
-            status="codex-unidentified",
+            status="unidentified-session",
             note=_supervisor_codex_rebind.UNIDENTIFIED_NOTE,
         )
     if refuses_recorded_target and sup.tmux.session_exists(session=session):
