@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.41.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.41.0...v5.41.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* out-of-band herdr retirement clears only the round it recorded ([3902e17](https://github.com/thewoolleyman/livespec-overseer/commit/3902e171a833182addf8d3c062b5983211d491bd))
+* retire stalled out-of-band herdr replacements ([f3f2882](https://github.com/thewoolleyman/livespec-overseer/commit/f3f2882f8d547b6afcac62ea87223a7fe23793b0))
+
 ## [5.41.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.40.1...v5.41.0) (2026-10-31)
 
 
