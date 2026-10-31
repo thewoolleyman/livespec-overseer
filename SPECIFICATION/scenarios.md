@@ -724,6 +724,44 @@ And the next wrap-up delivered to that track names the rejected value and the fo
 
 But a state file the session rewrote with a valid value after the observation is not moved
 
+## Scenario: The declaration command refuses a value the daemon would reject
+
+Given a tracked session whose state file holds a valid declaration
+
+When the session runs overseer-declare blocked with an empty or multi-line reason
+
+Then the command exits non-zero and names the accepted forms
+
+And the state file still holds the earlier declaration
+
+But overseer-declare blocked with a one-line reason writes that blocked declaration
+
+## Scenario: The declaration command clears only what a session may clear
+
+Given a tracked session whose state file holds a session-written value or the idle-with-context-left marker
+
+When the session runs overseer-declare clear
+
+Then the state file is deleted
+
+But a state file holding any other daemon-written value is left in place and reported
+
+And clear succeeds when no state file exists
+
+## Scenario: Every declaration instruction names the declaration command
+
+Given a tracked worker or supervisor pair member
+
+When the daemon composes a wrap-up, a keep-going nudge, a pair-stall nudge, a ready-expiry notice, or a rejected-value line for it
+
+Then each value it asks for is named as an absolute overseer-declare invocation carrying that entity's repository and topic
+
+And running that invocation with an empty command search path writes the declaration the daemon reads as valid
+
+And the text carries the sentence "Declare only through overseer-declare; never write or delete the state file by hand."
+
+And the text contains no echo, redirection, rm, or mkdir aimed at the state file
+
 ## Scenario: A blocked declaration is relayed, not answered
 
 Given a session that wrote blocked with a one-line reason
