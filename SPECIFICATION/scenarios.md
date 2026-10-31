@@ -5415,6 +5415,62 @@ Then that account's row shows an unknown capacity class
 
 And the pass does not fail on that account
 
+## Scenario: A scheduled pass evaluates an active account that has no short-window limit
+
+Given the active account's usage reading carries a weekly limit and no short-window limit
+
+When a scheduled pass runs
+
+Then the pass reads the active account successfully and evaluates the weekly reserve against it
+
+And the pass does not fail on the missing short-window limit
+
+And the account table shows the active account's weekly figures and states that it has no short-window limit
+
+## Scenario: An account with no short-window limit is not reported unreadable
+
+Given a managed account's usage reading carries a weekly limit and no short-window limit
+
+When a pass reports the account table
+
+Then the account's row shows its weekly figures and states that it has no short-window limit
+
+And the row does not report the account as unreadable
+
+## Scenario: An account with no short-window limit is selected on a short-window rotation
+
+Given the active account has crossed its short-window rotation threshold
+
+And a live-verified candidate's usage reading carries a weekly limit above the weekly reserve and no short-window limit
+
+When a scheduled pass runs
+
+Then that candidate is eligible as a rotation destination
+
+## Scenario: A temporary short-window limit is honoured only on the readings that report it
+
+Given the active account's previous reading carried no short-window limit
+
+And its current reading carries a short-window limit at or above the short-window threshold
+
+When a scheduled pass runs
+
+Then the short-window trigger is evaluated and fires on that reading
+
+And on a later reading that carries no short-window limit, the account is evaluated without a short-window trigger
+
+## Scenario: An unrecognised limit leaves the account readable and is shown
+
+Given a managed account's usage reading carries a weekly limit and a limit of a kind the operation does not recognise
+
+When a pass reports the account table
+
+Then the account is read successfully and its weekly figures are shown
+
+And its row shows the unrecognised limit by its provider-reported name
+
+And the unrecognised limit does not fire a rotation trigger
+
 ## Scenario: A context rise under an unchanged session identity latches a restart obligation
 
 Given a tracked session with a known remaining-context reading
