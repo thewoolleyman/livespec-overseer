@@ -99,6 +99,44 @@ def test_a_committed_server_still_wins_over_the_supplied_registry(*, tmp_path):
     )
 
 
+def test_remote_liveness_uses_the_factorys_committed_carrier_client(*, tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _ = (repo / ".livespec.jsonc").write_text(
+        '{"livespec-orchestrator-beads-fabro": {"dispatcher": {"factories": '
+        '{"petri": {"server": "https://petri.example:32276", '
+        '"bin": "/carrier/petri/fabro"}}}}}',
+        encoding="utf-8",
+    )
+    commands: list[list[str]] = []
+
+    def run(args, **kwargs):
+        commands.append(args)
+        _ = kwargs
+        return Completed(returncode=0, stdout=_PETRI_RUNNING)
+
+    assert (
+        liveness.remote_factory_run_present_with(
+            repo=repo,
+            record={"dispatch_factory": "petri"},
+            target_id="dispatch-1",
+            run=run,
+        )
+        is True
+    )
+    assert commands == [
+        ["/carrier/petri/fabro", "ps", "-a", "--json", "--server", "https://petri.example:32276"]
+    ]
+
+
+def test_factory_client_falls_back_to_path_fabro_without_a_declared_bin(*, tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    assert liveness.factory_client(repo=repo, factory=None) == "fabro"
+    assert liveness.factory_client(repo=repo, factory="petri") == "fabro"
+
+
 def refuse_to_run(args, **kwargs):
     _ = kwargs
     raise AssertionError(f"fabro must not be queried without a resolved server: {args!r}")
