@@ -19,7 +19,7 @@ branch collides with your own sibling.
 | succeeded-untransitioned | `fabro ps -a` says `succeeded` and the forge shows a **merged** PR | **yes — merged** | **close it** — never re-dispatch |
 | interview-destroyed | `Interview ended without an answer`; `ps -a` `failed` with wall = the full ceiling | no — done but never pushed | `fabro dump` the run and land the recovered patch; release the claim |
 | publish-branch collision | **two** runs: one `succeeded`, one `blocked` refusing to overwrite its sibling's branch | **yes — PR open** | close the duplicate; touch nothing else |
-| factory-host ENOSPC | immediate failure at stage `fabro-run`, ENOSPC `detail` naming the factory's storage path, `fabro_run_id` null | no | release the claim and re-try `hp` — the condition is intermittent |
+| factory-host ENOSPC | immediate failure at stage `fabro-run`, ENOSPC `detail` naming the factory's storage path, `fabro_run_id` null | no | release the claim and re-try the same factory — the condition is intermittent |
 | janitor-post-merge red | stage `janitor-post-merge`, `pr_number` **and** `merge_sha` both populated, several unrelated items failing at once | **yes — merged** | close it, then fix master |
 | merge-poll | stage `merge-poll`, `pr_number` populated with `merge_sha` **null** | not yet — PR open | fix the gate holding the merge and let auto-merge land it; do not touch the claim |
 | acceptance-valve rework | envelope **green** through `done`, PR merged — and the row reads `active` with label **`rework:pending`** | **yes — merged** | read the FAIL reason in the journal and fix the acceptance TEXT; do **NOT** re-dispatch first |
@@ -733,16 +733,14 @@ permanent.
 
 ### A SEVENTH SHAPE: the FACTORY HOST has no room for a run directory, and every local signal reads healthy
 
-**MAINTAINER INSTRUCTION, 2026-08-22: DO NOT ROUTE ANY WORK TO THE `vps`
-FACTORY FOR THIS REPO, UNTIL THE MAINTAINER LIFTS THIS.** `hp` is the only
-dispatch target for livespec-overseer. A capacity defer where `active_count`
-equals `wip_cap` is this repo's WIP cap working as designed: wait for a slot.
-It is not a routing problem, not grounds to pass a `vps` factory argument, and
-not grounds to substitute a local run. The pre-push aggregate is the sole
-standing local exception, because it runs by design and cannot be dispatched.
-The second factory declared in `.livespec.jsonc` is still useful for read-only
-process inspection, but it is not available for routing work despite being
-configured.
+**ROUTING NOTE, re-tensed 2026-10-30.** This entry used to open with the
+maintainer's 2026-08-22 instruction making `hp` the only dispatch target. That
+instruction is SUPERSEDED: the factory moved off `hp` (maintainer direction
+2026-10-20), `hp` no longer exists in the factory registry, and the factory is
+whatever `.livespec.jsonc` `dispatcher.default_factory` names. See `AGENTS.md`
+§"Routing: committed config names the factory, and `hp` is gone". The ban on
+routing to `vps` stands. The measurements below are dated history: where they
+say `hp`, read "the factory the item was routed to on that date".
 
 **INSPECTING A FACTORY IS NOT ROUTING WORK TO IT.** Pointing `fabro ps` or
 `fabro inspect` at the second factory's server to read the state of a run that is
@@ -795,8 +793,7 @@ standing instruction disagree, the guidance is the caller.
 
 **IT IS INTERMITTENT — do not escalate this as a factory outage.** The same host
 carried a full run to an opened PR thirteen minutes after the failures below; the
-evidence is at the end of this entry. Re-try `hp` first unless the standing
-maintainer instruction above has been lifted. The diagnosis that follows is
+evidence is at the end of this entry. Re-try the same factory first. The diagnosis that follows is
 accurate and worth reading in full; only its urgency is not.
 
 Measured 2026-08-22T00:51Z dispatching `overseer-temi26.2` on plugin build

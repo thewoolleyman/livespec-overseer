@@ -544,22 +544,37 @@ has its still-running `run_in_background: true` tasks reaped seconds after parki
 `running`) plus the dispatcher's JSON envelope in `<run_dir>/output.log` on wake.
 `.ai/dispatch-traps.md` carries the full procedure and every envelope shape.
 
-## Routing: `hp` is the only dispatch target for this repo
+## Routing: committed config names the factory, and `hp` is gone
 
-**MAINTAINER INSTRUCTION, 2026-08-22: DO NOT ROUTE ANY WORK TO THE `vps`
-FACTORY FOR THIS REPO, UNTIL THE MAINTAINER LIFTS THIS.** `hp` is the only
-dispatch target for livespec-overseer. A capacity defer where `active_count`
-equals `wip_cap` is this repo's WIP cap working as designed: wait for a slot.
-It is not a routing problem, not grounds to pass a `vps` factory argument, and
-not grounds to substitute a local run. The pre-push aggregate is the sole
-standing local exception, because it runs by design and cannot be dispatched.
-The second factory declared in `.livespec.jsonc` is still useful for read-only
-process inspection, but it is not available for routing work despite being
-configured.
+**Read the factory from committed config, never from this prose.**
+`.livespec.jsonc` sets `dispatcher.default_factory` (it is `"petri"`, the
+gmktec-xubuntu instance, as of coordinator ruling R668, 2026-10-22), and a
+recorded per-item pin naming `hp`, `legacy` or `vps` falls back to it. The
+control node's `/etc/livespec/fabro-factories.json` is the registry of
+factories that actually exist. Measured 2026-10-30, it lists only `petri` and
+`mi-homelab`: there is no `hp` factory to dispatch to.
 
-The mechanics behind that — the sticky per-item `dispatch_factory` pin, how to clear
-it, and the intermittent ENOSPC shape that motivated the old re-route — are in
-`.ai/dispatch-traps.md` §"A SEVENTH SHAPE".
+**The old "`hp` is the only dispatch target" instruction (maintainer,
+2026-08-22) is SUPERSEDED.** Maintainer direction of 2026-10-20, quoted in the
+`livespec-dev-tooling-dfixhe` epic, moved the factory off `hp` entirely, and the
+coordinator ruled on 2026-10-30 that the 08-22 instruction no longer holds. The
+same instruction's ban on routing to `vps` is unchanged: `vps` is dropped from
+config, and nothing routes there. This section said the opposite until
+2026-10-30, and a session believing it asked the coordinator for an `hp`-routed
+seat that could not exist. A routing claim in prose is a measurement with a
+timestamp, so check it against `.livespec.jsonc` and the registry.
+
+**Who launches is a fleet ruling, not a property of this repo.** As of
+2026-10-30 the `petri-factory-on-gmktec` seat owns every launch on `petri`,
+including this repo's lane, and a plan seat hands it ready items rather than
+dispatching itself. Re-check that with the coordinator before acting on it. A
+capacity defer where `active_count` equals `wip_cap` is the WIP cap working as
+designed: wait for a slot. It is not a routing problem, and not grounds to
+substitute a local run. The pre-push aggregate is the sole standing local
+exception, because it runs by design and cannot be dispatched.
+
+The mechanics of the sticky per-item `dispatch_factory` pin, and how to clear
+it, are in `.ai/dispatch-traps.md` §"A SEVENTH SHAPE".
 
 ## Lifecycle statuses for `bd update --status`
 
