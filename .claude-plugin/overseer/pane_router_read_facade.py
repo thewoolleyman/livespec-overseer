@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import Protocol
 
+import pane_router_cycle
 import pane_router_reads
 import tmux_process
 from tmuxio_protocols import PaneDriver
@@ -31,6 +32,7 @@ class ReadRouteHost(Protocol):
     herdr_endpoints: Callable[[], Iterable[str]]
     tmux_run: tmux_process.TextProcessRun
     coordinates: set[str]
+    herdr_cycle_cache: pane_router_cycle.HerdrCycleCache
 
 
 def reads(*, driver: ReadRouteHost) -> pane_router_reads.PaneRoutingReads:
@@ -40,6 +42,7 @@ def reads(*, driver: ReadRouteHost) -> pane_router_reads.PaneRoutingReads:
         herdr_endpoints=driver.herdr_endpoints,
         tmux_run=driver.tmux_run,
         coordinates=driver.coordinates,
+        herdr_cycle_cache=driver.herdr_cycle_cache,
     )
 
 
