@@ -275,7 +275,8 @@ def wrapup_message(
         read_first=plan_state_locator(repo=repo, epic=epic),
         resume=_resume_line(repo=repo, epic=epic),
     )
-    return f"{busy_blocker_callout(blocker=blocker)}{body}"
+    notice = signals.rejected_value_notice(repo=repo, topic=topic)
+    return f"{busy_blocker_callout(blocker=blocker)}{notice}{body}"
 
 
 _IDLE_NUDGE = """\

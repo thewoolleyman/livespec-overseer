@@ -178,7 +178,8 @@ def supervisor_wrapup_message(
         read_first=_supervisor_state_locator(repo=repo, topic=topic, epic=epic),
         resume=_supervisor_resume_line(repo=repo, topic=topic, epic=epic),
     )
-    return f"{busy_blocker_callout(blocker=blocker)}{body}"
+    notice = signals.rejected_value_notice(repo=repo, topic=entity_topic)
+    return f"{busy_blocker_callout(blocker=blocker)}{notice}{body}"
 
 
 def supervisor_idle_nudge_message(

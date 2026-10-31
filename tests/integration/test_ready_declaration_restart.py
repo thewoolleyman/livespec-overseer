@@ -726,7 +726,8 @@ def test_scenario_a_malformed_state_value_is_surfaced_and_treated_as_no_declarat
     assert view.note is not None and "redy" in view.note
     assert view.status != "restarting"
     assert not fake.has(method="respawn")  # a typo is NOT a restart authorization
-    assert state.exists()  # nothing consumed it...
+    assert not state.exists()
+    assert state.with_name(".overseer-state.rejected").exists()
     assert (
         registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
         == stamp

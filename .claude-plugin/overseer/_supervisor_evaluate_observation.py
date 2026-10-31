@@ -12,6 +12,7 @@ import _supervisor_codex_late_adoption
 import _supervisor_compaction
 import _supervisor_nudge_marker
 import _supervisor_observe
+import _supervisor_rejected_state
 import registry
 import signals
 from _supervisor_records import Observation
@@ -82,6 +83,9 @@ def reconcile_and_observe(
         sup=sup, track=track, session=session, target=pane, act=act
     )
     obs = _supervisor_observe.observe(sup=sup, track=track, session=session, target=pane, key=key)
+    obs = _supervisor_rejected_state.reject_malformed_state(
+        sup=sup, track=track, obs=obs, session=session, pane=pane, act=act
+    )
     record_tick_observations(
         request=RecordObservationRequest(
             sup=sup, track=track, obs=obs, session=session, pane=pane, act=act

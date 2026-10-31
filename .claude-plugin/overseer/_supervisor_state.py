@@ -48,8 +48,9 @@ def write_state_diagnostic(
 def delete_state_file(*, sup: Supervisor, track: registry.Track) -> bool:
     try:
         signals.state_path(repo=track.repo, topic=track.topic).unlink(missing_ok=True)
+        signals.rejected_state_path(repo=track.repo, topic=track.topic).unlink(missing_ok=True)
     except OSError as exc:
-        sup.log(message=f"could not delete state file for {track.repo}::{track.topic}: {exc}")
+        sup.log(message=f"could not delete state files for {track.repo}::{track.topic}: {exc}")
         return False
     return True
 
@@ -73,18 +74,31 @@ def clear_state(
     crossing opens a clean round that writes a new stamp
     (adversarial code re-review 2026-07-13, blocker RB2).
     """
+    rejected_deleted = delete_rejected_state_file(sup=sup, track=track)
     if diagnostic_token is None or diagnostic_detail is None:
         persisted = delete_state_file(sup=sup, track=track)
     else:
         persisted = write_state_diagnostic(
             sup=sup, track=track, token=diagnostic_token, detail=diagnostic_detail
         )
-    if not persisted and preserve_round_on_failure:
+    if (not persisted or not rejected_deleted) and preserve_round_on_failure:
         return False
     registry.clear_injection_stamp(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
     _supervisor_launch.release_held_submit(sup=sup, track=track)
     _ = sup.inject.pop(track_key(repo=track.repo, topic=track.topic), None)
-    return persisted
+    return persisted and rejected_deleted
+
+
+def delete_rejected_state_file(*, sup: Supervisor, track: registry.Track) -> bool:
+    """Remove stale malformed-state evidence when a restart consumes the round."""
+    try:
+        signals.rejected_state_path(repo=track.repo, topic=track.topic).unlink(missing_ok=True)
+    except OSError as exc:
+        sup.log(
+            message=f"could not delete rejected state file for {track.repo}::{track.topic}: {exc}"
+        )
+        return False
+    return True
 
 
 def expire_aged_ready(
