@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, cast
 
 import _supervisor_codex_misnamed
 import _supervisor_codex_rebind
+import _supervisor_discovery
 import _supervisor_herdr_moved
 import _supervisor_herdr_stall
 import _supervisor_launch
@@ -203,6 +204,7 @@ def resolve_evaluate_target(
         session=session,
         act=act,
     )
+    _supervisor_discovery.refresh_claude_track(sup=sup, session=session, topic=track.topic)
 
     # A recorded process generation is authoritative for Herdr. Positional pane ids
     # can be reused, so existence of the old id cannot prove that it still names this
