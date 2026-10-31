@@ -138,6 +138,16 @@ def factory_server(
     return registry_factory_server(registry_path=registry_path, factory=factory)
 
 
+def factory_client(*, repo: Path, factory: str | None) -> str:
+    """Return the committed client binary for a factory, or the PATH default."""
+    if factory is None:
+        return "fabro"
+    factory_config = committed_factory_config(repo=repo, factory=factory)
+    if factory_config is None:
+        return "fabro"
+    return string_field(record=factory_config, key="bin") or "fabro"
+
+
 def process_records_from_payload(*, stdout: str) -> list[dict[str, object]] | None:
     parsed = jsonio.parse_object(text=stdout)
     if jsonio.is_parse_failure(result=parsed):
@@ -208,9 +218,10 @@ def remote_factory_run_present_with(
     )
     if server is None:
         return None
+    client = factory_client(repo=repo, factory=dispatch_factory)
     try:
         completed = run(
-            ["fabro", "ps", "-a", "--json", "--server", server],
+            [client, "ps", "-a", "--json", "--server", server],
             capture_output=True,
             check=False,
             cwd=repo,
