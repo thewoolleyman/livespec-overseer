@@ -149,16 +149,19 @@ def factory_client(*, repo: Path, factory: str | None) -> str:
 
 
 def process_records_from_payload(*, stdout: str) -> list[dict[str, object]] | None:
-    parsed = jsonio.parse_object(text=stdout)
-    if jsonio.is_parse_failure(result=parsed):
+    try:
+        value = json.loads(stdout)
+    except json.JSONDecodeError:
         return None
-    payload = parsed.unwrap()
-    if payload is None:
-        return None
-    runs = jsonio.as_list(value=payload.get("runs"))
+    runs = jsonio.as_list(value=value)
     if runs is None:
-        runs = jsonio.as_list(value=payload.get("items"))
-    if runs is None:
+        payload = jsonio.as_object(value=value) or {}
+        runs = jsonio.as_list(value=payload.get("runs"))
+        if runs is None:
+            runs = jsonio.as_list(value=payload.get("items"))
+        if runs is None:
+            return None
+    elif not runs:
         return None
     return [item for raw in runs if (item := jsonio.as_object(value=raw)) is not None]
 
