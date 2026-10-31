@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.41.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.40.1...v5.41.0) (2026-10-31)
+
+
+### Features
+
+* reject malformed overseer state ([776f85d](https://github.com/thewoolleyman/livespec-overseer/commit/776f85d409a742d53ba1c3fde4049d5c539f990b))
+
 ## [5.40.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.40.0...v5.40.1) (2026-10-31)
 
 
