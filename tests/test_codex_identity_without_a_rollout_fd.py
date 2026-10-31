@@ -356,6 +356,43 @@ def test_an_unresolvable_carrier_cwd_leaves_every_session_unidentified(*, tmp_pa
     assert world.sup.live_codex == {}
 
 
+def test_a_backend_reported_session_identifies_its_own_carrier_among_repo_siblings(*, tmp_path):
+    """Pane-scoped backend evidence resolves a named track among repo siblings."""
+    _module = codex_identity()
+    shared = tmp_path / "reported"
+    shared.mkdir()
+    world = make_world(
+        tmp_path=shared,
+        rows=[(shared / "repo", "topic", DEAD_TMUX, "claude:dead:topic")],
+        cwds={
+            TRACKED_PID: str(shared / "repo"),
+            OPERATOR_PID: str(shared / "repo"),
+            APP_SERVER_PID: "/",
+            PANELESS_PID: str(shared / "repo"),
+        },
+    )
+    write_state_database(
+        path=world.home / "state_2.sqlite",
+        rows=[
+            (SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+            (OPERATOR_SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+        ],
+    )
+    (world.home / "session_index.jsonl").write_text(
+        json.dumps({"id": SESSION_ID, "thread_name": "topic"}) + "\n",
+        encoding="utf-8",
+    )
+    world.sup.tmux.pane_agent_session = lambda *, session: (
+        SESSION_ID if session == TRACKED_COORDINATE else None
+    )
+
+    world.sup.refresh_codex_sessions()
+
+    live = world.sup.live_codex
+    assert (TRACKED_COORDINATE, "topic") in live
+    assert live[(TRACKED_COORDINATE, "topic")].session_id == SESSION_ID
+
+
 # --- assertion 2: the dead tmux coordinate is rebound, old and new logged ------------
 
 
