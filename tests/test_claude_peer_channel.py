@@ -33,11 +33,16 @@ def _write_session(*, sessions_dir: Path, socket_path: Path) -> None:
     )
 
 
-def test_a_claude_peer_socket_binds_the_track_live_identity(*, tmp_path, monkeypatch):
-    """DoD 1: an exposed Claude peer socket resolves to its proven live identity."""
-    module_path = Path(__file__).parents[1] / "overseer" / "_claude_peer_channel.py"
-    assert module_path.is_file()
+def test_a_claude_peer_socket_without_an_acceptance_reply_is_not_supported(
+    *, tmp_path, monkeypatch
+):
+    """A Claude UDS peer with no per-message acceptance acknowledgement falls back.
 
+    Measured against Claude Code 2.1.170: its ``sendToUdsSocket`` writes a framed
+    ``user`` object, then resolves when the connection closes.  It does not parse a
+    reply from the receiving session, so it cannot prove acceptance as required by
+    the daemon channel contract.
+    """
     peer_module = importlib.import_module("_claude_peer_channel")
     channel_module = importlib.import_module("_supervisor_channel")
     sessions_dir = tmp_path / "sessions"
@@ -48,7 +53,6 @@ def test_a_claude_peer_socket_binds_the_track_live_identity(*, tmp_path, monkeyp
     _write_session(sessions_dir=sessions_dir, socket_path=peer_socket)
     monkeypatch.setattr(peer_module, "default_sessions_dir", lambda: sessions_dir)
     monkeypatch.setattr(peer_module, "proc_starttime", lambda *, pid: "456" if pid == 123 else None)
-
     try:
         channel = channel_module.resolve_channel(
             sup=object(),
@@ -60,5 +64,4 @@ def test_a_claude_peer_socket_binds_the_track_live_identity(*, tmp_path, monkeyp
     finally:
         listener.close()
 
-    assert channel is not None
-    assert channel.addressed_identity == "claude:123:456:worker"
+    assert channel is None

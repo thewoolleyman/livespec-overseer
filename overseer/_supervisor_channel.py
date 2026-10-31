@@ -18,10 +18,11 @@ c. reports a refusal or an unavailable channel BEFORE transmission distinguishab
 That three-part test is what :class:`MessageChannel` encodes: a channel that cannot
 name the identity it addresses cannot satisfy (a), and one that cannot distinguish
 its three outcomes cannot satisfy (b) or (c). A runtime offering nothing that meets
-all three delivers by the paste, which is why :func:`no_supported_channel` — the
-default provider — is the honest answer rather than a stub: no runtime this daemon
-drives has a measured channel yet, and a channel asserted rather than measured would
-route a wind-down into a transport nobody has proven accepts it.
+all three delivers by the paste. Claude Code's per-session UDS socket was measured
+against version 2.1.170: it addresses a live identity, but its sender resolves when
+the socket closes without parsing an acceptance acknowledgement. Its provider thus
+returns ``None`` rather than asserting a channel the receiver has not proven it
+accepted.
 
 Choosing the channel changes HOW a message is delivered, never WHETHER it is: every
 guard that governs the act's paste governs its channel delivery unchanged. This

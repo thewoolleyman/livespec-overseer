@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import json
 import stat
-from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from claude_sessions import default_sessions_dir, proc_starttime
 
@@ -17,14 +16,6 @@ if TYPE_CHECKING:
 __all__: list[str] = ["claude_peer_channel_provider"]
 
 
-@dataclass(frozen=True, kw_only=True)
-class ClaudePeerChannel:
-    """The channel object addressed by the daemon's already-proven live identity."""
-
-    addressed_identity: str
-    name: str = "claude-code-peer"
-
-
 def claude_peer_channel_provider(
     *,
     sup: Supervisor,
@@ -33,14 +24,17 @@ def claude_peer_channel_provider(
     topic: str,
     identity: str | None,
 ) -> MessageChannel | None:
-    """Return a channel only for a matching, live Claude peer socket."""
+    """Decline Claude's peer socket because it cannot acknowledge acceptance.
+
+    Claude Code 2.1.170's ``sendToUdsSocket`` sends the framed message and
+    resolves on socket close without parsing a response.  A matching live socket
+    can establish the address, but cannot prove that the receiving session
+    accepted the specific message.  The channel contract therefore requires the
+    existing guarded-paste path.
+    """
     del sup, session, topic
-    peer = _peer_for(runtime=runtime, identity=identity)
-    return (
-        cast("MessageChannel", ClaudePeerChannel(addressed_identity=identity or ""))
-        if peer is not None
-        else None
-    )
+    _ = _peer_for(runtime=runtime, identity=identity)
+    return None
 
 
 def _peer_for(*, runtime: str, identity: str | None) -> Path | None:
