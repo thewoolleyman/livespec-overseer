@@ -302,14 +302,6 @@ def identity_bound_codex_sessions(
         ):
             continue
         claimed = claiming[0]
-        # A reported Codex carrier can coexist with the recorded Claude process in one
-        # pane.  The live recorded process remains authoritative for that track, so do
-        # not replace its identity or launch profile merely because the carrier reports
-        # a Codex session named for the same track.
-        if claimed.observed_session_identity == sup.claude_identity_by_session.get(
-            (carrier.coordinate, claimed.topic)
-        ):
-            continue
         bound[(carrier.coordinate, claimed.topic)] = codex_sessions.CodexSession(
             pid=carrier.pid,
             name=claimed.topic,
