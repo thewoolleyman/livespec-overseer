@@ -3958,5 +3958,45 @@
     "test": "TODO",
     "work_item": "overseer-zidpiu.5",
     "reason": "A real integration-tier test is owed, and work-item overseer-zidpiu.5 owns landing it. Ratified spec-first by the 2026-10-30 delegated revise of watch-set-held-repo-declaration-and-observability; the implementation child under overseer-zidpiu (realizing overseer-zidpiu.5) MUST replace this TODO with an integration-tier test driving a real Supervisor tick over a watch-set declaration carrying a holds array."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A scheduled pass evaluates an active account that has no short-window limit",
+    "test": "TODO",
+    "work_item": "overseer-e6bvmt",
+    "reason": "A real integration-tier test is owed, and work-item overseer-e6bvmt owns landing it. Ratified spec-first by the 2026-10-31 delegated revise of caam-usage-model-an-account (v080) under plan caam-generic-limit-windows (epic overseer-rumvpf); overseer-e6bvmt MUST replace this TODO with an integration-tier test driving a caam pass over usage readings that carry no short-window limit or an unrecognised limit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An account with no short-window limit is not reported unreadable",
+    "test": "TODO",
+    "work_item": "overseer-e6bvmt",
+    "reason": "A real integration-tier test is owed, and work-item overseer-e6bvmt owns landing it. Ratified spec-first by the 2026-10-31 delegated revise of caam-usage-model-an-account (v080) under plan caam-generic-limit-windows (epic overseer-rumvpf); overseer-e6bvmt MUST replace this TODO with an integration-tier test driving a caam pass over usage readings that carry no short-window limit or an unrecognised limit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An account with no short-window limit is selected on a short-window rotation",
+    "test": "TODO",
+    "work_item": "overseer-e6bvmt",
+    "reason": "A real integration-tier test is owed, and work-item overseer-e6bvmt owns landing it. Ratified spec-first by the 2026-10-31 delegated revise of caam-usage-model-an-account (v080) under plan caam-generic-limit-windows (epic overseer-rumvpf); overseer-e6bvmt MUST replace this TODO with an integration-tier test driving a caam pass over usage readings that carry no short-window limit or an unrecognised limit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A temporary short-window limit is honoured only on the readings that report it",
+    "test": "TODO",
+    "work_item": "overseer-e6bvmt",
+    "reason": "A real integration-tier test is owed, and work-item overseer-e6bvmt owns landing it. Ratified spec-first by the 2026-10-31 delegated revise of caam-usage-model-an-account (v080) under plan caam-generic-limit-windows (epic overseer-rumvpf); overseer-e6bvmt MUST replace this TODO with an integration-tier test driving a caam pass over usage readings that carry no short-window limit or an unrecognised limit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unrecognised limit leaves the account readable and is shown",
+    "test": "TODO",
+    "work_item": "overseer-e6bvmt",
+    "reason": "A real integration-tier test is owed, and work-item overseer-e6bvmt owns landing it. Ratified spec-first by the 2026-10-31 delegated revise of caam-usage-model-an-account (v080) under plan caam-generic-limit-windows (epic overseer-rumvpf); overseer-e6bvmt MUST replace this TODO with an integration-tier test driving a caam pass over usage readings that carry no short-window limit or an unrecognised limit."
   }
 ]
