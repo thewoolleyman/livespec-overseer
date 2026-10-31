@@ -294,6 +294,13 @@ def identity_bound_codex_sessions(
         ]
         if len(claiming) != 1:
             continue
+        # A recorded identity is a durable binding, irrespective of the repository a
+        # stale row names today.  A pane-scoped report can disambiguate repository
+        # siblings, but it cannot steal a session another track already records.
+        if any(
+            row is not claiming[0] and row.observed_session_identity == identity for row in rows
+        ):
+            continue
         bound[(carrier.coordinate, claiming[0].topic)] = codex_sessions.CodexSession(
             pid=carrier.pid,
             name=claiming[0].topic,

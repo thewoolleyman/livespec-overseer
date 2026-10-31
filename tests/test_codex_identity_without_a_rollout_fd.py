@@ -393,6 +393,48 @@ def test_a_backend_reported_session_identifies_its_own_carrier_among_repo_siblin
     assert live[(TRACKED_COORDINATE, "topic")].session_id == SESSION_ID
 
 
+def test_a_backend_report_cannot_claim_a_session_recorded_by_another_track(*, tmp_path):
+    """A reported carrier does not steal a session another mapping row already owns."""
+    _module = codex_identity()
+    shared = tmp_path / "reported-bound-elsewhere"
+    shared.mkdir()
+    world = make_world(
+        tmp_path=shared,
+        rows=[(shared / "repo", "topic", DEAD_TMUX, "claude:dead:topic")],
+        cwds={
+            TRACKED_PID: str(shared / "repo"),
+            OPERATOR_PID: str(shared / "repo"),
+            APP_SERVER_PID: "/",
+            PANELESS_PID: str(shared / "repo"),
+        },
+    )
+    add_row(
+        store=world.store,
+        repo=world.other_repo,
+        topic="another-track",
+        tmux="another-pane",
+        identity=f"codex:{SESSION_ID}",
+    )
+    write_state_database(
+        path=world.home / "state_2.sqlite",
+        rows=[
+            (SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+            (OPERATOR_SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+        ],
+    )
+    (world.home / "session_index.jsonl").write_text(
+        json.dumps({"id": SESSION_ID, "thread_name": "topic"}) + "\n",
+        encoding="utf-8",
+    )
+    world.sup.tmux.pane_agent_session = lambda *, session: (
+        SESSION_ID if session == TRACKED_COORDINATE else None
+    )
+
+    world.sup.refresh_codex_sessions()
+
+    assert (TRACKED_COORDINATE, "topic") not in world.sup.live_codex
+
+
 # --- assertion 2: the dead tmux coordinate is rebound, old and new logged ------------
 
 
