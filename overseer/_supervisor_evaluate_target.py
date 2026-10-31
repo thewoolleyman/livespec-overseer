@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, cast
 
@@ -93,29 +92,11 @@ def _unresolved_target(
     return _unavailable_target(sup=sup, track=track, session=session, act=act)
 
 
-def _renumbered_herdr_coordinate(
-    *, sup: Supervisor, track: registry.Track, session: str
-) -> str | None:
-    if not session.startswith(herdr_identity.HERDR_SCHEME):
-        return None
-    resolver = cast(
-        Callable[..., str | None] | None,
-        getattr(sup.tmux, "renumbered_herdr_coordinate", None),
-    )
-    if resolver is None:
-        return None
-    return resolver(
-        session=session,
-        observed_session_identity=track.observed_session_identity,
-        starttime_of=sup.starttime_of,
-    )
-
-
 def _resolve_herdr_target(
     *, sup: Supervisor, track: registry.Track, session: str, act: bool
 ) -> tuple[registry.Track, str, str | None, bool]:
     """Resolve an identity-bound Herdr target before trusting its positional id."""
-    current = _renumbered_herdr_coordinate(sup=sup, track=track, session=session)
+    current = _supervisor_herdr_moved.renumbered_coordinate(sup=sup, track=track, session=session)
     refuses_recorded_target = session.startswith(
         herdr_identity.HERDR_SCHEME
     ) and _carries_claude_identity(track=track)
@@ -198,13 +179,17 @@ def resolve_evaluate_target(
 
     repo, topic = track.repo, track.topic
     session = _supervisor_launch.session_of(sup=sup, track=track)
+    # Re-read the registry before the Herdr relaunch path records an identity from it.
+    _supervisor_discovery.refresh_claude_track(sup=sup, session=session, topic=track.topic)
+    resolved_from = session
     track, session, target, refuses_recorded_target = _resolve_herdr_target(
         sup=sup,
         track=track,
         session=session,
         act=act,
     )
-    _supervisor_discovery.refresh_claude_track(sup=sup, session=session, topic=track.topic)
+    if session != resolved_from:
+        _supervisor_discovery.refresh_claude_track(sup=sup, session=session, topic=track.topic)
 
     # A recorded process generation is authoritative for Herdr. Positional pane ids
     # can be reused, so existence of the old id cannot prove that it still names this

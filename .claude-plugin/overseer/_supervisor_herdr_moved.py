@@ -20,7 +20,7 @@ import registry
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
-__all__: list[str] = ["relaunched_identity", "repoint_moved_session"]
+__all__: list[str] = ["relaunched_identity", "renumbered_coordinate", "repoint_moved_session"]
 
 
 def _legacy_unqualified_target(*, value: str | None) -> bool:
@@ -131,6 +131,22 @@ def _replacement_open(*, track: registry.Track) -> bool:
     except (AttributeError, OSError, TypeError, ValueError):
         return True
     return transaction is not None and transaction.get("phase") != "completed"
+
+
+def renumbered_coordinate(*, sup: Supervisor, track: registry.Track, session: str) -> str | None:
+    if not session.startswith(herdr_identity.HERDR_SCHEME):
+        return None
+    resolver = cast(
+        Callable[..., str | None] | None,
+        getattr(sup.tmux, "renumbered_herdr_coordinate", None),
+    )
+    if resolver is None:
+        return None
+    return resolver(
+        session=session,
+        observed_session_identity=track.observed_session_identity,
+        starttime_of=sup.starttime_of,
+    )
 
 
 def relaunched_identity(*, sup: Supervisor, track: registry.Track, session: str) -> str | None:
