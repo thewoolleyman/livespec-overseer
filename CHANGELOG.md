@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.40.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.40.0...v5.40.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* **overseer:** a malformed state value must not suppress the low-context wrap-up ([29d0985](https://github.com/thewoolleyman/livespec-overseer/commit/29d0985837fbe91794ce25f3c7ede249355d45c8))
+
 ## [5.40.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.39.0...v5.40.0) (2026-10-30)
 
 
