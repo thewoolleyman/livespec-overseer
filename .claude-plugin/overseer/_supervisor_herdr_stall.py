@@ -10,6 +10,7 @@ import _supervisor_herdr_recovery
 import _supervisor_launch
 import _supervisor_state
 import registry
+import signals
 from _supervisor_view import RowView
 
 if TYPE_CHECKING:
@@ -82,17 +83,40 @@ def _retire_out_of_band_resume(
                 and not _matches_recorded_process(
                     identity=identity, record=cast("object", successor)
                 )
-                and _supervisor_state.clear_state(
-                    sup=sup,
-                    track=track,
-                    preserve_round_on_failure=True,
-                )
+                and _retire_recorded_round(sup=sup, track=track, transaction=transaction)
             ):
                 return None
             _ = record.replace(scratch / ".herdr-replacement.retired-out-of-band.json")
     except (AttributeError, KeyError, OSError, TypeError, ValueError):
         return None
     return identity
+
+
+def _retire_recorded_round(
+    *, sup: Supervisor, track: registry.Track, transaction: dict[str, object]
+) -> bool:
+    """Clear the on-disk declaration and round only while they are still the recorded ones.
+
+    An out-of-band live session may already have declared its own `ready` or opened a
+    newer round; those belong to it and survive the transaction's retirement.  False
+    only when clearing the recorded round itself failed.
+    """
+    recorded = cast("dict[str, object]", transaction["round"])
+    state = signals.read_state(repo=track.repo, topic=track.topic)
+    current = registry.read_round_record(
+        repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path
+    )
+    ready_is_recorded = state is None or (
+        state.token == signals.STATE_READY and state.mtime == recorded["ready_mtime"]
+    )
+    round_is_recorded = (
+        current.malformed_reason is None
+        and current.at == recorded["round_at"]
+        and current.session_identity == recorded["session_identity"]
+    )
+    if not (ready_is_recorded and round_is_recorded):
+        return True
+    return _supervisor_state.clear_state(sup=sup, track=track, preserve_round_on_failure=True)
 
 
 def _matches_recorded_process(*, identity: str, record: object) -> bool:

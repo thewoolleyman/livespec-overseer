@@ -629,3 +629,59 @@ def test_out_of_band_runtime_retires_a_stalled_resume_transaction_and_its_round(
     )
     assert signals.read_state(repo=track.repo, topic=track.topic) is None
     assert [row.status for row in rows] != ["replacement-failed"]
+
+
+@pytest.mark.parametrize(
+    ("own_ready_mtime", "own_stamp"),
+    [
+        pytest.param(2000.0, None, id="own-ready-only"),
+        pytest.param(None, (1900.0, "claude:401:runtime-oob:topic"), id="own-newer-round-only"),
+        pytest.param(2000.0, (1900.0, "claude:401:runtime-oob:topic"), id="own-ready-and-round"),
+    ],
+)
+def test_out_of_band_retirement_leaves_the_live_sessions_own_declaration_and_round(
+    *,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    own_ready_mtime: float | None,
+    own_stamp: tuple[float, str] | None,
+) -> None:
+    sup, fake, track, target = _world(tmp_path=tmp_path)
+    transaction = _transaction(target=target, phase="resume-attempted")
+    transaction["successor"] = _herdr_replacement_process.process_record(
+        process=_process(pid=301, starttime="runtime-new", executable="/usr/bin/node", pgrp=300)
+    )
+    transaction["resume"] = "read the durable handoff"
+    _write(track=track, transaction=transaction)
+    stamp_at, stamp_identity = own_stamp or (1000.0, "claude:201:runtime-old:topic")
+    registry.write_injection_stamp(
+        repo=track.repo,
+        topic=track.topic,
+        ts=stamp_at,
+        session_identity=stamp_identity,
+        stamp_path=sup.stamp_path,
+    )
+    _ = arm_ready_marker(
+        repo=Path(track.repo),
+        topic=track.topic,
+        mtime=1001.0 if own_ready_mtime is None else own_ready_mtime,
+    )
+    sup.claude_identity_by_session[(target, track.topic)] = "claude:401:runtime-oob:topic"
+    monkeypatch.setattr(sup, "build_rows", lambda *, act: [track])
+    fake.herdr_terminate = lambda **_kwargs: pytest.fail("retirement must not signal")
+    fake.herdr_launch = lambda **_kwargs: pytest.fail("retirement must not launch")
+
+    _ = sup.tick(act=True)
+
+    record = (
+        _herdr_replacement_store.scratch_path(track=track) / _herdr_replacement_store.RECORD_NAME
+    )
+    assert not record.exists()
+    state = signals.read_state(repo=track.repo, topic=track.topic)
+    assert state is not None
+    assert state.mtime == (1001.0 if own_ready_mtime is None else own_ready_mtime)
+    round_record = registry.read_round_record(
+        repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path
+    )
+    assert round_record.at == stamp_at
+    assert round_record.session_identity == stamp_identity
