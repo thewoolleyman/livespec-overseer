@@ -35,6 +35,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
+from _claude_peer_channel import claude_peer_channel_provider
+
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
@@ -50,7 +52,6 @@ __all__: list[str] = [
     "MessageChannel",
     "channel_provider",
     "delivery_path",
-    "no_supported_channel",
     "resolve_channel",
 ]
 
@@ -134,34 +135,13 @@ class ChannelProvider(Protocol):
     ) -> MessageChannel | None: ...
 
 
-def no_supported_channel(
-    *,
-    sup: Supervisor,
-    runtime: str,
-    session: str,
-    topic: str,
-    identity: str | None,
-) -> MessageChannel | None:
-    """The default provider: no runtime offers a channel meeting all three tests.
-
-    Deliberately NOT a speculative transport. The candidate channels named by the
-    maintainer — herdr's ``agent prompt``, Claude Code's per-session peer socket,
-    Codex's app-server — each fail or cannot be measured from here: ``agent prompt``
-    addresses a PANE and types into it, and the other two exist only on the operator
-    host. Returning ``None`` makes every runtime paste exactly as it did before,
-    which is the contract's own answer for a runtime with no supported channel.
-    """
-    del sup, runtime, session, topic, identity
-    return None
-
-
 # The one resolution seam, a module-level provider in the same shape as
 # `_supervisor_wrapup_injection.wrapup_message_provider`. It lives HERE rather than on
 # the `Supervisor` dataclass because it is a property of the RUNTIME, not of a daemon
 # instance: every track on a given runtime resolves the same way, and the arguments
 # below already carry everything a per-session answer needs. Rebind it through this
 # module, never through a facade re-export.
-channel_provider: ChannelProvider = no_supported_channel
+channel_provider: ChannelProvider = claude_peer_channel_provider
 
 
 def resolve_channel(
