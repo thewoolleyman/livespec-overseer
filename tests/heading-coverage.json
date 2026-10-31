@@ -404,17 +404,15 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The declaration command refuses a value the daemon would reject",
-    "test": "TODO",
-    "work_item": "overseer-ryc6sh",
-    "reason": "Ratified ahead of its implementation child under plan overseer-validated-state-command (epic overseer-kwkx74); overseer-ryc6sh MUST replace this TODO with a test at integration tier."
+    "test": "tests.integration.test_declare_validated_forms.test_scenario_declaration_command_refuses_a_value_the_daemon_would_reject",
+    "reason": "Runs the declaration command against a standing state file and proves invalid blocked reasons and done summaries refuse with the accepted forms while preserving its bytes; the paired valid-form coverage proves a one-line blocked reason is written in daemon grammar."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The declaration command clears only what a session may clear",
-    "test": "TODO",
-    "work_item": "overseer-ryc6sh",
-    "reason": "Ratified ahead of its implementation child under plan overseer-validated-state-command (epic overseer-kwkx74); overseer-ryc6sh MUST replace this TODO with a test at integration tier."
+    "test": "tests.integration.test_declare_validated_forms.test_scenario_declaration_command_clears_only_what_a_session_may_clear",
+    "reason": "Runs clear over every session-owned token and the daemon's idle marker; its companion tests prove daemon diagnostics, absent state, and concurrent rewrites are retained safely."
   },
   {
     "spec_root": "SPECIFICATION",

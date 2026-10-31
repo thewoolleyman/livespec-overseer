@@ -119,13 +119,12 @@ def test_clear_does_not_delete_a_state_rewritten_between_checks(*, tmp_path, mon
     path.parent.mkdir(parents=True)
     path.write_text("ready\n", encoding="utf-8")
     original_read_text = Path.read_text
-    reads = 0
+    reads = [0]
 
-    def rewrite_before_second_read(*, self, encoding=None, errors=None):
-        nonlocal reads
+    def rewrite_before_second_read(self, *, encoding=None, errors=None):
         if self == path:
-            reads += 1
-            if reads == 2:
+            reads[0] += 1
+            if reads[0] == 2:
                 self.write_text("blocked: changed\n", encoding="utf-8")
         return original_read_text(self, encoding=encoding, errors=errors)
 
@@ -135,6 +134,24 @@ def test_clear_does_not_delete_a_state_rewritten_between_checks(*, tmp_path, mon
 
     assert code == 0
     assert path.read_text(encoding="utf-8") == "blocked: changed\n"
+
+
+def test_clear_leaves_an_unreadable_or_undeletable_state_in_place(*, tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    topic = "topic"
+    path = signals.state_path(repo=str(repo), topic=topic)
+    path.parent.mkdir(parents=True)
+    path.write_text("ready\n", encoding="utf-8")
+    monkeypatch.setattr(Path, "unlink", lambda _self: (_ for _ in ()).throw(OSError("busy")))
+
+    assert declare.main(argv=["clear", "--repo", str(repo), "--topic", topic]) == 0
+    assert path.exists()
+
+    monkeypatch.setattr(
+        Path, "read_text", lambda _self, **_kwargs: (_ for _ in ()).throw(OSError("gone"))
+    )
+    assert declare.main(argv=["clear", "--repo", str(repo), "--topic", topic]) == 0
 
 
 def test_supervisor_ready_uses_the_pair_entity_round_and_mapping(*, tmp_path, capsys, monkeypatch):
@@ -167,4 +184,21 @@ def test_supervisor_ready_uses_the_pair_entity_round_and_mapping(*, tmp_path, ca
 
     assert code == 0
     assert signals.read_state(repo=str(repo), topic=entity).token == signals.STATE_READY
+    assert declare.READY_CONTRACT in capsys.readouterr().out
+
+
+def test_supervisor_ready_falls_back_to_its_worker_mapping(*, tmp_path, capsys, monkeypatch):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    store = tmp_path / "mapping.jsonl"
+    monkeypatch.setattr(registry, "DEFAULT_STORE_PATH", store)
+    monkeypatch.setattr(registry, "DEFAULT_STAMP_PATH", tmp_path / "rounds.json")
+    registry.append_mapping(
+        track=registry.Track(
+            repo=str(repo), topic="topic", tmux="worker", added_at="2026-08-16T23:45:00Z"
+        ),
+        store_path=store,
+    )
+
+    assert declare.main(argv=["ready", "--repo", str(repo), "--topic", "topic-supervisor"]) == 0
     assert declare.READY_CONTRACT in capsys.readouterr().out
