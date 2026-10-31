@@ -15,6 +15,7 @@ import herdr_adapter
 import herdr_initial_start
 import herdr_replacement
 import herdr_write
+import pane_router_cycle
 import pane_router_initial_start
 import pane_router_ownership
 import pane_router_read_facade
@@ -80,6 +81,9 @@ class MixedPaneDriver:
     herdr_endpoints: Callable[[], Iterable[str]] = pane_router_ownership.default_herdr_endpoints
     tmux_run: tmux_process.TextProcessRun = tmux_process.TEXT_PROCESS_RUN
     coordinates: set[str] = field(default_factory=set)
+    herdr_cycle_cache: pane_router_cycle.HerdrCycleCache = field(
+        default_factory=pane_router_cycle.HerdrCycleCache
+    )
     prompt_states: dict[str, pane_router_submit_signals.PromptState] = field(default_factory=dict)
 
     register_coordinates = pane_router_read_facade.register_coordinates
