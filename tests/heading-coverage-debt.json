@@ -1885,13 +1885,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: An unrecognised limit leaves the account readable and is shown",
-    "work_item": "overseer-j5elif",
-    "first_seen": "2026-10-31"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: Every cycle records its own timing",
     "work_item": "overseer-4j2tlu",
     "first_seen": "2026-10-31"
