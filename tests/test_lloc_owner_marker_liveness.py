@@ -13,9 +13,9 @@ from returns.io import IOSuccess
 
 __all__: list[str] = []
 
-# The existing standing owner remains open while the refactor is owed. Each
-# case supplies a tracker outcome; the installed gate grades the actual source.
-DEBT_OWNER = "overseer-4z97.2"
+# The standing owners remain open while their refactors are owed. Each case
+# supplies a tracker outcome; the installed gate grades the actual source.
+DEBT_OWNERS = frozenset(("overseer-4z97.2", "overseer-yizu3e"))
 
 
 @pytest.mark.parametrize(("status", "expected"), [("backlog", 0), ("closed", 1), (None, 1)])
@@ -29,7 +29,7 @@ def test_the_installed_gate_requires_a_live_owner_for_the_actual_source(
     root = Path(__file__).resolve().parents[1]
     monkeypatch.chdir(root)
     monkeypatch.setenv("LIVESPEC_FAIL_IF_LLOC_SOFT_WARNINGS_EXIST", "true")
-    snapshot = {} if status is None else {DEBT_OWNER: status}
+    snapshot = {} if status is None else {owner: status for owner in DEBT_OWNERS}
     observed_repos: list[Path] = []
 
     def read_ledger(*, repo: Path) -> IOSuccess[dict[str, str]]:
@@ -46,7 +46,7 @@ def test_the_installed_gate_requires_a_live_owner_for_the_actual_source(
     assert result == expected
     assert observed_repos == [root]
     diagnostics = capsys.readouterr().err
-    assert DEBT_OWNER in diagnostics
+    assert all(owner in diagnostics for owner in DEBT_OWNERS)
     if expected:
         assert "closed or nonexistent" in diagnostics
     else:

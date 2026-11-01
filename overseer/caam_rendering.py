@@ -1,4 +1,5 @@
 """Pure rendering helpers for caam account rotation."""
+# livespec-lloc-soft-band-owner: overseer-yizu3e
 
 from __future__ import annotations
 
@@ -38,6 +39,7 @@ __all__: list[str] = [
 
 class RenderableUsageRecord(Protocol):
     five_hour_remaining: float
+    short_window_present: bool
     seven_day_remaining: float
     five_hour_resets_at: str | None
     seven_day_resets_at: str | None
@@ -250,12 +252,17 @@ def row_line(*, row: RenderableProfileUsage, active_name: str, now: datetime) ->
     # Every cell is the stored figure printed as it stands: the record already
     # holds what each allowance has LEFT, which is what these columns are named
     # for and what the operator reads them as.
+    short_window = (
+        f"{row.usage.five_hour_remaining:6.0f}% "
+        f"{until(timestamp=row.usage.five_hour_resets_at, now=now):>13} "
+        if row.usage.short_window_present
+        else f"{'no short-window limit':>21} "
+    )
     fable = f"{row.usage.fable_remaining:.0f}%" if row.usage.fable_remaining is not None else "-"
     extra_state, extra_left = extra_usage_cells(extra_usage=row.usage.extra_usage)
     return (
         f"{row.name:<13} {current_cell(is_active=is_active)} "
-        f"{row.usage.five_hour_remaining:6.0f}% "
-        f"{until(timestamp=row.usage.five_hour_resets_at, now=now):>13} "
+        f"{short_window}"
         f"{row.usage.seven_day_remaining:8.0f}% "
         f"{until(timestamp=row.usage.seven_day_resets_at, now=now):>13} "
         f"{fable:>9} {until(timestamp=row.usage.fable_resets_at, now=now):>13} "

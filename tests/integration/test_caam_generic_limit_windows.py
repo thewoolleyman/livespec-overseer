@@ -77,6 +77,7 @@ def test_scenario_a_scheduled_pass_evaluates_an_active_account_with_no_short_win
     assert code == 0
     assert harness.switches == ["weekly-reserve"]
     assert any("weekly" in line for line in lines)
+    assert any("no short-window limit" in line for line in lines)
 
 
 def test_scenario_an_account_with_no_short_window_limit_is_selected_on_short_window_rotation(
