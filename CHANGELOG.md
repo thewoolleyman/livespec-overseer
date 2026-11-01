@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.45.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.44.0...v5.45.0) (2026-11-01)
+
+
+### Features
+
+* record unrecognised usage limits ([87c3125](https://github.com/thewoolleyman/livespec-overseer/commit/87c312530e412f799814d68f7fa62e8ecaf2f3a8))
+
 ## [5.44.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.43.0...v5.44.0) (2026-11-01)
 
 
