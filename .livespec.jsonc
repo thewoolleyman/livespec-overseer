@@ -283,6 +283,7 @@
     "dispatcher": {
       "fabro_sandbox_image": "ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-agent-v1.92.0",
       "sandbox_capabilities": ["terminal", "headless_browser", "tmux", "herdr"],
+      "janitor": {"venue": "cluster_job"},
       // Dispatch-time toolchain and conformance premises, in the shape the
       // Dispatcher's typed repository integration contract reads
       // (`dispatcher.prepare_toolchain.*`, `dispatcher.conformance.*`).
