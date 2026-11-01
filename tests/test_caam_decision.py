@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import time
+from dataclasses import replace
 from datetime import datetime
 from math import isinf
 from pathlib import Path
@@ -668,6 +669,24 @@ def test_table_renders_remaining_quota_reset_durations_and_source_text():
         "             -       -        -  unknown                         snapshot\n"
         "\n"
     )
+
+
+def test_table_names_an_account_with_no_short_window_limit():
+    now = datetime.fromisoformat("2026-08-21T12:00:00+00:00")
+    row = ProfileUsage(
+        name="no-short-window",
+        source="live",
+        usage=replace(
+            usage(five_hour=0.0, seven_day=30.0),
+            short_window_present=False,
+        ),
+    )
+
+    table = caam_rendering.render_table(rows=(row,), active_name="no-short-window", now=now)
+
+    assert "no short-window limit" in table
+    assert "70%" in table
+    assert "dark:" not in table
 
 
 def test_cached_row_past_reset_renders_unknown_and_stale_source():

@@ -3963,25 +3963,22 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A scheduled pass evaluates an active account that has no short-window limit",
-    "test": "TODO",
-    "work_item": "overseer-e6bvmt",
-    "reason": "A real integration-tier test is owed, and work-item overseer-e6bvmt owns landing it. Ratified spec-first by the 2026-10-31 delegated revise of caam-usage-model-an-account (v080) under plan caam-generic-limit-windows (epic overseer-rumvpf); overseer-e6bvmt MUST replace this TODO with an integration-tier test driving a caam pass over usage readings that carry no short-window limit or an unrecognised limit."
+    "test": "tests/integration/test_caam_generic_limit_windows.py::test_scenario_a_scheduled_pass_evaluates_an_active_account_with_no_short_window_limit",
+    "work_item": "overseer-yizu3e"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An account with no short-window limit is not reported unreadable",
-    "test": "TODO",
-    "work_item": "overseer-e6bvmt",
-    "reason": "A real integration-tier test is owed, and work-item overseer-e6bvmt owns landing it. Ratified spec-first by the 2026-10-31 delegated revise of caam-usage-model-an-account (v080) under plan caam-generic-limit-windows (epic overseer-rumvpf); overseer-e6bvmt MUST replace this TODO with an integration-tier test driving a caam pass over usage readings that carry no short-window limit or an unrecognised limit."
+    "test": "tests/integration/test_caam_generic_limit_windows.py::test_scenario_a_scheduled_pass_evaluates_an_active_account_with_no_short_window_limit",
+    "work_item": "overseer-yizu3e"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An account with no short-window limit is selected on a short-window rotation",
-    "test": "TODO",
-    "work_item": "overseer-e6bvmt",
-    "reason": "A real integration-tier test is owed, and work-item overseer-e6bvmt owns landing it. Ratified spec-first by the 2026-10-31 delegated revise of caam-usage-model-an-account (v080) under plan caam-generic-limit-windows (epic overseer-rumvpf); overseer-e6bvmt MUST replace this TODO with an integration-tier test driving a caam pass over usage readings that carry no short-window limit or an unrecognised limit."
+    "test": "tests/integration/test_caam_generic_limit_windows.py::test_scenario_an_account_with_no_short_window_limit_is_selected_on_short_window_rotation",
+    "work_item": "overseer-yizu3e"
   },
   {
     "spec_root": "SPECIFICATION",
