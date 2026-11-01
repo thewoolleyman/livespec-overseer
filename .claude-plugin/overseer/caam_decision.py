@@ -130,7 +130,7 @@ def triggered(
     protection_floor = protection_floor_for(name=active_name, protection_floors=protection_floors)
     return (
         spend_capped(usage=usage)
-        or usage.five_hour_remaining <= five_hour_remaining_floor()
+        or (usage.short_window_present and usage.five_hour_remaining <= five_hour_remaining_floor())
         or weekly_left(usage=usage) < weekly_reserve()
         or (protection_floor > 0 and raw_weekly_left(usage=usage) <= protection_floor)
         or (scoped_pin and active_at_or_below_scoped_reserve(usage=usage, reserve=scoped_reserve()))

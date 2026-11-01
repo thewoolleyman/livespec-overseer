@@ -88,7 +88,7 @@ def fast_drain_projection(
     account falling at all, and firing on any positive rate would move the
     fleet off every account that is being used.
     """
-    if burn is None or burn <= 0:
+    if not current.short_window_present or burn is None or burn <= 0:
         return None
     horizon = projection_horizon_s()
     remaining = current.five_hour_remaining - burn * horizon
