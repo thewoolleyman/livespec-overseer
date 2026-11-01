@@ -16,6 +16,7 @@ import pytest
 import registry
 from test_supervisor_builders import (
     adopt_sup,
+    idle_capture,
     make_plan,
     mapped_track,
     write_session,
@@ -46,6 +47,32 @@ def test_refresh_claude_status_populates_the_map_from_registry(*, tmp_path):
     )
     sup._refresh_claude_status()
     assert sup.claude_status_by_session == {"sA": "busy"}
+
+
+def test_evaluate_rereads_joined_claude_status_after_cycle_snapshot(*, tmp_path):
+    """An idle update written after discovery governs this track's same-cycle row."""
+    repo, topic = make_plan(tmp_path=tmp_path)
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+    session = "sA"
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
+    fake.pane_pids[50] = session
+    sup = adopt_sup(
+        tmp_path=tmp_path,
+        fake=fake,
+        sessions_dir=sessions_dir,
+        ppid={100: 50, 50: 1},
+        starttimes={100: "pt"},
+    )
+    write_session(sessions_dir=sessions_dir, pid=100, name=topic, cwd=repo, status="busy")
+    sup._refresh_claude_status()
+    write_session(sessions_dir=sessions_dir, pid=100, name=topic, cwd=repo, status="idle")
+
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert view.status == "idle-with-context-left"
+    assert view.note is None
 
 
 def test_adopt_sessions_links_by_registry_name(*, tmp_path):  # noqa: PLR0915 — see below
