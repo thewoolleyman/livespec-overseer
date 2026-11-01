@@ -101,6 +101,8 @@ def replace_baseline(
     than amplifying one percentage step into a large rate. Anything else is
     replaced, because it cannot be measured against at all.
     """
+    if not current.short_window_present:
+        return
     stored = baseline_reading(state=state)
     if (
         stored is not None
@@ -125,6 +127,8 @@ def burn_rate(
     Read BEFORE the baseline is replaced on every pass: a pass that overwrote
     the baseline first would measure every fall against its own reading.
     """
+    if not current.short_window_present:
+        return None
     baseline = baseline_reading(state=state)
     if baseline is None:
         return None

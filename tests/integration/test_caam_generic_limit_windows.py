@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import io
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from caam_burn_rate import SHORT_WINDOW_BASELINE
 from caam_usage import fetch_usage
 from test_caam_fast_drain import LARGE_PLAN, NOW, RotationHarness, usage
 
@@ -98,3 +100,45 @@ def test_scenario_an_account_with_no_short_window_limit_is_selected_on_short_win
 
     assert code == 0
     assert harness.switches == ["no-short-window"]
+
+
+def test_scenario_a_temporary_short_window_limit_is_honoured_only_on_the_readings_that_report_it(
+    *, tmp_path: Path
+) -> None:
+    no_short_window = replace(
+        no_short_window_usage(tmp_path=tmp_path),
+        seven_day_remaining=80.0,
+    )
+    harness = RotationHarness(
+        home=tmp_path / "pass",
+        active="active",
+        usages={
+            "active": no_short_window,
+            "spare": usage(five_hour_remaining=90.0, seven_day_remaining=80.0),
+        },
+        live_plans={"active": LARGE_PLAN, "spare": LARGE_PLAN},
+    )
+
+    first_code, _first_lines = harness.run(at=NOW, scheduled=True)
+
+    assert first_code == 0
+    assert harness.switches == []
+    assert SHORT_WINDOW_BASELINE not in harness.read_state()
+
+    harness.read(name="active", record=usage(five_hour_remaining=15.0, seven_day_remaining=80.0))
+    second_code, second_lines = harness.run(at=NOW + 1_800.0, scheduled=True)
+
+    assert second_code == 0
+    assert harness.switches == ["spare"]
+    assert any("5-hour window" in line for line in second_lines)
+
+    harness.hand_switch(to="active")
+    harness.read(name="active", record=no_short_window)
+    third_code, third_lines = harness.run(at=NOW + 3_600.0, scheduled=True)
+
+    assert third_code == 0
+    assert harness.switches == ["spare"]
+    assert all("projected short-window drain" not in line for line in third_lines)
+    baseline = harness.read_state()[SHORT_WINDOW_BASELINE]
+    assert isinstance(baseline, dict)
+    assert baseline["remaining"] == 15.0
