@@ -164,6 +164,7 @@ def test_every_quota_field_on_the_record_is_named_for_what_it_holds():
         "extra_usage",
         "five_hour_dollars",
         "seven_day_dollars",
+        "short_window_present",
     }
 
 
