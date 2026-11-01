@@ -28,6 +28,7 @@ __all__: list[str] = [
 USAGE_URL: Final = "https://api.anthropic.com/api/oauth/usage"
 _EXPIRY_SKEW_S: Final = 60.0
 _FULL_ALLOWANCE: Final = 100.0
+_STANDARD_LIMIT_KINDS: Final = frozenset({"five_hour", "seven_day"})
 
 
 def remaining_from_utilization(*, utilization: float) -> float:
@@ -123,6 +124,7 @@ def _usage_record(*, body: dict[str, object]) -> tuple[UsageRecord | None, str |
         return None, "unexpected response shape"
 
     fable_left, fable_resets_at = _fable_limit(body=body)
+    unrecognised_limits = _unrecognised_limits(body=body)
     return (
         UsageRecord(
             five_hour_remaining=five_hour_left,
@@ -145,6 +147,7 @@ def _usage_record(*, body: dict[str, object]) -> tuple[UsageRecord | None, str |
             else None,
             seven_day_dollars=window_dollars_from(window=seven_day),
             short_window_present=short_window_present,
+            unrecognised_limits=unrecognised_limits,
         ),
         None,
     )
@@ -171,6 +174,27 @@ def _fable_limit(*, body: dict[str, object]) -> tuple[float | None, str | None]:
         if limit is not None and _is_fable_limit(limit=limit):
             return _fable_remaining(limit=limit), _optional_string(value=limit.get("resets_at"))
     return None, None
+
+
+def _unrecognised_limits(*, body: dict[str, object]) -> tuple[tuple[str, float, str | None], ...]:
+    limits = jsonio.as_list(value=body.get("limits")) or []
+    return tuple(
+        (
+            kind,
+            remaining_from_utilization(
+                utilization=jsonio.as_float(value=limit.get("percent")) or 0.0
+            ),
+            _optional_string(value=limit.get("resets_at")),
+        )
+        for value in limits
+        if (limit := jsonio.as_object(value=value)) is not None
+        if (kind := limit.get("kind")) is not None and isinstance(kind, str)
+        if not _is_recognised_limit(limit=limit)
+    )
+
+
+def _is_recognised_limit(*, limit: dict[str, object]) -> bool:
+    return limit.get("kind") in _STANDARD_LIMIT_KINDS or _is_fable_limit(limit=limit)
 
 
 def _is_fable_limit(*, limit: dict[str, object]) -> bool:

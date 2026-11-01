@@ -88,6 +88,7 @@ class UsageRecord:
     five_hour_dollars: WindowDollars | None = None
     seven_day_dollars: WindowDollars | None = None
     short_window_present: bool = True
+    unrecognised_limits: tuple[tuple[str, float, str | None], ...] = ()
 
 
 @dataclass(frozen=True, kw_only=True)

@@ -60,6 +60,95 @@ def no_short_window_usage(*, tmp_path: Path):
     return record
 
 
+def unrecognised_limit_usage(*, tmp_path: Path):
+    credentials = tmp_path / "usage-credentials.json"
+    credentials.write_text(
+        json.dumps({"claudeAiOauth": {"accessToken": "token", "expiresAt": 1_900_000_000_000}}),
+        encoding="utf-8",
+    )
+
+    def transport(*, request: object, timeout: float) -> UsageResponse:
+        del request, timeout
+        return UsageResponse(
+            body=json.dumps(
+                {
+                    "five_hour": {
+                        "utilization": 10.0,
+                        "resets_at": "2027-01-21T00:00:00Z",
+                    },
+                    "seven_day": {
+                        "utilization": 20.0,
+                        "resets_at": "2027-01-22T00:00:00Z",
+                    },
+                    "limits": [
+                        {
+                            "kind": "provider_special",
+                            "percent": 100.0,
+                            "resets_at": "2027-01-23T00:00:00Z",
+                        }
+                    ],
+                }
+            ).encode()
+        )
+
+    record, why = fetch_usage(creds_path=credentials, now=NOW, transport=transport)
+
+    assert why is None
+    assert record is not None
+    return record
+
+
+def test_scenario_an_unrecognised_limit_leaves_the_account_readable_and_is_shown(
+    *, tmp_path: Path
+) -> None:
+    active = unrecognised_limit_usage(tmp_path=tmp_path)
+    harness = RotationHarness(
+        home=tmp_path / "pass",
+        active="active",
+        usages={
+            "active": active,
+            "candidate": usage(five_hour_remaining=90.0, seven_day_remaining=80.0),
+        },
+        live_plans={"active": LARGE_PLAN, "candidate": LARGE_PLAN},
+    )
+
+    code, lines = harness.run(at=NOW, scheduled=True)
+
+    assert active.unrecognised_limits == (("provider_special", 0.0, "2027-01-23T00:00:00Z"),)
+    assert code == 0
+    assert harness.switches == []
+    assert any("provider_special 0%" in line for line in lines)
+
+
+def test_only_unrecognised_limits_do_not_make_a_usage_response_readable(*, tmp_path: Path) -> None:
+    credentials = tmp_path / "usage-credentials.json"
+    credentials.write_text(
+        json.dumps({"claudeAiOauth": {"accessToken": "token", "expiresAt": 1_900_000_000_000}}),
+        encoding="utf-8",
+    )
+
+    def transport(*, request: object, timeout: float) -> UsageResponse:
+        del request, timeout
+        return UsageResponse(
+            body=json.dumps(
+                {
+                    "limits": [
+                        {
+                            "kind": "provider_special",
+                            "percent": 0.0,
+                            "resets_at": "2027-01-23T00:00:00Z",
+                        }
+                    ]
+                }
+            ).encode()
+        )
+
+    record, why = fetch_usage(creds_path=credentials, now=NOW, transport=transport)
+
+    assert record is None
+    assert why == "unexpected response shape"
+
+
 def test_scenario_a_scheduled_pass_evaluates_an_active_account_with_no_short_window_limit(
     *, tmp_path: Path
 ) -> None:

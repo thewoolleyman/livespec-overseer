@@ -46,6 +46,7 @@ class RenderableUsageRecord(Protocol):
     fable_remaining: float | None
     fable_resets_at: str | None
     extra_usage: ExtraUsage | None
+    unrecognised_limits: tuple[tuple[str, float, str | None], ...]
 
 
 class RenderableProfileUsage(Protocol):
@@ -100,13 +101,29 @@ def current_cell(*, is_active: bool) -> str:
 def render_table(
     *, rows: tuple[RenderableProfileUsage, ...], active_name: str, now: datetime
 ) -> str:
-    lines = [
-        "",
+    show_unrecognised_limits = any(
+        row.usage is not None and row.usage.unrecognised_limits for row in rows
+    )
+    header = (
         f"{'PROFILE':<13} {'CURRENT':<{CURRENT_COL}} {'5H LEFT':>7} {'5H RESET':>13} "
         f"{'WEEK LEFT':>9} {'WEEK RESET':>13} {'FABLE LEFT':>10} {'FABLE RESET':>13} "
-        f"{'EXTRA':>7} {'$ LEFT':>8}  {'CAPACITY':<{CAPACITY_COL}}  SOURCE",
+    )
+    if show_unrecognised_limits:
+        header += f"{'OTHER LIMITS':<29} "
+    header += f"{'EXTRA':>7} {'$ LEFT':>8}  {'CAPACITY':<{CAPACITY_COL}}  SOURCE"
+    lines = [
+        "",
+        header,
     ]
-    lines.extend(row_line(row=row, active_name=active_name, now=now) for row in rows)
+    lines.extend(
+        row_line(
+            row=row,
+            active_name=active_name,
+            now=now,
+            show_unrecognised_limits=show_unrecognised_limits,
+        )
+        for row in rows
+    )
     lines.append("")
     return "\n".join(lines) + "\n"
 
@@ -230,7 +247,13 @@ def decision_switched(
     )
 
 
-def row_line(*, row: RenderableProfileUsage, active_name: str, now: datetime) -> str:
+def row_line(
+    *,
+    row: RenderableProfileUsage,
+    active_name: str,
+    now: datetime,
+    show_unrecognised_limits: bool = False,
+) -> str:
     is_active = row.name == active_name
     source = _display_source(source=row.source, is_active=is_active)
     # The capacity class comes from its OWN read, so it is rendered on every
@@ -238,15 +261,19 @@ def row_line(*, row: RenderableProfileUsage, active_name: str, now: datetime) ->
     # a perfectly readable plan, and the requirement is every account ROW.
     capacity = capacity_cell(capacity=row.capacity)
     if row.usage is None:
+        unrecognised = f"{'-':<29} " if show_unrecognised_limits else ""
         return (
             f"{row.name:<13} {current_cell(is_active=is_active)} "
             f"{'-':>7} {'-':>13} {'-':>9} {'-':>13} {'-':>10} {'-':>13} "
+            f"{unrecognised}"
             f"{'-':>7} {'-':>8}  {capacity:<{CAPACITY_COL}}  {source}"
         )
     if stale_past_reset(usage=row.usage, source=row.source, now=now, is_active=is_active):
+        unrecognised = f"{'?':<29} " if show_unrecognised_limits else ""
         return (
             f"{row.name:<13} {current_cell(is_active=is_active)} "
             f"{'?':>7} {'reset':>13} {'?':>9} {'reset':>13} {'?':>10} {'reset':>13} "
+            f"{unrecognised}"
             f"{'?':>7} {'?':>8}  {capacity:<{CAPACITY_COL}}  {source}, stale"
         )
     # Every cell is the stored figure printed as it stands: the record already
@@ -259,6 +286,11 @@ def row_line(*, row: RenderableProfileUsage, active_name: str, now: datetime) ->
         else f"{'no short-window limit':>21} "
     )
     fable = f"{row.usage.fable_remaining:.0f}%" if row.usage.fable_remaining is not None else "-"
+    unrecognised = (
+        f"{_unrecognised_limits_cell(limits=row.usage.unrecognised_limits, now=now):<29} "
+        if show_unrecognised_limits
+        else ""
+    )
     extra_state, extra_left = extra_usage_cells(extra_usage=row.usage.extra_usage)
     return (
         f"{row.name:<13} {current_cell(is_active=is_active)} "
@@ -266,7 +298,21 @@ def row_line(*, row: RenderableProfileUsage, active_name: str, now: datetime) ->
         f"{row.usage.seven_day_remaining:8.0f}% "
         f"{until(timestamp=row.usage.seven_day_resets_at, now=now):>13} "
         f"{fable:>9} {until(timestamp=row.usage.fable_resets_at, now=now):>13} "
+        f"{unrecognised}"
         f"{extra_state:>7} {extra_left:>8}  {capacity:<{CAPACITY_COL}}  {source}"
+    )
+
+
+def _unrecognised_limits_cell(
+    *, limits: tuple[tuple[str, float, str | None], ...], now: datetime
+) -> str:
+    return (
+        ", ".join(
+            f"{kind} {remaining:.0f}%"
+            + (f" (reset {until(timestamp=reset_at, now=now)})" if reset_at is not None else "")
+            for kind, remaining, reset_at in limits
+        )
+        or "-"
     )
 
 

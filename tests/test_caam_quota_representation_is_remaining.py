@@ -165,6 +165,7 @@ def test_every_quota_field_on_the_record_is_named_for_what_it_holds():
         "five_hour_dollars",
         "seven_day_dollars",
         "short_window_present",
+        "unrecognised_limits",
     }
 
 
