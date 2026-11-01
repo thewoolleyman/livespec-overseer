@@ -87,6 +87,7 @@ class UsageRecord:
     extra_usage: ExtraUsage | None = None
     five_hour_dollars: WindowDollars | None = None
     seven_day_dollars: WindowDollars | None = None
+    short_window_present: bool = True
 
 
 @dataclass(frozen=True, kw_only=True)

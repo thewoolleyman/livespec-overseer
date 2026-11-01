@@ -105,11 +105,17 @@ def _oauth_object(*, path: Path) -> dict[str, object] | None:
 
 def _usage_record(*, body: dict[str, object]) -> tuple[UsageRecord | None, str | None]:
     try:
-        five_hour = _limit_object(body=body, key="five_hour")
         seven_day = _limit_object(body=body, key="seven_day")
-        five_hour_left = remaining_from_utilization(
-            utilization=_required_float(value=five_hour.get("utilization"))
+        five_hour = (
+            _limit_object(body=body, key="five_hour") if body.get("five_hour") is not None else None
         )
+        short_window_present = five_hour is not None
+        if short_window_present:
+            five_hour_left = remaining_from_utilization(
+                utilization=_required_float(value=five_hour.get("utilization"))
+            )
+        else:
+            five_hour_left = 100.0
         seven_day_left = remaining_from_utilization(
             utilization=_required_float(value=seven_day.get("utilization"))
         )
@@ -121,7 +127,11 @@ def _usage_record(*, body: dict[str, object]) -> tuple[UsageRecord | None, str |
         UsageRecord(
             five_hour_remaining=five_hour_left,
             seven_day_remaining=seven_day_left,
-            five_hour_resets_at=_optional_string(value=five_hour.get("resets_at")),
+            five_hour_resets_at=(
+                _optional_string(value=five_hour.get("resets_at"))
+                if five_hour is not None
+                else None
+            ),
             seven_day_resets_at=_optional_string(value=seven_day.get("resets_at")),
             fable_remaining=fable_left,
             fable_resets_at=fable_resets_at,
@@ -130,8 +140,11 @@ def _usage_record(*, body: dict[str, object]) -> tuple[UsageRecord | None, str |
             # every percentage above still reads healthy, so a record carrying only
             # the percentages describes an account it cannot account for.
             extra_usage=extra_usage_from(body=body),
-            five_hour_dollars=window_dollars_from(window=five_hour),
+            five_hour_dollars=window_dollars_from(window=five_hour)
+            if five_hour is not None
+            else None,
             seven_day_dollars=window_dollars_from(window=seven_day),
+            short_window_present=short_window_present,
         ),
         None,
     )
