@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.45.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.45.0...v5.45.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* require the current caam rendering debt owner ([c88c2f9](https://github.com/thewoolleyman/livespec-overseer/commit/c88c2f9b0e26ea961f1e59321734328cc697ca1e))
+
 ## [5.45.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.44.0...v5.45.0) (2026-11-01)
 
 
