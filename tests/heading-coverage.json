@@ -3985,16 +3985,16 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A temporary short-window limit is honoured only on the readings that report it",
     "test": "TODO",
-    "work_item": "overseer-e6bvmt",
-    "reason": "A real integration-tier test is owed, and work-item overseer-e6bvmt owns landing it. Ratified spec-first by the 2026-10-31 delegated revise of caam-usage-model-an-account (v080) under plan caam-generic-limit-windows (epic overseer-rumvpf); overseer-e6bvmt MUST replace this TODO with an integration-tier test driving a caam pass over usage readings that carry no short-window limit or an unrecognised limit."
+    "work_item": "overseer-mqieqw",
+    "reason": "A real integration-tier test is owed, and work-item overseer-mqieqw owns landing it. Ratified spec-first by the 2026-10-31 delegated revise of caam-usage-model-an-account (v080) under plan caam-generic-limit-windows (epic overseer-rumvpf); overseer-mqieqw MUST replace this TODO with an integration-tier test driving a caam pass over usage readings that carry no short-window limit or an unrecognised limit."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unrecognised limit leaves the account readable and is shown",
     "test": "TODO",
-    "work_item": "overseer-e6bvmt",
-    "reason": "A real integration-tier test is owed, and work-item overseer-e6bvmt owns landing it. Ratified spec-first by the 2026-10-31 delegated revise of caam-usage-model-an-account (v080) under plan caam-generic-limit-windows (epic overseer-rumvpf); overseer-e6bvmt MUST replace this TODO with an integration-tier test driving a caam pass over usage readings that carry no short-window limit or an unrecognised limit."
+    "work_item": "overseer-j5elif",
+    "reason": "A real integration-tier test is owed, and work-item overseer-j5elif owns landing it. Ratified spec-first by the 2026-10-31 delegated revise of caam-usage-model-an-account (v080) under plan caam-generic-limit-windows (epic overseer-rumvpf); overseer-j5elif MUST replace this TODO with an integration-tier test driving a caam pass over usage readings that carry no short-window limit or an unrecognised limit."
   },
   {
     "spec_root": "SPECIFICATION",

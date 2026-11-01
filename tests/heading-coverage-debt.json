@@ -1886,14 +1886,14 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A temporary short-window limit is honoured only on the readings that report it",
-    "work_item": "overseer-e6bvmt",
+    "work_item": "overseer-mqieqw",
     "first_seen": "2026-10-31"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unrecognised limit leaves the account readable and is shown",
-    "work_item": "overseer-e6bvmt",
+    "work_item": "overseer-j5elif",
     "first_seen": "2026-10-31"
   },
   {
