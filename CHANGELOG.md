@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.43.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.42.1...v5.43.0) (2026-11-01)
+
+
+### Features
+
+* cover missing caam short window ([4361652](https://github.com/thewoolleyman/livespec-overseer/commit/43616526adaa0e456ddaca0a3edc9cbb36fdaa62))
+* name absent caam short window ([3798347](https://github.com/thewoolleyman/livespec-overseer/commit/3798347e82d3aebf997ae77bcf09e276d05e52c2))
+
 ## [5.42.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.42.0...v5.42.1) (2026-10-31)
 
 
