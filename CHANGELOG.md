@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.44.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.43.0...v5.44.0) (2026-11-01)
+
+
+### Features
+
+* **caam:** cover temporary short-window limits ([eba27ab](https://github.com/thewoolleyman/livespec-overseer/commit/eba27ab5f1e34ef020db86ccaf96cd9750265237))
+
 ## [5.43.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.42.1...v5.43.0) (2026-11-01)
 
 
