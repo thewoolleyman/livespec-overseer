@@ -994,6 +994,16 @@ def test_bootstrap_naming_uses_a_launch_scoped_durable_session_index() -> None:
     assert '[[ -n "$(indexed_launch_rollout_id)" ]]' in controller
 
 
+def test_bootstrap_naming_expiry_records_pane_index_and_capture_path() -> None:
+    """A naming timeout must leave enough evidence to diagnose the failed delivery."""
+    controller = CONTROLLER.read_text(encoding="utf-8")
+
+    assert "capture_bootstrap_naming_failure()" in controller
+    assert 'pane_capture "$AGENT_PANE" >"$bootstrap_naming_capture"' in controller
+    assert "session index thread ids/names after launch:" in controller
+    assert "pane capture: $bootstrap_naming_capture" in controller
+
+
 def test_the_scratch_home_never_writes_through_to_the_hosts_runtime_prefix(
     short_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
