@@ -4033,5 +4033,37 @@
     "test": "TODO",
     "work_item": "overseer-uzvcbn.12",
     "reason": "Ratified in v082 (rejected-state-prompt-notice) ahead of its implementation child; a test at integration tier is owed, and overseer-uzvcbn.12 MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A sanctioned relaunch of a Codex seat binds its topic, pane and profile",
+    "test": "TODO",
+    "work_item": "overseer-uzvcbn.7",
+    "reason": "Ratified in v083 (sanctioned-out-of-band-seat) ahead of its implementation child; a test at integration tier is owed, and overseer-uzvcbn.7 MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A sanctioned relaunch of a non-Codex seat submits no rename",
+    "test": "TODO",
+    "work_item": "overseer-uzvcbn.7",
+    "reason": "Ratified in v083 (sanctioned-out-of-band-seat) ahead of its implementation child; a test at integration tier is owed, and overseer-uzvcbn.7 MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unconfirmed rename leaves the relaunched seat's row unchanged",
+    "test": "TODO",
+    "work_item": "overseer-uzvcbn.7",
+    "reason": "Ratified in v083 (sanctioned-out-of-band-seat) ahead of its implementation child; a test at integration tier is owed, and overseer-uzvcbn.7 MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The sanctioned relaunch refuses before launching into an unsafe or unknown target",
+    "test": "TODO",
+    "work_item": "overseer-uzvcbn.7",
+    "reason": "Ratified in v083 (sanctioned-out-of-band-seat) ahead of its implementation child; a test at integration tier is owed, and overseer-uzvcbn.7 MUST replace this TODO with a test at integration tier."
   }
 ]
