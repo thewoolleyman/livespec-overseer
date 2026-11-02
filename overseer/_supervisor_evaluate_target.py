@@ -236,7 +236,8 @@ def resolve_evaluate_target(
         # one: a rebind that only rewrote the store would leave the track reading
         # `session-gone` for the rest of the tick that repaired it. Every gate below
         # still judges the new pane on its own evidence.
-        track, session, target = replace(track, tmux=rebound), rebound, rebound
+        track = replace(track, tmux=rebound.coordinate, observed_session_identity=rebound.identity)
+        session, target = rebound.coordinate, rebound.coordinate
 
     # Resolve the pane id ONCE and target every subsequent pane op by it (RB3).
     # A pane id is exact and never prefix/fnmatch-matched, so if the tracked

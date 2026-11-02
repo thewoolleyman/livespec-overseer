@@ -23,6 +23,7 @@ decisions somewhere they cannot see the transaction state they depend on.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import _supervisor_codex_identity
@@ -34,12 +35,25 @@ from _supervisor_codex_adoption import codex_host_readers
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
-__all__: list[str] = ["UNIDENTIFIED_NOTE", "rebound_codex_coordinate", "unidentified_codex_pane"]
+__all__: list[str] = [
+    "UNIDENTIFIED_NOTE",
+    "ReboundCodexCoordinate",
+    "rebound_codex_coordinate",
+    "unidentified_codex_pane",
+]
 
 # What the operator is told about a track the daemon cannot resolve to a pane OR declare
 # gone. It names the condition rather than the mechanism: the actionable fact is that a
 # live Codex pane in this repository could not be identified.
 UNIDENTIFIED_NOTE = "a live Codex pane in this repo resolves to no single session"
+
+
+@dataclass(frozen=True, kw_only=True)
+class ReboundCodexCoordinate:
+    """The one live Codex pane and identity a dead mapping may safely adopt."""
+
+    coordinate: str
+    identity: str
 
 
 def _live_coordinate(*, sup: Supervisor, track: registry.Track) -> str | None:
@@ -61,14 +75,45 @@ def _live_coordinate(*, sup: Supervisor, track: registry.Track) -> str | None:
     return found[0] if len(found) == 1 else None
 
 
+def _same_herdr_server(*, recorded: str, candidate: str) -> bool:
+    """Whether the two qualified coordinates name one Herdr server generation."""
+    old = herdr_identity.decode_target(value=recorded).herdr
+    new = herdr_identity.decode_target(value=candidate).herdr
+    return (
+        old is not None
+        and new is not None
+        and herdr_identity.herdr_instance_key(target=old)
+        == herdr_identity.herdr_instance_key(target=new)
+    )
+
+
+def _named_herdr_candidate(
+    *, sup: Supervisor, track: registry.Track, session: str
+) -> ReboundCodexCoordinate | None:
+    """The one named Codex carrier on a gone Herdr target's server, if unique."""
+    if herdr_identity.decode_target(value=session).herdr is None:
+        return None
+    candidates = [
+        ReboundCodexCoordinate(
+            coordinate=coordinate,
+            identity=f"{_supervisor_codex_identity.CODEX_IDENTITY_PREFIX}{live.session_id}",
+        )
+        for (coordinate, topic), live in sup.live_codex.items()
+        if topic == track.topic
+        and signals.path_in_repo(pane_current_path=live.cwd, repo=track.repo)
+        and _same_herdr_server(recorded=session, candidate=coordinate)
+    ]
+    return candidates[0] if len(candidates) == 1 else None
+
+
 def rebound_codex_coordinate(
     *, sup: Supervisor, track: registry.Track, session: str, act: bool
-) -> str | None:
+) -> ReboundCodexCoordinate | None:
     """The live coordinate this row's dead tmux locator should name, or None.
 
-    Returns None — leaving the stored coordinate exactly as it stands — for a stored
-    herdr target, a row recording no Codex identity, a row whose recorded identity no
-    live pane resolves to, and a row whose live pane is already the coordinate it stores.
+    Returns None — leaving the stored coordinate exactly as it stands — when neither a
+    recorded Codex identity nor one named Codex carrier on the gone Herdr server can
+    identify a unique successor.
 
     The STORE WRITE and its log line are gated on ``act``; the resolved coordinate is
     returned either way. The read-only `list` path classifies without mutating, and it
@@ -76,24 +121,36 @@ def rebound_codex_coordinate(
     before deciding whether to touch anything — so resolving in memory and writing only
     on an acting tick is what keeps both halves of that true.
     """
-    if herdr_identity.decode_target(value=session).herdr is not None:
-        return None
-    if not (track.observed_session_identity or "").startswith(
-        _supervisor_codex_identity.CODEX_IDENTITY_PREFIX
-    ):
-        return None
-    coordinate = _live_coordinate(sup=sup, track=track)
-    if coordinate is None or coordinate == session:
+    named = _named_herdr_candidate(sup=sup, track=track, session=session)
+    if named is None:
+        if not (track.observed_session_identity or "").startswith(
+            _supervisor_codex_identity.CODEX_IDENTITY_PREFIX
+        ):
+            return None
+        coordinate = _live_coordinate(sup=sup, track=track)
+        if coordinate is None:
+            return None
+        named = ReboundCodexCoordinate(
+            coordinate=coordinate,
+            identity=track.observed_session_identity or "",
+        )
+    if named.coordinate == session:
         return None
     if act:
         _ = registry.repoint_tmux(
             repo=track.repo,
             topic=track.topic,
-            new_tmux=coordinate,
+            new_tmux=named.coordinate,
             store_path=sup.store_path,
         )
-        sup.log(message=f"rebound {track.repo}::{track.topic} tmux {session} → {coordinate}")
-    return coordinate
+        _ = registry.record_observed_session_identity(
+            repo=track.repo,
+            topic=track.topic,
+            session_identity=named.identity,
+            store_path=sup.store_path,
+        )
+        sup.log(message=f"rebound {track.repo}::{track.topic} tmux {session} → {named.coordinate}")
+    return named
 
 
 def unidentified_codex_pane(*, sup: Supervisor, track: registry.Track) -> bool:
