@@ -686,10 +686,25 @@ its own. That declaration must be authored in the branch's own diff rather than
 inherited from master, so one reviewed exemption cannot disable the guard for
 later branches. It must contain exactly one `work_item=` line naming a ledger id
 and exactly one non-empty `reason=` line. The declaration alone is NOT the
-authorization: this repo has a ledger, so the named work item must ALSO carry
-the label `approval:workflow-edit`, which a HUMAN sets from their own terminal
-(`bd label add <ledger-id> approval:workflow-edit`); agents cannot set it, and
-an unreachable ledger fails closed. There is no mechanical pin/reconciler
+authorization: this repo has a ledger, so the named work item must ALSO carry a
+label for the edit's tier (maintainer ruling 2026-11-02), and an unreachable
+ledger fails closed:
+
+- **ADDITIVE tier.** The workflow diff only adds lines, measured mechanically
+  against the merge base, and the declaration attests `change=additive` and
+  `ci_runtime=no-significant-increase`. The label is
+  `approval:workflow-edit-additive`. An agent may set it only under the
+  maintainer's prior authorization, which may be delegated to a coordinator
+  agent. `approval:workflow-edit` also admits this tier.
+- **MAINTAINER tier.** Everything else needs `approval:workflow-edit`, which
+  only the maintainer sets, directly
+  (`bd label add <ledger-id> approval:workflow-edit`). That covers any deleted
+  or modified workflow line, any edit that removes or reduces test coverage or
+  quality gates, any edit that significantly increases CI runtime, and any
+  declaration without the additive attestation. An agent never sets this label.
+
+The guard refuses a `change=additive` claim over a diff that deletes or
+modifies workflow lines, and names the offending lines. There is no mechanical pin/reconciler
 allowance: the guard is a local and janitor authorship control that exits 0 as
 a no-op in CI (`GITHUB_ACTIONS` set), where the bot lanes legitimately rewrite
 workflow files, so its `check-metadata-batch` invocation in
