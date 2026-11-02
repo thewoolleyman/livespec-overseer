@@ -530,6 +530,46 @@ def test_an_unidentifiable_codex_pane_is_reported_as_unidentified_session_not_go
     assert row_of(store=world.store).tmux == DEAD_TMUX
 
 
+def test_unidentified_status_leaves_an_exact_replacement_recoverable(*, tmp_path):
+    """The unidentified guard does not preempt the durable replacement recovery arm."""
+    world = make_world(tmp_path=tmp_path)
+    write_state_database(
+        path=world.home / "state_2.sqlite",
+        rows=[
+            (SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+            (OPERATOR_SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+        ],
+    )
+    outcome, _log = resolve(world=world, act=True)
+
+    assert outcome.status == "unidentified-session"
+
+    recovery = _supervisor_view.RowView(
+        topic="topic",
+        repo=str(world.repo),
+        tmux=None,
+        ctx=None,
+        status="restarting",
+    )
+    import _supervisor_herdr_stall
+
+    original = _supervisor_herdr_stall.reconcile_and_alert
+    _supervisor_herdr_stall.reconcile_and_alert = lambda **_kwargs: recovery
+    try:
+        assert (
+            _supervisor_evaluate_target._unresolved_target(
+                sup=world.sup,
+                track=row_of(store=world.store),
+                session=TRACKED_COORDINATE,
+                act=True,
+                refuses_recorded_target=True,
+            )
+            is recovery
+        )
+    finally:
+        _supervisor_herdr_stall.reconcile_and_alert = original
+
+
 def test_a_mapped_unidentified_codex_carrier_is_reported_once_without_actions(*, tmp_path):
     """A live carrier in the recorded pane stops evaluation before pane operations."""
     world = make_world(tmp_path=tmp_path)
