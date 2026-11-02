@@ -225,6 +225,19 @@ print(json.dumps(codex_sessions.read_thread_names(codex_home=sys.argv[1]), sort_
 ' "$codex_home"
 }
 
+# Bootstrap's timeout is the one moment when the two possible `/rename` delivery
+# failures remain distinguishable. Preserve both the pane the controller drove and
+# the durable index it read, so a later diagnosis can tell a slash-popup delivery
+# failure from a different exported CODEX_HOME.
+capture_bootstrap_naming_failure() {
+  local bootstrap_naming_capture index_threads
+  bootstrap_naming_capture="$evidence/bootstrap-naming-pane.txt"
+  pane_capture "$AGENT_PANE" >"$bootstrap_naming_capture" || :
+  index_threads="$(indexed_thread_names)"
+  fail_stage bootstrap \
+    "Codex never indexed a rollout under thread_name '$topic' within ${CODEX_READY_TIMEOUT}s (pane $AGENT_PANE; session index thread ids/names after launch: ${index_threads:-<none>}; pane capture: $bootstrap_naming_capture)"
+}
+
 snapshot_row() {
   shipped -c '
 import json
@@ -316,7 +329,7 @@ EOF
 # --------------------------------------------------------------------------- #
 
 stage_bootstrap() {
-  local bootstrap_index_before bootstrap_naming_capture index_threads
+  local bootstrap_index_before
   local overseer_start_output bootstrap_started_at elapsed launcher_output
   ensure_scratch_plan
   configure_scratch_codex
@@ -339,11 +352,7 @@ stage_bootstrap() {
 
   pane_submit "$AGENT_PANE" "/rename $topic"
   if ! wait_until "$CODEX_READY_TIMEOUT" rollout_is_named; then
-    bootstrap_naming_capture="$evidence/bootstrap-naming-pane.txt"
-    pane_capture "$AGENT_PANE" >"$bootstrap_naming_capture" || :
-    index_threads="$(indexed_thread_names)"
-    fail_stage bootstrap \
-      "Codex never indexed a rollout under thread_name '$topic' within ${CODEX_READY_TIMEOUT}s (pane $AGENT_PANE; session index thread ids/names after launch: ${index_threads:-<none>}; pane capture: $bootstrap_naming_capture)"
+    capture_bootstrap_naming_failure
   fi
   predecessor="$(indexed_launch_rollout_id)"
 
