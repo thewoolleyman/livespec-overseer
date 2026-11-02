@@ -641,7 +641,10 @@ def _assert_parent_setup_preserved(
     assert (
         child.get("HERDR_CONFIG_PATH") != inherited["HERDR_CONFIG_PATH"]
     ), f"the server inherited the rival configuration: {child.get('HERDR_CONFIG_PATH')!r}"
-    assert "ENV" not in child, "the interactive startup variable reached the child"
+    # A boolean, never the dict: a failing `in` renders the server's whole
+    # environment, which can carry credentials (overseer-uzvcbn.13).
+    env_reached_child = "ENV" in child
+    assert not env_reached_child, "the interactive startup variable reached the child"
     for name in ("HOME", "PATH", "SHELL", "CODEX_HOME"):
         assert child.get(name) == inherited.get(
             name

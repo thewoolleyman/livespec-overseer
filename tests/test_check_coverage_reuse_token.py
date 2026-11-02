@@ -396,7 +396,8 @@ def test_clean_env_strips_the_resolver_inputs_the_host_may_already_set(
     env = _clean_env(tmp_path=tmp_path)
 
     for name in _RESOLVER_INPUTS:
-        assert name not in env, name
+        survived = name in env  # boolean: never render the env (uzvcbn.13)
+        assert not survived, name
 
     # ...and an explicit value still reaches the script, so stripping did not
     # simply make these variables unusable.
