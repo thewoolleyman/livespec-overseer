@@ -985,6 +985,15 @@ def test_bootstrap_failure_keeps_launcher_output_and_elapsed_time() -> None:
     assert "after ${elapsed}s" in controller
 
 
+def test_bootstrap_naming_uses_a_launch_scoped_durable_session_index() -> None:
+    """An idle Codex TUI need not itself hold a rollout fd after `/rename`."""
+    controller = CONTROLLER.read_text(encoding="utf-8")
+
+    assert "latest_session_for_thread_name" in controller
+    assert 'predecessor="$(indexed_launch_rollout_id)"' in controller
+    assert '[[ -n "$(indexed_launch_rollout_id)" ]]' in controller
+
+
 def test_the_scratch_home_never_writes_through_to_the_hosts_runtime_prefix(
     short_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
