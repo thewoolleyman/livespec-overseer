@@ -8,6 +8,8 @@ import stat
 import subprocess
 from pathlib import Path
 
+from livespec_dev_tooling.config import load_delegated_pre_commit
+
 from overseer.pre_commit_gate import union_skip_targets
 
 __all__: list[str] = []
@@ -139,6 +141,11 @@ def test_union_skip_targets_preserves_external_order_and_deduplicates() -> None:
         )
         == "check-claude-idle-canary check-coverage check-per-file-coverage"
     )
+
+
+def test_repository_enables_delegated_pre_commit() -> None:
+    """The released staged-tree gate is explicitly enabled for this repository."""
+    assert load_delegated_pre_commit(repo_root=_REPO_ROOT) is True
 
 
 def test_red_mode_unions_external_skip_with_builtin_coverage_skips(tmp_path: Path) -> None:
