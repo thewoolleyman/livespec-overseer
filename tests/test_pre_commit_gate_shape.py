@@ -37,12 +37,13 @@ def _run_pre_commit(
     staged_files: str,
     impl_staged: str,
     existing_skip: str = "",
-    refuse_uv: bool = False,
     just_exit: int = 0,
+    delegate_status: int | None = None,
 ) -> subprocess.CompletedProcess[str]:
     bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
+    bin_dir.mkdir(parents=True)
     log_path = tmp_path / "just.log"
+    log_path.touch()
     bash = shutil.which("bash")
     assert bash is not None
     _write_executable(
@@ -68,6 +69,10 @@ set -euo pipefail
 if [[ "${PRE_COMMIT_REFUSE_UV:-}" == "true" ]]; then
   echo "uv should not have been called" >&2
   exit 98
+fi
+if [[ "$*" == "run python -m livespec_dev_tooling.pre_commit_delegate run" ]]; then
+  printf '%s\n' "$*" >> "$PRE_COMMIT_UV_LOG"
+  exit "$PRE_COMMIT_DELEGATE_STATUS"
 fi
 if [[ "$*" == "run python -" ]]; then
   cat >/dev/null
@@ -105,16 +110,23 @@ exit "${{PRE_COMMIT_JUST_EXIT}}"
     )
 
     env = _scrub_coverage_env(env=os.environ.copy())
+    uv_log = tmp_path / "uv.log"
+    uv_log.touch()
     env.update(
         {
             "PATH": f"{bin_dir}:{env['PATH']}",
             "PRE_COMMIT_STAGED_FILES": staged_files,
             "PRE_COMMIT_IMPL_STAGED": impl_staged,
             "PRE_COMMIT_HEAD_MESSAGE": "",
-            "PRE_COMMIT_REFUSE_UV": "true" if refuse_uv else "false",
+            "PRE_COMMIT_REFUSE_UV": "true" if delegate_status == 98 else "false",
             "PRE_COMMIT_JUST_EXIT": str(just_exit),
+            "PRE_COMMIT_UV_LOG": str(uv_log),
+            "PRE_COMMIT_DELEGATE_STATUS": str(delegate_status),
+            "LIVESPEC_GATE_CONTEXT": "1",
         }
     )
+    if delegate_status is not None:
+        _ = env.pop("LIVESPEC_GATE_CONTEXT")
     if existing_skip:
         env["LIVESPEC_CHECK_SKIP"] = existing_skip
     else:
@@ -168,7 +180,7 @@ def test_doc_only_fast_path_does_not_load_python_classifier(tmp_path: Path) -> N
         tmp_path=tmp_path,
         staged_files="AGENTS.md",
         impl_staged="unexpected-uv-call",
-        refuse_uv=True,
+        delegate_status=98,
     )
 
     assert completed.returncode == 0, completed.stderr
@@ -199,3 +211,38 @@ def test_impl_plus_tests_propagates_full_check_failure(tmp_path: Path) -> None:
     assert completed.returncode == 7
     assert "Red-mode shape detected" not in completed.stdout
     assert _just_log(tmp_path=tmp_path) == "check env=<unset>\n"
+
+
+def test_pre_commit_delegates_before_falling_back_to_the_local_aggregate(tmp_path: Path) -> None:
+    """A remote verdict is final; only status 75 retains the local check."""
+    passed = _run_pre_commit(
+        tmp_path=tmp_path / "passed",
+        staged_files="tests/test_gate.py",
+        impl_staged="",
+        delegate_status=0,
+    )
+    refused = _run_pre_commit(
+        tmp_path=tmp_path / "refused",
+        staged_files="tests/test_gate.py",
+        impl_staged="",
+        delegate_status=1,
+    )
+    local = _run_pre_commit(
+        tmp_path=tmp_path / "local",
+        staged_files="tests/test_gate.py",
+        impl_staged="",
+        delegate_status=75,
+    )
+
+    assert passed.returncode == 0
+    assert refused.returncode == 1
+    assert local.returncode == 0
+    assert (tmp_path / "passed" / "just.log").read_text(encoding="utf-8") == ""
+    assert (tmp_path / "refused" / "just.log").read_text(encoding="utf-8") == ""
+    assert _just_log(tmp_path=tmp_path / "local") == (
+        "check env=check-coverage check-per-file-coverage\n"
+    )
+    for route in ("passed", "refused", "local"):
+        assert (tmp_path / route / "uv.log").read_text(encoding="utf-8") == (
+            "run python -m livespec_dev_tooling.pre_commit_delegate run\n"
+        )

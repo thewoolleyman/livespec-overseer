@@ -31,6 +31,25 @@ if [[ -z "$py_staged" ]]; then
   exit $?
 fi
 
+# A gates Job restores the staged index and sets this marker before invoking the
+# aggregate. It must run locally there, never recursively submit another Job.
+if [[ -z "${LIVESPEC_GATE_CONTEXT:-}" ]]; then
+  set +e
+  uv run python -m livespec_dev_tooling.pre_commit_delegate run
+  delegate_status=$?
+  set -e
+  case "$delegate_status" in
+    0)
+      exit 0
+      ;;
+    75)
+      ;;
+    *)
+      exit "$delegate_status"
+      ;;
+  esac
+fi
+
 impl_staged="$(
   LIVESPEC_STAGED_PATHS="$staged" uv run python - <<'PY'
 import os
