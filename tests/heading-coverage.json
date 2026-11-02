@@ -4065,5 +4065,29 @@
     "test": "TODO",
     "work_item": "overseer-uzvcbn.7",
     "reason": "Ratified in v083 (sanctioned-out-of-band-seat) ahead of its implementation child; a test at integration tier is owed, and overseer-uzvcbn.7 MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A confirmed fresh Codex successor is reported for its launch pane and proven without a rollout file",
+    "test": "TODO",
+    "work_item": "overseer-rthizs",
+    "reason": "Ratified in v084 (daemon-reports-codex-session-to-backend) ahead of its implementation child; a test at integration tier is owed, and overseer-rthizs MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A rejected backend report is surfaced and does not void a fresh Codex successor's proof",
+    "test": "TODO",
+    "work_item": "overseer-rthizs",
+    "reason": "Ratified in v084 (daemon-reports-codex-session-to-backend) ahead of its implementation child; a test at integration tier is owed, and overseer-rthizs MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unconfirmed rename leaves a fresh Codex successor unreported and unproven",
+    "test": "TODO",
+    "work_item": "overseer-rthizs",
+    "reason": "Ratified in v084 (daemon-reports-codex-session-to-backend) ahead of its implementation child; a test at integration tier is owed, and overseer-rthizs MUST replace this TODO with a test at integration tier."
   }
 ]

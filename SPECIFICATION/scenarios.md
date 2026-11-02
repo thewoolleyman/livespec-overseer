@@ -4381,13 +4381,55 @@ And a verified successor receives only the existing guarded resume-submission co
 ## Scenario: A Codex herdr replacement delivers the resume line after an unconfirmable rename
 
 Given a Codex track on the herdr backend whose fresh-session ready declaration authorized a replacement
-And the daemon has launched a fresh Codex successor in the recorded pane and submitted /rename <topic> to it
+And the daemon has launched a fresh Codex successor in the recorded pane and submitted /rename <name> to it with the track's derived session name
 And the rename started no turn, so its delivery cannot be confirmed by a turn start
-When the session index records the successor's rollout under the topic
+When the session index records a thread created by this launch named exactly <name>
 Then the daemon treats the successor as named, without holding the rename as an UNCONFIRMED delivery
 And it pastes the replacement's resume line into the successor's pane
 And it confirms that delivery only when the successor's turn starts
 And the replacement reaches phase completed and consumes the ready declaration
+
+## Scenario: A confirmed fresh Codex successor is reported for its launch pane and proven without a rollout file
+
+Given a Codex track on a terminal backend that accepts agent-session reports, whose fresh ready declaration authorized a guarded replacement
+
+And the daemon has proven the predecessor gone, launched a fresh Codex successor in the retained shell of the recorded pane, and submitted /rename <name> with the track's derived session name
+
+And the successor holds no rollout file open, and the environment of the process hosting its thread names a different pane
+
+When the Codex session index records a thread created by this launch, named exactly <name>, whose identifier differs from the predecessor's session identity
+
+Then the daemon reports that thread identifier to the terminal backend as the agent session of the recorded pane and of no other pane
+
+And no agent session is reported for the pane named by the hosting process's environment
+
+And the daemon accepts the successor as proven without resting on any rollout file's write time or recency, and without opening any rollout body
+
+And the ready declaration is consumed only after the proven successor's verified continuation
+
+## Scenario: A rejected backend report is surfaced and does not void a fresh Codex successor's proof
+
+Given the daemon has launched a fresh Codex successor in the retained shell of a Codex track's recorded pane, and the Codex session index records a thread created by this launch named exactly the track's derived session name
+
+And every other proof condition holds for that successor
+
+When the terminal backend rejects the daemon's report of that thread as the recorded pane's agent session
+
+Then the rejected report is surfaced
+
+And the successor is still accepted as proven, and the replacement's resume line is delivered to it
+
+## Scenario: An unconfirmed rename leaves a fresh Codex successor unreported and unproven
+
+Given the daemon has launched a fresh Codex successor in the retained shell of a Codex track's recorded pane and submitted /rename <name> with the track's derived session name
+
+When the Codex session index records no thread created by this launch named exactly <name> within the replacement's bounded wait
+
+Then no agent session is reported to the terminal backend for any pane
+
+And the successor is not accepted as proven, and the unnamed successor is surfaced
+
+And no resume line is delivered, and the ready declaration is retained and authorizes no further termination or launch
 
 ## Scenario: A replacement prerequisite failure preserves every live session
 
