@@ -31,7 +31,9 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
+import _herdr_replacement_store
 import _supervisor_evaluate_target
+import _supervisor_herdr_stall
 import _supervisor_view
 import codex_sessions
 import herdr_adapter
@@ -836,7 +838,7 @@ def test_a_live_pane_whose_resolved_identity_differs_never_moves_the_row(*, tmp_
 # --- assertion 5: an unidentifiable Codex pane is its own status ---------------------
 
 
-def test_an_unidentifiable_codex_pane_is_reported_as_such_and_not_as_session_gone(*, tmp_path):
+def test_an_unidentifiable_codex_pane_is_reported_as_unidentified_session_not_gone(*, tmp_path):
     """`session-gone` asserts the session is NOT THERE; here the daemon cannot tell.
 
     Two live sessions bound to one repository leave both unidentified, so the daemon has
@@ -858,12 +860,165 @@ def test_an_unidentifiable_codex_pane_is_reported_as_such_and_not_as_session_gon
     outcome, _log = resolve(world=world, act=True)
 
     assert not isinstance(outcome, _supervisor_evaluate_target.EvaluateTarget)
-    assert outcome.status == "codex-unidentified"
+    assert outcome.status == "unidentified-session"
     assert outcome.status in _supervisor_view.ATTENTION_STATUSES
     assert _supervisor_view.row_color(status=outcome.status) != _supervisor_view.row_color(
         status="session-gone"
     )
     assert row_of(store=world.store).tmux == DEAD_TMUX
+
+
+def test_a_mapped_unidentified_codex_carrier_logs_once_without_driving_it(*, tmp_path):
+    """A mapped live carrier without exact evidence is reported but never operated."""
+    world = make_world(tmp_path=tmp_path)
+    write_state_database(
+        path=world.home / "state_2.sqlite",
+        rows=[
+            (SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+            (OPERATOR_SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+        ],
+    )
+    _ = registry.repoint_tmux(
+        repo=str(world.repo),
+        topic="topic",
+        new_tmux=TRACKED_COORDINATE,
+        store_path=world.store,
+    )
+
+    outcome, first_log = resolve(world=world, act=True)
+    repeated, repeated_log = resolve(world=world, act=True)
+
+    assert outcome.status == "unidentified-session"
+    assert repeated.status == "unidentified-session"
+    events = [
+        json.loads(line) for line in (first_log + repeated_log).splitlines() if line.startswith("{")
+    ]
+    assert len(events) == 1
+    event = events[0]
+    assert event["event"] == "unidentified-session"
+    assert TRACKED_COORDINATE in event["message"]
+    assert str(TRACKED_PID) in event["message"]
+    assert "ambiguous repository sessions" in event["message"]
+    assert not world.sup.tmux.calls
+
+
+def test_a_mapped_codex_carrier_without_a_live_candidate_logs_its_refusal(*, tmp_path):
+    """No candidate is distinct from ambiguity, and still suppresses all pane work."""
+    world = make_world(tmp_path=tmp_path)
+    world.sup.codex_fd_targets_of = lambda *, pid: []
+    _ = registry.repoint_tmux(
+        repo=str(world.repo),
+        topic="topic",
+        new_tmux=TRACKED_COORDINATE,
+        store_path=world.store,
+    )
+
+    outcome, log = resolve(world=world, act=True)
+
+    assert outcome.status == "unidentified-session"
+    event = next(json.loads(line) for line in log.splitlines() if line.startswith("{"))
+    assert event["event"] == "unidentified-session"
+    assert TRACKED_COORDINATE in event["message"]
+    assert str(TRACKED_PID) in event["message"]
+    assert "no live candidate" in event["message"]
+    assert not world.sup.tmux.calls
+
+
+def test_an_unidentified_codex_carrier_is_read_only_in_list_mode(*, tmp_path):
+    """The read-only path reports the carrier without emitting its attention event."""
+    world = make_world(tmp_path=tmp_path)
+    write_state_database(
+        path=world.home / "state_2.sqlite",
+        rows=[
+            (SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+            (OPERATOR_SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+        ],
+    )
+    _ = registry.repoint_tmux(
+        repo=str(world.repo),
+        topic="topic",
+        new_tmux=TRACKED_COORDINATE,
+        store_path=world.store,
+    )
+
+    outcome, log = resolve(world=world, act=False)
+
+    assert outcome.status == "unidentified-session"
+    assert not log
+    assert not world.sup.tmux.calls
+
+
+def test_a_durable_herdr_replacement_advances_before_unidentified_carrier_refusal(
+    *, tmp_path, monkeypatch
+):
+    """A daemon-owned Codex successor stays on the restart arm until it is proven.
+
+    The successor is temporarily unnamed while its launch transaction is active. That
+    does not make the track unidentified: the predecessor's exact binding already
+    authorized this one replacement, and the recovery arm proves and resumes it.
+    """
+    world = make_world(tmp_path=tmp_path)
+    world.sup.codex_fd_targets_of = lambda *, pid: []
+    _ = registry.repoint_tmux(
+        repo=str(world.repo),
+        topic="topic",
+        new_tmux=TRACKED_COORDINATE,
+        store_path=world.store,
+    )
+    track = row_of(store=world.store)
+    _herdr_replacement_store.durable_write(
+        path=(
+            _herdr_replacement_store.scratch_path(track=track)
+            / _herdr_replacement_store.RECORD_NAME
+        ),
+        value={
+            "version": 1,
+            "phase": "launch-attempted",
+            "target": TRACKED_COORDINATE,
+            "server": {
+                "socket_path": "/run/herdr.sock",
+                "pid": 401,
+                "starttime": "2026-10-10T00:00:00Z",
+                "pane_id": "w2H:p3",
+            },
+            "runtime": "codex",
+            "predecessor": {"pid": 1, "starttime": "old", "process_group": 1},
+            "shell": {
+                "pid": 2,
+                "starttime": "shell",
+                "executable": "/bin/sh",
+                "argv": ["/bin/sh"],
+                "process_group": 2,
+                "session_id": 2,
+            },
+            "round": {
+                "ready_mtime": 1.0,
+                "round_at": 1.0,
+                "session_identity": f"codex:{SESSION_ID}",
+            },
+            "launch": {"command": "codex", "cwd": str(world.repo), "env": {}},
+        },
+    )
+    expected = _supervisor_view.RowView(
+        topic="topic",
+        repo=str(world.repo),
+        tmux=TRACKED_COORDINATE,
+        ctx=None,
+        status="replacement-pending",
+        note="durable Herdr replacement phase: launch-attempted",
+    )
+    calls = []
+
+    def reconcile(**kwargs):
+        calls.append(kwargs)
+        return expected
+
+    monkeypatch.setattr(_supervisor_herdr_stall, "reconcile_and_alert", reconcile)
+
+    outcome, _log = resolve(world=world, act=True)
+
+    assert outcome == expected
+    assert len(calls) == 1
 
 
 # --- assertion 6: the read-only list path reports without rewriting ------------------
