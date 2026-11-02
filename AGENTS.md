@@ -291,12 +291,21 @@ stale-session-build case and its retracted 2026-08-03 pin ruling are in
 `.ai/dispatch-traps.md`.
 
 Red-mode pre-commit skips coverage because commit-msg replay verifies the Red.
-If you are repairing one specific gate that lives inside `just check`, an
-exported `LIVESPEC_CHECK_SKIP` is UNIONED with the built-in Red-mode coverage
-skips, so the Red commit can skip only the gate whose broken state it is
-proving. Do not carry that exported skip into the Green/full-suite
+If you are a HOST session repairing one specific gate that lives inside
+`just check`, an exported `LIVESPEC_CHECK_SKIP` is UNIONED with the built-in
+Red-mode coverage skips, so the Red commit can skip only the gate whose broken
+state it is proving. Do not carry that exported skip into the Green/full-suite
 verification; the final commit still owes the full aggregate with nothing
 skipped.
+
+**A factory implement turn MUST NEVER set `LIVESPEC_CHECK_SKIP`**, for any
+gate, on any commit, including a Red commit. The carve-out above belongs to a
+host session repairing that one gate. It is not a way for a factory turn to get
+past a gate that refused its work. When a gate refuses a factory commit, fix
+what the gate reports, or end the turn and let the refusal stand. Coordinator
+ruling R301, 2026-11-02. Measured the same day: the `overseer-uzvcbn.10` run's
+agent reached for this paragraph after paired-source and aggregate gates
+refused its Red commit.
 
 Before the hooks installed the pack first, a worktree without it could neither
 commit a `.py` change nor push at all —
