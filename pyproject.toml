@@ -70,9 +70,16 @@ delegated_gate = true
 # Job; sandbox and credentialless hosts retain the local pre-commit gate.
 delegated_pre_commit = true
 # The remote Job preserves the standard bootstrap, then restores the staged
-# index before it runs this repository's pre-commit aggregate locally.
+# index before it runs this repository's pre-commit aggregate locally. The
+# bootstrap is the documented fall-through suite's: the worktree pack AND the
+# commit-refuse hooks. The aggregate's world-reading member
+# `check-primary-checkout-commit-refuse-hook-installed` reads `.git/hooks`, and a
+# gate Job's fresh `/workspace` checkout has none until this installs them, so
+# omitting it refused every delegated hand commit (2026-11-02, gate Job
+# gate-livespec-overseer-5tzsz, "failure_mode: missing").
 gate_check_suite = [
     "install-worktree-pack",
+    "install-commit-refuse-hooks",
     "check-pre-commit",
 ]
 # Two tests need a real Python child, and in both cases the thing under test is a
