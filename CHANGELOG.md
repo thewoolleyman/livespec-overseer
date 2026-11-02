@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.47.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.47.0...v5.47.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* report unidentified Codex carriers ([91bd149](https://github.com/thewoolleyman/livespec-overseer/commit/91bd14957a37e428ebd5c130a37cfc635f0209fa))
+
 ## [5.47.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.46.1...v5.47.0) (2026-11-02)
 
 
