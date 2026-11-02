@@ -16,11 +16,16 @@ from typing import TYPE_CHECKING, cast
 import _herdr_replacement_store
 import herdr_identity
 import registry
+from _supervisor_herdr_codex_profile import recapture_codex_successor_profile
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
-__all__: list[str] = ["codex_successor_identity", "relaunched_identity", "repoint_moved_session"]
+__all__: list[str] = [
+    "codex_successor_identity",
+    "relaunched_identity",
+    "repoint_moved_session",
+]
 
 
 def _legacy_unqualified_target(*, value: str | None) -> bool:
@@ -159,7 +164,9 @@ def relaunched_identity(*, sup: Supervisor, track: registry.Track, session: str)
     return identity
 
 
-def codex_successor_identity(*, sup: Supervisor, track: registry.Track, session: str) -> str | None:
+def codex_successor_identity(
+    *, sup: Supervisor, track: registry.Track, session: str, act: bool
+) -> str | None:
     """The identity of a live Codex session named for the track that replaced its gone Claude.
 
     Only a row recording a Claude identity reaches this, and only once no Claude is alive
@@ -172,5 +179,7 @@ def codex_successor_identity(*, sup: Supervisor, track: registry.Track, session:
         return None
     live = sup.live_codex.get((session, track.topic))
     if live is None or _replacement_open(track=track):
+        return None
+    if act and not recapture_codex_successor_profile(sup=sup, track=track, session=session):
         return None
     return f"codex:{live.session_id}"

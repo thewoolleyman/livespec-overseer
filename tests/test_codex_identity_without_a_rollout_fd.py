@@ -570,6 +570,20 @@ def test_a_reported_codex_carrier_replaces_the_gone_claude_launch_profile(*, tmp
     }
 
 
+def test_an_incomplete_codex_profile_does_not_replace_the_gone_claude_row(*, tmp_path):
+    """Identity transfer waits for the exact carrier's complete launch profile."""
+    world, claude_identity = reported_claude_world(tmp_path=tmp_path)
+    write_state_database(
+        path=world.home / "state_2.sqlite",
+        rows=[(SESSION_ID, "<synthetic>", str(world.repo))],
+    )
+
+    outcome, _log = resolve(world=world, act=True)
+
+    assert not isinstance(outcome, _supervisor_evaluate_target.EvaluateTarget)
+    assert row_of(store=world.store).observed_session_identity == claude_identity
+
+
 def test_the_read_only_path_classifies_the_re_recorded_row_without_writing(*, tmp_path):
     world, claude_identity = reported_claude_world(tmp_path=tmp_path)
 
