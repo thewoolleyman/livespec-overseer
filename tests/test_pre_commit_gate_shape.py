@@ -8,7 +8,7 @@ import stat
 import subprocess
 from pathlib import Path
 
-from livespec_dev_tooling.config import load_delegated_pre_commit
+from livespec_dev_tooling.config import load_delegated_pre_commit, load_gate_check_suite
 
 from overseer.pre_commit_gate import union_skip_targets
 
@@ -16,6 +16,7 @@ __all__: list[str] = []
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _SCRIPT = _REPO_ROOT / "scripts" / "check-pre-commit.sh"
+_GATED_TREE_SCRIPT = _REPO_ROOT / "scripts" / "check-pre-commit-gated-tree.sh"
 
 
 def _write_executable(*, path: Path, body: str) -> None:
@@ -158,6 +159,36 @@ def test_union_skip_targets_preserves_external_order_and_deduplicates() -> None:
 def test_repository_enables_delegated_pre_commit() -> None:
     """The released staged-tree gate is explicitly enabled for this repository."""
     assert load_delegated_pre_commit(repo_root=_REPO_ROOT) is True
+
+
+def test_gate_suite_uses_the_staged_tree_recipe() -> None:
+    """The delegate keeps its bootstrap and substitutes the guarded aggregate."""
+    assert load_gate_check_suite(repo_root=_REPO_ROOT) == (
+        "install-worktree-pack",
+        "check-pre-commit",
+    )
+    assert (
+        _GATED_TREE_SCRIPT.read_text(encoding="utf-8")
+        == """#!/usr/bin/env bash
+set -euo pipefail
+
+# The gate Job checks out the temporary commit created from the staged tree.
+# Rewind to its parent while retaining index and worktree state so the local
+# pre-commit aggregate sees exactly the staged tree the committing host saw.
+gated_tree=$(git rev-parse 'HEAD^{tree}')
+if [[ \"$(git rev-list --parents -n 1 HEAD | wc -w)\" -ne 2 ]]; then
+    echo \"FATAL: the gated staged-tree commit must have exactly one parent\" >&2
+    exit 1
+fi
+git reset --soft 'HEAD^'
+if [[ \"$(git write-tree)\" != \"$gated_tree\" ]]; then
+    echo \"FATAL: rewinding changed the staged tree\" >&2
+    exit 1
+fi
+
+exec env LIVESPEC_GATE_CONTEXT=1 just check-pre-commit
+"""
+    )
 
 
 def test_red_mode_unions_external_skip_with_builtin_coverage_skips(tmp_path: Path) -> None:
