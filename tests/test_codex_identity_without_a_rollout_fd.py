@@ -500,7 +500,7 @@ def test_a_live_pane_whose_resolved_identity_differs_never_moves_the_row(*, tmp_
 # --- assertion 5: an unidentifiable Codex pane is its own status ---------------------
 
 
-def test_an_unidentifiable_codex_pane_is_reported_as_such_and_not_as_session_gone(*, tmp_path):
+def test_an_unidentifiable_codex_pane_is_reported_as_unidentified_session_not_gone(*, tmp_path):
     """`session-gone` asserts the session is NOT THERE; here the daemon cannot tell.
 
     Two live sessions bound to one repository leave both unidentified, so the daemon has
@@ -522,12 +522,74 @@ def test_an_unidentifiable_codex_pane_is_reported_as_such_and_not_as_session_gon
     outcome, _log = resolve(world=world, act=True)
 
     assert not isinstance(outcome, _supervisor_evaluate_target.EvaluateTarget)
-    assert outcome.status == "codex-unidentified"
+    assert outcome.status == "unidentified-session"
     assert outcome.status in _supervisor_view.ATTENTION_STATUSES
     assert _supervisor_view.row_color(status=outcome.status) != _supervisor_view.row_color(
         status="session-gone"
     )
     assert row_of(store=world.store).tmux == DEAD_TMUX
+
+
+def test_a_mapped_unidentified_codex_carrier_is_reported_once_without_actions(*, tmp_path):
+    """A live carrier in the recorded pane stops evaluation before pane operations."""
+    world = make_world(tmp_path=tmp_path)
+    write_state_database(
+        path=world.home / "state_2.sqlite",
+        rows=[
+            (SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+            (OPERATOR_SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+        ],
+    )
+    _ = registry.repoint_tmux(
+        repo=str(world.repo),
+        topic="topic",
+        new_tmux=TRACKED_COORDINATE,
+        store_path=world.store,
+    )
+
+    outcome, first_log = resolve(world=world, act=True)
+    repeated, repeated_log = resolve(world=world, act=True)
+
+    assert outcome.status == "unidentified-session"
+    assert repeated.status == "unidentified-session"
+    events = [
+        json.loads(line) for line in (first_log + repeated_log).splitlines() if line.startswith("{")
+    ]
+    assert len(events) == 1
+    event = events[0]
+    assert event["event"] == "unidentified-session"
+    assert TRACKED_COORDINATE in event["message"]
+    assert str(TRACKED_PID) in event["message"]
+    assert "ambiguous repository sessions" in event["message"]
+    assert not world.sup.tmux.calls
+
+
+def test_a_mapped_codex_carrier_with_no_live_candidate_is_reported_once(*, tmp_path):
+    """A live carrier with no candidate session remains unidentified, not gone."""
+    world = make_world(tmp_path=tmp_path)
+    world.sup.codex_fd_targets_of = lambda *, pid: []
+    _ = registry.repoint_tmux(
+        repo=str(world.repo),
+        topic="topic",
+        new_tmux=TRACKED_COORDINATE,
+        store_path=world.store,
+    )
+
+    outcome, first_log = resolve(world=world, act=True)
+    repeated, repeated_log = resolve(world=world, act=True)
+
+    assert outcome.status == "unidentified-session"
+    assert repeated.status == "unidentified-session"
+    events = [
+        json.loads(line) for line in (first_log + repeated_log).splitlines() if line.startswith("{")
+    ]
+    assert len(events) == 1
+    event = events[0]
+    assert event["event"] == "unidentified-session"
+    assert TRACKED_COORDINATE in event["message"]
+    assert str(TRACKED_PID) in event["message"]
+    assert "no live candidate" in event["message"]
+    assert not world.sup.tmux.calls
 
 
 # --- assertion 6: the read-only list path reports without rewriting ------------------
