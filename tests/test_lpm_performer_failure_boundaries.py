@@ -8,11 +8,17 @@ import time
 from contextlib import suppress
 from pathlib import Path
 from types import ModuleType
+from typing import TYPE_CHECKING, Protocol
 
 import pytest
 
 from overseer._lpm_observations import ObservationSanitizer
 from overseer._vendor.returns.result import Failure
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from overseer._lpm_observations import ObservationOutcome
 
 __all__: list[str] = []
 
@@ -20,6 +26,32 @@ __all__: list[str] = []
 def _write_executable(*, path: Path, body: str) -> None:
     path.write_text(f"#!/usr/bin/env python3\n{body}", encoding="utf-8")
     path.chmod(0o755)
+
+
+# Upper bound on how long a stand-in waits to be released, and on how long the test
+# waits for an observable event. Each wait ends the moment its event occurs, so this
+# bounds a wedged test, never a slow host.
+_STANDIN_WAIT_SECONDS = 30.0
+
+
+class _Observing(Protocol):
+    def observe(self) -> ObservationOutcome: ...
+
+
+def _observe_until(
+    *, performer: _Observing, condition: Callable[[ObservationOutcome], bool]
+) -> list[ObservationOutcome]:
+    deadline = time.monotonic() + _STANDIN_WAIT_SECONDS
+    observations: list[ObservationOutcome] = []
+    while True:
+        observed = performer.observe()
+        observations.append(observed)
+        if condition(observed):
+            return observations
+        assert (
+            time.monotonic() < deadline
+        ), f"condition not observed after {_STANDIN_WAIT_SECONDS}s: {observations!r}"
+        time.sleep(0.01)
 
 
 def _close_if_open(*, descriptors: list[int]) -> None:
@@ -296,6 +328,10 @@ def test_terminal_poll_waits_for_child_and_stream_finality(
 def test_terminal_keeps_descendant_held_streams_incremental(tmp_path: Path) -> None:
     import overseer._lpm_terminal_performer as module
 
+    # The descendant holds stdout until the TEST releases it, not until a timer
+    # fires: fixed sleeps on both sides raced interpreter startup on a loaded host
+    # and left the first observe() empty (overseer-ravqoo).
+    release = tmp_path / "release-descendant"
     executable = tmp_path / "terminal-descendant"
     _write_executable(
         path=executable,
@@ -304,7 +340,11 @@ def test_terminal_keeps_descendant_held_streams_incremental(tmp_path: Path) -> N
             "import time\n"
             "os.write(1, b'prefix sk-ant-oat01-par')\n"
             "if os.fork() == 0:\n"
-            "    time.sleep(0.6)\n"
+            f"    deadline = time.monotonic() + {_STANDIN_WAIT_SECONDS!r}\n"
+            f"    while not os.path.exists({str(release)!r}):\n"
+            "        if time.monotonic() > deadline:\n"
+            "            os._exit(1)\n"
+            "        time.sleep(0.01)\n"
             "    os.write(1, b'tial\\n')\n"
             "    os._exit(0)\n"
             "os._exit(0)\n"
@@ -317,19 +357,28 @@ def test_terminal_keeps_descendant_held_streams_incremental(tmp_path: Path) -> N
         read_timeout_seconds=0.1,
     )
     assert performer.start() == {"version": 1, "status": "ok"}
-    time.sleep(0.2)
-    first = performer.observe()
-    time.sleep(0.5)
-    observations = [first]
-    for _ in range(5):
-        observed = performer.observe()
-        observations.append(observed)
-        if observed.response.get("running") is False:
-            break
+    first = _observe_until(
+        performer=performer,
+        condition=lambda observed: bool(observed.response.get("stdout")),
+    )
+    # The parent has exited, but the descendant still holds stdout, so the stream
+    # must stay open and the released prefix must not wait for the descendant.
+    _ = _observe_until(
+        performer=performer,
+        condition=lambda observed: observed.response.get("exit_status") is not None,
+    )
+    held = performer.observe()
+    release.touch()
+    rest = _observe_until(
+        performer=performer,
+        condition=lambda observed: observed.response.get("running") is False,
+    )
+    observations = [*first, held, *rest]
     performer.close()
 
-    assert first.response["running"] is True
-    assert first.response["stdout"] == "prefix "
+    assert all(item.response["running"] is True for item in first)
+    assert "".join(str(item.response.get("stdout", "")) for item in first) == "prefix "
+    assert held.response["running"] is True
     assert observations[-1].response["running"] is False
     assert "".join(str(item.response.get("stdout", "")) for item in observations) == (
         "prefix [[redacted-token:terminal-opaque]]\n"
