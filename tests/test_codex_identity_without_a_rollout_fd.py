@@ -749,6 +749,54 @@ def test_a_gone_herdr_coordinate_rebinds_to_its_single_named_codex_successor(*, 
     assert TRACKED_COORDINATE in log
 
 
+def test_a_gone_herdr_coordinate_with_two_named_successors_is_unidentified(*, tmp_path):
+    """Several exact candidates are ambiguous rather than a license to choose one."""
+    _module = codex_rebind()
+    world = make_world(
+        tmp_path=tmp_path,
+        rows=[(tmp_path / "repo", "topic", coordinate(pane_id="w9:p9"), "claude:dead:topic")],
+    )
+    world.sup.refresh_codex_sessions()
+    world.sup.live_codex[(coordinate(pane_id="w2H:p4"), "topic")] = codex_sessions.CodexSession(
+        pid=OPERATOR_PID,
+        name="topic",
+        cwd=str(world.repo),
+        session_id=SUCCESSOR_SESSION_ID,
+    )
+    world.sup.refresh_codex_sessions = lambda: None
+
+    outcome, _log = resolve(world=world, act=True)
+
+    assert not isinstance(outcome, _supervisor_evaluate_target.EvaluateTarget)
+    assert outcome.status == "unidentified-session"
+    assert TRACKED_COORDINATE in outcome.note
+    assert coordinate(pane_id="w2H:p4") in outcome.note
+    assert row_of(store=world.store).tmux == coordinate(pane_id="w9:p9")
+
+
+def test_the_read_only_herdr_rebind_preserves_coordinate_and_identity(*, tmp_path):
+    """List may resolve a unique successor but never write either row field."""
+    _module = codex_rebind()
+    dead_pane = coordinate(pane_id="w9:p9")
+    world = make_world(
+        tmp_path=tmp_path,
+        rows=[(tmp_path / "repo", "topic", dead_pane, "claude:dead:topic")],
+    )
+    (world.home / "session_index.jsonl").write_text(
+        json.dumps({"id": SESSION_ID, "thread_name": "topic"}) + "\n", encoding="utf-8"
+    )
+    world.sup.tmux.pane_agent_session = lambda *, session: (
+        SESSION_ID if session == TRACKED_COORDINATE else None
+    )
+
+    outcome, _log = resolve(world=world, act=False)
+
+    assert isinstance(outcome, _supervisor_evaluate_target.EvaluateTarget)
+    row = row_of(store=world.store)
+    assert row.tmux == dead_pane
+    assert row.observed_session_identity == "claude:dead:topic"
+
+
 def test_a_recorded_identity_no_live_pane_resolves_to_leaves_the_coordinate_alone(*, tmp_path):
     _module = codex_rebind()
     unknown = tmp_path / "unknown"
