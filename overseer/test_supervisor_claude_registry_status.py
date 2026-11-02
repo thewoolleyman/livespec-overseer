@@ -16,6 +16,8 @@ import pytest
 import registry
 from test_supervisor_builders import (
     adopt_sup,
+    arm_ready_marker,
+    idle_capture,
     make_plan,
     mapped_track,
     write_session,
@@ -46,6 +48,46 @@ def test_refresh_claude_status_populates_the_map_from_registry(*, tmp_path):
     )
     sup._refresh_claude_status()
     assert sup.claude_status_by_session == {"sA": "busy"}
+
+
+def test_evaluate_refreshes_joined_claude_status_before_ready_restart(*, tmp_path):
+    """A registry status change after cycle discovery governs this track's evaluation.
+
+    The session was busy when the cycle started, then wrote ``idle`` before its
+    row was evaluated.  The ready declaration can therefore restart in that
+    same evaluation instead of inheriting the cycle-start busy snapshot.
+    """
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+    write_session(sessions_dir=sessions_dir, pid=100, name=topic, cwd=repo, status="busy")
+    fake.pane_pids[50] = session
+    sup = adopt_sup(
+        tmp_path=tmp_path,
+        fake=fake,
+        sessions_dir=sessions_dir,
+        ppid={100: 50},
+        starttimes={100: "pt"},
+    )
+    sup._refresh_claude_status()
+    registry.write_injection_stamp(
+        repo=str(repo),
+        topic=topic,
+        ts=1000.0,
+        stamp_path=sup.stamp_path,
+        session_identity="claude:100:pt:topic",
+    )
+    arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
+
+    write_session(sessions_dir=sessions_dir, pid=100, name=topic, cwd=repo, status="idle")
+
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert view.status == "restarting"
+    assert fake.has(method="respawn")
 
 
 def test_adopt_sessions_links_by_registry_name(*, tmp_path):  # noqa: PLR0915 — see below
