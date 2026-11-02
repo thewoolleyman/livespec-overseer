@@ -20,7 +20,7 @@ import registry
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
-__all__: list[str] = ["relaunched_identity", "repoint_moved_session"]
+__all__: list[str] = ["codex_successor_identity", "relaunched_identity", "repoint_moved_session"]
 
 
 def _legacy_unqualified_target(*, value: str | None) -> bool:
@@ -157,3 +157,20 @@ def relaunched_identity(*, sup: Supervisor, track: registry.Track, session: str)
     if located != session or _replacement_open(track=track):
         return None
     return identity
+
+
+def codex_successor_identity(*, sup: Supervisor, track: registry.Track, session: str) -> str | None:
+    """The identity of a live Codex session named for the track that replaced its gone Claude.
+
+    Only a row recording a Claude identity reaches this, and only once no Claude is alive
+    in the recorded pane: a live recorded Claude keeps the row, and the per-tick live map
+    already excludes the Codex carrier beside it. The live map entry is the adoption
+    evidence, so the row is re-recorded to it and the recorded-identity gate stops
+    refusing the pane. The daemon's own unfinished replacement keeps priority.
+    """
+    if sup.claude_identity_by_session.get((session, track.topic)) is not None:
+        return None
+    live = sup.live_codex.get((session, track.topic))
+    if live is None or _replacement_open(track=track):
+        return None
+    return f"codex:{live.session_id}"
