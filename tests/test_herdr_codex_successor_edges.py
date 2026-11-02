@@ -133,6 +133,35 @@ def test_codex_successor_is_named_resumed_and_completed_once(*, tmp_path, monkey
     assert record["successor"]["pid"] == 301
 
 
+def test_codex_successor_reports_its_index_confirmed_thread_to_its_launch_pane(
+    *, tmp_path, monkeypatch
+) -> None:
+    """The daemon, not a shared Codex host environment, owns this pane binding."""
+    sup, fake, track, target, transaction, _path = _world(tmp_path=tmp_path)
+    monkeypatch.setattr(
+        _supervisor_herdr_codex_naming.codex_sessions,
+        "latest_session_for_thread_name",
+        lambda **kwargs: NEW,
+    )
+    monkeypatch.setattr(
+        _supervisor_herdr_codex_successor._supervisor_launch,
+        "submit_prompt",
+        lambda **kwargs: True,
+    )
+    monkeypatch.setattr(
+        _supervisor_herdr_codex_successor._supervisor_herdr_completion,
+        "complete_replacement_round",
+        lambda **kwargs: None,
+    )
+
+    reason = _supervisor_herdr_codex_successor.continue_codex_successor(
+        sup=sup, track=track, target=target, transaction=transaction
+    )
+
+    assert reason is None
+    assert getattr(fake, "reported_agent_sessions", []) == [(target, NEW)]
+
+
 @pytest.mark.parametrize("hazard", ["missing", "same-rollout", "invalid-rollout", "wrong-cwd"])
 def test_codex_successor_refuses_wrong_live_rollout(*, tmp_path, hazard: str) -> None:
     sup, _fake, track, target, transaction, _path = _world(tmp_path=tmp_path)
