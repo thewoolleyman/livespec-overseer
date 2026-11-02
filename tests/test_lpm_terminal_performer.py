@@ -51,6 +51,28 @@ def _observe_until_exited(*, performer: _Observing) -> list[ObservationOutcome]:
         time.sleep(0.01)
 
 
+def _observe_until_stdout(*, performer: _Observing) -> list[ObservationOutcome]:
+    """Observe until the performer has released some stdout, or the wait expires.
+
+    One observe() straight after start() is a race with the stand-in's interpreter
+    startup, not a check: under a loaded runner the stand-in has not written yet and
+    the first observation is empty (master CI, run 41518752814). The event the test
+    needs is the first released chunk, so that is what it waits on. The stand-in then
+    blocks on stdin, so nothing more can arrive until the test sends a line.
+    """
+    deadline = time.monotonic() + _EXIT_WAIT_SECONDS
+    observations: list[ObservationOutcome] = []
+    while True:
+        observed = performer.observe()
+        observations.append(observed)
+        if observed.response.get("stdout"):
+            return observations
+        assert (
+            time.monotonic() < deadline
+        ), f"no stdout released after {_EXIT_WAIT_SECONDS}s: {observations!r}"
+        time.sleep(0.01)
+
+
 def _write_terminal_standin(*, path: Path, invalid_utf8: bool = False) -> None:
     body = (
         "import os\nos.write(1, b'\\xff')\n"
@@ -117,11 +139,12 @@ def _assert_incremental_sanitized_output(*, module: ModuleType, tmp_path: Path) 
     assert performer.start() == {"version": 1, "status": "ok"}
     assert performer.start() == {"version": 1, "status": "unavailable"}
 
-    first = performer.observe()
-    assert first.response["stdout"] == "prefix "
+    first = _observe_until_stdout(performer=performer)
+    assert all(item.response["running"] is True for item in first)
+    assert "".join(str(item.response.get("stdout", "")) for item in first) == "prefix "
     assert _TOKEN not in repr(first)
     assert performer.send_line(text="continue") == {"version": 1, "status": "ok"}
-    observations = [first, *_observe_until_exited(performer=performer)]
+    observations = [*first, *_observe_until_exited(performer=performer)]
     assert observations[-1].response["running"] is False
     stdout = "".join(str(item.response.get("stdout", "")) for item in observations)
     stderr = "".join(str(item.response.get("stderr", "")) for item in observations)
