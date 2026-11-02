@@ -665,6 +665,19 @@ who cannot.
 
 ## Cold-start / crash recovery
 
+## Sanctioned out-of-band relaunch
+
+To relaunch a tracked seat outside the daemon, use the single sanctioned
+entrypoint: `overseer relaunch --topic <topic> --target <exact-pane>
+--invoker <operator>`. It refuses before recording or typing unless the mapped
+track has a recorded epic, the exact target is an idle shell on that track's
+recorded backend instance, and the selected profile is valid. Supply
+`--runtime`, `--model`, or `--wrapper` only to deliberately replace the
+recorded profile. This release supports the non-Codex (Claude) arm; do not use
+it for a Codex seat until the Codex confirmation procedure ships. The command
+does not terminate a process or alter a state-file declaration; after launch it
+submits the ledger-epic resume prompt and rebinds the mapping.
+
 The durable state is the **JSONL mapping** (`~/.livespec-overseer.jsonl`) — one
 row per assigned plan, holding only the facts that cannot be rederived from the
 filesystem (topic↔tmux mapping, custom resume line, threshold override). The
