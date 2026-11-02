@@ -549,6 +549,53 @@ def test_the_production_pane_driver_supplies_the_backend_reported_session(*, tmp
     assert live[(TRACKED_COORDINATE, "topic")].session_id == SESSION_ID
 
 
+def test_herdr_pane_rows_keep_only_a_reported_codex_session_id():
+    """Only a well-formed Codex id report becomes carrier identity evidence."""
+    common = {
+        "pane_id": "w2H:p3",
+        "tab_id": "w2H:t1",
+        "workspace_id": "w2H",
+        "cwd": "/repo",
+        "foreground_cwd": "/repo",
+        "focused": False,
+    }
+    result = herdr_calls.pane_rows(
+        result={
+            "panes": [
+                common,
+                {**common, "pane_id": "w2H:p4", "agent_session": {"agent": "claude"}},
+                {
+                    **common,
+                    "pane_id": "w2H:p5",
+                    "agent_session": {"agent": "codex", "kind": "path"},
+                },
+                {
+                    **common,
+                    "pane_id": "w2H:p6",
+                    "agent_session": {"agent": "codex", "kind": "id", "value": f" {SESSION_ID} "},
+                },
+            ]
+        }
+    )
+
+    assert result is not None
+    assert [pane.reported_codex_session_id for pane in result] == ["", "", "", SESSION_ID]
+
+
+def test_pane_agent_session_refuses_non_herdr_and_unlisted_panes(*, tmp_path):
+    """The production reader treats absent backend evidence as no session identity."""
+    world = make_world(tmp_path=tmp_path)
+
+    class UnlistedHerdr:
+        def list_panes(self, *, target):
+            return herdr_adapter.PaneListing(ok=False, panes=(), error="unavailable")
+
+    driver = pane_router.MixedPaneDriver(tmux=world.sup.tmux, herdr=UnlistedHerdr())
+
+    assert driver.pane_agent_session(session="not-a-qualified-herdr-coordinate") is None
+    assert driver.pane_agent_session(session=TRACKED_COORDINATE) is None
+
+
 # --- assertion 2: the dead tmux coordinate is rebound, old and new logged ------------
 
 
