@@ -138,6 +138,23 @@ def _resume_successor(
     return None
 
 
+def _report_successor(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    target: str,
+    current: dict[str, object],
+    record_path: Path,
+    rollout: str,
+) -> None:
+    """Report the index-confirmed id only to the pane this replacement launched in."""
+    if current.get("reported_agent_session") == rollout:
+        return
+    sup.tmux.report_codex_agent_session(session=target, session_id=rollout)
+    current["reported_agent_session"] = rollout
+    _herdr_replacement_store.durable_write(path=record_path, value=current)
+
+
 def continue_codex_successor(
     *,
     sup: Supervisor,
@@ -168,6 +185,15 @@ def continue_codex_successor(
         current["successor_rollout"] = rollout
         if current.get("phase") in {"launch-attempted", "rename-attempted"}:
             reason = _rename_successor(
+                sup=sup,
+                track=track,
+                target=target,
+                current=current,
+                record_path=record_path,
+                rollout=rollout,
+            )
+        if reason is None and current.get("phase") in {"successor-observed", "resume-attempted"}:
+            _report_successor(
                 sup=sup,
                 track=track,
                 target=target,
