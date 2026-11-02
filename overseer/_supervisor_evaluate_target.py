@@ -100,7 +100,9 @@ def _resolve_herdr_target(
     ) and _carries_claude_identity(track=track)
     relaunched = (
         _supervisor_herdr_moved.relaunched_identity(sup=sup, track=track, session=session)
-        or _supervisor_herdr_moved.codex_successor_identity(sup=sup, track=track, session=session)
+        or _supervisor_herdr_moved.codex_successor_identity(
+            sup=sup, track=track, session=session, act=act
+        )
         if current is None and refuses_recorded_target
         else None
     )
