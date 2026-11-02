@@ -1,5 +1,15 @@
 # Changelog
 
+## [5.47.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.46.1...v5.47.0) (2026-11-02)
+
+
+### Features
+
+* cover sanctioned relaunch safety ([86b6e92](https://github.com/thewoolleyman/livespec-overseer/commit/86b6e9275bc6061fa21c350b7a8c11dcf6f72ebd))
+* delegate pre-commit aggregate ([1f784b9](https://github.com/thewoolleyman/livespec-overseer/commit/1f784b99b74e08dadf37a1e4a20599b9d5885575))
+* gate staged pre-commit trees ([c0280fa](https://github.com/thewoolleyman/livespec-overseer/commit/c0280fa0e51b0a2db5e4dc7237208be36386885e))
+* opt in to delegated pre-commit ([560b08c](https://github.com/thewoolleyman/livespec-overseer/commit/560b08cb6895c13f81ef08d1491a0e96cf849512))
+
 ## [5.46.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.46.0...v5.46.1) (2026-11-02)
 
 
