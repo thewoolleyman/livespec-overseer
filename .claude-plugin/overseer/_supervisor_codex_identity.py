@@ -88,6 +88,7 @@ class CodexPaneCarrier:
     coordinate: str
     cwd: str
     session_id: str | None
+    candidate_session_ids: frozenset[str] = frozenset()
     # Herdr records the session the agent in THIS pane reports. Unlike a rollout fd on
     # a shared app-server, this evidence belongs to the carrier rather than to a process
     # tree that may serve several TUIs.
@@ -153,6 +154,27 @@ def carrier_session_id(
     database is the only one consulted. Ambiguity and every unusable-source condition
     resolve to None.
     """
+    candidate_ids = _carrier_candidate_session_ids(
+        pid=pid,
+        cwd=cwd,
+        candidates=candidates,
+        codex_home=codex_home,
+        environ_of=environ_of,
+        reported_session_id=reported_session_id,
+    )
+    return next(iter(candidate_ids)) if len(candidate_ids) == 1 else None
+
+
+def _carrier_candidate_session_ids(
+    *,
+    pid: int,
+    cwd: str,
+    candidates: frozenset[str],
+    codex_home: str | os.PathLike[str] | None,
+    environ_of: PidToOptionalBytes,
+    reported_session_id: str | None,
+) -> frozenset[str]:
+    """The live session ids the carrier's database associates with its repository."""
     home = _codex_runtime_model.carrier_codex_home(
         pid=pid, environ_of=environ_of, fallback=codex_home
     )
@@ -160,23 +182,22 @@ def carrier_session_id(
         codex_home=home if home is not None else codex_sessions.default_codex_home()
     )
     if database is None:
-        return None
+        return frozenset()
     if reported_session_id is not None:
-        return (
-            reported_session_id
+        return frozenset(
+            (reported_session_id,)
             if _codex_runtime_model.read_state_database_repository(
                 database=database, session_id=reported_session_id, cwd=cwd
             )
-            else None
+            else ()
         )
-    bound = [
+    return frozenset(
         candidate
         for candidate in sorted(candidates)
         if _codex_runtime_model.read_state_database_repository(
             database=database, session_id=candidate, cwd=cwd
         )
-    ]
-    return bound[0] if len(bound) == 1 else None
+    )
 
 
 def _reported_session_id(*, sup: Supervisor, coordinate: str) -> str | None:
@@ -232,19 +253,23 @@ def pane_codex_carriers(
         if coordinate is None or not cwd:
             continue
         reported = _reported_session_id(sup=sup, coordinate=coordinate)
+        candidate_session_ids = _carrier_candidate_session_ids(
+            pid=pid,
+            cwd=cwd,
+            candidates=candidates,
+            codex_home=readers.codex_home,
+            environ_of=sup.environ_of,
+            reported_session_id=reported,
+        )
         found.append(
             CodexPaneCarrier(
                 pid=pid,
                 coordinate=coordinate,
                 cwd=cwd,
-                session_id=carrier_session_id(
-                    pid=pid,
-                    cwd=cwd,
-                    candidates=candidates,
-                    codex_home=readers.codex_home,
-                    environ_of=sup.environ_of,
-                    reported_session_id=reported,
+                session_id=(
+                    next(iter(candidate_session_ids)) if len(candidate_session_ids) == 1 else None
                 ),
+                candidate_session_ids=candidate_session_ids,
                 reported_session_id=reported,
             )
         )
