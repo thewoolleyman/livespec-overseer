@@ -16,6 +16,8 @@ from overseer._vendor.returns.result import Failure, Success
 
 __all__: list[str] = []
 
+_ACCEPTING_PROBE_BOUND_SECONDS = 60.0
+
 
 def _write_chrome_standin(*, path: Path) -> None:
     path.write_text(
@@ -155,10 +157,13 @@ def _assert_private_headed_launch(*, module: ModuleType, tmp_path: Path) -> None
         "CLAUDE_CODE_OAUTH_TOKEN": "must-not-cross",
         "OP_SERVICE_ACCOUNT_TOKEN": "must-not-cross-either",
     }
+    # The probe returns as soon as the stand-in exits, so this bound is an upper
+    # limit, never a timing assertion: interpreter startup on a loaded runner must
+    # not decide whether the real identity probe accepts Google Chrome.
     installed = module.resolve_installed_google_chrome(
         search_path=(chrome_bin,),
         environ=environment,
-        timeout_seconds=1.0,
+        timeout_seconds=_ACCEPTING_PROBE_BOUND_SECONDS,
     ).unwrap()
     state_dir = tmp_path / "state"
     _profile_root(state_dir=state_dir)
@@ -204,11 +209,12 @@ def _browser_fixture(*, module: ModuleType, tmp_path: Path, scope: str) -> tuple
         "PATH": os.environ["PATH"],
         "LPM_TEST_CHROME_RECORD": str(record_path),
     }
-    installed = module.resolve_installed_google_chrome(
-        search_path=(chrome_bin,),
-        environ=environment,
-        timeout_seconds=1.0,
-    ).unwrap()
+    # These fixtures exercise profile and launch behaviour, not product identity, so
+    # they take the stand-in's identity from its own stat rather than running the
+    # wall-clock-bounded `--version` probe: that probe failed master CI when a loaded
+    # runner took over a second to start the stand-in's interpreter.
+    status = chrome.stat(follow_symlinks=False)
+    installed = module.InstalledChrome(path=str(chrome), device=status.st_dev, inode=status.st_ino)
     state_dir = fixture_root / "profile-state"
     _profile_root(state_dir=state_dir)
     return (
