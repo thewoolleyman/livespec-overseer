@@ -1916,5 +1916,33 @@
     "heading": "## Scenario: A rejected-state notice is sent once per rejected value",
     "work_item": "overseer-uzvcbn.12",
     "first_seen": "2026-11-02"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A sanctioned relaunch of a Codex seat binds its topic, pane and profile",
+    "work_item": "overseer-uzvcbn.7",
+    "first_seen": "2026-11-02"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A sanctioned relaunch of a non-Codex seat submits no rename",
+    "work_item": "overseer-uzvcbn.7",
+    "first_seen": "2026-11-02"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unconfirmed rename leaves the relaunched seat's row unchanged",
+    "work_item": "overseer-uzvcbn.7",
+    "first_seen": "2026-11-02"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The sanctioned relaunch refuses before launching into an unsafe or unknown target",
+    "work_item": "overseer-uzvcbn.7",
+    "first_seen": "2026-11-02"
   }
 ]
