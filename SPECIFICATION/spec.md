@@ -542,6 +542,62 @@ skip that restart rather than silently falling back to a default-model or
 default-wrapper launch, which would reproduce the exact silent-downgrade
 defect this section exists to close.
 
+### The sanctioned out-of-band relaunch
+
+A seat is sometimes relaunched outside the daemon's ready-gated restart: by a
+coordinator, by the maintainer, or from the bottom pane. The overseer MUST
+ship exactly ONE sanctioned entrypoint for that relaunch, and the operator
+skill MUST name it as the procedure for relaunching a seat outside the daemon.
+The entrypoint is an OPERATOR surface invoked on purpose for one named track.
+It is not a daemon act and MUST NOT widen any daemon acting rule of
+constraints.md §"Acting safety". It starts a tracked session, so it MUST
+record the start-intent of §"Non-interference with tracked work" before its
+launch, and MUST amend it with the outcome.
+
+The entrypoint takes a tracked plan topic and a target pane, and optionally a
+runtime, model and wrapper to launch in place of the track's recorded launch
+profile. The optional values are how a seat whose recorded profile names a
+runtime it no longer runs is repaired. It MUST refuse before writing any
+record or sending any input when any of the following holds:
+
+- the topic names no mapped track, or the track records no epic id;
+- the target pane does not exist on the track's recorded backend instance;
+- the target pane's foreground process is anything other than an idle
+  interactive shell at its prompt, so a pane holding a live agent (including
+  the track's own live session) or any other running program is never typed
+  into and never replaced;
+- the profile to launch, recorded or named, names an unrecognized harness or
+  is stale under §"The launch profile" (a missing or non-executable wrapper, a
+  model token the runtime rejects, or a harness/wrapper mismatch).
+
+Otherwise it MUST launch that profile's runtime by submitting its launch
+command at the target pane's shell prompt, setting or scrubbing the launch
+environment exactly as §"The launch profile" requires of a daemon relaunch. It
+MUST NOT terminate any process, and MUST NOT write, consume or clear a
+state-file declaration.
+
+When the launched runtime is Codex, the entrypoint MUST then submit
+`/rename <name>` in the launched session, where `<name>` is the track's derived session
+name under §"Session-name derivation". It MUST treat the relaunch as
+successful only once the Codex session index shows a thread created by this
+launch named EXACTLY that name, within a bounded wait the entrypoint states in
+its output. Once that is confirmed, it MUST report that thread's identifier to
+the terminal backend as the agent session of the target pane only, for a
+backend that accepts such a report. When the rename is not confirmed within
+the bound, the entrypoint MUST report a failure naming the pane and the thread
+it observed, if any, MUST report no session to the backend, and MUST leave the
+track's mapping row unchanged. A launched runtime other than Codex submits no
+rename.
+
+After a successful launch, the entrypoint MUST deliver the resume prompt of
+this section, naming the track's repository path and recorded epic id. It MUST
+then re-bind the track's mapping row to the target pane, the launched
+session's identity, and the launched launch profile (harness, model and
+wrapper, or null when none was launched), so no binding to another pane or
+another runtime remains. The daemon's own identification of the session may
+land before or after this re-binding. Both rest on the same exact evidence, so
+neither can bind the track to a different session.
+
 ## The keep-going nudge
 
 The wrap-up addresses a session running LOW on context. The inverse failure

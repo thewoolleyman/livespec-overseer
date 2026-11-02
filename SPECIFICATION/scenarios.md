@@ -5891,6 +5891,60 @@ Then the track shows its session-gone row and no `codex-track-misnamed` row
 
 And none of those threads is adopted, renamed or otherwise acted on
 
+## Scenario: A sanctioned relaunch of a Codex seat binds its topic, pane and profile
+
+Given a mapped track whose row binds a pane that is gone and records a Claude launch profile, and a target pane on the same backend instance idle at a shell prompt
+
+When the operator runs the sanctioned relaunch entrypoint for that topic and target pane, naming the Codex runtime and a model
+
+Then a start-intent naming the action, the track and the invoker is recorded before the launch
+
+And Codex is launched with that model at the target pane's shell prompt, with the launch environment set or scrubbed
+
+And /rename <name> is submitted with the track's derived session name, and the Codex session index shows a thread created by this launch named exactly that name
+
+And the terminal backend reports that thread as the agent session of the target pane and of no other pane
+
+And the resume prompt naming the track's repository and epic is delivered to the launched session
+
+And the track's mapping row binds the target pane, the launched session's identity and a Codex launch profile with that model
+
+But no process is terminated and no state-file declaration is written, consumed or cleared
+
+## Scenario: A sanctioned relaunch of a non-Codex seat submits no rename
+
+Given a mapped track whose recorded launch profile names a recognized non-Codex runtime, and a target pane idle at a shell prompt
+
+When the operator runs the sanctioned relaunch entrypoint for that topic and target pane
+
+Then the recorded runtime is launched under its recorded launch profile and no rename is submitted
+
+And the resume prompt naming the track's repository and epic is delivered
+
+And the track's mapping row binds the target pane, the launched session's identity and that launch profile
+
+## Scenario: An unconfirmed rename leaves the relaunched seat's row unchanged
+
+Given the sanctioned relaunch entrypoint has launched Codex in a target pane for a track
+
+When the Codex session index shows no thread created by this launch named exactly the track's derived session name within the stated bound
+
+Then the entrypoint reports a failure naming the pane and the thread it observed
+
+And no agent session is reported to the terminal backend for any pane
+
+And the track's mapping row is unchanged
+
+## Scenario: The sanctioned relaunch refuses before launching into an unsafe or unknown target
+
+Given a topic that names no mapped track or whose track records no epic id, or a target pane that does not exist on the track's recorded backend instance, or a target pane whose foreground process is a live agent or any program other than an idle shell, or a recorded or named profile with an unrecognized harness or a stale wrapper or model
+
+When the operator runs the sanctioned relaunch entrypoint
+
+Then it refuses before writing any record or sending any input to any pane
+
+And no process is started or terminated, and no mapping row, state file or backend record is changed
+
 ## Scenario: A live Codex carrier with no exact session evidence reads unidentified, never gone
 
 Given a mapped, not-done Codex track whose recorded pane runs a live Codex carrier holding no rollout file open
