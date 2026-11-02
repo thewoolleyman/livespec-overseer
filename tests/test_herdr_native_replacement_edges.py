@@ -163,6 +163,44 @@ def test_writer_launch_uses_one_atomic_run_request(
     }
 
 
+def test_writer_reports_a_codex_session_to_its_exact_herdr_pane(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The public backend report is a generation-pinned socket mutation."""
+    calls: list[dict[str, object]] = []
+
+    def request(_self: object, **kwargs: object) -> herdr_transport.RpcOutcome:
+        calls.append(kwargs)
+        return herdr_transport.RpcOutcome(
+            ok=True,
+            result={},
+            error="",
+            peer=None,
+            timed_out=False,
+            request_sent=True,
+        )
+
+    monkeypatch.setattr(herdr_write.HerdrWriter, "request", request)
+    writer = herdr_write.HerdrWriter()
+
+    assert hasattr(writer, "report_agent_session")
+    outcome = writer.report_agent_session(
+        target=_target(tmp_path=tmp_path),
+        source="overseerd",
+        agent="codex",
+        session_id="019f548d-0000-7000-8000-000000000002",
+    )
+
+    assert outcome.ok
+    assert calls[0]["method"] == "pane.report_agent_session"
+    assert calls[0]["params"] == {
+        "pane_id": "w1:p9",
+        "source": "overseerd",
+        "agent": "codex",
+        "agent_session_id": "019f548d-0000-7000-8000-000000000002",
+    }
+
+
 @pytest.mark.parametrize(
     "hazard",
     [
