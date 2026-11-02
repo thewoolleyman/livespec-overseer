@@ -536,6 +536,40 @@ def test_a_reported_codex_carrier_replaces_a_gone_claude_identity_on_the_row(*, 
     assert row_of(store=world.store).observed_session_identity == f"codex:{SESSION_ID}"
 
 
+def test_a_reported_codex_carrier_replaces_the_gone_claude_launch_profile(*, tmp_path):
+    """The re-record carries the whole live Codex profile, not its Claude predecessor."""
+    world, _claude_identity = reported_claude_world(tmp_path=tmp_path)
+    registry.record_model_profile(
+        repo=str(world.repo),
+        topic="topic",
+        model_profile={
+            "harness": "claude",
+            "model": "claude-opus",
+            "statusline_model": "Opus 4.8",
+            "wrapper": None,
+        },
+        store_path=world.store,
+    )
+    world.sup.cmdline_of = lambda *, pid: (
+        b"codex\0-m\0gpt-5.6-luna\0" if pid == TRACKED_PID else None
+    )
+    world.sup.environ_of = lambda *, pid: (
+        b"ANTHROPIC_BASE_URL=http://local-llm\0" b"LIVESPEC_LOCAL_LLM_WRAPPER=/opt/codex-local\0"
+        if pid == TRACKED_PID
+        else b""
+    )
+
+    outcome, _log = resolve(world=world, act=True)
+
+    assert isinstance(outcome, _supervisor_evaluate_target.EvaluateTarget)
+    assert row_of(store=world.store).model_profile == {
+        "harness": "codex",
+        "model": "gpt-5.6-luna",
+        "statusline_model": "gpt-5.5 high",
+        "wrapper": "/opt/codex-local",
+    }
+
+
 def test_the_read_only_path_classifies_the_re_recorded_row_without_writing(*, tmp_path):
     world, claude_identity = reported_claude_world(tmp_path=tmp_path)
 
