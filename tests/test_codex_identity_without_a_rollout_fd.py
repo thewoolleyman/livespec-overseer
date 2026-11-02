@@ -632,6 +632,23 @@ def test_a_mapped_codex_carrier_with_no_live_candidate_is_reported_once(*, tmp_p
     assert not world.sup.tmux.calls
 
 
+def test_an_unidentified_codex_carrier_is_read_only_in_list_mode(*, tmp_path):
+    """Read-only classification reports the refusal without logging an event."""
+    world = make_world(tmp_path=tmp_path)
+    write_state_database(
+        path=world.home / "state_2.sqlite",
+        rows=[
+            (SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+            (OPERATOR_SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+        ],
+    )
+
+    outcome, log = resolve(world=world, act=False)
+
+    assert outcome.status == "unidentified-session"
+    assert not log
+
+
 # --- assertion 6: the read-only list path reports without rewriting ------------------
 
 

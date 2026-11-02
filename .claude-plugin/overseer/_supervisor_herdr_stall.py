@@ -16,7 +16,11 @@ from _supervisor_view import RowView
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
-__all__: list[str] = ["STALL_CONDITION", "reconcile_and_alert"]
+__all__: list[str] = [
+    "STALL_CONDITION",
+    "reconcile_and_alert",
+    "replacement_is_pending",
+]
 
 STALL_CONDITION = "herdr-replacement-stalled"
 _CLAUDE_IDENTITY_FIELD_COUNT = 4
@@ -31,6 +35,11 @@ def _recorded_phase(*, track: registry.Track) -> object:
     except (AttributeError, OSError, TypeError, ValueError):
         return "unknown"
     return "unknown" if transaction is None else transaction.get("phase")
+
+
+def replacement_is_pending(*, track: registry.Track) -> bool:
+    """Whether this track has a durable Herdr replacement to reconcile."""
+    return _recorded_phase(track=track) != "unknown"
 
 
 def _stall_reason(*, row: RowView, act: bool) -> str | None:
