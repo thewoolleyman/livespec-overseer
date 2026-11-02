@@ -6,12 +6,14 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, cast
 
+import _herdr_replacement_store
 import _supervisor_codex_misnamed
 import _supervisor_codex_rebind
 import _supervisor_herdr_moved
 import _supervisor_herdr_stall
 import _supervisor_launch
 import _supervisor_observe
+import _supervisor_unidentified_codex
 import herdr_identity
 import registry
 from _supervisor_config import track_key
@@ -65,20 +67,10 @@ def _unresolved_target(
     `reconcile_bare_shell` verifies before acting, so it is reconciled with this tick's
     real `act` rather than read-only.
 
-    Before any of that, the unidentifiable-Codex condition is ruled out, because every
+    The unidentifiable-Codex condition is ruled out before this helper, because every
     route below ends in a claim about the track's session and that condition supports
-    none of them: a live Codex pane in this repo whose identity could not be resolved
-    means the daemon cannot SAY, which is the opposite of `session-gone`.
+    none of them.
     """
-    if _supervisor_codex_rebind.unidentified_codex_pane(sup=sup, track=track):
-        return RowView(
-            topic=track.topic,
-            repo=track.repo,
-            tmux=None,
-            ctx=None,
-            status="codex-unidentified",
-            note=_supervisor_codex_rebind.UNIDENTIFIED_NOTE,
-        )
     if refuses_recorded_target and sup.tmux.session_exists(session=session):
         recovery = _supervisor_herdr_stall.reconcile_and_alert(
             sup=sup,
@@ -190,13 +182,105 @@ def _unproven_herdr_target(
     )
 
 
+def _preflight_unidentified(
+    *, sup: Supervisor, track: registry.Track, target: str, act: bool
+) -> RowView | None:
+    """Refuse an unidentified carrier unless a durable replacement owns its pane.
+
+    A fresh Codex successor is temporarily unnamed while the already-authorized
+    Herdr replacement proves, names, and resumes it.  That transaction owns the pane;
+    only after it has no work left may an unidentified carrier suppress supervision.
+    """
+    if not _active_herdr_replacement(track=track, target=target):
+        unidentified = _supervisor_codex_rebind.unidentified_codex_pane(sup=sup, track=track)
+        if unidentified is not None:
+            return _supervisor_unidentified_codex.unidentified_codex_row(
+                sup=sup, track=track, carrier=unidentified, act=act
+            )
+    return None
+
+
+def _active_herdr_replacement(*, track: registry.Track, target: str) -> bool:
+    """Whether this pane is owned by an unfinished durable replacement."""
+    if herdr_identity.decode_target(value=target).herdr is None:
+        return False
+    try:
+        transaction = _herdr_replacement_store.read_transaction(
+            path=(
+                _herdr_replacement_store.scratch_path(track=track)
+                / _herdr_replacement_store.RECORD_NAME
+            )
+        )
+    except (AttributeError, OSError, TypeError, ValueError):
+        return False
+    return (
+        transaction is not None
+        and transaction.get("target") == target
+        and transaction.get("phase") not in {None, "completed"}
+    )
+
+
+def _evaluate_managed_target(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    session: str,
+    target: str,
+    act: bool,
+) -> RowView | EvaluateTarget:
+    """Reconcile a durable replacement, then prove the pane before supervision."""
+    held = _supervisor_herdr_stall.reconcile_and_alert(
+        sup=sup,
+        track=track,
+        target=target,
+        act=act,
+        alert=act,
+    )
+    if held is not None:
+        return held
+    # Identity gate (B3): the mapped session exists, but before reading its pane
+    # for any ACT we confirm it is really OUR Claude in OUR repo — never
+    # keystroke into a shell / wrong session / human split-pane.
+    if _unproven_herdr_target(sup=sup, track=track, session=session, target=target) or not (
+        _supervisor_observe.pane_is_managed(
+            sup=sup, target=target, repo=track.repo, topic=track.topic, session=session
+        )
+    ):
+        # The gate stays exactly what it was — an ACT guard (never keystroke into a
+        # pane not proven ours). What changed is that its answer is no longer a row
+        # STATUS of its own. Whether the pane is a bare shell (our session exited) or
+        # something foreign, the fact for the operator is identical and simple: this
+        # track's session is NOT IN THIS TMUX. It was assigned to something once, so
+        # it is `session-gone` — never `unassigned`, which is reserved for a plan
+        # whose session we have NEVER seen (maintainer-declared 2026-07-17: "KEEP
+        # session-gone if you've ever seen the session, only use unassigned if you've
+        # never seen it"). The MAPPING ROW is precisely that memory of having seen it,
+        # which is why it is kept rather than pruned.
+        #
+        # `not-claude` is DELETED (maintainer-declared 2026-07-17: "What the hell is
+        # not-claude?"). It was this gate's return value leaking into the UI — it named
+        # a check's output, not anything an operator needs — and it made a bare
+        # terminal (`livespec1`) look like a tracked pane while no OTHER bare terminal
+        # appears at all. The daemon lists PLANS, not panes: a tmux name reaches the
+        # table only as a mapping's column value, and `_no_managed_pane_row` already
+        # reports `tmux=None` so no dead terminal is named.
+        return _supervisor_codex_misnamed.gone_row(sup=sup, track=track, session=session, act=act)
+    return EvaluateTarget(
+        track=track,
+        repo=track.repo,
+        topic=track.topic,
+        session=session,
+        key=track_key(repo=track.repo, topic=track.topic),
+        pane=target,
+    )
+
+
 def resolve_evaluate_target(
     *, sup: Supervisor, track: registry.Track, act: bool
 ) -> RowView | EvaluateTarget:
     if track.is_unassigned:
         return RowView(topic=track.topic, repo=track.repo, tmux=None, ctx=None, status="unassigned")
 
-    repo, topic = track.repo, track.topic
     session = _supervisor_launch.session_of(sup=sup, track=track)
     track, session, target, refuses_recorded_target = _resolve_herdr_target(
         sup=sup,
@@ -204,6 +288,9 @@ def resolve_evaluate_target(
         session=session,
         act=act,
     )
+    unidentified = _preflight_unidentified(sup=sup, track=track, target=target or session, act=act)
+    if unidentified is not None:
+        return unidentified
 
     # A recorded process generation is authoritative for Herdr. Positional pane ids
     # can be reused, so existence of the old id cannot prove that it still names this
@@ -249,49 +336,10 @@ def resolve_evaluate_target(
     if target is None:
         return _unavailable_target(sup=sup, track=track, session=session, act=act)
 
-    recovery = _supervisor_herdr_stall.reconcile_and_alert(
+    return _evaluate_managed_target(
         sup=sup,
         track=track,
+        session=session,
         target=target,
         act=act,
-        alert=act,
-    )
-    if recovery is not None:
-        return recovery
-
-    # Identity gate (B3): the mapped session exists, but before reading its pane
-    # for any ACT we confirm it is really OUR Claude in OUR repo — never
-    # keystroke into a shell / wrong session / human split-pane.
-    if _unproven_herdr_target(sup=sup, track=track, session=session, target=target) or not (
-        _supervisor_observe.pane_is_managed(
-            sup=sup, target=target, repo=repo, topic=topic, session=session
-        )
-    ):
-        # The gate stays exactly what it was — an ACT guard (never keystroke into a
-        # pane not proven ours). What changed is that its answer is no longer a row
-        # STATUS of its own. Whether the pane is a bare shell (our session exited) or
-        # something foreign, the fact for the operator is identical and simple: this
-        # track's session is NOT IN THIS TMUX. It was assigned to something once, so
-        # it is `session-gone` — never `unassigned`, which is reserved for a plan
-        # whose session we have NEVER seen (maintainer-declared 2026-07-17: "KEEP
-        # session-gone if you've ever seen the session, only use unassigned if you've
-        # never seen it"). The MAPPING ROW is precisely that memory of having seen it,
-        # which is why it is kept rather than pruned.
-        #
-        # `not-claude` is DELETED (maintainer-declared 2026-07-17: "What the hell is
-        # not-claude?"). It was this gate's return value leaking into the UI — it named
-        # a check's output, not anything an operator needs — and it made a bare
-        # terminal (`livespec1`) look like a tracked pane while no OTHER bare terminal
-        # appears at all. The daemon lists PLANS, not panes: a tmux name reaches the
-        # table only as a mapping's column value, and `_no_managed_pane_row` already
-        # reports `tmux=None` so no dead terminal is named.
-        return _supervisor_codex_misnamed.gone_row(sup=sup, track=track, session=session, act=act)
-
-    return EvaluateTarget(
-        track=track,
-        repo=repo,
-        topic=topic,
-        session=session,
-        key=track_key(repo=repo, topic=topic),
-        pane=target,
     )

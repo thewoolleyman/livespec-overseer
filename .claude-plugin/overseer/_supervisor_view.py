@@ -51,7 +51,7 @@ ATTENTION_STATUSES = (
     # It is attention because the daemon can neither drive the track nor say it is gone,
     # and only a human can tell the two apart (`overseer-iffpgw`).
     "codex-track-misnamed",
-    "codex-unidentified",
+    "unidentified-session",
     "codex-unindexed",
     "currency-blocked",
     "ctx-stale",
@@ -127,7 +127,7 @@ _STATUS_COLOR = {
     # Yellow, not red: a live Codex thread exists and only its NAME needs the operator's
     # `/rename`, which is the opposite claim from `session-gone`.
     "codex-track-misnamed": _ANSI_YELLOW,
-    "codex-unidentified": _ANSI_YELLOW,
+    "unidentified-session": _ANSI_YELLOW,
     "codex-unindexed": _ANSI_YELLOW,
     "currency-blocked": _ANSI_YELLOW,
     "ctx-stale": _ANSI_YELLOW,
