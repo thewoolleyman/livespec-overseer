@@ -500,6 +500,70 @@ def test_a_rollout_backed_codex_carrier_cannot_displace_a_live_recorded_claude(*
     assert not world.sup.tmux.has(method="respawn")
 
 
+def reported_claude_world(*, tmp_path, thread_name="topic"):
+    """A herdr-mapped Claude row whose pane now reports a Codex session named for the track."""
+    claude_identity = "claude:123:456:topic"
+    world = make_world(
+        tmp_path=tmp_path,
+        rows=[(tmp_path / "repo", "topic", TRACKED_COORDINATE, claude_identity)],
+    )
+    (world.home / "session_index.jsonl").write_text(
+        json.dumps({"id": SESSION_ID, "thread_name": thread_name}) + "\n",
+        encoding="utf-8",
+    )
+    world.sup.tmux.pane_agent_session = lambda *, session: (
+        SESSION_ID if session == TRACKED_COORDINATE else None
+    )
+    return world, claude_identity
+
+
+def test_a_reported_codex_carrier_replaces_a_gone_claude_identity_on_the_row(*, tmp_path):
+    """The recorded Claude process is gone, so the named Codex session is re-recorded.
+
+    Binding the carrier only to the live map is not enough: the recorded-identity gate
+    refuses a herdr pane for a row still recording Claude, so the track would read
+    `session-gone` beside a live, named, adopted carrier.
+    """
+    world, _claude_identity = reported_claude_world(tmp_path=tmp_path)
+
+    outcome, _log = resolve(world=world, act=True)
+
+    assert isinstance(outcome, _supervisor_evaluate_target.EvaluateTarget)
+    assert outcome.pane == TRACKED_COORDINATE
+    assert outcome.track.observed_session_identity == f"codex:{SESSION_ID}"
+    assert row_of(store=world.store).observed_session_identity == f"codex:{SESSION_ID}"
+
+
+def test_the_read_only_path_classifies_the_re_recorded_row_without_writing(*, tmp_path):
+    world, claude_identity = reported_claude_world(tmp_path=tmp_path)
+
+    outcome, _log = resolve(world=world, act=False)
+
+    assert isinstance(outcome, _supervisor_evaluate_target.EvaluateTarget)
+    assert row_of(store=world.store).observed_session_identity == claude_identity
+
+
+def test_a_live_recorded_claude_keeps_its_row_when_the_target_is_resolved(*, tmp_path):
+    """The recorded Claude process is alive, so resolution neither adopts nor re-records."""
+    world, claude_identity = reported_claude_world(tmp_path=tmp_path)
+    world.sup.claude_identity_by_session[(TRACKED_COORDINATE, "topic")] = claude_identity
+
+    _outcome, _log = resolve(world=world, act=True)
+
+    assert (TRACKED_COORDINATE, "topic") not in world.sup.live_codex
+    assert row_of(store=world.store).observed_session_identity == claude_identity
+    assert not world.sup.tmux.has(method="respawn")
+
+
+def test_a_reported_session_named_for_another_track_leaves_the_claude_row_alone(*, tmp_path):
+    world, claude_identity = reported_claude_world(tmp_path=tmp_path, thread_name="elsewhere")
+
+    outcome, _log = resolve(world=world, act=True)
+
+    assert not isinstance(outcome, _supervisor_evaluate_target.EvaluateTarget)
+    assert row_of(store=world.store).observed_session_identity == claude_identity
+
+
 def test_the_production_pane_driver_supplies_the_backend_reported_session(*, tmp_path):
     """The identity reader consumes the mixed pane driver's own `pane_agent_session`."""
     _module = codex_identity()
