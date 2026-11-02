@@ -1,5 +1,18 @@
 # Changelog
 
+## [5.46.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.45.1...v5.46.0) (2026-11-02)
+
+
+### Features
+
+* bind backend-reported Codex carrier identity ([4594f19](https://github.com/thewoolleyman/livespec-overseer/commit/4594f192f3bc966a233112a0a5abb3e5c08ef1f0))
+
+
+### Bug Fixes
+
+* preserve live Claude over Codex carrier ([9e10a8a](https://github.com/thewoolleyman/livespec-overseer/commit/9e10a8a8cd30c350a797378174901e8bdb3f72af))
+* re-record the row for a reported Codex carrier replacing a gone Claude ([3fb6bf3](https://github.com/thewoolleyman/livespec-overseer/commit/3fb6bf3f01bb658378dfada21d68f0c828c45160))
+
 ## [5.45.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.45.0...v5.45.1) (2026-11-01)
 
 
