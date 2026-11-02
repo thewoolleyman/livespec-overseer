@@ -161,7 +161,9 @@ print("" if remaining is None else remaining)
 
 # The canonical rollout id the SHIPPED discovery join reports for this topic, or
 # empty when no live Codex session carries it. This is the same join the daemon
-# adopts and proves a successor through.
+# adopts and proves a successor through. Bootstrap deliberately does NOT use this:
+# a managed Codex TUI can persist `/rename` through its app-server without holding
+# a rollout fd itself.
 live_rollout_id() {
   shipped -c '
 import sys
@@ -174,6 +176,53 @@ for session in codex_sessions.read_live_codex_sessions(codex_home=home):
         print(session.session_id)
         break
 ' "$codex_home" "$topic"
+}
+
+# The session ids already present before this controller launches its Codex TUI.
+# A bootstrap name must be an index entry created by THIS launch, not an older
+# namesake that happened to be in the scratch home.
+indexed_session_ids() {
+  shipped -c '
+import sys
+
+import codex_sessions
+
+home = sys.argv[1]
+print("\\n".join(codex_sessions.read_thread_names(codex_home=home)))
+' "$codex_home"
+}
+
+# The new, exactly-topic-named rollout from the durable session index. Unlike the
+# fd-gated live join, this is available while the just-renamed Codex TUI is idle.
+indexed_launch_rollout_id() {
+  shipped -c '
+import sys
+from pathlib import Path
+
+import codex_sessions
+
+home, topic, prelaunch_ids_path = sys.argv[1:]
+try:
+    prelaunch_ids = set(Path(prelaunch_ids_path).read_text(encoding="utf-8").splitlines())
+except OSError:
+    prelaunch_ids = set()
+indexed = codex_sessions.latest_session_for_thread_name(thread_name=topic, codex_home=home)
+if indexed is not None and indexed not in prelaunch_ids:
+    print(indexed)
+' "$codex_home" "$topic" "$bootstrap_index_before"
+}
+
+# One compact durable-index rendering for a bootstrap expiry. The mapping makes
+# every recorded session id and its final thread name visible in the evidence.
+indexed_thread_names() {
+  shipped -c '
+import json
+import sys
+
+import codex_sessions
+
+print(json.dumps(codex_sessions.read_thread_names(codex_home=sys.argv[1]), sort_keys=True))
+' "$codex_home"
 }
 
 snapshot_row() {
@@ -267,9 +316,13 @@ EOF
 # --------------------------------------------------------------------------- #
 
 stage_bootstrap() {
+  local bootstrap_index_before bootstrap_naming_capture index_threads
   local overseer_start_output bootstrap_started_at elapsed launcher_output
   ensure_scratch_plan
   configure_scratch_codex
+  mkdir -p -- "$evidence"
+  bootstrap_index_before="$evidence/bootstrap-session-index-before.txt"
+  indexed_session_ids >"$bootstrap_index_before"
   hd workspace create --cwd "$repo" --label "$topic" >/dev/null 2>&1
 
   # Export into the RETAINED SHELL rather than onto one command line. The daemon's
@@ -285,9 +338,14 @@ stage_bootstrap() {
     "no idle Codex TUI in pane $AGENT_PANE within ${CODEX_READY_TIMEOUT}s (shipped is_codex_idle_input never held)"
 
   pane_submit "$AGENT_PANE" "/rename $topic"
-  wait_until "$CODEX_READY_TIMEOUT" rollout_is_named || fail_stage bootstrap \
-    "Codex never indexed a rollout under thread_name '$topic' within ${CODEX_READY_TIMEOUT}s"
-  predecessor="$(live_rollout_id)"
+  if ! wait_until "$CODEX_READY_TIMEOUT" rollout_is_named; then
+    bootstrap_naming_capture="$evidence/bootstrap-naming-pane.txt"
+    pane_capture "$AGENT_PANE" >"$bootstrap_naming_capture" || :
+    index_threads="$(indexed_thread_names)"
+    fail_stage bootstrap \
+      "Codex never indexed a rollout under thread_name '$topic' within ${CODEX_READY_TIMEOUT}s (pane $AGENT_PANE; session index thread ids/names after launch: ${index_threads:-<none>}; pane capture: $bootstrap_naming_capture)"
+  fi
+  predecessor="$(indexed_launch_rollout_id)"
 
   # The checkout's own shipped bootstrap executable, run from INSIDE the Codex
   # pane: it detects its owning pane through process ancestry and refuses unless a
@@ -310,7 +368,7 @@ stage_bootstrap() {
 }
 
 rollout_is_named() {
-  [[ -n "$(live_rollout_id)" ]]
+  [[ -n "$(indexed_launch_rollout_id)" ]]
 }
 
 daemon_is_up() {
