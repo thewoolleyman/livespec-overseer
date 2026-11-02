@@ -16,6 +16,10 @@ from test_supervisor_fakes import FakeTmux
 __all__: list[str] = []
 
 
+def _held(*, sup, repo, topic):
+    return registry.read_channel_hold(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+
+
 def test_scenario_a_rejected_state_value_is_told_to_its_session_within_one_cycle(*, tmp_path):
     """A settled session hears its rejected declaration without waiting for a wrap-up."""
     repo, topic = make_plan(tmp_path=tmp_path)
@@ -102,23 +106,35 @@ def test_an_unconfirmed_channel_notice_stays_held_until_the_session_declares(
     declare(repo=repo, topic=topic, value="waiting: invented", mtime=1001.0)
 
     sup.evaluate(track=track, act=True)
-    assert (
-        registry.read_channel_hold(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-        is not None
-    )
+    assert _held(sup=sup, repo=repo, topic=topic) is not None
+
+    fake.panes[session] = idle_capture(ctx=73)
+    sup.evaluate(track=track, act=True)
+    assert _held(sup=sup, repo=repo, topic=topic) is not None
 
     fake.panes[session] = "generating"
     sup.evaluate(track=track, act=True)
-    assert (
-        registry.read_channel_hold(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-        is not None
-    )
+    assert _held(sup=sup, repo=repo, topic=topic) is not None
 
     declare(repo=repo, topic=topic, value="winding-down", mtime=1002.0)
     sup.evaluate(track=track, act=True)
-    assert (
-        registry.read_channel_hold(repo=str(repo), topic=topic, stamp_path=sup.stamp_path) is None
+    assert _held(sup=sup, repo=repo, topic=topic) is None
+
+    other_repo, other_topic = make_plan(tmp_path=tmp_path / "misaddressed")
+    other_session = registry.tmux_id(repo=str(other_repo), topic=other_topic)
+    other_fake = FakeTmux()
+    other_fake.serve(session=other_session, repo=other_repo, capture=idle_capture(ctx=73))
+    other_sup = make_supervisor(tmp_path=tmp_path / "misaddressed", fake=other_fake)
+    monkeypatch.setattr(
+        _supervisor_channel,
+        "channel_provider",
+        lambda **_kwargs: UnconfirmedChannel(identity="claude:another:session"),
     )
+    declare(repo=other_repo, topic=other_topic, value="waiting: misaddressed", mtime=1001.0)
+    other_sup.evaluate(
+        track=mapped_track(repo=other_repo, topic=other_topic, session=other_session), act=True
+    )
+    assert not other_fake.paste_texts()
 
 
 def test_scenario_a_rejected_state_notice_is_durable_per_rendered_value_and_renoticed_once(
