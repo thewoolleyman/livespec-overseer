@@ -842,6 +842,9 @@ check-tmp-supervisor-discipline:
 check-pre-commit:
     scripts/check-pre-commit.sh
 
+check-pre-commit-gated-tree:
+    scripts/check-pre-commit-gated-tree.sh
+
 # When zero `.py` files are staged, `check-pre-commit` delegates here.
 # Pre-push delegates here via `check-pre-push` for zero-py changesets.
 check-pre-commit-doc-only:
