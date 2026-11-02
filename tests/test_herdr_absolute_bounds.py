@@ -68,13 +68,20 @@ TRANSPORT_PATH = PACKAGE_DIR / "herdr_transport.py"
 
 REQUEST_ID = "overseer-bounds-1"
 
-# The write-bound case, in whole seconds so the two outcomes cannot be confused.
-# Accepted tree: ~3.6s (identification's 1.6s plus the write's inherited 2.0s).
-# Remedied tree: ~2.0s (identification's 1.6s plus the residual 0.4s).
-WRITE_BUDGET_SECONDS = 2.0
-IDENTIFY_COST_SECONDS = 1.6
-# Halfway between the two, so neither verdict depends on a tight margin.
-WRITE_BOUND_SECONDS = 2.8
+# The write-bound case. Identification's cost is charged to the transport's
+# INJECTED clock, not slept in real time, so the residual the write is owed is
+# real wall-clock time a loaded host cannot eat before the connect completes.
+# The previous form slept 1.6s of a 2.0s budget and left 0.4s of REAL time for
+# connect, accept and the start of the write; at load 40-60 the connect consumed
+# it, the deadline expired before any byte was sent, and the test failed on
+# scheduling latency while the product was right (overseer-7a6r2e, overseer-6p27).
+# Stale tree: the write inherits the pre-connect timeout, ~10s of real blocking.
+# Remedied tree: the write is re-armed to the residual, ~1.0s of real blocking.
+WRITE_BUDGET_SECONDS = 10.0
+IDENTIFY_COST_SECONDS = 9.0
+# Far from both: a 4s scheduling stall cannot fail the remedied tree, and the
+# stale tree overshoots it by 5s.
+WRITE_BOUND_SECONDS = 5.0
 # Far past this host's AF_UNIX send buffer (`net.core.wmem_default` is 212 992),
 # against a peer that accepts and never reads, so `sendall` genuinely blocks.
 BLOCKING_PAYLOAD_BYTES = 8 * 1024 * 1024
@@ -166,20 +173,28 @@ def _read_reply_in_child(*, pipe: Connection, raw: bytes, request_id: str) -> No
 def test_the_write_is_bounded_by_the_residual_deadline_not_the_original_one(*, socket_dir: Path):
     """A slow identification must shrink the write's window, not leave it at full size.
 
-    Real time and the real `socket` timeout throughout: this is a claim about the
-    bound the kernel actually enforces on the write, so an injected clock would
-    assert the arithmetic while leaving the socket on its stale value — exactly
-    the defect. Identification is slowed by the one injected seam that does real
-    work inside it, the `/proc` start-time read.
+    The bound measured is the REAL `socket` timeout the kernel enforces on the
+    write, and `elapsed` is read from the real clock. Only identification's COST
+    is charged to the transport's injected clock: the `/proc` start-time read,
+    the one seam that runs inside identification, advances that clock by
+    `IDENTIFY_COST_SECONDS`. The transport therefore computes a residual budget
+    of one second, and the test asserts that the socket actually enforced that
+    residual rather than the value armed before the connect. A tree that skips
+    the re-arm still blocks for the whole stale budget in real time, so this
+    cannot pass on arithmetic alone.
     """
     protocol, transport_module = _modules()
     address = socket_dir / "h.sock"
     held = _accept_and_never_read(address=address)
     starttime = claude_sessions.proc_starttime(pid=os.getpid())
     assert starttime is not None, "this process must have a readable /proc start time"
+    charged = [0.0]
+
+    def clock() -> float:
+        return time.monotonic() + charged[0]
 
     def slow_starttime(*, pid: int) -> str | None:
-        time.sleep(IDENTIFY_COST_SECONDS)
+        charged[0] += IDENTIFY_COST_SECONDS
         return claude_sessions.proc_starttime(pid=pid)
 
     transport = transport_module.HerdrTransport(
@@ -189,6 +204,7 @@ def test_the_write_is_bounded_by_the_residual_deadline_not_the_original_one(*, s
         ),
         timeout_seconds=WRITE_BUDGET_SECONDS,
         starttime_of=slow_starttime,
+        monotonic=clock,
     )
     started = time.monotonic()
     outcome = transport.request(
