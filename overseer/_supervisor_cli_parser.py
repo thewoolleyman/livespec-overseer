@@ -28,6 +28,7 @@ class ParserHandlers:
     add_handler: SubcommandHandler
     remove_handler: SubcommandHandler
     start_handler: SubcommandHandler
+    relaunch_handler: SubcommandHandler
 
 
 def build_parser(
@@ -80,4 +81,15 @@ def build_parser(
         help="respawn even if the session already runs a live Claude (kills it)",
     )
     p_start.set_defaults(func=handlers.start_handler)
+
+    p_relaunch = sub.add_parser(
+        "relaunch", help="sanctioned non-destructive relaunch at a proven idle pane"
+    )
+    _ = p_relaunch.add_argument("--topic", required=True, help="mapped plan topic")
+    _ = p_relaunch.add_argument("--target", required=True, help="exact target pane coordinate")
+    _ = p_relaunch.add_argument("--invoker", required=True, help="operator invoking the relaunch")
+    _ = p_relaunch.add_argument("--runtime", help="replacement runtime (non-Codex in this release)")
+    _ = p_relaunch.add_argument("--model", help="replacement model token")
+    _ = p_relaunch.add_argument("--wrapper", help="replacement executable wrapper")
+    p_relaunch.set_defaults(func=handlers.relaunch_handler)
     return parser
