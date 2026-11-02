@@ -82,6 +82,44 @@ Contract rules:
   through the malformed-value membership of §"Attention surface", naming the
   rejected value — except a track done because its plan is archived, which
   remains a member only through live gate evidence.
+- REJECTED-VALUE NOTICE. After the daemon renames a malformed state file to
+  `.overseer-state.rejected`, it MUST deliver ONE notice to that track's
+  session, on the tick of the rename or else on the first later tick at which
+  the notice's paste predicate (spec.md §"The keep-going nudge") holds. Its
+  text MUST name the rejected value, rendered exactly as the wrap-up's
+  rejected-value line renders it (§"The wrap-up injection"), and the four
+  session-writable values, each as its `overseer-declare` invocation under the
+  rules that govern every daemon-authored declaration instruction, and MUST
+  state that the value was not accepted and the session holds no declaration.
+  - Delivery MUST use the same busy-safe guarded paste as the keep-going
+    nudge, so it is never typed into a generating, changing, sub-agent-busy,
+    gated or human-waiting pane. A notice whose predicate does not hold is
+    deferred, not dropped, and retried at the next tick where it holds; a
+    FAILED delivery MUST be retried the same way. An UNCONFIRMED delivery MUST
+    NOT be sent again by either path: it is recorded as that value's notice and
+    surfaced, and an UNCONFIRMED channel delivery is held and released per
+    §"Daemon message delivery channel".
+  - The notice is edge-triggered per spec.md §"Notify, never block": its
+    dedup identity is the track together with a digest of the rendered
+    rejected value (the same sanitized, truncated line the notice names).
+    The daemon MUST record each delivered notice durably in its own store, so
+    a daemon restart MUST NOT re-send a notice already delivered for the same
+    value. A different rejected value is a new condition and earns a new
+    notice.
+  - While the rejected copy for one value has stood for 24 hours since its
+    notice was delivered, with no valid declaration written in that time, the
+    daemon MUST deliver that notice ONE more time under the same predicate,
+    and MUST NOT re-notice that value after it. The track MUST stay surfaced
+    to the operator through the malformed-value attention membership for as
+    long as the rejected copy stands.
+  - A pending notice MUST be cancelled when, before delivery, the session
+    writes a valid declaration or the rejected copy is deleted; the daemon
+    MUST re-check both in the act's immediate pre-delivery re-read.
+  - The notice authorizes no act and changes nothing else: the rejected copy
+    still authorizes nothing, still does not suppress the low-context wrap-up,
+    and every wrap-up still carries the rejected-value line while the copy
+    stands. A track done because its plan is archived, and a path-aliased
+    state file, receive no notice, exactly as they receive no rename.
 - Beyond the token, the file's contents are never inspected — no handoff
   hash, no payload. What a session hands its successor is its own business.
 - The daemon DELETES the file as it restarts the session, together with the
@@ -158,7 +196,8 @@ Contract rules:
 - Every daemon-authored text that asks a session to declare or to clear a
   declaration — the wrap-up of §"The wrap-up injection" for a worker or a
   supervisor pair member, the keep-going nudge, the pair-stall nudge, the
-  ready-expiry notice, the rejected-value line, and the instruction to clear
+  ready-expiry notice, the rejected-state notice, the rejected-value line, and
+  the instruction to clear
   a `done` before taking new work — MUST name the `overseer-declare`
   invocation for each value it asks for, carrying that entity's repository
   and topic. The invocation MUST be an ABSOLUTE path to the `overseer-declare`
@@ -477,8 +516,8 @@ that entity's own key.
 
 ## Daemon message delivery channel
 
-The wrap-up and the keep-going nudge to a supervised worker are DAEMON
-MESSAGES under this section. The resume prompt a restart delivers to its
+The wrap-up, the keep-going nudge and the rejected-state notice to a
+supervised worker are DAEMON MESSAGES under this section. The resume prompt a restart delivers to its
 successor, the pair nudge to a supervisor, and the picker-stall relay act are
 NOT: each keeps its paste form and its own submission, retry and attention
 rules.
@@ -495,7 +534,8 @@ offers no channel meeting all three delivers by the paste.
 - Binding. As part of the act's immediate pre-delivery re-read, the daemon
   MUST prove the channel's addressed session identity equal to the session
   identity the act targets: the round-open session identity for a wrap-up, and
-  the pane's currently proven session identity for a keep-going nudge. A
+  the pane's currently proven session identity for a keep-going nudge or a
+  rejected-state notice. A
   mismatched or unprovable identity cancels the whole act for that tick, the
   paste included; the act is re-evaluated on the next observation.
 - Choosing the channel changes HOW a message is delivered, never WHETHER it is.
@@ -504,7 +544,9 @@ offers no channel meeting all three delivers by the paste.
   the immediate pre-delivery re-read, the stamp written durably before
   delivery, the escalation bands, the message obligations and every
   suppression; for a keep-going nudge its trigger, its guards and its
-  `idle-with-context-left` marker, written exactly as for its paste.
+  `idle-with-context-left` marker, written exactly as for its paste; for a
+  rejected-state notice its trigger, its guards, its cancellation and its
+  durable delivered record, written exactly as for its paste.
 - A channel delivery is DELIVERED only on the channel's acceptance
   acknowledgement for that message, and FAILED only when the channel reports a
   refusal or an unavailable channel before transmission. Every other outcome —
@@ -525,6 +567,9 @@ offers no channel meeting all three delivers by the paste.
   turn is observed starting after the send, either of which makes it
   DELIVERED; or when its round closes. A held keep-going nudge, which opens no
   round, is released instead when the idle episode it answered ends. A held
+  rejected-state notice, which opens no round either, is released instead when
+  the rejected copy it named is deleted or replaced by a different rejected
+  value, or when the session writes a valid declaration. A held
   delivery is surfaced through §"Attention surface" with its age, so a hold
   that never resolves cannot sit unseen.
 - The track's row and the daemon log MUST name each daemon message's delivery
