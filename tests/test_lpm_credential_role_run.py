@@ -407,7 +407,10 @@ def test_no_inherited_credential_override_reaches_the_launcher_child(tmp_path):
     assert [
         name for name in names if name.startswith(("LPM_", "OP_", "ANTHROPIC_", "CLAUDE"))
     ] == []
-    assert "inherited-manager" not in environment
+    # A boolean, never the dump: a failing `in` renders the child's whole
+    # environment (overseer-uzvcbn.13).
+    manager_value_leaked = "inherited-manager" in environment
+    assert not manager_value_leaked, "the manager's inherited value reached the role child"
     assert "inherited-manager" not in str(outcome.result_object)
 
 

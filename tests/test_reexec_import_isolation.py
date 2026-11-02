@@ -178,7 +178,8 @@ def test_release_adoption_resolves_the_new_runtime_package_not_the_prior_plugin_
     assert call["path"] == str(scene.runtime_executable)
     assert call["argv"] == [str(scene.runtime_executable), "--warn-percent", "30"]
     env = _switch_env(call=call)
-    assert "PYTHONPATH" not in env
+    pythonpath_survived = "PYTHONPATH" in env  # boolean: never render the env (uzvcbn.13)
+    assert not pythonpath_survived, "PYTHONPATH survived into the switched environment"
     assert env["HOME"] == scene.inherited_env["HOME"]
     assert env["PATH"] == scene.inherited_env["PATH"]
     assert env["TMUX"] == scene.inherited_env["TMUX"]
@@ -227,7 +228,8 @@ def test_runtime_rollback_returns_to_the_prior_runtime_under_the_same_isolation(
     assert call["path"] == str(scene.runtime_executable)
     assert call["argv"] == [str(scene.runtime_executable), "--warn-percent", "45"]
     env = _switch_env(call=call)
-    assert "PYTHONPATH" not in env
+    pythonpath_survived = "PYTHONPATH" in env  # boolean: never render the env (uzvcbn.13)
+    assert not pythonpath_survived, "PYTHONPATH survived into the switched environment"
     assert env["TMUX"] == scene.inherited_env["TMUX"]
 
     package = _import_target(scene=scene, env=env)

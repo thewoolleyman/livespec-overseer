@@ -22,7 +22,8 @@ _SCANNED_DIRS = (
     _REPO_ROOT / "scripts",
 )
 _NEW_SESSION = "new-session"
-_MARKER = b"LIVESPEC_AUTOMATION_SHELL=1"
+_MARKER_NAME = b"LIVESPEC_AUTOMATION_SHELL"
+_MARKER = _MARKER_NAME + b"=1"
 # A guard on an EVENT wait (the pane process leaving the tmux image), never a
 # sleep the verdict depends on.
 _EXEC_GUARD_SECONDS = 30.0
@@ -91,8 +92,12 @@ def test_live_tmux_pane_inherits_the_automation_shell_marker(*, tmp_path: Path) 
         # Assert on a boolean, never on the list: pytest renders a failing
         # `in` against the whole environment, and in a factory sandbox that
         # environment carries credentials (overseer-uzvcbn.13).
+        observed = [entry for entry in environment if entry.startswith(_MARKER_NAME + b"=")]
         marked = _MARKER in environment
-        assert marked, f"pane process {pane_pid} lacks {_MARKER.decode()}"
+        assert marked, (
+            f"pane process {pane_pid}: {_MARKER_NAME.decode()} is "
+            f"{observed[0].decode(errors='replace') if observed else 'absent'}"
+        )
     finally:
         io.kill_session(session=session)
 

@@ -31,7 +31,8 @@ def _scrubbed_env() -> dict[str, str]:
         for key, value in os.environ.items()
         if key not in removed and not key.startswith("COV_CORE_")
     }
-    assert "PYTHONPATH" not in env
+    pythonpath_survived = "PYTHONPATH" in env  # boolean: never render the env (uzvcbn.13)
+    assert not pythonpath_survived, "PYTHONPATH survived the scrub"
     return env
 
 
