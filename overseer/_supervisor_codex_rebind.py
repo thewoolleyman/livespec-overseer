@@ -23,6 +23,7 @@ decisions somewhere they cannot see the transaction state they depend on.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import _supervisor_codex_identity
@@ -34,12 +35,26 @@ from _supervisor_codex_adoption import codex_host_readers
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
-__all__: list[str] = ["UNIDENTIFIED_NOTE", "rebound_codex_coordinate", "unidentified_codex_pane"]
+__all__: list[str] = [
+    "UNIDENTIFIED_NOTE",
+    "UnidentifiedCodexPane",
+    "rebound_codex_coordinate",
+    "unidentified_codex_pane",
+]
 
 # What the operator is told about a track the daemon cannot resolve to a pane OR declare
 # gone. It names the condition rather than the mechanism: the actionable fact is that a
 # live Codex pane in this repository could not be identified.
 UNIDENTIFIED_NOTE = "a live Codex pane in this repo resolves to no single session"
+
+
+@dataclass(frozen=True, kw_only=True)
+class UnidentifiedCodexPane:
+    """The live carrier that prevents the daemon from naming a mapped Codex track."""
+
+    coordinate: str
+    pid: int
+    condition: str
 
 
 def _live_coordinate(*, sup: Supervisor, track: registry.Track) -> str | None:
@@ -96,8 +111,10 @@ def rebound_codex_coordinate(
     return coordinate
 
 
-def unidentified_codex_pane(*, sup: Supervisor, track: registry.Track) -> bool:
-    """Whether a live Codex pane in this row's repository could not be identified.
+def unidentified_codex_pane(
+    *, sup: Supervisor, track: registry.Track
+) -> UnidentifiedCodexPane | None:
+    """The live Codex pane in this row's repository that could not be identified.
 
     The discriminator between "this track's session is gone" and "the daemon cannot say".
     `session-gone` is an ASSERTION that the session is not there, and a live Codex
@@ -111,13 +128,26 @@ def unidentified_codex_pane(*, sup: Supervisor, track: registry.Track) -> bool:
     if not (track.observed_session_identity or "").startswith(
         _supervisor_codex_identity.CODEX_IDENTITY_PREFIX
     ):
-        return False
-    return any(
-        carrier.session_id is None
-        and signals.path_in_repo(pane_current_path=carrier.cwd, repo=track.repo)
-        for carrier in _supervisor_codex_identity.pane_codex_carriers(
-            sup=sup,
-            pane_pid_to_session=sup.tmux.pane_pid_sessions(),
-            readers=codex_host_readers(sup=sup),
+        return None
+    if _live_coordinate(sup=sup, track=track) is not None:
+        return None
+    for carrier in _supervisor_codex_identity.pane_codex_carriers(
+        sup=sup,
+        pane_pid_to_session=sup.tmux.pane_pid_sessions(),
+        readers=codex_host_readers(sup=sup),
+    ):
+        if carrier.session_id is not None or not signals.path_in_repo(
+            pane_current_path=carrier.cwd, repo=track.repo
+        ):
+            continue
+        condition = (
+            "ambiguous repository sessions"
+            if len(carrier.candidate_session_ids) > 1
+            else "no live candidate"
         )
-    )
+        return UnidentifiedCodexPane(
+            coordinate=carrier.coordinate,
+            pid=carrier.pid,
+            condition=condition,
+        )
+    return None
