@@ -596,6 +596,38 @@ def test_pane_agent_session_refuses_non_herdr_and_unlisted_panes(*, tmp_path):
     assert driver.pane_agent_session(session=TRACKED_COORDINATE) is None
 
 
+def test_pane_agent_session_skips_other_panes_before_its_report(*, tmp_path):
+    """The pane-local report is read after unrelated rows in one backend listing."""
+    world = make_world(tmp_path=tmp_path)
+
+    class ListedHerdr:
+        def list_panes(self, *, target):
+            rows = (
+                herdr_calls.PaneRow(
+                    pane_id="w2H:p4",
+                    tab_id="w2H:t1",
+                    workspace_id="w2H",
+                    cwd=str(world.repo),
+                    foreground_cwd=str(world.repo),
+                    focused=False,
+                ),
+                herdr_calls.PaneRow(
+                    pane_id=target.pane_id,
+                    tab_id="w2H:t1",
+                    workspace_id="w2H",
+                    cwd=str(world.repo),
+                    foreground_cwd=str(world.repo),
+                    focused=False,
+                    reported_codex_session_id=SESSION_ID,
+                ),
+            )
+            return herdr_adapter.PaneListing(ok=True, panes=rows, error="")
+
+    driver = pane_router.MixedPaneDriver(tmux=world.sup.tmux, herdr=ListedHerdr())
+
+    assert driver.pane_agent_session(session=TRACKED_COORDINATE) == SESSION_ID
+
+
 # --- assertion 2: the dead tmux coordinate is rebound, old and new logged ------------
 
 
