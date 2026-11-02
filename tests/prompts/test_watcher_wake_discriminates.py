@@ -38,7 +38,7 @@ _PENDING = "PENDING"
 _POLLS = 4
 _STABLE_TO_IDLE = 3
 _VISIBLE_TAIL = 8
-_PANE_CHANGE_TIMEOUT_S = 5.0
+_PANE_RENDER_GUARD_S = 60.0
 
 # END-anchored: a wrapped continuation line can BEGIN with "Enter to select"
 # (measured — the echoed command wrapped at that exact column), so anchoring
@@ -190,31 +190,47 @@ def test_scrollback_tmux_double_rejects_unexpected_capture_contract() -> None:
         tmux("capture-pane", "-p", "-t", "wk")
 
 
-def _wait_for_change_on_watcher_sleep(
+def _advance_pane_on_watcher_sleep(
     *,
     monkeypatch: pytest.MonkeyPatch,
     tmux: Tmux,
     target: str,
-) -> None:
-    """Make watcher sleeps observe pane progress instead of assuming cadence."""
+) -> list[str]:
+    """Make every watcher sleep DRIVE one pane change and wait until it renders.
+
+    The pane runs `cat`, so a line the test types is echoed and then printed
+    back. Each sleep sends the next distinct `TICK-<n>` and returns only once
+    the pane shows `cat`'s copy of it, so consecutive watcher captures differ
+    by construction. No background spinner has to win a race against the
+    watcher's cadence, which is what a loaded host broke (overseer-em5b): the
+    0.6s-throttled spinner did not render inside the observation window.
+    The deadline is a rig-failure guard on an EVENT wait, never a sleep the
+    verdict depends on. Returns the ticks sent, so the leg can prove the
+    watcher actually slept between captures.
+    """
     real_sleep = time.sleep
+    sent: list[str] = []
 
-    def _sleep_until_changed(seconds: float) -> None:
-        previous = tmux("capture-pane", "-p", "-t", target).stdout
-        deadline = time.monotonic() + max(seconds, _PANE_CHANGE_TIMEOUT_S)
+    def _sleep_after_advancing(_seconds: float) -> None:
+        tick = f"TICK-{len(sent) + 1}"
+        sent.append(tick)
+        tmux("send-keys", "-t", target, tick, "Enter")
+        deadline = time.monotonic() + _PANE_RENDER_GUARD_S
         while time.monotonic() < deadline:
-            real_sleep(0.05)
-            current = tmux("capture-pane", "-p", "-t", target).stdout
-            if current != previous:
+            # `cat` prints the line back after the tty echo, so the tick
+            # appears TWICE once the pane has caught up with the keystroke.
+            if tmux("capture-pane", "-p", "-t", target).stdout.count(tick) >= 2:
                 return
-        # COVERAGE-EXEMPT: reached only if a deliberately changing pane stops
-        # advancing before the deadline. Healthy runs prove the positive path;
-        # this timeout makes a rig failure loud instead of returning IDLE.
-        pytest.fail(  # pragma: no cover
-            "tmux pane did not change during watcher sleep; " f"last capture was:\n{previous}"
-        )
+            real_sleep(0.02)
+        # COVERAGE-EXEMPT: reached only if tmux stops rendering typed input
+        # for the whole guard. This makes a rig failure loud instead of
+        # letting the watcher compare two identical captures.
+        pytest.fail(
+            f"pane never rendered {tick} within {_PANE_RENDER_GUARD_S}s"
+        )  # pragma: no cover
 
-    monkeypatch.setattr(time, "sleep", _sleep_until_changed)
+    monkeypatch.setattr(time, "sleep", _sleep_after_advancing)
+    return sent
 
 
 def test_settle_can_fail_loudly_on_expiry(
@@ -447,7 +463,7 @@ def test_the_control_a_genuine_visible_footer_still_wakes(
 
 
 def test_d_the_shipped_watcher_reports_idle_for_a_session_that_does_not_exist(
-    *, tmux: Tmux, settle: Callable[[str, str], str]
+    *, tmux: Tmux, settle: Settle
 ) -> None:
     """DEFECT (d) PINNED, and it composes with the bare-target defect.
 
@@ -455,15 +471,30 @@ def test_d_the_shipped_watcher_reports_idle_for_a_session_that_does_not_exist(
     watcher inspects the SUPERVISOR's settled pane and calls it IDLE — a
     confident verdict about a worker that does not exist.
     """
-    tmux(*new_session_args(args=["-d", "-s", "wk-supervisor", "-x", "80", "-y", "20"]))
-    # SETTLE the supervisor pane before measuring. Without this the pane is
-    # still rendering its first prompt, consecutive captures differ, and the
-    # shipped watcher returns BUSY instead of IDLE — which passed locally and
-    # FAILED IN CI, where the shell is slower to draw. The defect being pinned
-    # is "reports IDLE for a session that does not exist", so the pane must be
-    # genuinely settled or the leg is measuring startup noise instead.
-    tmux("send-keys", "-t", "=wk-supervisor:", "echo SUPERVISOR_READY", "Enter")
-    settle("=wk-supervisor:", "SUPERVISOR_READY")
+    # The supervisor pane prints once and then runs `sleep`, so NOTHING in it
+    # can redraw: no shell prompt, no line editor, no startup output racing the
+    # watcher. The earlier form ran an interactive shell and settled it with a
+    # needle; under host load that settle could expire silently while the
+    # prompt was still drawing, consecutive captures differed, and the shipped
+    # watcher returned BUSY (failed in CI on 2026-11-02, blocking PR #2771).
+    # The defect being pinned is "reports IDLE for a session that does not
+    # exist", so the pane must be static by construction, not by luck.
+    created = tmux(
+        *new_session_args(
+            args=[
+                "-d",
+                "-s",
+                "wk-supervisor",
+                "-x",
+                "80",
+                "-y",
+                "20",
+                "printf '%s\\n' SUPERVISOR_READY; exec sleep 600",
+            ]
+        )
+    )
+    assert created.returncode == 0, created.stderr
+    settle("=wk-supervisor:", "SUPERVISOR_READY", fail_on_timeout=True)
     assert watcher_shipped(tmux=tmux, target="wk") == _IDLE
 
 
@@ -477,50 +508,34 @@ def test_both_forms_report_busy_while_a_pane_keeps_changing(
     *,
     monkeypatch: pytest.MonkeyPatch,
     tmux: Tmux,
-    settle: Callable[[str, str], str],
-    wait_for: Callable[[str, str], None],
+    settle: Settle,
 ) -> None:
     """Neither form may call a WORKING agent idle.
 
     This is the third verdict and it is the one that keeps `stable` honest: a
     watcher that reached IDLE too eagerly would wake on a busy worker.
+
+    The change between captures is DRIVEN by the test, not raced against it.
+    Four earlier forms used a background spinner, and each flaked for a timing
+    reason: a bounded loop finished mid-measurement, a constant line compared
+    equal, an unthrottled spinner made tmux coalesce renders, and the throttled
+    spinner missed the observation window at host load 50-60 (overseer-em5b).
+    Here every watcher sleep types the next tick into `cat` and waits until it
+    has rendered, so the pane changes between every pair of captures whatever
+    the host's load. A watcher that calls this pane idle is wrong by
+    construction, which is the claim the leg exists to make.
     """
-    _worker(tmux=tmux)
-    _run(tmux=tmux, command="echo READY", settle=settle, needle="READY")
-    # A NON-TERMINATING spinner emitting a DISTINCT value each line. Both
-    # properties are load-bearing, and the first draft of this leg lacked them:
-    # a bounded `seq` loop can FINISH mid-measurement and the pane then settles
-    # to IDLE, which is what made this the one flaky leg of the port. And a
-    # repeating constant (`yes TICK`) would fill the pane with identical rows,
-    # so consecutive captures would compare EQUAL and also report IDLE — busy
-    # by CPU, idle by observation. A monotonic counter cannot do either.
-    # THREE properties, each one added because its absence produced a flake:
-    #   non-terminating — a bounded `seq` loop can FINISH mid-measurement and
-    #     the pane then settles to IDLE (flaked ~1-in-3);
-    #   distinct values — `yes TICK` fills the pane with identical rows, so
-    #     consecutive captures compare EQUAL and also report IDLE: busy by CPU,
-    #     idle by observation;
-    #   THROTTLED — a full-speed spinner saturates the CPU it shares with the
-    #     observer and tmux coalesces renders, so captures repeat and IDLE
-    #     wins anyway (flaked ~1-in-5).
-    tmux(
-        "send-keys",
-        "-t",
-        "=wk:",
-        "i=0; while :; do i=$((i+1)); echo TICK-$i; sleep 0.6; done",
-        "Enter",
-    )
-    # Wait for `TICK-1`, NOT `TICK-`. The pane also renders the ECHOED COMMAND,
-    # which literally contains `echo TICK-$i` — so the shorter sentinel matches
-    # the command TEXT and returns before the loop has run once, leaving a
-    # settled pane and a deterministic IDLE. Measured: `TICK-` failed 5/5,
-    # `TICK-1` passes. That is defect (c') wearing a different hat — a detector
-    # fooled by text that MENTIONS the thing rather than by the thing — and it
-    # bit the sentinel guarding the test for it.
-    wait_for("=wk:", "TICK-1")
-    _wait_for_change_on_watcher_sleep(monkeypatch=monkeypatch, tmux=tmux, target="=wk:")
+    created = tmux(*new_session_args(args=["-d", "-s", "wk", "-x", "80", "-y", "20", "exec cat"]))
+    assert created.returncode == 0, created.stderr
+    tmux("send-keys", "-t", "=wk:", "CAT-READY", "Enter")
+    settle("=wk:", "CAT-READY", fail_on_timeout=True)
+    ticks = _advance_pane_on_watcher_sleep(monkeypatch=monkeypatch, tmux=tmux, target="=wk:")
     assert watcher_proposed(tmux=tmux, target="=wk:") == _BUSY
     assert watcher_shipped(tmux=tmux, target="wk") == _BUSY
+    # Each watcher sleeps between its polls, so both together drove the pane
+    # through 2 * (_POLLS - 1) distinct ticks or more; fewer would mean a
+    # watcher returned before observing any change at all.
+    assert len(ticks) >= 2 * (_POLLS - 1)
 
 
 def test_both_forms_report_idle_while_a_pane_stays_static(*, tmux: Tmux, settle: Settle) -> None:
