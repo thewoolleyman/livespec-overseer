@@ -56,6 +56,7 @@ import _supervisor_cli_update
 import _supervisor_reexec
 import _supervisor_release_runtime
 import _supervisor_snapshot
+import out_of_band_relaunch
 import registry
 import streams
 import tmuxio
@@ -272,6 +273,23 @@ def _start_handler(*, args: argparse.Namespace) -> int:
     )
 
 
+def _relaunch_handler(*, args: argparse.Namespace) -> int:
+    result = out_of_band_relaunch.relaunch(
+        request=out_of_band_relaunch.RelaunchRequest(
+            topic=args.topic,
+            target=args.target,
+            invoker=args.invoker,
+            runtime=args.runtime,
+            model=args.model,
+            wrapper=args.wrapper,
+        ),
+        sup=build_supervisor(),
+    )
+    writer = streams.write_stdout if result.ok else streams.write_stderr
+    writer(text=f"{result.message}\n")
+    return int(not result.ok)
+
+
 def _add_track_args(*, parser: argparse.ArgumentParser) -> None:
     """The shared ``--repo`` / ``--topic`` keyword flags for the track subcommands.
 
@@ -302,6 +320,7 @@ def main(*, argv: list[str] | None = None) -> int:
             add_handler=_cmd_add,
             remove_handler=_cmd_remove,
             start_handler=_start_handler,
+            relaunch_handler=_relaunch_handler,
         ),
         add_track_args=_add_track_args,
         add_mapping_write_args=_supervisor_cli_update.add_mapping_write_args,

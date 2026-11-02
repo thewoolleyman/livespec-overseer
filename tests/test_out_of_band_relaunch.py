@@ -306,6 +306,7 @@ def test_validation_refuses_before_any_record_for_every_unsafe_premise(
             request=_request(runtime="codex"), sup=sup, tracks=[track]
         ).message
     )
+    assert isinstance(entrypoint._validated_launch(request=request, sup=sup, tracks=[track]), tuple)
     monkeypatch.setattr(
         entrypoint,
         "claude_launch_plan",
