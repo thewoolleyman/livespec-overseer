@@ -1902,5 +1902,19 @@
     "heading": "## Scenario: A run of slow cycles is surfaced once until a cycle completes in time",
     "work_item": "overseer-4j2tlu",
     "first_seen": "2026-10-31"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A rejected state value is told to its session within one cycle",
+    "work_item": "overseer-uzvcbn.12",
+    "first_seen": "2026-11-02"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A rejected-state notice is sent once per rejected value",
+    "work_item": "overseer-uzvcbn.12",
+    "first_seen": "2026-11-02"
   }
 ]
