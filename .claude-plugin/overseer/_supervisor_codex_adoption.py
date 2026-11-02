@@ -17,6 +17,7 @@ __all__: list[str] = [
     "codex_host_readers",
     "codex_sessions_by_tmux_session",
     "store_bound_unindexed_codex_sessions",
+    "without_live_recorded_claude",
 ]
 
 
@@ -85,6 +86,22 @@ def store_bound_unindexed_codex_sessions(
     return out
 
 
+def without_live_recorded_claude(
+    *, sup: Supervisor, sessions: dict[tuple[str, str], codex_sessions.CodexSession]
+) -> dict[tuple[str, str], codex_sessions.CodexSession]:
+    """Drop Codex adoption when the mapped pane still has its recorded Claude process."""
+    live_claude = {
+        (track.topic, identity)
+        for track in registry.read_valid_mapping(store_path=sup.store_path)
+        if (identity := track.observed_session_identity) is not None
+    }
+    return {
+        key: session
+        for key, session in sessions.items()
+        if (key[1], sup.claude_identity_by_session.get(key)) not in live_claude
+    }
+
+
 def codex_sessions_by_tmux_session(
     *,
     sup: Supervisor,
@@ -114,4 +131,4 @@ def codex_sessions_by_tmux_session(
         readers=codex_host_readers(sup=sup),
     ).items():
         _ = out.setdefault(key, session)
-    return out
+    return without_live_recorded_claude(sup=sup, sessions=out)
