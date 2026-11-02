@@ -4017,5 +4017,21 @@
     "test": "TODO",
     "work_item": "overseer-4j2tlu",
     "reason": "Ratified in v081 (slow-cycle-phase-timing) ahead of its implementation child; a test at integration tier is owed, and overseer-4j2tlu MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A rejected state value is told to its session within one cycle",
+    "test": "TODO",
+    "work_item": "overseer-uzvcbn.12",
+    "reason": "Ratified in v082 (rejected-state-prompt-notice) ahead of its implementation child; a test at integration tier is owed, and overseer-uzvcbn.12 MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A rejected-state notice is sent once per rejected value",
+    "test": "TODO",
+    "work_item": "overseer-uzvcbn.12",
+    "reason": "Ratified in v082 (rejected-state-prompt-notice) ahead of its implementation child; a test at integration tier is owed, and overseer-uzvcbn.12 MUST replace this TODO with a test at integration tier."
   }
 ]

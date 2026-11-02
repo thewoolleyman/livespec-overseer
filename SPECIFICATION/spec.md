@@ -557,6 +557,12 @@ The nudge MAY instead be delivered through a supported direct channel under
 contracts.md §"Daemon message delivery channel", which keeps every obligation
 in this section.
 
+The rejected-state notice of contracts.md §"The state file" MUST be delivered
+under the informational-paste safety floor below, with all three busy legs. It
+does NOT wait for this nudge's one-hour continuous-idle floor or its
+above-threshold condition: a settled idle input on any tick suffices. It MAY
+likewise be delivered through a supported direct channel.
+
 That daemon-written value authorizes NOTHING — it gates only the
 once-per-episode nudge, never a restart. It is edge-triggered and
 self-clearing: the daemon removes it the moment the session works again,
@@ -597,18 +603,20 @@ or missing the input evidence that act requires — except that the
 generating, changing, and sub-agent-busy legs do NOT apply to the low-context
 wrap-up or its expiry-notice tail, which are delivered into a busy pane whose
 input region is positively empty and settled, per §"The supervision round".
-The keep-going nudge, the pair-stall nudge, and the charter reminder keep all
-three legs. Background-shell evidence
+The keep-going nudge, the rejected-state notice, the pair-stall nudge, and the
+charter reminder keep all three legs. Background-shell evidence
 alone does not suppress an otherwise qualified informational paste. Exactly
-five acts apply that rule: the low-context wrap-up for any supervised
+six acts apply that rule: the low-context wrap-up for any supervised
 entity, using the runtime-specific predicate in §"The supervision round";
 the once-per-round expiry-notice of §"The escalating wrap-up", which is that
 wrap-up's round-scoped tail and fires under the wrap-up's own complete
 guarded-paste predicate rather than an independent one; the
-idle-with-context-left keep-going nudge specified above; this bounded
+idle-with-context-left keep-going nudge specified above; the
+once-per-rejected-value rejected-state notice of contracts.md §"The state
+file"; this bounded
 pair-stall nudge into the supervisor; and the bounded charter-reminder paste
 into a stalled reserved-entity picker in §"The stalled-picker charter
-reminder". The fifth member is the sanctioned exception of constraints.md
+reminder". The sixth member is the sanctioned exception of constraints.md
 §"Acting safety" and is the ONE act that INVERTS this floor's gated and
 human-waiting legs: it fires ONLY while its target is gated and waiting on a
 human, and it may fire with a standing `blocked:` declaration. It remains

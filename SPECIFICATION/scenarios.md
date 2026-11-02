@@ -724,6 +724,34 @@ And the next wrap-up delivered to that track names the rejected value and the fo
 
 But a state file the session rewrote with a valid value after the observation is not moved
 
+## Scenario: A rejected state value is told to its session within one cycle
+
+Given a tracked session whose state file the daemon has just moved aside to .overseer-state.rejected
+
+When the session is idle, settled, ungated and not waiting on a human on that tick
+
+Then the daemon delivers one notice to that session on that tick, through the keep-going nudge's guarded paste or a supported direct channel under the same guards
+
+And the notice names the rejected value and the four session-writable values as overseer-declare invocations
+
+And a busy session instead receives the notice on the first later tick at which it is idle and settled, never typed into its running turn
+
+But a session that writes a valid declaration, or deletes the rejected copy, before the notice is delivered receives no notice
+
+## Scenario: A rejected-state notice is sent once per rejected value
+
+Given a tracked session that has received the notice for a rejected value
+
+When later ticks observe the same rejected copy, including ticks after a daemon restart
+
+Then no further notice is delivered for that value until 24 hours after the first notice
+
+And once 24 hours have passed with the rejected copy still standing and no valid declaration written, exactly one more notice is delivered and none after it
+
+And the track remains surfaced to the operator while the rejected copy stands
+
+But a different rejected value is noticed afresh
+
 ## Scenario: The declaration command refuses a value the daemon would reject
 
 Given a tracked session whose state file holds a valid declaration
@@ -752,7 +780,7 @@ And clear succeeds when no state file exists
 
 Given a tracked worker or supervisor pair member
 
-When the daemon composes a wrap-up, a keep-going nudge, a pair-stall nudge, a ready-expiry notice, or a rejected-value line for it
+When the daemon composes a wrap-up, a keep-going nudge, a pair-stall nudge, a ready-expiry notice, a rejected-state notice, or a rejected-value line for it
 
 Then each value it asks for is named as an absolute overseer-declare invocation carrying that entity's repository and topic
 

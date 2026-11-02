@@ -144,12 +144,14 @@ positively identified as this track's supervised session, satisfies that act's
 runtime-specific input predicate, is settled, and shows no structured gate or
 human wait — with the stalled-picker charter-reminder exception below, which inverts the
 gate and human-wait legs of this sentence and no others. Recognized shell-only evidence does not by itself prohibit an informational
-paste. It may coexist with exactly five acts under their independent complete
+paste. It may coexist with exactly six acts under their independent complete
 predicates: the low-context wrap-up in contracts.md §"The wrap-up injection"
 together with its round-scoped tail, the ready-expiry notice of spec.md §"The
 escalating wrap-up", which fires under the wrap-up's own complete guarded-paste
 predicate; the idle-with-context-left keep-going nudge and the bounded
-pair-stall nudge, both in spec.md §"The keep-going nudge"; and the bounded
+pair-stall nudge, both in spec.md §"The keep-going nudge"; the
+once-per-rejected-value rejected-state notice of contracts.md §"The state
+file"; and the bounded
 charter-reminder paste into a stalled reserved-entity picker in spec.md §"The
 stalled-picker charter reminder". The shell is left running and NO such paste
 authorizes a restart. Foreign panes and panes of ambiguous identity MUST never be pasted into.
@@ -183,7 +185,7 @@ evidence proves the predecessor gone and that shell idle with no foreign
 foreground process. The launch attempt MUST be durably recorded before input;
 an attempted launch with an unknown outcome MUST NOT be submitted again. This
 is a replacement continuation, not an informational paste: it MUST NOT widen
-any of the five informational acts above, admit input into another bare shell,
+any of the six informational acts above, admit input into another bare shell,
 or relax a generating, gate, human-wait, ambiguity, or declaration guard for
 any other act. All launch prerequisites in the restart contract still apply.
 
