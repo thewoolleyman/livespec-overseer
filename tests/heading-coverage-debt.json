@@ -1944,5 +1944,26 @@
     "heading": "## Scenario: The sanctioned relaunch refuses before launching into an unsafe or unknown target",
     "work_item": "overseer-uzvcbn.7",
     "first_seen": "2026-11-02"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A confirmed fresh Codex successor is reported for its launch pane and proven without a rollout file",
+    "work_item": "overseer-rthizs",
+    "first_seen": "2026-11-02"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A rejected backend report is surfaced and does not void a fresh Codex successor's proof",
+    "work_item": "overseer-rthizs",
+    "first_seen": "2026-11-02"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unconfirmed rename leaves a fresh Codex successor unreported and unproven",
+    "work_item": "overseer-rthizs",
+    "first_seen": "2026-11-02"
   }
 ]

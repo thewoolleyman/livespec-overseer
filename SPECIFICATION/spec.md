@@ -194,8 +194,8 @@ daemon-authored payload that asks the runtime for no turn, such as the `/rename`
 command that names a fresh Codex successor after its topic, MUST NOT be held as
 an UNCONFIRMED delivery and MUST NOT suppress a later paste: the daemon MUST
 prove its outcome by that payload's own evidence (for a Codex rename, the
-durable session-index record binding the successor's rollout to the topic),
-never by an observed turn start. When that evidence does not appear within the
+durable session-index record of §"The fresh Codex successor's proof and
+backend report"), never by an observed turn start. When that evidence does not appear within the
 replacement's bounded wait, the replacement MUST keep the ready declaration,
 MUST surface the unnamed successor, and MUST NOT deliver the resume line. A held
 attempt MUST NOT suppress the resume line a replacement delivers to its proven
@@ -386,6 +386,51 @@ second kill: the fresh session-written `ready` declaration remains the sole
 restart authorization. The 60-second-floor NEEDS YOU surfacing above is
 unchanged and applies independently of whether this self-heal has fired;
 neither condition authorizes or suppresses the other.
+
+### The fresh Codex successor's proof and backend report
+
+This subsection governs the daemon's own replacement of a Codex track through
+the guarded replacement of contracts.md §"The restart interlock", once it has
+launched a fresh Codex successor into the retained shell. After the launch,
+the daemon submits `/rename <name>` to the successor, where `<name>` is the
+track's derived session name under §"Session-name derivation". The daemon MUST
+treat the rename as confirmed only when, within the replacement's bounded
+wait, the Codex session index records a thread created by this launch (one
+absent from the index when the launch attempt was recorded) whose name equals
+EXACTLY `<name>` and whose identifier differs from the predecessor's session
+identity.
+
+Once the rename is confirmed, the daemon MUST report that thread's identifier
+to the terminal backend as the agent session of the replacement record's pane
+on its recorded backend instance, and of no other pane, for a backend that
+accepts such a report. The daemon MUST report a Codex agent session only for a
+pane in which it launched that carrier itself, as named by its own durable
+replacement record. It MUST NOT report one for a pane read from any process's
+environment: a Codex session thread hosted by a shared runtime server runs in
+a process whose environment can name an unrelated pane. A report the backend
+rejects MUST be surfaced, and MUST NOT by itself void a proof that otherwise
+holds.
+
+The daemon MUST accept the successor as proven when all of the following
+hold: the predecessor process is gone; the successor is a process started by
+this launch in the same retained shell, pane and backend instance; the rename
+is confirmed as above; and the session identity the daemon binds to the
+successor (and reports to the backend, where the backend accepts such a
+report) is exactly the thread the index named for `<name>`. It MUST accept that proof even when the successor holds no
+rollout file open, because a successor whose thread is hosted by a shared
+runtime server holds none. The proof MUST NOT rest on a rollout file's write
+time or recency, and MUST NOT open, read, parse or hash any rollout body.
+Every other condition of contracts.md §"The restart interlock" still applies:
+the ready declaration is consumed only after the proven successor's verified
+continuation, and no recovery path applies the predecessor's authorization to
+the successor.
+
+When the rename is not confirmed within the bound, the daemon MUST report no
+agent session to the backend for any pane, and the successor MUST stay
+unproven. The replacement then keeps the ready declaration, surfaces the
+unnamed successor and delivers no resume line, exactly as §"The supervision
+round" requires, and that declaration authorizes no further termination or
+launch.
 
 ### The launch profile
 
