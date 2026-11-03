@@ -116,3 +116,30 @@ def test_fallback_retry_classifies_observed_submission(
     assert submitted is expected
     assert reason == message
     assert keys == [{"session": "pane", "keys": "Enter"}]
+
+
+def test_retry_re_pastes_only_when_the_codex_composer_is_empty(*, tmp_path) -> None:
+    """Transcript text is not a pending composer payload.
+
+    A lost first paste leaves the successor idle.  The exact resume text can still be
+    visible in scrollback, but the retry must paste it afresh before it sends Enter.
+    """
+    captures = iter(
+        (
+            "● previous output quoted › exact\n› \n  gpt-5.5 high · /repo · Context 95% left\n",
+            "● previous output quoted › exact\n› exact\n"
+            "  gpt-5.5 high · /repo · Context 95% left\n",
+        )
+    )
+    pastes: list[str] = []
+    tmux = SimpleNamespace(
+        capture_pane=lambda **kwargs: next(captures),
+        bracketed_paste=lambda **kwargs: pastes.append(kwargs["text"]) or True,
+        retry_prompt_enter_once=lambda **kwargs: (True, False),
+    )
+
+    submitted, reason = _call(tmp_path=tmp_path, tmux=tmux, current={"resume": "exact"})
+
+    assert submitted is True
+    assert reason == ""
+    assert pastes == ["exact"]
