@@ -19,6 +19,11 @@ security mechanisms, they define its contributor-facing enforcement rather
 than a second contract. The pane's track table, its columns, and its command vocabulary
 may evolve freely so long as every guarantee in this tree holds.
 
+This specification also governs only the incident-routing behavior of the existing
+drain-backlog operator surface defined in contracts.md §"Expedited incident
+operator routing". This adds no operator skill, resident seat, daemon, independent
+incident lifecycle or store.
+
 The existing daemon MUST also observe authorized result obligations independently
 of an owning coordinator or explicit waiter and execute safe bounded recovery
 through the orchestrator's public interface, as defined in contracts.md
