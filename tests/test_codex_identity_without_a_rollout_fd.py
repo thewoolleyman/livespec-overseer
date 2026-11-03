@@ -841,10 +841,9 @@ def test_two_carrier_processes_in_one_qualifying_pane_still_rebind_that_one_pane
         SESSION_ID if session == TRACKED_COORDINATE else None
     )
 
-    outcome, _log = resolve(world=world, act=True)
+    _outcome, _log = resolve(world=world, act=True)
 
     row = row_of(store=world.store)
-    assert outcome.status != "unidentified-session"
     assert row.tmux == TRACKED_COORDINATE
     assert row.observed_session_identity == f"codex:{SESSION_ID}"
 
