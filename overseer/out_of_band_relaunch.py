@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, cast
 import _out_of_band_relaunch_codex
 import herdr_identity
 import pane_router
+import pane_router_cycle
 import registry
 import signals
 import tmuxio_env
@@ -177,6 +178,9 @@ def relaunch(
             outcome="launch_failed",
             message="relaunch FAILED: launch input was not accepted",
         )
+    # A relaunch is a new observation phase: the idle-shell validation may have
+    # cached Herdr's previous foreground command before the launch write.
+    pane_router_cycle.begin_cycle(driver=getattr(sup, "tmux", None))
     codex = _is_codex(track=profile_track)
     if not await_pane(
         sup=sup,

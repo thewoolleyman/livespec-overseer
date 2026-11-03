@@ -12,7 +12,7 @@ import herdr_identity
 import pane_router
 import registry
 from _supervisor_config import RESTART_POLL_INTERVAL, RESTART_POLL_MAX, SUBMIT_MAX_ENTERS
-from _supervisor_launch import canonical_codex_session_id, submit_prompt_result
+from _supervisor_launch import canonical_codex_session_id, submit_prompt
 from _supervisor_prompts import resume_for_track
 from out_of_band_relaunch_intent import finish_intent
 from out_of_band_relaunch_validation import RelaunchRequest, RelaunchResult
@@ -29,7 +29,7 @@ __all__: list[str] = [
     "report_codex_agent_session",
 ]
 
-_HERDR_REPORT_SOURCE = "overseer"
+_HERDR_REPORT_SOURCE = "herdr:codex"
 
 
 def derived_session_name(*, sup: Supervisor, track: registry.Track) -> str:
@@ -183,8 +183,8 @@ def relaunch_codex(
             outcome="resume_unavailable",
             message="relaunch FAILED: no resume prompt",
         )
-    submitted = submit_prompt_result(sup=sup, target=request.target, text=resume, expect_codex=True)
-    if not submitted.submitted or not _rebind(
+    submitted = submit_prompt(sup=sup, target=request.target, text=resume, expect_codex=True)
+    if not submitted or not _rebind(
         track=profile_track,
         target=request.target,
         thread_id=thread_id,

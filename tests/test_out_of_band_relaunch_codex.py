@@ -203,7 +203,7 @@ def test_confirmed_codex_relaunch_reports_then_resumes_and_rebinds_profile(
     monkeypatch.setattr(
         codex,
         "submit_prompt",
-        lambda **kwargs: calls.append(("resume", kwargs)) or SimpleNamespace(submitted=True),
+        lambda **kwargs: calls.append(("resume", kwargs)) or True,
     )
     monkeypatch.setattr(
         codex.registry,
