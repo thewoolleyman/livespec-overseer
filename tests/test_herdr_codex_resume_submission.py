@@ -11,10 +11,7 @@ def test_live_exact_successor_marks_resume_submitted_without_a_second_paste(*, t
     """An operator turn in the proven successor must never receive a duplicate resume."""
     writes: list[object] = []
     tmux = SimpleNamespace(
-        capture_pane=lambda **kwargs: (
-            "● operator turn\n› Write tests for @filename\n"
-            "  gpt-5.5 high · /repo · Context 95% left\n"
-        ),
+        capture_pane=lambda **kwargs: "◦ Working (1s · esc to interrupt)\n",
         bracketed_paste=lambda **kwargs: writes.append(kwargs) or True,
         send_keys=lambda **kwargs: writes.append(kwargs) or True,
     )
