@@ -18,6 +18,7 @@ from test_supervisor_builders import (
     mapped_track,
     write_fresh_supervisor_state,
 )
+from test_supervisor_claude_status_inject import inject_claude_status
 from test_supervisor_fakes import FakeTmux
 
 PAIR_NUDGE_SENTINEL = "Your worker/supervisor pair has shown no progress"
@@ -276,7 +277,7 @@ def test_codex_supervisor_is_not_pair_nudged(*, tmp_path):
     )
     fake.cmds[supervisor_session] = "bun"
     fake.panes[supervisor_session] = codex_idle_capture(ctx=77, topic=supervisor_session)
-    sup.claude_status_by_session = {worker_session: "idle"}
+    inject_claude_status(sup=sup, statuses={worker_session: "idle"})
 
     with contextlib.redirect_stderr(_io.StringIO()):
         _ = sup.tick(act=True)

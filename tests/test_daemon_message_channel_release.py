@@ -27,6 +27,7 @@ from test_supervisor_builders import (
     nudge_count,
     wrapup_count,
 )
+from test_supervisor_claude_status_inject import inject_claude_status
 
 __all__: list[str] = []
 
@@ -215,7 +216,7 @@ def test_a_held_nudge_is_released_when_its_idle_episode_ends(*, tmp_path, monkey
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     channel = HeldChannel(addressed_identity=f"claude:{session}:{session}")
     offer(monkeypatch=monkeypatch, channel=channel)
     track = mapped_track(repo=repo, topic=topic, session=session)
@@ -271,7 +272,7 @@ def test_a_held_nudge_released_as_delivered_marks_its_idle_episode(*, tmp_path, 
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     channel = HeldChannel(addressed_identity=f"claude:{session}:{session}")
     offer(monkeypatch=monkeypatch, channel=channel)
     track = mapped_track(repo=repo, topic=topic, session=session)
@@ -308,7 +309,7 @@ def test_releasing_a_held_nudge_never_overwrites_a_session_declaration(*, tmp_pa
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     channel = HeldChannel(addressed_identity=f"claude:{session}:{session}")
     offer(monkeypatch=monkeypatch, channel=channel)
     track = mapped_track(repo=repo, topic=topic, session=session)

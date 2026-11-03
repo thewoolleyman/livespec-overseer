@@ -83,7 +83,7 @@ def _freshness_sup(*, tmp_path):
 
 
 def _assert_unjoined_records(*, freshness, sup, session, topic):
-    assert freshness.current_status(sup=sup, session=session, topic=topic) == ("busy", None)
+    assert freshness.current_status(sup=sup, session=session, topic=topic) == (None, None)
     for identity in ("codex:100:pt:topic", "claude:not-a-pid:pt:topic"):
         sup.claude_identity_by_session[(session, topic)] = identity
         assert freshness.read_joined_registry(sup=sup, session=session, topic=topic) is None
@@ -148,3 +148,15 @@ def test_status_never_falls_back_to_the_cycle_start_snapshot_for_a_joined_sessio
     write_session(sessions_dir=sessions_dir, pid=100, name="other", cwd=tmp_path, status="idle")
     assert freshness.current_status(sup=sup, session=session, topic=topic) == ("idle", 17.25)
     assert sup.claude_identity_by_session == {(session, "other"): "claude:100:pt:other"}
+
+
+def test_status_reads_another_joined_record_when_the_exact_identity_does_not_parse(*, tmp_path):
+    """An unparseable exact identity neither blocks the session's joined read nor is rewritten."""
+    freshness = importlib.import_module("_supervisor_claude_registry_freshness")
+    sessions_dir, session, topic, sup = _freshness_sup(tmp_path=tmp_path)
+    sup.claude_identity_by_session[(session, topic)] = "claude:placeholder"
+    sup.claude_identity_by_session[(session, "other")] = "claude:100:pt:other"
+    write_session(sessions_dir=sessions_dir, pid=100, name="other", cwd=tmp_path, status="idle")
+
+    assert freshness.current_status(sup=sup, session=session, topic=topic) == ("idle", 17.25)
+    assert sup.claude_identity_by_session[(session, topic)] == "claude:placeholder"

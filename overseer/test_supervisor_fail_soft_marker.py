@@ -29,6 +29,7 @@ from test_supervisor_builders import (
     nudge_count,
     undeletable_state_file,
 )
+from test_supervisor_claude_status_inject import inject_claude_status
 from test_supervisor_fakes import (
     FakeTmux,
 )
@@ -184,7 +185,7 @@ def test_failed_nudge_alerts_and_writes_no_marker_so_it_retries(*, tmp_path):
     fake.paste_ok = False  # the bracketed paste does not land
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     track = mapped_track(repo=repo, topic=topic, session=session)
 
     sup.evaluate(track=track, act=True)  # stamps idle_since

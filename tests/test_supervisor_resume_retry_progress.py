@@ -15,6 +15,7 @@ from test_supervisor_builders import (
     mapped_track,
     unsubmitted_resume_capture,
 )
+from test_supervisor_claude_status_inject import inject_claude_status
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
@@ -32,7 +33,7 @@ def test_pending_resume_on_progressing_pane_closes_without_enter(*, tmp_path) ->
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=unsubmitted_resume_capture(ctx=90))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session[session] = "busy"
+    inject_claude_status(sup=sup, statuses={session: "busy"})
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )

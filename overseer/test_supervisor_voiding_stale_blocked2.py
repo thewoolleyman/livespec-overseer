@@ -24,6 +24,7 @@ from test_supervisor_builders import (
     mapped_track,
     wrapup_count,
 )
+from test_supervisor_claude_status_inject import inject_claude_status
 from test_supervisor_fakes import (
     FakeTmux,
 )
@@ -177,7 +178,7 @@ def test_bands_are_durable_across_daemon_restart(*, tmp_path):
         sleep=lambda _s: None,
         warn_percent=45,  # explicit threshold: decouple from the default
     )
-    sup1.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup1, statuses={session: "idle"})
     sup1.evaluate(track=track, act=True)
     assert set(
         registry.read_notified_bands(repo=str(repo), topic=topic, stamp_path=stamp_path)
@@ -197,7 +198,7 @@ def test_bands_are_durable_across_daemon_restart(*, tmp_path):
         sleep=lambda _s: None,
         warn_percent=45,  # explicit threshold: decouple from the default
     )
-    sup2.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup2, statuses={session: "idle"})
     sup2.evaluate(track=track, act=True)
     assert not fake2.has(method="paste")  # bands 45+40 already notified → no re-spam
 

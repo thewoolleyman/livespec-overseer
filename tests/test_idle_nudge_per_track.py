@@ -41,6 +41,7 @@ from test_supervisor_builders import (
     nudge_count,
     wrapup_count,
 )
+from test_supervisor_claude_status_inject import inject_claude_status
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
@@ -80,7 +81,7 @@ def _idling_past_the_floor(*, tmp_path, per_track, daemon_default=True, name="on
     sup = make_supervisor(
         tmp_path=root, fake=fake, now=lambda: clock["t"], idle_nudge=daemon_default
     )
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     track = dataclasses.replace(
         mapped_track(repo=repo, topic=topic, session=session), idle_nudge=per_track
     )

@@ -23,6 +23,7 @@ from test_supervisor_builders import (
     mapped_track,
     nudge_count,
 )
+from test_supervisor_claude_status_inject import inject_claude_status
 from test_supervisor_fakes import (
     FakeTmux,
 )
@@ -53,7 +54,7 @@ def test_session_cleared_stale_wind_down_declaration_re_enters_nudge_path(
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     state_path = declare(repo=repo, topic=topic, value=stale_declaration, mtime=1.0)
 
     state_path.unlink()
@@ -84,7 +85,7 @@ def test_uncleared_stale_wind_down_declaration_suppresses_nudge(
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     declare(repo=repo, topic=topic, value=stale_declaration, mtime=1.0)
     track = mapped_track(repo=repo, topic=topic, session=session)
 

@@ -20,6 +20,7 @@ from test_supervisor_builders import (
     nudge_count,
     wrapup_count,
 )
+from test_supervisor_claude_status_inject import inject_claude_status
 
 __all__: list[str] = []
 
@@ -87,7 +88,7 @@ def test_a_keep_going_nudge_is_delivered_through_a_supported_channel(*, tmp_path
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     channel = RecordingChannel(addressed_identity=f"claude:{session}:{session}")
     offer(monkeypatch=monkeypatch, channel=channel)
     track = mapped_track(repo=repo, topic=topic, session=session)
@@ -203,7 +204,7 @@ def test_a_nudge_whose_channel_binding_is_unprovable_is_cancelled(*, tmp_path, m
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     channel = RecordingChannel(addressed_identity=None)
     offer(monkeypatch=monkeypatch, channel=channel)
     track = mapped_track(repo=repo, topic=topic, session=session)
@@ -317,7 +318,7 @@ def test_a_refused_nudge_channel_does_not_fall_back_to_a_paste(*, tmp_path, monk
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     offer(
         monkeypatch=monkeypatch,
         channel=RecordingChannel(
@@ -458,7 +459,7 @@ def test_an_unconfirmed_nudge_is_held_and_never_re_nudged(*, tmp_path, monkeypat
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     channel = RecordingChannel(
         addressed_identity=f"claude:{session}:{session}", outcome="unconfirmed"
     )
@@ -490,7 +491,7 @@ def _nudged_log(*, tmp_path, monkeypatch, channel):
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     if channel is not None:
         offer(monkeypatch=monkeypatch, channel=channel(session))
     track = mapped_track(repo=repo, topic=topic, session=session)

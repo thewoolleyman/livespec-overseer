@@ -20,6 +20,7 @@ from test_supervisor_builders import (
     make_supervisor,
     mapped_track,
 )
+from test_supervisor_claude_status_inject import inject_claude_status
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
@@ -233,7 +234,7 @@ def test_wait_target_lifecycle_relay_text_defaults_unknown_fields(*, tmp_path):
 
 def test_wait_target_missing_does_not_raw_paste_relay_to_picker_pane(*, tmp_path):
     repo, topic, _session, fake, sup, track = served_track(tmp_path=tmp_path)
-    sup.claude_status_by_session = {track.tmux or "": "waiting"}
+    inject_claude_status(sup=sup, statuses={track.tmux or "": "waiting"})
     fake.panes[track.tmux or ""] = (
         "The run you waited on is gone.\n❯ 1. Continue with evidence\n  2. Stop\n"
         "  Ctx: 90% left\n"
@@ -265,7 +266,7 @@ def test_wait_target_missing_does_not_relay_to_non_idle_pane(*, tmp_path):
 
 def test_wait_target_missing_relay_records_remote_journal_requery(*, tmp_path, monkeypatch):
     repo, topic, _session, fake, sup, track = served_track(tmp_path=tmp_path)
-    sup.claude_status_by_session = {track.tmux or "": "waiting"}
+    inject_claude_status(sup=sup, statuses={track.tmux or "": "waiting"})
     write_factory_config(repo=repo)
     monkeypatch.setattr(
         sources.subprocess,
@@ -313,7 +314,7 @@ def test_wait_target_missing_relay_records_remote_journal_requery(*, tmp_path, m
 
 def test_wait_target_missing_relay_scopes_remote_journal_requery(*, tmp_path):
     repo, topic, _session, fake, sup, track = served_track(tmp_path=tmp_path)
-    sup.claude_status_by_session = {track.tmux or "": "waiting"}
+    inject_claude_status(sup=sup, statuses={track.tmux or "": "waiting"})
     write_premise(
         repo=repo,
         topic=topic,
@@ -385,7 +386,7 @@ def test_wait_target_missing_relay_scopes_remote_journal_requery(*, tmp_path):
 
 def test_wait_target_missing_relay_scopes_local_process_requery(*, tmp_path):
     repo, topic, _session, fake, sup, track = served_track(tmp_path=tmp_path)
-    sup.claude_status_by_session = {track.tmux or "": "waiting"}
+    inject_claude_status(sup=sup, statuses={track.tmux or "": "waiting"})
     write_premise(repo=repo, topic=topic)
     target = {"id": "run-1", "status": "failed", "work_item_id": "overseer-x"}
     unrelated = {"id": "other-run", "status": "failed", "work_item_id": "overseer-y"}
@@ -405,7 +406,7 @@ def test_wait_target_missing_relay_fail_soft_when_evidence_record_cannot_be_writ
     *, tmp_path, monkeypatch
 ):
     repo, topic, _session, fake, sup, track = served_track(tmp_path=tmp_path)
-    sup.claude_status_by_session = {track.tmux or "": "waiting"}
+    inject_claude_status(sup=sup, statuses={track.tmux or "": "waiting"})
     write_premise(repo=repo, topic=topic)
     write_local_runs(repo=repo, records=[])
     monkeypatch.setattr(lifecycle, "evidence_path", lambda **_kwargs: repo)
@@ -418,7 +419,7 @@ def test_wait_target_missing_relay_fail_soft_when_evidence_record_cannot_be_writ
 
 def test_wait_target_missing_relay_fail_soft_when_paste_fails(*, tmp_path):
     repo, topic, _session, fake, sup, track = served_track(tmp_path=tmp_path)
-    sup.claude_status_by_session = {track.tmux or "": "waiting"}
+    inject_claude_status(sup=sup, statuses={track.tmux or "": "waiting"})
     fake.paste_ok = False
     write_premise(repo=repo, topic=topic)
     write_local_runs(repo=repo, records=[])
@@ -432,7 +433,7 @@ def test_wait_target_missing_relay_fail_soft_when_paste_fails(*, tmp_path):
 
 def test_wait_target_missing_relay_fail_soft_when_submit_fails(*, tmp_path):
     repo, topic, _session, fake, sup, track = served_track(tmp_path=tmp_path)
-    sup.claude_status_by_session = {track.tmux or "": "waiting"}
+    inject_claude_status(sup=sup, statuses={track.tmux or "": "waiting"})
     write_premise(repo=repo, topic=topic)
     write_local_runs(repo=repo, records=[])
 

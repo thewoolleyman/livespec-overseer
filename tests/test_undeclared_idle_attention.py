@@ -28,6 +28,7 @@ import _supervisor_undeclared_idle
 import registry
 import supervisor
 from test_supervisor_builders import idle_capture, make_plan, make_supervisor, mapped_track
+from test_supervisor_claude_status_inject import inject_claude_status
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
@@ -50,7 +51,7 @@ def _idling_above_threshold(*, tmp_path):
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     track = mapped_track(repo=repo, topic=topic, session=session)
     with contextlib.redirect_stderr(_io.StringIO()):
         first = sup.evaluate(track=track, act=True)

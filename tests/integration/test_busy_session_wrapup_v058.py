@@ -40,6 +40,7 @@ from overseer.test_supervisor_builders import (
     mapped_track,
     wrapup_count,
 )
+from overseer.test_supervisor_claude_status_inject import inject_claude_status
 from overseer.test_supervisor_compaction_builders import (
     SUCCESSOR_CLAUDE_IDENTITY,
     claude_compaction_track,
@@ -107,7 +108,7 @@ def test_scenario_busy_session_with_empty_input_receives_the_wrapup(
 ):
     repo, topic, session, fake, sup = _claude_track(tmp_path=tmp_path, capture=capture)
     if claude_status is not None:
-        sup.claude_status_by_session = {session: claude_status}
+        inject_claude_status(sup=sup, statuses={session: claude_status})
 
     view = _act(sup=sup, repo=repo, topic=topic, session=session)
 
@@ -133,7 +134,7 @@ def test_scenario_typed_input_gate_or_human_wait_suppresses_a_busy_wrapup(
 ):
     repo, topic, session, fake, sup = _claude_track(tmp_path=tmp_path, capture=capture)
     if claude_status is not None:
-        sup.claude_status_by_session = {session: claude_status}
+        inject_claude_status(sup=sup, statuses={session: claude_status})
 
     _act(sup=sup, repo=repo, topic=topic, session=session)
 

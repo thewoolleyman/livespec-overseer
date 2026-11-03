@@ -70,11 +70,11 @@ def test_hgq4wi6_scoped_beside_tests_keep_refactor_margin():
 
     assert measured == {
         "overseer/test_supervisor_codex_restart_safety.py": 158,
-        "overseer/test_supervisor_liveness_starvation.py": 120,
+        "overseer/test_supervisor_liveness_starvation.py": 121,
         "overseer/test_supervisor_row_color_operator.py": 143,
-        "overseer/test_supervisor_fail_soft_marker.py": 143,
+        "overseer/test_supervisor_fail_soft_marker.py": 144,
         "overseer/test_supervisor_builders.py": 114,
-        "overseer/test_supervisor_warned_stamp_written.py": 153,
+        "overseer/test_supervisor_warned_stamp_written.py": 154,
         "overseer/test_supervisor_archive_gc.py": 86,
     }
     assert all(count <= 180 for count in measured.values())

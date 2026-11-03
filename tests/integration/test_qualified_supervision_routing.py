@@ -24,6 +24,8 @@ import terminal_probes
 from test_supervisor_builders import idle_capture
 from test_supervisor_fakes import FakeTmux
 
+from overseer.test_supervisor_claude_status_inject import inject_claude_status
+
 __all__: list[str] = []
 
 PACKAGE = Path(__file__).resolve().parents[2] / "overseer"
@@ -210,11 +212,10 @@ def _scenario(*, tmp_path: Path, pane_router: Any) -> Scenario:
         coordinate_b: {"beta"},
         "legacy-topic": {"legacy"},
     }
-    sup.claude_status_by_session = {
-        coordinate_a: "idle",
-        coordinate_b: "idle",
-        "legacy-topic": "idle",
-    }
+    inject_claude_status(
+        sup=sup,
+        statuses={coordinate_a: "idle", coordinate_b: "idle", "legacy-topic": "idle"},
+    )
     tracks = (
         registry.PlanTrack(topic="alpha", repo=str(repo_a), tmux=coordinate_a, epic="alpha"),
         registry.PlanTrack(topic="beta", repo=str(repo_b), tmux=coordinate_b, epic="beta"),

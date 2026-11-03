@@ -123,19 +123,16 @@ def status(*, sup: Supervisor, session: str, topic: str) -> tuple[str | None, fl
     """
     identities = sup.claude_identity_by_session
     exact = identities.get((session, topic))
-    # Same last-wins pick as the discovery snapshot, but re-read now.
-    candidates = (
-        [exact] if exact else [v for (s, _), v in reversed(identities.items()) if s == session]
-    )
+    # Exact key first, then the discovery snapshot's last-wins pick, re-read now.
+    candidates = [exact, *(v for (s, _), v in reversed(identities.items()) if s == session)]
     joined = next((j for v in candidates if (j := _joined_pid(identity=v)) is not None), None)
     if joined is None:
-        # Discovery drops unjoined snapshots, so only injected state remains here.
-        return sup.claude_status_by_session.get(session), None
+        return None, None
     fresh = _read_joined(sup=sup, joined=joined)
     if fresh.session is None:
         return None, fresh.read_at
     live = fresh.session
-    if exact is not None:
+    if _joined_pid(identity=exact) == joined:
         identities[(session, topic)] = f"claude:{live.pid}:{live.proc_start}:{live.name}"
     return live.status, fresh.read_at
 

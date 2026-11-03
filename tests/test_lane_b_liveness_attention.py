@@ -18,6 +18,7 @@ from test_supervisor_builders import (
     make_supervisor,
     mapped_track,
 )
+from test_supervisor_claude_status_inject import inject_claude_status
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
@@ -162,7 +163,7 @@ def test_starvation_alert_enumerates_blocked_gate_and_shell_evidence(*, tmp_path
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    sup.claude_status_by_session = {session: "shell"}
+    inject_claude_status(sup=sup, statuses={session: "shell"})
     track = mapped_track(repo=repo, topic=topic, session=session)
     declare(repo=repo, topic=topic, value="blocked: need a decision", mtime=900.0)
 
@@ -192,7 +193,7 @@ def test_shell_only_above_threshold_surfaces_after_long_floor(*, tmp_path):
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    sup.claude_status_by_session = {session: "shell"}
+    inject_claude_status(sup=sup, statuses={session: "shell"})
     track = mapped_track(repo=repo, topic=topic, session=session)
 
     assert sup.evaluate(track=track, act=True).status == "working"
