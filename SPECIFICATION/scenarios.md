@@ -6078,3 +6078,38 @@ Then the daemon emits no further slow-cycle notice
 When a cycle then completes within 30 seconds and a later cycle takes longer than 30 seconds
 
 Then the daemon emits one new slow-cycle notice for that later cycle
+
+## Scenario: an incident repair returns to normal factory repayment before closure
+
+```gherkin
+Feature: Receipt-bound incident routing preserves normal repayment
+  Scenario: Authorized repair takes the local incident route
+    Given an active orchestrator reader confirms a current authorized incident repair item and attempt
+    And installed mode-aware tooling and independently verified supervision are available
+    When the drain operator routes that repair while factory admission or normal master health is unavailable
+    Then it invokes the sanctioned local incident worktree commit and push route with the same immutable context
+    And it records focused verification and deferred work without starting the normal factory or aggregate
+    And generic hook bypass and unsafe mutation prohibitions remain effective
+  Scenario: A descriptive label cannot authorize ordinary work
+    Given an ordinary item or a stale incident attempt carries factory-exempt:expedited-incident
+    When the drain operator checks current canonical phase and ownership
+    Then the label grants no incident authorization
+    And ordinary work keeps its normal factory route
+  Scenario: Missing incident support is explicit
+    Given the active orchestrator does not expose a readable supported incident context
+    When an operator requests expedited incident routing
+    Then the operator reports that missing capability and retains the unresolved obligation
+    And it creates neither an exemption nor another incident identity
+  Scenario: Successful repair retains same-item normal repayment
+    Given the canonical incident observer records normal-master success for an expedited repair
+    When the drain operator continues that incident
+    Then it requests an unexpedited factory run on the same item with no incident execution flag set
+    And the run receives original cumulative scope and deferred evidence and specification obligations
+    And the incident remains incomplete until final normal factory PR and master proof and repaid debt are confirmed
+  Scenario: Follow-up findings and deployed regressions route differently
+    Given an incident has a normal factory repayment in progress
+    When a defect is found only by that deferred factory proof
+    Then it is repaired in the follow-up without reverting otherwise healthy master solely for that finding
+    When the canonical observer instead attributes a deployed or other-PR regression to the incident
+    Then the operator follows the current generation-fenced recovery route on the same incident item
+```
