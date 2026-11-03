@@ -8,7 +8,6 @@ import importlib
 import io as _io
 import json
 import threading
-import time
 from dataclasses import dataclass, field
 
 import _supervisor_otel_report
@@ -25,6 +24,13 @@ from test_supervisor_builders import (
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
+
+# Every bounded wait in the OTel export tests is a LIVENESS ceiling against a hang,
+# never a latency budget. The held exporter does not return until the test releases
+# it, and the test releases it only after the log calls under test have completed, so
+# a log call that blocked on the in-flight export would deadlock and be caught here.
+# How long a loaded host takes to schedule the caller threads never decides an outcome.
+_LIVENESS_CEILING_SECONDS = 60.0
 
 
 @dataclass(kw_only=True)
@@ -50,7 +56,7 @@ class _HeldExport:
             self.calls.append(request)
         self.entered.set()
         # A liveness guard so a failing test cannot wedge the suite, NOT a latency budget.
-        _ = self.release.wait(timeout=5.0)
+        _ = self.release.wait(timeout=_LIVENESS_CEILING_SECONDS)
         self.returned.set()
         return EmitResult(sent=True, span_count=1, rejected_spans=0, error=None)
 
@@ -184,7 +190,7 @@ def test_slow_otel_export_does_not_block_daemon_event_log(*, tmp_path):
 
     def slow_emit(_request: dict[str, object]) -> EmitResult:
         entered.set()
-        release.wait(timeout=5.0)
+        release.wait(timeout=_LIVENESS_CEILING_SECONDS)
         return EmitResult(sent=True, span_count=1, rejected_spans=0, error=None)
 
     sup = make_supervisor(
@@ -211,10 +217,10 @@ def test_slow_otel_export_does_not_block_daemon_event_log(*, tmp_path):
 
     thread = threading.Thread(target=log_event)
     thread.start()
-    assert entered.wait(timeout=1.0)
-    assert log_done.wait(timeout=1.0)
+    assert entered.wait(timeout=_LIVENESS_CEILING_SECONDS)
+    assert log_done.wait(timeout=_LIVENESS_CEILING_SECONDS)
     release.set()
-    thread.join(timeout=1.0)
+    thread.join(timeout=_LIVENESS_CEILING_SECONDS)
     assert not thread.is_alive()
     with contextlib.redirect_stderr(err):
         sup.otel.exporter.flush(sup=sup)
@@ -262,10 +268,12 @@ def test_otel_export_queue_overflow_is_reported_without_blocking(*, tmp_path, mo
             first_logged = _start_log(sup=sup, message="tick 1 complete", callers=callers)
             # The single queue slot is OCCUPIED and its caller is already back, so the
             # second log below provably meets a full queue rather than a timing window.
-            assert held.entered.wait(timeout=1.0)
-            assert first_logged.wait(timeout=1.0)
+            assert held.entered.wait(timeout=_LIVENESS_CEILING_SECONDS)
+            assert first_logged.wait(timeout=_LIVENESS_CEILING_SECONDS)
             second_logged = _start_log(sup=sup, message="tick 2 complete", callers=callers)
-            assert second_logged.wait(timeout=1.0)
+            # The held export cannot return before `release` is set below, so if this
+            # log call blocked on it the two would deadlock and this ceiling would fire.
+            assert second_logged.wait(timeout=_LIVENESS_CEILING_SECONDS)
             # The causal safety assertion: the second caller completed, and the exact
             # queue-full error was already reported, while the held export had NOT
             # returned. `returned` is unset across the whole inspection, both sides of it.
@@ -279,7 +287,7 @@ def test_otel_export_queue_overflow_is_reported_without_blocking(*, tmp_path, mo
         # finish the exporter's own pending work so nothing runs on past the test.
         held.release.set()
         for caller in callers:
-            caller.join(timeout=5.0)
+            caller.join(timeout=_LIVENESS_CEILING_SECONDS)
         with contextlib.redirect_stderr(err):
             sup.otel.exporter.flush(sup=sup)
 
@@ -301,10 +309,10 @@ def test_otel_export_queue_overflow_dedups_fixed_queue_full_error(
     async_otel = importlib.import_module("_supervisor_otel_async")
     monkeypatch.setattr(async_otel, "_MAX_IN_FLIGHT", 1)
 
-    def slow_emit(_request: dict[str, object]) -> EmitResult:
-        time.sleep(0.25)
-        return EmitResult(sent=True, span_count=1, rejected_spans=0, error=None)
-
+    # The first export is HELD until every overflowing log call has returned, so the
+    # queue is provably full for all sixteen of them; a bare sleep in the emitter let
+    # a loaded host finish the first export mid-loop and reopen the slot.
+    held = _HeldExport()
     sup = make_supervisor(
         tmp_path=tmp_path,
         fake=FakeTmux(),
@@ -315,15 +323,22 @@ def test_otel_export_queue_overflow_dedups_fixed_queue_full_error(
                 service_name="svc",
                 service_namespace="ns",
             ),
-            emitter=slow_emit,
+            emitter=held.emit,
         ),
     )
 
     err = _io.StringIO()
-    with contextlib.redirect_stderr(err):
-        sup.log(message="tick 1 complete", event="daemon-tick")
-        for tick in range(16):
-            sup.log(message=f"tick {tick + 2} complete", event="daemon-tick")
+    try:
+        with contextlib.redirect_stderr(err):
+            sup.log(message="tick 1 complete", event="daemon-tick")
+            assert held.entered.wait(timeout=_LIVENESS_CEILING_SECONDS)
+            for tick in range(16):
+                sup.log(message=f"tick {tick + 2} complete", event="daemon-tick")
+            assert not held.returned.is_set()
+    finally:
+        held.release.set()
+        with contextlib.redirect_stderr(err):
+            sup.otel.exporter.flush(sup=sup)
 
     events = [json.loads(line) for line in err.getvalue().splitlines()]
     alerts = [event for event in events if event["event"] == "otel-export-failed"]

@@ -47,6 +47,12 @@ _PLUGIN_MANIFEST = ".claude-plugin/plugin.json"
 _CODEX_PLUGIN_MANIFEST = ".claude-plugin/.codex-plugin/plugin.json"
 _PLUGIN_VERSION = ".claude-plugin/overseer/version.json"
 _STRANDED_BINDING_COMMIT = "6833264"
+# The stand-in pager sleeps this long once invoked, and the gate run is given the
+# same span. A gate that invokes the pager is caught at once by the pager's own
+# sentinel file; a correct gate exits on its own. The span therefore decides only
+# whether the fixture HUNG (neither event arrived before the pager would have
+# finished sleeping), never whether a loaded host rejected fast enough.
+_PAGER_SLEEP_SECONDS = 60
 
 # The subjects below are REAL commits from this repo's history that changed
 # shipped plugin surfaces under a type release-please will not release. They
@@ -217,13 +223,16 @@ def _run_gate(
 
 
 def _run_gate_under_pty_with_blocking_pager(
-    repo: Path, *, pager: Path, pager_invoked: Path, timeout_seconds: float = 2.0
-) -> tuple[int | None, str, bool]:
+    repo: Path, *, pager: Path, pager_invoked: Path
+) -> tuple[int | None, str, bool, bool]:
     """Run the real recipe until it exits or the pager proves it was invoked.
 
-    The sentinel is the verdict: a gate that invokes the blocking pager fails
-    immediately.  The ceiling keeps its pre-fix value and only keeps a genuinely
-    wedged fixture from holding the suite indefinitely.
+    Two observable events end the wait, and they ARE the verdict: the pager's
+    sentinel file (the gate invoked the pager, which fails the test at once) or
+    the gate's own exit before the pager's sleep would have ended. The
+    `_PAGER_SLEEP_SECONDS` ceiling is a liveness guard against a wedged fixture,
+    reported separately as `hung`, so how long a loaded host takes to reject
+    never decides the outcome.
     """
     env = {
         **os.environ,
@@ -250,19 +259,17 @@ def _run_gate_under_pty_with_blocking_pager(
         env=env,
         start_new_session=True,
     )
-    deadline = time.monotonic() + timeout_seconds
-    pager_was_invoked = False
-    while process.poll() is None:
-        if pager_invoked.is_file():
-            pager_was_invoked = True
-            os.killpg(process.pid, signal.SIGKILL)
-            break
+    deadline = time.monotonic() + _PAGER_SLEEP_SECONDS
+    hung = False
+    while process.poll() is None and not pager_invoked.is_file():
         if time.monotonic() >= deadline:
-            os.killpg(process.pid, signal.SIGKILL)
+            hung = True
             break
         time.sleep(0.01)
+    if process.poll() is None:
+        os.killpg(process.pid, signal.SIGKILL)
     stdout, stderr = process.communicate()
-    return process.returncode, stdout + stderr, pager_was_invoked
+    return process.returncode, stdout + stderr, pager_invoked.is_file(), hung
 
 
 def test_prose_changed_under_a_docs_subject_is_rejected(tmp_path):
@@ -455,17 +462,19 @@ def test_rejection_under_a_tty_cannot_block_on_the_git_pager(tmp_path):
     pager = tmp_path / "blocking-pager.sh"
     pager_invoked = tmp_path / "pager-invoked"
     pager.write_text(
-        '#!/usr/bin/env bash\necho PAGER-INVOKED >&2\ntouch "$PAGER_INVOKED"\nsleep 60\n'
+        "#!/usr/bin/env bash\necho PAGER-INVOKED >&2\n"
+        f'touch "$PAGER_INVOKED"\nsleep {_PAGER_SLEEP_SECONDS}\n'
     )
     pager.chmod(0o755)
 
-    returncode, output, was_invoked = _run_gate_under_pty_with_blocking_pager(
+    returncode, output, was_invoked, hung = _run_gate_under_pty_with_blocking_pager(
         repo,
         pager=pager,
         pager_invoked=pager_invoked,
     )
 
     assert not was_invoked, output
+    assert not hung, f"liveness ceiling: no gate exit within {_PAGER_SLEEP_SECONDS}s\n{output}"
     assert returncode == 1, output
     assert "PAGER-INVOKED" not in output
     assert "NO release-triggering commit" in output
