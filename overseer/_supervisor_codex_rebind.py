@@ -32,6 +32,7 @@ import herdr_identity
 import registry
 import signals
 from _supervisor_codex_adoption import codex_host_readers
+from _supervisor_view import RowView
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -39,6 +40,7 @@ if TYPE_CHECKING:
 __all__: list[str] = [
     "UNIDENTIFIED_NOTE",
     "UnidentifiedCodexPane",
+    "ambiguous_rebind_row",
     "rebound_codex_coordinate",
     "unidentified_codex_pane",
 ]
@@ -47,6 +49,7 @@ __all__: list[str] = [
 # gone. It names the condition rather than the mechanism: the actionable fact is that a
 # live Codex pane in this repository could not be identified.
 UNIDENTIFIED_NOTE = "a live Codex pane in this repo resolves to no single session"
+_AMBIGUOUS_CANDIDATE_COUNT = 2
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -121,6 +124,29 @@ def _herdr_rebind_candidates(
         identity = f"{_supervisor_codex_identity.CODEX_IDENTITY_PREFIX}{carrier.session_id}"
         found.append(ReboundCodexCoordinate(coordinate=carrier.coordinate, identity=identity))
     return tuple(sorted(found, key=lambda candidate: candidate.coordinate))
+
+
+def ambiguous_rebind_row(
+    *, sup: Supervisor, track: registry.Track, session: str, act: bool
+) -> RowView | None:
+    """Surface more than one qualifying successor without changing the mapping."""
+    candidates = _herdr_rebind_candidates(sup=sup, track=track, session=session)
+    if len(candidates) < _AMBIGUOUS_CANDIDATE_COUNT:
+        return None
+    panes = ", ".join(_pane_label(coordinate=candidate.coordinate) for candidate in candidates)
+    note = f"ambiguous qualifying Codex panes: {panes}"
+    # This is a classification only. The list path must expose the same ambiguity
+    # without writes or notifications, and the candidate panes are already in its note.
+    _ = act
+    return RowView(
+        topic=track.topic,
+        repo=track.repo,
+        tmux=None,
+        ctx=None,
+        status="unidentified-session",
+        note=note,
+        runtime="codex",
+    )
 
 
 def _live_coordinate(*, sup: Supervisor, track: registry.Track) -> str | None:

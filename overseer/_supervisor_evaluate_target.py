@@ -186,6 +186,11 @@ def resolve_evaluate_target(
             sup=sup, track=track, session=session, act=act
         )
         if rebound is None:
+            ambiguous = _supervisor_codex_rebind.ambiguous_rebind_row(
+                sup=sup, track=track, session=session, act=act
+            )
+            if ambiguous is not None:
+                return ambiguous
             # The mapped TMUX session is gone — but the work may not be. A Claude
             # session for the same plan can keep running in a NON-tmux terminal (a bare
             # SSH shell), which the tmux-only daemon cannot capture, inject, or respawn.
