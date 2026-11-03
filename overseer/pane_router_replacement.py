@@ -10,7 +10,7 @@ import herdr_replacement
 import herdr_write
 import pane_router_reads
 
-__all__: list[str] = ["ReplacementInput", "controller", "target"]
+__all__: list[str] = ["ReplacementInput", "controller", "report_agent_session", "target"]
 
 
 class ReplacementInput(Protocol):
@@ -30,6 +30,20 @@ class ReplacementInput(Protocol):
         command: str,
         env: Mapping[str, str | None],
     ) -> herdr_write.WriteOutcome: ...
+
+    def report_agent_session(
+        self,
+        *,
+        target: herdr_identity.HerdrPaneTarget,
+        source: str,
+        agent_session_id: str,
+    ) -> herdr_write.WriteOutcome: ...
+
+
+class ReportAgentSessionHost(Protocol):
+    """The routed writer needed to report a daemon-confirmed Codex thread."""
+
+    herdr_writer: herdr_write.HerdrWriter
 
 
 def controller(
@@ -58,3 +72,12 @@ def target(*, session: str) -> herdr_identity.HerdrPaneTarget:
     if decoded.herdr is None or decoded.error:
         raise ValueError(decoded.error or "replacement target is not a Herdr pane")
     return decoded.herdr
+
+
+def report_agent_session(
+    self: ReportAgentSessionHost, *, session: str, source: str, agent_session_id: str
+) -> herdr_write.WriteOutcome:
+    """Report only to the backend instance embedded in this exact coordinate."""
+    return self.herdr_writer.report_agent_session(
+        target=target(session=session), source=source, agent_session_id=agent_session_id
+    )

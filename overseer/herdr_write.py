@@ -40,6 +40,7 @@ from typing import Protocol
 
 import _herdr_shell_identity
 import claude_sessions
+import herdr_agent_session
 import herdr_identity
 import herdr_launch
 import herdr_layout
@@ -155,6 +156,23 @@ class HerdrWriter:
         return self._write(
             target=target,
             params=herdr_write_calls.enter_params(pane_id=target.pane_id),
+        )
+
+    def report_agent_session(
+        self,
+        *,
+        target: herdr_identity.HerdrPaneTarget,
+        source: str,
+        agent_session_id: str,
+    ) -> WriteOutcome:
+        """Report a daemon-confirmed Codex thread for this exact backend pane."""
+        return self._write(
+            target=target,
+            params=herdr_agent_session.report_agent_session_params(
+                pane_id=target.pane_id,
+                source=source,
+                agent_session_id=agent_session_id,
+            ),
         )
 
     def launch(
