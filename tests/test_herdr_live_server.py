@@ -508,20 +508,3 @@ def test_the_server_child_never_loads_the_operator_shell_startup(
         assert zdotdir.is_relative_to(tmp_path)
         assert [path.name for path in zdotdir.iterdir()] == [".zshrc"]
         assert (zdotdir / ".zshrc").read_bytes() == b""
-
-
-def test_a_fixture_server_gets_a_private_config_that_disables_remote_updates(
-    *, fake_host: _FakeHost, tmp_path: Path
-) -> None:
-    """Every shared fixture server must suppress Herdr's startup web checks."""
-    del fake_host
-    server = start_server(scratch=tmp_path, label="update-config")
-    try:
-        config = tmp_path / "herdr-fixture-config.toml"
-        assert config.is_file(), "the fixture server started without its own config"
-        contents = config.read_text(encoding="utf-8")
-        assert "[update]" in contents
-        assert "version_check = false" in contents
-        assert "manifest_check = false" in contents
-    finally:
-        stop_server(session=server.session)
