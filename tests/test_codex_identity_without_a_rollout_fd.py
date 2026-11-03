@@ -818,6 +818,37 @@ def test_a_gone_herdr_coordinate_rebinds_to_one_named_codex_successor(*, tmp_pat
     assert TRACKED_COORDINATE in log
 
 
+def test_two_carrier_processes_in_one_qualifying_pane_still_rebind_that_one_pane(*, tmp_path):
+    """Candidates are counted per pane, so two carrier pids in one pane are one successor."""
+    _module = codex_rebind()
+    dead_pane = coordinate(pane_id="w2H:p2N")
+    repo = tmp_path / "repo"
+    world = make_world(
+        tmp_path=tmp_path,
+        rows=[(repo, "topic", dead_pane, "claude:dead:topic")],
+        cwds={
+            TRACKED_PID: str(repo),
+            CWD_LESS_PID: str(repo),
+            OPERATOR_PID: str(tmp_path / "operator"),
+            APP_SERVER_PID: "/",
+            PANELESS_PID: str(repo),
+        },
+    )
+    (world.home / "session_index.jsonl").write_text(
+        json.dumps({"id": SESSION_ID, "thread_name": "topic"}) + "\n", encoding="utf-8"
+    )
+    world.sup.tmux.pane_agent_session = lambda *, session: (
+        SESSION_ID if session == TRACKED_COORDINATE else None
+    )
+
+    outcome, _log = resolve(world=world, act=True)
+
+    row = row_of(store=world.store)
+    assert outcome.status != "unidentified-session"
+    assert row.tmux == TRACKED_COORDINATE
+    assert row.observed_session_identity == f"codex:{SESSION_ID}"
+
+
 def test_a_gone_herdr_coordinate_with_two_named_successors_is_unidentified(*, tmp_path):
     """Several qualifying panes are ambiguous, so the stored coordinate stays put."""
     _module = codex_rebind()
