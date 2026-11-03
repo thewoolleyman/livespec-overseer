@@ -116,6 +116,56 @@ def test_codex_relaunch_selects_a_fresh_profile_for_a_new_thread(*, tmp_path: Pa
     }
 
 
+def test_codex_relaunch_confirms_rename_reports_target_and_then_rebinds(
+    *, monkeypatch, tmp_path: Path
+) -> None:
+    """Only an indexed thread may be reported and bound to the launched target pane."""
+    entrypoint = importlib.import_module("out_of_band_relaunch")
+    track = _track(tmp_path=tmp_path)
+    profile = registry.PlanTrack(
+        repo=track.repo,
+        topic=track.topic,
+        tmux=track.tmux,
+        epic=track.epic,
+        model_profile={"harness": "codex", "model": "gpt-5.1-codex", "wrapper": None},
+    )
+    request = _request(runtime="codex", model="gpt-5.1-codex")
+    calls: list[tuple[str, object]] = []
+    monkeypatch.setattr(entrypoint, "_confirm_codex_rename", lambda **kwargs: "thread-7")
+    monkeypatch.setattr(
+        entrypoint,
+        "_report_codex_agent_session",
+        lambda **kwargs: calls.append(("report", kwargs)) or True,
+    )
+    monkeypatch.setattr(entrypoint, "await_input_box", lambda **kwargs: True)
+    monkeypatch.setattr(entrypoint, "resume_for_track", lambda **kwargs: "resume epic")
+    monkeypatch.setattr(
+        entrypoint,
+        "submit_prompt_result",
+        lambda **kwargs: SimpleNamespace(submitted=True),
+    )
+    monkeypatch.setattr(
+        entrypoint, "_rebind", lambda **kwargs: calls.append(("rebind", kwargs)) or True
+    )
+    monkeypatch.setattr(entrypoint, "_finish_intent", lambda **kwargs: None)
+
+    result = entrypoint._deliver_codex_resume_and_rebind(
+        intent=tmp_path / "intent",
+        profile_track=profile,
+        request=request,
+        sup=SimpleNamespace(),
+        track=track,
+        thread_id="thread-7",
+    )
+
+    assert result.ok
+    assert calls[0][0] == "report"
+    assert calls[0][1]["target"] == "target-pane"
+    assert calls[0][1]["thread_id"] == "thread-7"
+    assert calls[1][0] == "rebind"
+    assert calls[1][1]["identity"] == "codex:thread-7"
+
+
 def test_low_level_launch_identity_and_rebind_are_nondestructive(
     *, monkeypatch, tmp_path: Path
 ) -> None:
