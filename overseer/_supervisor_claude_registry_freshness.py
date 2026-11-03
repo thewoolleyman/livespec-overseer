@@ -25,8 +25,7 @@ class FreshClaudeRegistry:
     read_at: float
 
 
-def _joined_pid(*, sup: Supervisor, session: str, topic: str) -> tuple[int, str] | None:
-    identity = sup.claude_identity_by_session.get((session, topic))
+def _joined_pid(*, identity: str | None) -> tuple[int, str] | None:
     if identity is None:
         return None
     parts = identity.split(":", 3)
@@ -48,9 +47,11 @@ def read_joined_registry(
     registry record and process identity, failing closed when the record disappeared
     or became malformed.
     """
-    joined = _joined_pid(sup=sup, session=session, topic=topic)
-    if joined is None:
-        return None
+    joined = _joined_pid(identity=sup.claude_identity_by_session.get((session, topic)))
+    return None if joined is None else _read_joined(sup=sup, joined=joined)
+
+
+def _read_joined(*, sup: Supervisor, joined: tuple[int, str]) -> FreshClaudeRegistry:
     pid, expected_start = joined
     directory = (
         Path(sup.sessions_dir)
@@ -96,14 +97,28 @@ def read_joined_registry(
 
 
 def status(*, sup: Supervisor, session: str, topic: str) -> tuple[str | None, float | None]:
-    """Return the current joined self-report and its read time for one evaluation."""
-    fresh = read_joined_registry(sup=sup, session=session, topic=topic)
-    if fresh is None or fresh.session is None:
-        return sup.claude_status_by_session.get(session), None
-    live = fresh.session
-    sup.claude_identity_by_session[(session, topic)] = (
-        f"claude:{live.pid}:{live.proc_start}:{live.name}"
+    """Return the current joined self-report and its read time for one evaluation.
+
+    Never returns the cycle-start snapshot for a session that has a join: an unreadable
+    or invalid joined record yields no self-report at all, so a stale value cannot drive
+    a busy decision or a row note.
+    """
+    identities = sup.claude_identity_by_session
+    exact = identities.get((session, topic))
+    # Same last-wins pick as the discovery snapshot, but re-read now.
+    candidates = (
+        [exact] if exact else [v for (s, _), v in reversed(identities.items()) if s == session]
     )
+    joined = next((j for v in candidates if (j := _joined_pid(identity=v)) is not None), None)
+    if joined is None:
+        # No parseable join: discovery produced no snapshot either; only injected state remains.
+        return sup.claude_status_by_session.get(session), None
+    fresh = _read_joined(sup=sup, joined=joined)
+    if fresh.session is None:
+        return None, fresh.read_at
+    live = fresh.session
+    if exact is not None:
+        identities[(session, topic)] = f"claude:{live.pid}:{live.proc_start}:{live.name}"
     return live.status, fresh.read_at
 
 

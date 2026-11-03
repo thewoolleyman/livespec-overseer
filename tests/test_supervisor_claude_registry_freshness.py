@@ -131,3 +131,20 @@ def test_joined_registry_read_is_current_and_fail_soft(*, tmp_path):
     assert not observe.pane_is_managed_claude(
         sup=sup, target=session, repo=str(tmp_path), topic=topic, session=session
     )
+
+
+def test_status_never_falls_back_to_the_cycle_start_snapshot_for_a_joined_session(*, tmp_path):
+    """A joined session whose registry file is unreadable yields no self-report."""
+    freshness = importlib.import_module("_supervisor_claude_registry_freshness")
+    sessions_dir, session, topic, sup = _freshness_sup(tmp_path=tmp_path)
+    sup.claude_identity_by_session[(session, topic)] = "claude:100:pt:topic"
+
+    assert freshness.current_status(sup=sup, session=session, topic=topic) == (None, 17.25)
+    (sessions_dir / "100.json").write_text("not-json", encoding="utf-8")
+    assert freshness.current_status(sup=sup, session=session, topic=topic) == (None, 17.25)
+
+    sup.claude_identity_by_session.clear()
+    sup.claude_identity_by_session[(session, "other")] = "claude:100:pt:other"
+    write_session(sessions_dir=sessions_dir, pid=100, name="other", cwd=tmp_path, status="idle")
+    assert freshness.current_status(sup=sup, session=session, topic=topic) == ("idle", 17.25)
+    assert sup.claude_identity_by_session == {(session, "other"): "claude:100:pt:other"}
