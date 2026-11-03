@@ -64,7 +64,6 @@ __all__ = [
     "start_server",
     "stop_server",
     "unique_session",
-    "write_hermetic_config",
 ]
 
 HERDR_BINARY = "herdr"
@@ -79,8 +78,6 @@ LOG_TAIL_BYTES = 800
 # Removed from every server child's environment: it names the OPERATOR's live
 # socket on a host that runs herdr, and nothing here has any use for it.
 SCRUBBED_VARIABLES = ("HERDR_SOCKET_PATH",)
-FIXTURE_CONFIG_NAME = "herdr-fixture-config.toml"
-UPDATE_CONFIG = "[update]\nversion_check = false\nmanifest_check = false\n"
 
 
 class OwnedChild(Protocol):
@@ -287,18 +284,7 @@ def _server_environment(*, env: Mapping[str, str] | None, scratch: Path) -> dict
     zdotdir.mkdir(exist_ok=True)
     (zdotdir / ".zshrc").touch()
     environment["ZDOTDIR"] = str(zdotdir)
-    if "HERDR_CONFIG_PATH" not in environment:
-        environment["HERDR_CONFIG_PATH"] = str(write_hermetic_config(scratch=scratch))
     return environment
-
-
-def write_hermetic_config(*, scratch: Path, prefix: str = "") -> Path:
-    """Write one fixture-only config that disables Herdr's startup web checks."""
-    scratch.mkdir(parents=True, exist_ok=True)
-    path = scratch / FIXTURE_CONFIG_NAME
-    separator = "" if not prefix or prefix.endswith("\n") else "\n"
-    _ = path.write_text(f"{prefix}{separator}\n{UPDATE_CONFIG}", encoding="utf-8")
-    return path
 
 
 def start_server(

@@ -117,7 +117,6 @@ from herdr_live_server import (
     start_server,
     stop_server,
     unique_session,
-    write_hermetic_config,
 )
 
 __all__: list[str] = [
@@ -954,15 +953,15 @@ def owned_config(*, scratch: Path, default_shell: str, shell_mode: str = OWNED_S
     operator's panes are bootstrapped, and it must never be read as one.
     """
     scratch.mkdir(parents=True, exist_ok=True)
-    return write_hermetic_config(
-        scratch=scratch,
-        prefix=(
-            "# Written by tests/test_herdr_live_observations.py for ONE owned server.\n"
-            "[terminal]\n"
-            f'default_shell = "{default_shell}"\n'
-            f'shell_mode = "{shell_mode}"\n'
-        ),
+    path = scratch / "herdr-config.toml"
+    _ = path.write_text(
+        "# Written by tests/test_herdr_live_observations.py for ONE owned server.\n"
+        "[terminal]\n"
+        f'default_shell = "{default_shell}"\n'
+        f'shell_mode = "{shell_mode}"\n',
+        encoding="utf-8",
     )
+    return path
 
 
 def owned_environment(*, config_path: Path) -> dict[str, str]:

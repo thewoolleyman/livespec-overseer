@@ -152,7 +152,6 @@ from herdr_live_server import (
     await_server_ready,
     session_socket,
     stop_server,
-    write_hermetic_config,
 )
 from test_herdr_live_observations import (
     TRANSIENT_NAME,
@@ -489,7 +488,6 @@ def _start_server(
         _ = environment.pop("SHELL", None)
     else:
         environment["SHELL"] = shell_path
-    environment["HERDR_CONFIG_PATH"] = str(write_hermetic_config(scratch=scratch))
     log_name = f"{session.rsplit('-', 1)[-1]}.log"
     log = (scratch / log_name).open("wb")
     child = subprocess.Popen(  # noqa: S603 — the herdr CLI, not a Python child
