@@ -146,6 +146,40 @@ def test_low_level_launch_identity_and_rebind_are_nondestructive(
     assert writes[0].tmux == "target-pane"
 
 
+def test_herdr_launch_uses_the_native_atomic_write_when_generic_keys_refuse(
+    *, tmp_path: Path
+) -> None:
+    """A qualified Herdr shell launch cannot rely on generic tmux key delivery."""
+    entrypoint = importlib.import_module("out_of_band_relaunch")
+    target = herdr_identity.encode_herdr_target(
+        target=herdr_identity.HerdrPaneTarget(
+            socket_path="/tmp/herdr.sock", server_pid=1, server_starttime="2", pane_id="w1:p2"
+        )
+    )
+    launches: list[dict[str, object]] = []
+    tmux = SimpleNamespace(
+        bracketed_paste=lambda **kwargs: (_ for _ in ()).throw(AssertionError(kwargs)),
+        send_keys=lambda **kwargs: False,
+        herdr_writer=SimpleNamespace(
+            launch=lambda **kwargs: launches.append(kwargs)
+            or SimpleNamespace(ok=True, effect_unknown=False)
+        ),
+    )
+    sup = SimpleNamespace(tmux=tmux)
+    track = _track(tmp_path=tmp_path)
+    plan = entrypoint.ClaudeLaunchPlan(command="claude --model claude-opus", env={})
+
+    assert entrypoint._launch_at_shell(sup=sup, track=track, target=target, plan=plan)
+    assert launches == [
+        {
+            "target": herdr_identity.decode_target(value=target).herdr,
+            "cwd": str(tmp_path),
+            "command": "claude --model claude-opus",
+            "env": {},
+        }
+    ]
+
+
 def test_relaunch_refuses_before_intent_or_input_and_records_each_post_launch_outcome(
     *, monkeypatch, tmp_path: Path
 ) -> None:

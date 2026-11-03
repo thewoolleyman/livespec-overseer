@@ -57,6 +57,18 @@ def codex_rename_wait_bound() -> str:
     return f"{RESTART_POLL_MAX} polls at {RESTART_POLL_INTERVAL:g}s (at most {maximum:g}s)"
 
 
+def _submit_rename_enter(*, sup: Supervisor, target: str) -> bool:
+    """Submit a rename through Herdr's explicit input surface when qualified."""
+    decoded = herdr_identity.decode_target(value=target)
+    if decoded.herdr is not None:
+        return (
+            cast(pane_router.MixedPaneDriver, sup.tmux)
+            .herdr_writer.send_enter(target=decoded.herdr)
+            .ok
+        )
+    return sup.tmux.send_keys(session=target, keys="Enter")
+
+
 def confirm_codex_rename(
     *, name: str, prior_thread: str | None, sup: Supervisor, target: str
 ) -> str | None:
@@ -65,7 +77,7 @@ def confirm_codex_rename(
         return None
     for attempt in range(RESTART_POLL_MAX):
         if attempt < SUBMIT_MAX_ENTERS:
-            _ = sup.tmux.send_keys(session=target, keys="Enter")
+            _ = _submit_rename_enter(sup=sup, target=target)
         sup.sleep(RESTART_POLL_INTERVAL)
         thread_id = indexed_codex_thread(name=name, sup=sup)
         if thread_id is not None and thread_id != prior_thread:

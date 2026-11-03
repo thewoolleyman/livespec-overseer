@@ -58,6 +58,34 @@ def test_confirm_rename_requires_a_new_indexed_thread_within_its_stated_bound(
     assert "polls" in codex.codex_rename_wait_bound()
 
 
+def test_confirm_rename_uses_native_herdr_enter_when_generic_keys_refuse(*, monkeypatch) -> None:
+    codex = _codex()
+    target = herdr_identity.encode_herdr_target(
+        target=herdr_identity.HerdrPaneTarget(
+            socket_path="/tmp/herdr.sock", server_pid=1, server_starttime="2", pane_id="w1:p2"
+        )
+    )
+    enters: list[object] = []
+    sup = SimpleNamespace(
+        tmux=SimpleNamespace(
+            bracketed_paste=lambda **kwargs: True,
+            send_keys=lambda **kwargs: False,
+            herdr_writer=SimpleNamespace(
+                send_enter=lambda **kwargs: enters.append(kwargs["target"])
+                or SimpleNamespace(ok=True, effect_unknown=False)
+            ),
+        ),
+        sleep=lambda _seconds: None,
+    )
+    monkeypatch.setattr(codex, "indexed_codex_thread", lambda **kwargs: _FRESH)
+
+    assert (
+        codex.confirm_codex_rename(name="alpha", prior_thread=_PRIOR, sup=sup, target=target)
+        == _FRESH
+    )
+    assert enters == [herdr_identity.decode_target(value=target).herdr]
+
+
 def test_reported_thread_is_verified_on_its_exact_herdr_pane(*, monkeypatch) -> None:
     codex = _codex()
     target = herdr_identity.encode_herdr_target(
