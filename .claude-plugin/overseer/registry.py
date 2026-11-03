@@ -89,6 +89,14 @@ from _registry_mapping_read import read_mapping as read_mapping
 from _registry_mapping_read import read_valid_mapping as read_valid_mapping
 from _registry_null_epic_audit import NullEpicAuditRow as NullEpicAuditRow
 from _registry_null_epic_audit import audit_null_epics as audit_null_epics
+from _registry_rejected_state_notice import RejectedStateNotice as RejectedStateNotice
+from _registry_rejected_state_notice import (
+    read_rejected_state_notice as read_rejected_state_notice,
+)
+from _registry_rejected_state_notice import (
+    record_rejected_state_notice as record_rejected_state_notice,
+)
+from _registry_rejected_state_notice import rejected_value_digest as rejected_value_digest
 from _registry_round_restore import restore_round_record as restore_round_record
 from _registry_rounds import RoundRecord as RoundRecord
 from _registry_rounds import mark_compaction_rearmed as mark_compaction_rearmed
@@ -138,6 +146,7 @@ __all__: list[str] = [
     "MappingValid",
     "NullEpicAuditRow",
     "PlanTrack",
+    "RejectedStateNotice",
     "RoundRecord",
     "SupervisorSeat",
     "Track",
@@ -170,6 +179,7 @@ __all__: list[str] = [
     "read_notified_bands",
     "read_picker_stall_episode",
     "read_post_respawn",
+    "read_rejected_state_notice",
     "read_resume_pending",
     "read_round_open_identity",
     "read_round_record",
@@ -185,7 +195,9 @@ __all__: list[str] = [
     "record_picker_stall_episode",
     "record_post_respawn",
     "record_ready_expiry",
+    "record_rejected_state_notice",
     "record_shell_episode",
+    "rejected_value_digest",
     "remove_mapping",
     "repo_idle_nudge_from_config",
     "repo_root_present",

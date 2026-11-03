@@ -26,6 +26,7 @@ import _supervisor_evaluate_observation
 import _supervisor_evaluate_target
 import _supervisor_liveness
 import _supervisor_progress
+import _supervisor_rejected_notice
 import _supervisor_restart_attention
 import _supervisor_stall_watch
 import _supervisor_state
@@ -86,6 +87,9 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
     # Unpacked into locals below so each guard reads the way it always has.
     obs = _supervisor_evaluate_observation.reconcile_and_observe(
         sup=sup, track=track, session=session, pane=target, key=key, act=act
+    )
+    _supervisor_rejected_notice.maybe_send_rejected_state_notice(
+        sup=sup, track=track, obs=obs, session=session, target=target, act=act
     )
     capture, busy, gate, idle = obs.capture, obs.busy, obs.gate, obs.idle
     codex_fallback = obs.codex_fallback

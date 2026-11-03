@@ -454,8 +454,11 @@ if ((namespace_status != 0)); then
     echo "FAILED isolation: namespace/backend exited $namespace_status" >&2
     exit "$namespace_status"
   fi
-  printf '{"stage":"bootstrap","status":"failed","detail":"namespace/controller exited %s"}\n' \
-    "$namespace_status" >>"$evidence/lifecycle.jsonl"
+  if ! grep -Eq '"stage"[[:space:]]*:[[:space:]]*"bootstrap"' \
+    "$evidence/lifecycle.jsonl" 2>/dev/null; then
+    printf '{"stage":"bootstrap","status":"failed","detail":"namespace/controller exited %s"}\n' \
+      "$namespace_status" >>"$evidence/lifecycle.jsonl"
+  fi
 fi
 if [[ "$isolation_check" == true ]]; then
   [[ -f "$evidence/backend-runtime.env" ]] || \
