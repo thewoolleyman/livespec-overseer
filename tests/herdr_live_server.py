@@ -29,6 +29,7 @@ operator's live socket.
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import shutil
@@ -401,13 +402,8 @@ def _external_tcp_sockets(*, inodes: set[str]) -> tuple[str, ...]:
 
 def _is_local_or_unspecified(*, address: str) -> bool:
     """Whether a procfs peer address cannot be an outbound internet connection."""
-    local_addresses = {
-        socket.inet_ntoa(b"\0\0\0\0"),
-        socket.inet_ntoa(bytes((127, 0, 0, 1))),
-        socket.inet_ntop(socket.AF_INET6, b"\0" * 16),
-        socket.inet_ntop(socket.AF_INET6, b"\0" * 15 + b"\1"),
-    }
-    return address in local_addresses
+    parsed = ipaddress.ip_address(address)
+    return parsed.is_loopback or parsed.is_unspecified
 
 
 def outbound_internet_connections(*, server_pid: int) -> tuple[str, ...]:
