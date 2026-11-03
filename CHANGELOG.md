@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.48.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.47.1...v5.48.0) (2026-11-03)
+
+
+### Features
+
+* recapture Codex profile on carrier re-record ([68da169](https://github.com/thewoolleyman/livespec-overseer/commit/68da169ee0fb99b63366bd388a7b551b69b37552))
+
 ## [5.47.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.47.0...v5.47.1) (2026-11-02)
 
 
