@@ -5,8 +5,9 @@ from __future__ import annotations
 import shlex
 from dataclasses import replace
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
+import herdr_identity
 import pane_router
 import registry
 import signals
@@ -55,6 +56,17 @@ _VALIDATION_SEAMS = (
 def _launch_at_shell(
     *, sup: Supervisor, track: registry.Track, target: str, plan: ClaudeLaunchPlan
 ) -> bool:
+    if herdr_identity.decode_herdr_target(value=target) is not None:
+        return (
+            cast(pane_router.MixedPaneDriver, sup.tmux)
+            .herdr_launch(
+                session=target,
+                cwd=track.repo,
+                command=plan.command,
+                env=plan.env,
+            )
+            .ok
+        )
     environment_launch = tmuxio_env.with_env_delta(command=plan.command, env=plan.env)
     command = f"cd -- {shlex.quote(track.repo)} && {environment_launch}"
     return sup.tmux.bracketed_paste(session=target, text=command) and sup.tmux.send_keys(
