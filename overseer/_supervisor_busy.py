@@ -33,6 +33,7 @@ class BusyRequest:
     track: registry.Track
     capture: str
     claude_status: str | None
+    claude_status_read_at: float | None
     codex_fallback: bool
     generating: bool
     malformed: bool
@@ -89,9 +90,14 @@ def busy(*, request: BusyRequest) -> BusyDecision:
         # the note unset. The dead arc is the cost of that safety, so it is
         # annotated rather than removed.
         elif request.claude_status == "busy":  # pragma: no branch
+            read_at = (
+                f"; registry read at {request.claude_status_read_at:.3f}"
+                if request.claude_status_read_at is not None
+                else ""
+            )
             note = _supervisor_liveness.append_note(
                 note=note if request.malformed else None,
-                extra="sub-agent (Claude busy)",
+                extra=f"sub-agent (Claude busy{read_at})",
             )
     if request.act:
         # A ready declaration ARMS the restart until the first verified settled-idle
