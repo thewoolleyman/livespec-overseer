@@ -11,6 +11,8 @@ from overseer._vendor.returns.result import Failure
 
 __all__: list[str] = []
 
+_PROBE_LIVENESS_CEILING_SECONDS = 60.0
+
 
 def _write_executable(*, path: Path, body: str) -> None:
     path.write_text(f"#!/usr/bin/env python3\n{body}", encoding="utf-8")
@@ -29,11 +31,17 @@ def test_chrome_preflight_is_bounded_and_records_only_the_probed_identity(
         path=oversized,
         body="import os\nos.write(1, b'Google Chrome 999.0 ' + b'x' * 8192 + b'\\n')\n",
     )
+    # The refusal must come from the SIZE bound, so the probe gets a liveness
+    # ceiling rather than a 1.0s window: under host load that window expired first,
+    # the case still refused (by timeout), and the size-bound branch silently went
+    # uncovered with no failing test (overseer-zgik5v baseline run 3, load ~95).
+    # The size bound refuses as soon as the bytes arrive, so the ceiling is reached
+    # only by a stand-in that never writes at all.
     assert isinstance(
         module.resolve_installed_google_chrome(
             search_path=(oversized_dir,),
             environ={"PATH": os.environ["PATH"]},
-            timeout_seconds=1.0,
+            timeout_seconds=_PROBE_LIVENESS_CEILING_SECONDS,
         ),
         Failure,
     )
