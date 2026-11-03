@@ -238,10 +238,10 @@ def _assert_split_utf8_is_incremental(*, module: ModuleType, tmp_path: Path) -> 
         read_timeout_seconds=0.5,
     )
     assert performer.start() == {"version": 1, "status": "ok"}
-    first = performer.observe()
-    assert first.response["stdout"] == "before "
+    first = _observe_until_stdout(performer=performer)
+    assert "".join(str(item.response.get("stdout", "")) for item in first) == "before "
     assert performer.send_line(text="continue") == {"version": 1, "status": "ok"}
-    observations = [first, *_observe_until_exited(performer=performer)]
+    observations = [*first, *_observe_until_exited(performer=performer)]
     assert "".join(str(item.response.get("stdout", "")) for item in observations) == (
         "before € after\n"
     )
