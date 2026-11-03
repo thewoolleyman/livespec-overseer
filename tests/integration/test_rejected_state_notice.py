@@ -178,3 +178,32 @@ def test_scenario_a_rejected_state_notice_is_durable_per_rendered_value_and_reno
     rejected.write_text("waiting: second\n", encoding="utf-8")
     restarted.evaluate(track=track, act=True)
     assert sum("REJECTED STATE VALUE" in text for text in fake.paste_texts()) == 3
+
+
+def test_scenario_a_returning_to_an_earlier_rejected_value_is_not_noticed_again(*, tmp_path):
+    """Delivery history is kept per value, so A, then B, then A again re-sends nothing."""
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
+    clock = {"now": 1000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["now"])
+    track = mapped_track(repo=repo, topic=topic, session=session)
+    rejected = signals.rejected_state_path(repo=str(repo), topic=topic)
+    rejected.parent.mkdir(parents=True)
+
+    def notices() -> int:
+        return sum("REJECTED STATE VALUE" in text for text in fake.paste_texts())
+
+    for value, expected in (("first", 1), ("second", 2), ("first", 2)):
+        rejected.write_text(f"waiting: {value}\n", encoding="utf-8")
+        sup.evaluate(track=track, act=True)
+        assert notices() == expected
+
+    clock["now"] += 24 * 60 * 60
+    sup.evaluate(track=track, act=True)
+    assert notices() == 3
+    for value in ("second", "first"):
+        rejected.write_text(f"waiting: {value}\n", encoding="utf-8")
+        sup.evaluate(track=track, act=True)
+    assert notices() == 4
