@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.49.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.49.0...v5.49.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* submit herdr relaunch input ([81322ad](https://github.com/thewoolleyman/livespec-overseer/commit/81322ad383a027b55b879008fbd501ac01af00db))
+
 ## [5.49.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.48.0...v5.49.0) (2026-11-03)
 
 
