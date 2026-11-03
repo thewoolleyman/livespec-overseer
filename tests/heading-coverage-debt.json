@@ -1906,20 +1906,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A rejected state value is told to its session within one cycle",
-    "work_item": "overseer-uzvcbn.12",
-    "first_seen": "2026-11-02"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A rejected-state notice is sent once per rejected value",
-    "work_item": "overseer-uzvcbn.12",
-    "first_seen": "2026-11-02"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: A sanctioned relaunch of a Codex seat binds its topic, pane and profile",
     "work_item": "overseer-uzvcbn.7",
     "first_seen": "2026-11-02"

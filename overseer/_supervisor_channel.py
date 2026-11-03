@@ -43,6 +43,7 @@ __all__: list[str] = [
     "CHANNEL_FAILED",
     "CHANNEL_UNCONFIRMED",
     "NUDGE_MESSAGE",
+    "REJECTED_STATE_NOTICE",
     "WRAPUP_MESSAGE",
     "ChannelProvider",
     "ChannelSend",
@@ -59,6 +60,7 @@ __all__: list[str] = [
 # messages under it and never acquire a delivery-path record.
 WRAPUP_MESSAGE = "wrap-up"
 NUDGE_MESSAGE = "keep-going nudge"
+REJECTED_STATE_NOTICE = "rejected-state notice"
 
 # A channel delivery is DELIVERED only on the channel's acceptance acknowledgement
 # for that message, and FAILED only when the channel reports a refusal or an

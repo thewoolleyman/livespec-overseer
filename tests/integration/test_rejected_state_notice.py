@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 import registry
 import signals
 from test_supervisor_builders import (
@@ -14,6 +15,8 @@ from test_supervisor_builders import (
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
+
+pytestmark = pytest.mark.integration
 
 
 def _held(*, sup, repo, topic):

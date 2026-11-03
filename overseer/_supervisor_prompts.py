@@ -28,6 +28,7 @@ import signals
 from _supervisor_prompts_notices import (
     busy_blocker_callout,
     expiry_notice_message,
+    rejected_state_notice_message,
     supervisor_epic_path,
     supervisor_handoff_path,
 )
@@ -53,6 +54,7 @@ __all__: list[str] = [
     "pair_stall_nudge_message",
     "plan_epic_resume",
     "plan_state_locator",
+    "rejected_state_notice_message",
     "resume_for_track",
     "supervisor_epic_path",
     "supervisor_handoff_path",

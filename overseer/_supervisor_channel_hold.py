@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING
 
 import _supervisor_channel
 import registry
+import signals
 from _supervisor_liveness_time import age_label
 
 if TYPE_CHECKING:
@@ -60,6 +61,7 @@ def record_unconfirmed(  # noqa: PLR0913 — one hold site; the release needs ev
     pane_was_busy: bool,
     bands: tuple[int, ...] = (),
     compaction_latched_at: float | None = None,
+    rejected_value: str | None = None,
 ) -> None:
     """Hold an unconfirmed delivery, recording what a later release has to judge."""
     registry.record_channel_hold(
@@ -73,6 +75,7 @@ def record_unconfirmed(  # noqa: PLR0913 — one hold site; the release needs ev
             pane_was_busy=pane_was_busy,
             bands=bands,
             compaction_latched_at=compaction_latched_at,
+            rejected_value=rejected_value,
         ),
         stamp_path=sup.stamp_path,
     )
@@ -99,6 +102,8 @@ def release_reason(
     late_accepted: bool,
     pane_busy: bool,
     idle: bool,
+    rejected_value: str | None = None,
+    valid_declaration: bool = False,
 ) -> HoldRelease | None:
     """Why this hold may be released NOW, or None to leave it standing.
 
@@ -112,6 +117,13 @@ def release_reason(
     sidecar entry, so closing the round takes the hold with it structurally. A copy of
     that rule in this function would be a second mechanism that could disagree.
     """
+    if hold.message == _supervisor_channel.REJECTED_STATE_NOTICE:
+        if rejected_value != hold.rejected_value or valid_declaration:
+            return HoldRelease(
+                reason="the rejected copy changed or a valid declaration was written",
+                delivered=False,
+            )
+        return None
     if late_accepted:
         return HoldRelease(reason="a late acceptance acknowledgement arrived", delivered=True)
     if pane_busy and not hold.pane_was_busy:
@@ -156,11 +168,16 @@ def release_resolved_hold(
     hold = held_delivery(sup=sup, track=track)
     if hold is None:
         return None
+    declared = signals.read_state(repo=track.repo, topic=track.topic)
     release = release_reason(
         hold=hold,
         late_accepted=_late_accepted(sup=sup, track=track, hold=hold, is_codex=is_codex),
         pane_busy=pane_busy,
         idle=idle,
+        rejected_value=signals.rejected_value(repo=track.repo, topic=track.topic),
+        valid_declaration=(
+            declared is not None and signals.valid_session_token(token=declared.token)
+        ),
     )
     if release is None:
         return None

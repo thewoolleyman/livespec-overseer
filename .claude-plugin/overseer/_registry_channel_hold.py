@@ -63,6 +63,7 @@ class ChannelHold:
     pane_was_busy: bool
     bands: tuple[int, ...] = ()
     compaction_latched_at: float | None = None
+    rejected_value: str | None = None
 
 
 def read_channel_hold(
@@ -85,6 +86,7 @@ def read_channel_hold(
     message, channel = held.get("message"), held.get("channel")
     held_at = jsonio.as_float(value=held.get("held_at"))
     identity = held.get("session_identity")
+    rejected_value = held.get("rejected_value")
     if not isinstance(message, str) or not isinstance(channel, str) or held_at is None:
         return None
     return ChannelHold(
@@ -95,6 +97,7 @@ def read_channel_hold(
         pane_was_busy=held.get("pane_was_busy") is True,
         bands=_bands_of(value=held.get("bands")),
         compaction_latched_at=jsonio.as_float(value=held.get("compaction_latched_at")),
+        rejected_value=rejected_value if isinstance(rejected_value, str) else None,
     )
 
 
@@ -159,6 +162,7 @@ def record_channel_hold(
             "held_at": float(hold.held_at),
             "message": hold.message,
             "pane_was_busy": hold.pane_was_busy,
+            "rejected_value": hold.rejected_value,
             "session_identity": hold.session_identity,
         }
         data[key] = current
