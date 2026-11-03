@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.49.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.48.0...v5.49.0) (2026-11-03)
+
+
+### Features
+
+* notify sessions of rejected state declarations ([41c2014](https://github.com/thewoolleyman/livespec-overseer/commit/41c201482549c0c641d5f64c9b86d4fb49524d28))
+
+
+### Bug Fixes
+
+* preserve controller lifecycle failure ([64b0b4c](https://github.com/thewoolleyman/livespec-overseer/commit/64b0b4ce94d627363d5e186f3d1d3e5a8757d1c4))
+
 ## [5.48.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.47.1...v5.48.0) (2026-11-03)
 
 
