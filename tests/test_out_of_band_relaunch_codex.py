@@ -7,6 +7,7 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import herdr_identity
+import pane_router_cycle
 import registry
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -108,7 +109,7 @@ def test_reported_thread_is_verified_on_its_exact_herdr_pane(*, monkeypatch) -> 
             "pane",
             "report-agent-session",
             "--source",
-            "overseer",
+            "herdr:codex",
             "--agent",
             "codex",
             "--agent-session-id",
@@ -201,7 +202,7 @@ def test_confirmed_codex_relaunch_reports_then_resumes_and_rebinds_profile(
     )
     monkeypatch.setattr(
         codex,
-        "submit_prompt_result",
+        "submit_prompt",
         lambda **kwargs: calls.append(("resume", kwargs)) or SimpleNamespace(submitted=True),
     )
     monkeypatch.setattr(
@@ -250,9 +251,7 @@ def test_confirmed_codex_relaunch_stops_before_unproved_resume_or_rebind(
     ).ok
 
     monkeypatch.setattr(codex, "resume_for_track", lambda **kwargs: "resume")
-    monkeypatch.setattr(
-        codex, "submit_prompt_result", lambda **kwargs: SimpleNamespace(submitted=False)
-    )
+    monkeypatch.setattr(codex, "submit_prompt", lambda **kwargs: False)
     assert not codex.relaunch_codex(
         intent=tmp_path / "submit", profile_track=track, request=request, sup=sup, track=track
     ).ok
@@ -293,9 +292,15 @@ def test_entrypoint_awaits_codex_then_delegates_its_binding(*, monkeypatch, tmp_
         entrypoint._out_of_band_relaunch_codex, "relaunch_codex", lambda **kwargs: expected
     )
 
+    cache = pane_router_cycle.HerdrCycleCache()
+    cache.foregrounds["stale"] = object()  # type: ignore[assignment]
     result = entrypoint.relaunch(
-        request=request, sup=SimpleNamespace(store_path=tmp_path / "store")
+        request=request,
+        sup=SimpleNamespace(
+            store_path=tmp_path / "store", tmux=SimpleNamespace(herdr_cycle_cache=cache)
+        ),
     )
 
     assert result == expected
     assert awaited == [entrypoint.signals.pane_is_codex]
+    assert cache.foregrounds == {}
