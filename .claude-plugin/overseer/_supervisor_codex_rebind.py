@@ -114,7 +114,7 @@ def _herdr_rebind_candidates(
         for row in registry.read_valid_mapping(store_path=sup.store_path)
         if (registry.norm(repo=row.repo), row.topic) != own
     }
-    found: list[ReboundCodexCoordinate] = []
+    by_pane: dict[str, set[str]] = {}
     for carrier in _supervisor_codex_identity.pane_codex_carriers(
         sup=sup,
         pane_pid_to_session=sup.tmux.pane_pid_sessions(),
@@ -133,8 +133,14 @@ def _herdr_rebind_candidates(
             for coordinate, observed in bound
         ):
             continue
-        found.append(ReboundCodexCoordinate(coordinate=carrier.coordinate, identity=identity))
-    return tuple(sorted(found, key=lambda candidate: candidate.coordinate))
+        by_pane.setdefault(carrier.coordinate, set()).add(identity)
+    # Cardinality is per pane. A pane whose carriers disagree on the session is not a
+    # single qualifying pane, so it is not a candidate at all.
+    return tuple(
+        ReboundCodexCoordinate(coordinate=coordinate, identity=next(iter(identities)))
+        for coordinate, identities in sorted(by_pane.items())
+        if len(identities) == 1
+    )
 
 
 def ambiguous_rebind_row(
