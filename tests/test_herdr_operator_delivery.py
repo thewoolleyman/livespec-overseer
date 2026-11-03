@@ -144,6 +144,65 @@ def test_the_live_exercise_rejects_a_reused_evidence_directory(tmp_path: Path) -
     assert lifecycle.read_text(encoding="utf-8") == stale_record
 
 
+def test_live_exercise_preserves_a_controller_failure_after_bootstrap(
+    tmp_path: Path,
+) -> None:
+    """A non-zero namespace must not overwrite the controller's failed stage."""
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    agent = tools / "codex"
+    agent.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    agent.chmod(0o755)
+    bwrap = tools / "bwrap"
+    bwrap.write_text(
+        """#!/bin/sh
+evidence=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = --bind ] && [ "$3" = /tmp/livespec-overseer-exercise-evidence ]; then
+    evidence="$2"
+  fi
+  shift
+done
+printf '%s\\n' '{"stage":"bootstrap","status":"passed"}' \\
+  '{"stage":"adoption","status":"failed","detail":"controller-recorded failure"}' \\
+  > "$evidence/lifecycle.jsonl"
+exit 1
+""",
+        encoding="utf-8",
+    )
+    bwrap.chmod(0o755)
+    evidence = tmp_path / "evidence"
+
+    completed = subprocess.run(  # noqa: S603 -- fixed repo-owned script.
+        [
+            str(LIVE_EXERCISE),
+            "run",
+            "--backend",
+            "tmux",
+            "--agent",
+            "codex",
+            "--topic",
+            "controller-failure",
+            "--checkout",
+            str(ROOT),
+            "--evidence",
+            str(evidence),
+            "--",
+            "/bin/true",
+        ],
+        check=False,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PATH": f"{tools}:{os.environ['PATH']}"},
+    )
+
+    assert completed.returncode == 1
+    assert "FAILED lifecycle at adoption: controller-recorded failure" in completed.stderr
+    assert "duplicate required stage bootstrap" not in completed.stderr
+    records = [json.loads(line) for line in (evidence / "lifecycle.jsonl").read_text().splitlines()]
+    assert [record["stage"] for record in records] == ["bootstrap", "adoption"]
+
+
 def test_lifecycle_evidence_never_calls_an_incomplete_or_failed_run_successful(
     *, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
