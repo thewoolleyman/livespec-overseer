@@ -135,3 +135,38 @@ def test_rejected_notice_ignores_an_unusable_durable_record(*, tmp_path):
         )
         is None
     )
+
+
+def test_rejected_notice_history_survives_wrapup_round_open_and_clear(*, tmp_path):
+    """Opening or closing an injection round never erases what was already noticed."""
+    repo, topic = make_plan(tmp_path=tmp_path)
+    sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux())
+    value = "waiting: invalid"
+
+    def history():
+        return registry.read_rejected_state_notice(
+            repo=str(repo), topic=topic, value=value, stamp_path=sup.stamp_path
+        )
+
+    registry.record_rejected_state_notice(
+        repo=str(repo), topic=topic, value=value, noticed_at=1000.0, stamp_path=sup.stamp_path
+    )
+    registry.write_injection_stamp(
+        repo=str(repo), topic=topic, ts=1001.0, stamp_path=sup.stamp_path
+    )
+    opened = history()
+    assert opened is not None
+    assert opened.noticed_at == 1000.0
+    assert (
+        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        == 1001.0
+    )
+
+    registry.clear_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+    cleared = history()
+    assert cleared is not None
+    assert cleared.noticed_at == 1000.0
+    assert (
+        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        is None
+    )

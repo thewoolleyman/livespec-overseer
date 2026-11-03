@@ -13,6 +13,7 @@ from _registry_stamp_core import read_stamp_data, stamp_key
 
 __all__: list[str] = [
     "RejectedStateNotice",
+    "notice_history_only",
     "read_rejected_state_notice",
     "record_rejected_state_notice",
     "rejected_value_digest",
@@ -31,6 +32,13 @@ class RejectedStateNotice:
 def rejected_value_digest(*, value: str) -> str:
     """Return the stable deduplication identity for the rendered safe value."""
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def notice_history_only(*, prior: object) -> dict[str, object]:
+    """The part of a stamp entry that outlives a wrap-up round: what was already told."""
+    entry = jsonio.as_object(value=prior)
+    retained = entry.get("rejected_state_notice") if entry is not None else None
+    return {} if retained is None else {"rejected_state_notice": retained}
 
 
 def read_rejected_state_notice(

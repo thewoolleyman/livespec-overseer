@@ -17,7 +17,9 @@ from _registry_core import (
     atomic_write,
     file_lock,
     resolve_stamp_store,
+    warn,
 )
+from _registry_rejected_state_notice import notice_history_only
 from _registry_stamp_core import read_stamp_data, stamp_key
 from _registry_stamp_resume import read_resume_pending, set_resume_pending
 
@@ -74,8 +76,6 @@ def read_injection_stamp(
 
 
 def _warn_non_numeric_stamp(*, repo: str, topic: str) -> None:
-    from _registry_core import warn
-
     warn(message=f"non-numeric injection stamp for {repo}::{topic}")
 
 
@@ -99,13 +99,13 @@ def write_injection_stamp(
     path = resolve_stamp_store(stamp_path=stamp_path)
     with file_lock(target=path):
         data = read_stamp_data(path=path)
-        identity = session_identity or f"claude:{topic}:{topic}"
-        entry: dict[str, object] = {
+        key = stamp_key(repo=repo, topic=topic)
+        data[key] = {
             "at": float(ts),
             "bands": [],
-            "session_identity": identity,
+            "session_identity": session_identity or f"claude:{topic}:{topic}",
+            **notice_history_only(prior=data.get(key)),
         }
-        data[stamp_key(repo=repo, topic=topic)] = entry
         atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")
 
 
@@ -243,6 +243,9 @@ def clear_injection_stamp(
 ) -> None:
     """Delete a track's injection stamp, closing out its certification round.
 
+    The rejected-state notice history is the one member that survives: it records
+    what was already told to the session, and a round ending does not unsay it.
+
     Called by the daemon when it restarts a track: without this the persisted
     stamp OUTLIVES the round, degrading the "marker mtime > injection stamp"
     interlock to "marker newer than the FIRST-EVER injection" — so a later,
@@ -255,7 +258,8 @@ def clear_injection_stamp(
         data = read_stamp_data(path=path)
         key = stamp_key(repo=repo, topic=topic)
         if key in data:
-            del data[key]
+            kept = notice_history_only(prior=data.pop(key))
+            data.update({key: kept} if kept else {})
             atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")
 
 
