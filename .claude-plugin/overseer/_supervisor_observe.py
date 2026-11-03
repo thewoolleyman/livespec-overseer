@@ -16,6 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import _supervisor_claude_registry_freshness
 import _supervisor_compaction
 import _supervisor_ready
 import claude_sessions
@@ -207,6 +208,11 @@ def pane_is_managed_claude(
         pane_current_path=sup.tmux.pane_current_path(session=target), repo=repo
     ):
         return False
+    fresh = _supervisor_claude_registry_freshness.read_joined_registry(
+        sup=sup, session=session or "", topic=topic
+    )
+    if fresh is not None:
+        return fresh.session is not None and fresh.session.name == topic
     names = sup.claude_names_by_session.get(session or "")
     if not names or topic in names:
         return True
@@ -251,7 +257,9 @@ def observe(
     # shells (false-working). `has_active_subshell` (`bg_shell`) remains ONLY the
     # runtime-agnostic FALLBACK for a session with no registry entry (Codex).
     # `claude_status is None` ⇒ not an adopted Claude session.
-    claude_status = sup.claude_status_by_session.get(session)
+    claude_status, claude_status_read_at = _supervisor_claude_registry_freshness.current_status(
+        sup=sup, session=session, topic=topic
+    )
     claude_busy = claude_status in CLAUDE_BUSY_STATUSES
     is_codex = is_codex_track(sup=sup, session=session, repo=repo, topic=topic, target=target)
     codex_fallback = claude_status is None and bg_shell and is_codex
@@ -346,6 +354,7 @@ def observe(
         runtime=runtime,
         codex_fallback=codex_fallback,
         claude_status=claude_status,
+        claude_status_read_at=claude_status_read_at,
         current_ctx=current_ctx,
         eff_ctx=eff_ctx,
         ctx_reading=ctx_reading(state=istate, current=current_ctx, now=now),

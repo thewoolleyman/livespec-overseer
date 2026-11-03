@@ -140,6 +140,7 @@ def active_decision(*, request: ActiveRequest) -> ActiveDecision | None:
                 track=request.track,
                 capture=request.capture,
                 claude_status=request.claude_status,
+                claude_status_read_at=request.obs.claude_status_read_at,
                 codex_fallback=request.codex_fallback,
                 generating=generating,
                 malformed=request.malformed,
