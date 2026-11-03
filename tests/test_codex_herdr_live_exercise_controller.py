@@ -670,7 +670,14 @@ def _watched_probe_repo(*, home: Path, root: Path) -> None:
     (home / ".livespec-overseer.jsonl").touch()
 
 
-def _probe_daemon(*, daemon: Path, home: Path, root: Path, timeout: float) -> str:
+def _probe_daemon(
+    *,
+    daemon: Path,
+    home: Path,
+    root: Path,
+    timeout: float,
+    refusal_observed: Path | None = None,
+) -> str:
     """Empty when this daemon writes its status snapshot inside `timeout`, else why not.
 
     The daemon is started the way `overseer-start` starts it: typed into a herdr pane,
@@ -689,6 +696,8 @@ def _probe_daemon(*, daemon: Path, home: Path, root: Path, timeout: float) -> st
             while time.monotonic() < deadline:
                 if snapshot.is_file():
                     return ""
+                if refusal_observed is not None and refusal_observed.is_file():
+                    break
                 time.sleep(_PROBE_POLL_SECONDS)
     except _TerminalUnusableError as unusable:
         return str(unusable)
@@ -915,12 +924,22 @@ def test_the_daemon_probe_accepts_a_daemon_whose_status_snapshot_appears(short_r
 
 
 def test_the_daemon_probe_names_a_daemon_that_refuses_to_start(short_root: Path) -> None:
-    daemon, home = _stub_daemon(root=short_root, body="echo refusing-to-start >&2; exit 3")
+    refusal_observed = short_root / "daemon-refusal-observed"
+    daemon, home = _stub_daemon(
+        root=short_root,
+        body=f"echo refusing-to-start >&2; touch {refusal_observed}; exit 3",
+    )
 
-    gap = _probe_daemon(daemon=daemon, home=home, root=short_root, timeout=3.0)
+    gap = _probe_daemon(
+        daemon=daemon,
+        home=home,
+        root=short_root,
+        timeout=3.0,
+        refusal_observed=refusal_observed,
+    )
 
     assert gap.startswith("no usable overseer daemon: no status snapshot at ")
-    assert "within 3.0s" in gap
+    assert refusal_observed.is_file()
     assert "refusing-to-start" in gap
 
 

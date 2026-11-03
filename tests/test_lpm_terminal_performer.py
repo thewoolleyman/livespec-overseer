@@ -73,6 +73,29 @@ def _observe_until_stdout(*, performer: _Observing) -> list[ObservationOutcome]:
         time.sleep(0.01)
 
 
+def _observe_until_unavailable(*, performer: _Observing) -> list[ObservationOutcome]:
+    """Observe until malformed output closes the performer, or the wait expires.
+
+    The invalid-byte stand-in is a real child process.  Its write need not have
+    reached the parent's nonblocking descriptor by the first observe() after
+    start(), especially when the runner is busy.  The unavailable response is
+    the event this case is about, so retry until that event instead of treating
+    the first read as a latency budget.
+    """
+    deadline = time.monotonic() + _EXIT_WAIT_SECONDS
+    observations: list[ObservationOutcome] = []
+    while True:
+        observed = performer.observe()
+        observations.append(observed)
+        if observed.response == {"version": 1, "status": "unavailable"}:
+            return observations
+        assert time.monotonic() < deadline, (
+            f"invalid output did not close the performer after {_EXIT_WAIT_SECONDS}s: "
+            f"{observations!r}"
+        )
+        time.sleep(0.01)
+
+
 def _write_terminal_standin(*, path: Path, invalid_utf8: bool = False) -> None:
     body = (
         "import os\nos.write(1, b'\\xff')\n"
@@ -235,7 +258,8 @@ def _assert_invalid_output_is_unavailable(*, module: ModuleType, tmp_path: Path)
         read_timeout_seconds=0.5,
     )
     assert performer.start() == {"version": 1, "status": "ok"}
-    assert performer.observe().response == {"version": 1, "status": "unavailable"}
+    observations = _observe_until_unavailable(performer=performer)
+    assert observations[-1].response == {"version": 1, "status": "unavailable"}
     performer.close()
 
 

@@ -32,7 +32,9 @@ from __future__ import annotations
 import json
 import os
 import shlex
+import signal
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -215,10 +217,21 @@ def _run_gate(
 
 
 def _run_gate_under_pty_with_blocking_pager(
-    repo: Path, *, pager: Path, timeout_seconds: float = 2.0
-) -> tuple[int | None, str]:
-    """Run the real recipe under a TTY with a pager that would hang if invoked."""
-    env = {**os.environ, "PROSE_HYGIENE_BASE": "basepoint", "PAGER": str(pager)}
+    repo: Path, *, pager: Path, pager_invoked: Path, timeout_seconds: float = 30.0
+) -> tuple[int | None, str, bool]:
+    """Run the real recipe until it exits or the pager proves it was invoked.
+
+    The sentinel is the verdict: a gate that invokes the blocking pager fails
+    immediately, while a correct gate can take as long as the loaded host needs
+    to reject.  The ceiling only keeps a genuinely wedged fixture from holding
+    the suite indefinitely.
+    """
+    env = {
+        **os.environ,
+        "PROSE_HYGIENE_BASE": "basepoint",
+        "PAGER": str(pager),
+        "PAGER_INVOKED": str(pager_invoked),
+    }
     env.pop("GIT_PAGER", None)
     command = " ".join(
         (
@@ -230,28 +243,27 @@ def _run_gate_under_pty_with_blocking_pager(
             "check-prose-release-hygiene",
         )
     )
-    try:
-        result = subprocess.run(  # noqa: S603
-            ["script", "-q", "-e", "-c", command, "/dev/null"],  # noqa: S607
-            capture_output=True,
-            text=True,
-            check=False,
-            env=env,
-            timeout=timeout_seconds,
-        )
-    except subprocess.TimeoutExpired as exc:
-        return None, _timeout_output(exc)
-    return result.returncode, result.stdout + result.stderr
-
-
-def _timeout_output(exc: subprocess.TimeoutExpired[str]) -> str:
-    output = ""
-    for stream in (exc.stdout, exc.stderr):
-        if isinstance(stream, bytes):
-            output += stream.decode(errors="replace")
-        elif stream is not None:
-            output += stream
-    return output
+    process = subprocess.Popen(  # noqa: S603
+        ["script", "-q", "-e", "-c", command, "/dev/null"],  # noqa: S607
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+        start_new_session=True,
+    )
+    deadline = time.monotonic() + timeout_seconds
+    pager_was_invoked = False
+    while process.poll() is None:
+        if pager_invoked.is_file():
+            pager_was_invoked = True
+            os.killpg(process.pid, signal.SIGKILL)
+            break
+        if time.monotonic() >= deadline:
+            os.killpg(process.pid, signal.SIGKILL)
+            break
+        time.sleep(0.01)
+    stdout, stderr = process.communicate()
+    return process.returncode, stdout + stderr, pager_was_invoked
 
 
 def test_prose_changed_under_a_docs_subject_is_rejected(tmp_path):
@@ -442,11 +454,19 @@ def test_rejection_under_a_tty_cannot_block_on_the_git_pager(tmp_path):
     """RED: plain `git log` in the failure block invokes the pager and hangs."""
     repo = _make_repo(tmp_path, "pager", subject=_HISTORICAL_NON_RELEASING[0], touch_prose=True)
     pager = tmp_path / "blocking-pager.sh"
-    pager.write_text("#!/usr/bin/env bash\necho PAGER-INVOKED >&2\nsleep 60\n")
+    pager_invoked = tmp_path / "pager-invoked"
+    pager.write_text(
+        '#!/usr/bin/env bash\necho PAGER-INVOKED >&2\ntouch "$PAGER_INVOKED"\nsleep 60\n'
+    )
     pager.chmod(0o755)
 
-    returncode, output = _run_gate_under_pty_with_blocking_pager(repo, pager=pager)
+    returncode, output, was_invoked = _run_gate_under_pty_with_blocking_pager(
+        repo,
+        pager=pager,
+        pager_invoked=pager_invoked,
+    )
 
+    assert not was_invoked, output
     assert returncode == 1, output
     assert "PAGER-INVOKED" not in output
     assert "NO release-triggering commit" in output
