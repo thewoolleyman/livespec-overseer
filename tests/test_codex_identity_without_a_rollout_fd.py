@@ -794,6 +794,30 @@ def test_a_stored_herdr_coordinate_is_left_to_its_own_backend_rules(*, tmp_path)
     assert TRACKED_COORDINATE not in log
 
 
+def test_a_gone_herdr_coordinate_rebinds_to_one_named_codex_successor(*, tmp_path):
+    """A gone pane moves to its one repository-bound, exactly named Codex carrier."""
+    _module = codex_rebind()
+    dead_pane = coordinate(pane_id="w2H:p2N")
+    world = make_world(
+        tmp_path=tmp_path,
+        rows=[(tmp_path / "repo", "topic", dead_pane, "claude:dead:topic")],
+    )
+    (world.home / "session_index.jsonl").write_text(
+        json.dumps({"id": SESSION_ID, "thread_name": "topic"}) + "\n", encoding="utf-8"
+    )
+    world.sup.tmux.pane_agent_session = lambda *, session: (
+        SESSION_ID if session == TRACKED_COORDINATE else None
+    )
+
+    _outcome, log = resolve(world=world, act=True)
+
+    row = row_of(store=world.store)
+    assert row.tmux == TRACKED_COORDINATE
+    assert row.observed_session_identity == f"codex:{SESSION_ID}"
+    assert dead_pane in log
+    assert TRACKED_COORDINATE in log
+
+
 def test_a_recorded_identity_no_live_pane_resolves_to_leaves_the_coordinate_alone(*, tmp_path):
     _module = codex_rebind()
     unknown = tmp_path / "unknown"

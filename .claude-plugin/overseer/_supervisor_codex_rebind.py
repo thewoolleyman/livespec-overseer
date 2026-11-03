@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import _supervisor_codex_identity
+import codex_sessions
 import herdr_identity
 import registry
 import signals
@@ -57,6 +58,71 @@ class UnidentifiedCodexPane:
     condition: str
 
 
+@dataclass(frozen=True, kw_only=True)
+class ReboundCodexCoordinate:
+    """One pane and identity to which a dead mapping can safely move."""
+
+    coordinate: str
+    identity: str
+
+
+def _same_herdr_server(*, recorded: str, candidate: str) -> bool:
+    """Whether two coordinates belong to the same live Herdr server generation."""
+    old = herdr_identity.decode_target(value=recorded).herdr
+    new = herdr_identity.decode_target(value=candidate).herdr
+    return (
+        old is not None
+        and new is not None
+        and herdr_identity.herdr_instance_key(target=old)
+        == herdr_identity.herdr_instance_key(target=new)
+    )
+
+
+def _pane_label(*, coordinate: str) -> str:
+    """The backend pane identifier an operator can locate in a rebind log."""
+    target = herdr_identity.decode_target(value=coordinate).herdr
+    return target.pane_id if target is not None else coordinate
+
+
+def _herdr_rebind_candidates(
+    *, sup: Supervisor, track: registry.Track, session: str
+) -> tuple[ReboundCodexCoordinate, ...]:
+    """Exactly named, repository-bound Codex carriers on a dead pane's server.
+
+    This deliberately asks the per-carrier reader rather than the adopted live map.
+    The latter is a consequence of mapping ownership and could therefore hide the
+    repository, database, exact-thread-name, or other-track binding evidence this
+    pane-gone rebind itself has to establish.
+    """
+    if herdr_identity.decode_target(value=session).herdr is None or sup.tmux.session_exists(
+        session=session
+    ):
+        return ()
+    derived = registry.tmux_id(repo=track.repo, topic=track.topic, colliding=sup.colliding_topics)
+    readers = codex_host_readers(sup=sup)
+    names = codex_sessions.read_thread_names(
+        codex_home=readers.codex_home
+        if readers.codex_home is not None
+        else codex_sessions.default_codex_home()
+    )
+    found: list[ReboundCodexCoordinate] = []
+    for carrier in _supervisor_codex_identity.pane_codex_carriers(
+        sup=sup,
+        pane_pid_to_session=sup.tmux.pane_pid_sessions(),
+        readers=readers,
+    ):
+        if (
+            carrier.session_id is None
+            or names.get(carrier.session_id) != derived
+            or not signals.path_in_repo(pane_current_path=carrier.cwd, repo=track.repo)
+            or not _same_herdr_server(recorded=session, candidate=carrier.coordinate)
+        ):
+            continue
+        identity = f"{_supervisor_codex_identity.CODEX_IDENTITY_PREFIX}{carrier.session_id}"
+        found.append(ReboundCodexCoordinate(coordinate=carrier.coordinate, identity=identity))
+    return tuple(sorted(found, key=lambda candidate: candidate.coordinate))
+
+
 def _live_coordinate(*, sup: Supervisor, track: registry.Track) -> str | None:
     """The coordinate of the live pane running the exact session this row RECORDED.
 
@@ -76,14 +142,31 @@ def _live_coordinate(*, sup: Supervisor, track: registry.Track) -> str | None:
     return found[0] if len(found) == 1 else None
 
 
+def _legacy_rebound_candidate(
+    *, sup: Supervisor, track: registry.Track, session: str
+) -> ReboundCodexCoordinate | None:
+    """The existing recorded-identity rebind for a dead, unqualified tmux session."""
+    if herdr_identity.decode_target(value=session).herdr is not None or not (
+        track.observed_session_identity or ""
+    ).startswith(_supervisor_codex_identity.CODEX_IDENTITY_PREFIX):
+        return None
+    coordinate = _live_coordinate(sup=sup, track=track)
+    if coordinate is None:
+        return None
+    return ReboundCodexCoordinate(
+        coordinate=coordinate, identity=track.observed_session_identity or ""
+    )
+
+
 def rebound_codex_coordinate(
     *, sup: Supervisor, track: registry.Track, session: str, act: bool
-) -> str | None:
-    """The live coordinate this row's dead tmux locator should name, or None.
+) -> ReboundCodexCoordinate | None:
+    """The live coordinate this row's dead locator should name, or None.
 
-    Returns None — leaving the stored coordinate exactly as it stands — for a stored
-    herdr target, a row recording no Codex identity, a row whose recorded identity no
-    live pane resolves to, and a row whose live pane is already the coordinate it stores.
+    A dead Herdr pane is rebound only to one carrier on its same server generation
+    whose active state database binds its session to this repository and whose thread
+    name exactly equals this track's derived session name. Legacy dead tmux locators
+    retain their recorded-identity rebind path.
 
     The STORE WRITE and its log line are gated on ``act``; the resolved coordinate is
     returned either way. The read-only `list` path classifies without mutating, and it
@@ -91,24 +174,35 @@ def rebound_codex_coordinate(
     before deciding whether to touch anything — so resolving in memory and writing only
     on an acting tick is what keeps both halves of that true.
     """
-    if herdr_identity.decode_target(value=session).herdr is not None:
-        return None
-    if not (track.observed_session_identity or "").startswith(
-        _supervisor_codex_identity.CODEX_IDENTITY_PREFIX
-    ):
-        return None
-    coordinate = _live_coordinate(sup=sup, track=track)
-    if coordinate is None or coordinate == session:
+    candidates = _herdr_rebind_candidates(sup=sup, track=track, session=session)
+    rebound = (
+        candidates[0]
+        if len(candidates) == 1
+        else _legacy_rebound_candidate(sup=sup, track=track, session=session)
+    )
+    if rebound is None or rebound.coordinate == session:
         return None
     if act:
         _ = registry.repoint_tmux(
             repo=track.repo,
             topic=track.topic,
-            new_tmux=coordinate,
+            new_tmux=rebound.coordinate,
             store_path=sup.store_path,
         )
-        sup.log(message=f"rebound {track.repo}::{track.topic} tmux {session} → {coordinate}")
-    return coordinate
+        _ = registry.record_observed_session_identity(
+            repo=track.repo,
+            topic=track.topic,
+            session_identity=rebound.identity,
+            store_path=sup.store_path,
+        )
+        sup.log(
+            message=(
+                f"rebound {track.repo}::{track.topic} pane "
+                f"{_pane_label(coordinate=session)} → {_pane_label(coordinate=rebound.coordinate)} "
+                f"({session} → {rebound.coordinate})"
+            )
+        )
+    return rebound
 
 
 def unidentified_codex_pane(
