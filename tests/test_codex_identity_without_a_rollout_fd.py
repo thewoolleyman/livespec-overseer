@@ -864,6 +864,34 @@ def test_a_gone_herdr_coordinate_with_two_named_successors_is_unidentified(*, tm
     assert row_of(store=world.store).tmux == dead_pane
 
 
+def test_a_gone_herdr_coordinate_never_claims_a_successor_bound_to_another_track(*, tmp_path):
+    """A proven carrier already owned by another row is not this track's candidate."""
+    _module = codex_rebind()
+    dead_pane = coordinate(pane_id="w2H:p2N")
+    world = make_world(
+        tmp_path=tmp_path,
+        rows=[(tmp_path / "repo", "topic", dead_pane, "claude:dead:topic")],
+    )
+    add_row(
+        store=world.store,
+        repo=world.repo,
+        topic="other",
+        tmux="other-pane",
+        identity=f"codex:{SESSION_ID}",
+    )
+    (world.home / "session_index.jsonl").write_text(
+        json.dumps({"id": SESSION_ID, "thread_name": "topic"}) + "\n", encoding="utf-8"
+    )
+    world.sup.tmux.pane_agent_session = lambda *, session: (
+        SESSION_ID if session == TRACKED_COORDINATE else None
+    )
+
+    outcome, _log = resolve(world=world, act=True)
+
+    assert outcome.status == "session-gone"
+    assert row_of(store=world.store).tmux == dead_pane
+
+
 def test_a_recorded_identity_no_live_pane_resolves_to_leaves_the_coordinate_alone(*, tmp_path):
     _module = codex_rebind()
     unknown = tmp_path / "unknown"

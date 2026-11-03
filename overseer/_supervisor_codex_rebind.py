@@ -108,6 +108,12 @@ def _herdr_rebind_candidates(
         if readers.codex_home is not None
         else codex_sessions.default_codex_home()
     )
+    own = (registry.norm(repo=track.repo), track.topic)
+    bound = {
+        (row.tmux, row.observed_session_identity)
+        for row in registry.read_valid_mapping(store_path=sup.store_path)
+        if (registry.norm(repo=row.repo), row.topic) != own
+    }
     found: list[ReboundCodexCoordinate] = []
     for carrier in _supervisor_codex_identity.pane_codex_carriers(
         sup=sup,
@@ -122,6 +128,11 @@ def _herdr_rebind_candidates(
         ):
             continue
         identity = f"{_supervisor_codex_identity.CODEX_IDENTITY_PREFIX}{carrier.session_id}"
+        if (carrier.coordinate, identity) in bound or any(
+            carrier.coordinate == coordinate or identity == observed
+            for coordinate, observed in bound
+        ):
+            continue
         found.append(ReboundCodexCoordinate(coordinate=carrier.coordinate, identity=identity))
     return tuple(sorted(found, key=lambda candidate: candidate.coordinate))
 
