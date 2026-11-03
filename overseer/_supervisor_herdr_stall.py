@@ -16,7 +16,7 @@ from _supervisor_view import RowView
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
-__all__: list[str] = ["STALL_CONDITION", "reconcile_and_alert"]
+__all__: list[str] = ["STALL_CONDITION", "reconcile_and_alert", "stall_attention_message"]
 
 STALL_CONDITION = "herdr-replacement-stalled"
 _CLAUDE_IDENTITY_FIELD_COUNT = 4
@@ -131,6 +131,19 @@ def _matches_recorded_process(*, identity: str, record: object) -> bool:
     )
 
 
+def stall_attention_message(*, track: registry.Track, target: str, phase: str, reason: str) -> str:
+    """Describe a Codex retry stall with the operator's exact recovery sequence."""
+    manual_steps = (
+        f" Manual steps: /rename {track.topic}, then submit the durable resume line."
+        if phase in {"launch-attempted", "resume-attempted"}
+        else ""
+    )
+    return (
+        f"herdr replacement stalled for {track.repo}::{track.topic} at pane {target}; "
+        f"phase {phase}: {reason}.{manual_steps}"
+    )
+
+
 def reconcile_and_alert(
     *, sup: Supervisor, track: registry.Track, target: str, act: bool, alert: bool
 ) -> RowView | None:
@@ -167,7 +180,12 @@ def reconcile_and_alert(
             topic=track.topic,
             session=_supervisor_launch.session_of(sup=sup, track=track),
             pane=target,
-            message=f"herdr replacement stalled at phase {_recorded_phase(track=track)}: {reason}",
+            message=stall_attention_message(
+                track=track,
+                target=target,
+                phase=cast(str, _recorded_phase(track=track)),
+                reason=reason,
+            ),
             condition=STALL_CONDITION,
         )
     return row
