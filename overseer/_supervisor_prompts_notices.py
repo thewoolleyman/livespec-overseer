@@ -9,6 +9,7 @@ import signals
 __all__: list[str] = [
     "busy_blocker_callout",
     "expiry_notice_message",
+    "rejected_state_notice_message",
     "supervisor_epic_path",
     "supervisor_handoff_path",
 ]
@@ -68,6 +69,20 @@ def expiry_notice_message(*, repo: str, topic: str, blocker: str | None = None) 
     """
     body = _EXPIRY_NOTICE.format(state_file=str(signals.state_path(repo=repo, topic=topic)))
     return f"{busy_blocker_callout(blocker=blocker)}{body}"
+
+
+def rejected_state_notice_message(*, repo: str, topic: str, value: str) -> str:
+    """Tell a session that its malformed declaration was rejected and moved aside."""
+    state_file = signals.state_path(repo=repo, topic=topic)
+    return (
+        f"REJECTED STATE VALUE: {value!r} was not accepted, and you currently hold no "
+        "declaration. Declare your state now with exactly one of:\n\n"
+        "    overseer-declare winding-down\n"
+        "    overseer-declare ready\n"
+        "    overseer-declare blocked '<one-line reason>'\n"
+        "    overseer-declare done '<one-line summary>'\n\n"
+        f"These commands write {state_file}; do not merely say the value in this pane."
+    )
 
 
 def supervisor_handoff_path(*, repo: str, topic: str) -> Path:
