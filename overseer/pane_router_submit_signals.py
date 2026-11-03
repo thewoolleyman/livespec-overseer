@@ -14,6 +14,8 @@ __all__: list[str] = [
     "CapturePredicate",
     "HerdrInput",
     "PromptState",
+    "codex_composer_empty",
+    "codex_composer_text",
     "composer_empty",
     "delivered",
     "prompt_visible",
@@ -66,6 +68,30 @@ def prompt_visible(*, capture: str, text: str) -> bool:
     )
     codex_visible = bool(first_line) & ((f"› {first_line}" in codex_capture) | codex_collapsed)
     return bool(claude_visible | codex_visible)
+
+
+def codex_composer_text(*, capture: str) -> str | None:
+    """Return the Codex composer row immediately above its statusline.
+
+    A pane capture contains transcript and composer text in one stream.  The row next
+    to Codex's statusline is the only row whose content can authorize an Enter retry;
+    an identical payload in scrollback is never a pending input.
+    """
+    lines = signals.strip_ansi(text=capture).splitlines()
+    for index in range(len(lines) - 1, 0, -1):
+        if "Context" not in lines[index] and " · " not in lines[index]:
+            continue
+        composer = lines[index - 1].lstrip()
+        if composer.startswith("›"):
+            return composer[1:].strip()
+    return None
+
+
+def codex_composer_empty(*, capture: str) -> bool:
+    """Whether a positively idle Codex composer has no visible input text."""
+    return signals.is_codex_idle_input(capture_text=capture) and (
+        codex_composer_text(capture=capture) == ""
+    )
 
 
 def submitted(*, capture: str) -> bool:

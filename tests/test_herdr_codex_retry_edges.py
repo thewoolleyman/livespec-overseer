@@ -143,3 +143,25 @@ def test_retry_re_pastes_only_when_the_codex_composer_is_empty(*, tmp_path) -> N
     assert submitted is True
     assert reason == ""
     assert pastes == ["exact"]
+
+
+def test_retry_reports_a_re_paste_that_never_reaches_the_composer(*, tmp_path) -> None:
+    """A lost retry paste cannot be followed by an unsafe Enter."""
+    captures = iter(
+        (
+            "› \n  gpt-5.5 high · /repo · Context 95% left\n",
+            "› \n  gpt-5.5 high · /repo · Context 95% left\n",
+        )
+    )
+    tmux = SimpleNamespace(
+        capture_pane=lambda **kwargs: next(captures),
+        bracketed_paste=lambda **kwargs: True,
+        retry_prompt_enter_once=lambda **kwargs: pytest.fail("must not Enter without the paste"),
+    )
+    current = {"resume": "exact"}
+
+    submitted, reason = _call(tmp_path=tmp_path, tmux=tmux, current=current)
+
+    assert submitted is False
+    assert reason == "pending Codex resume re-paste was not confirmed"
+    assert current["resume_retry_attempts"] == 1
