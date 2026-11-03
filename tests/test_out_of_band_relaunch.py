@@ -100,6 +100,22 @@ def test_profile_selection_and_intent_are_explicit_and_durable(*, tmp_path: Path
     assert json.loads(intent.read_text(encoding="utf-8"))["outcome"] == "succeeded"
 
 
+def test_codex_relaunch_selects_a_fresh_profile_for_a_new_thread(*, tmp_path: Path) -> None:
+    """A sanctioned Codex relaunch starts a new thread for the later rename proof."""
+    entrypoint = importlib.import_module("out_of_band_relaunch")
+
+    selected = entrypoint._profile_for_request(
+        track=_track(tmp_path=tmp_path),
+        request=_request(runtime="codex", model="gpt-5.1-codex"),
+    )
+
+    assert selected.model_profile == {
+        "harness": "codex",
+        "model": "gpt-5.1-codex",
+        "wrapper": None,
+    }
+
+
 def test_low_level_launch_identity_and_rebind_are_nondestructive(
     *, monkeypatch, tmp_path: Path
 ) -> None:

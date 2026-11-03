@@ -85,7 +85,14 @@ def profile_for_request(
     runtime = request.runtime or (None if recorded is None else recorded["harness"])
     if runtime is None and any(value is not None for value in (request.model, request.wrapper)):
         runtime = "claude"
-    if runtime is not None and runtime != "claude":
+    if (
+        runtime == "codex"
+        and request.model is None
+        and recorded is not None
+        and recorded["harness"] != "codex"
+    ):
+        runtime = "codex transition without a Codex model"
+    if runtime is not None and runtime not in {"claude", "codex"}:
         return RelaunchResult(
             ok=False, message=f"relaunch REFUSED: unsupported runtime {runtime!r}"
         )
