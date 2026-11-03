@@ -116,7 +116,7 @@ def test_rejected_notice_ignores_an_unusable_durable_record(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
     sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux())
     key = f"{repo}::{topic}"
-    sup.stamp_path.write_text(
+    Path(sup.stamp_path).write_text(
         json.dumps({key: {"rejected_state_notice": {"digest": 3}}}), encoding="utf-8"
     )
 
