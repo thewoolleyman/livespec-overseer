@@ -260,6 +260,8 @@ def _assert_invalid_output_is_unavailable(*, module: ModuleType, tmp_path: Path)
     assert performer.start() == {"version": 1, "status": "ok"}
     observations = _observe_until_unavailable(performer=performer)
     assert observations[-1].response == {"version": 1, "status": "unavailable"}
+    # Nothing was released while waiting: the invalid byte never reached stdout.
+    assert not any(item.response.get("stdout") for item in observations)
     performer.close()
 
 

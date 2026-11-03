@@ -57,6 +57,7 @@ import termios
 import time
 import tty
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import livespec_dev_tooling
@@ -88,8 +89,24 @@ _BACKGROUND_QUERY = "\x1b]11;?\x1b\\"
 _FOREGROUND_RESPONSE = "\x1b]10;rgb:ffff/ffff/ffff\x1b\\"
 _BACKGROUND_RESPONSE = "\x1b]11;rgb:0000/0000/0000\x1b\\"
 _TERMINAL_RESPONSES = _FOREGROUND_RESPONSE + _BACKGROUND_RESPONSE
-_CODEX_STARTUP_TIMEOUT_SECONDS = 120
+# PROGRESS-ORDERED WAITS, NOT WALL-CLOCK BUDGETS (overseer-zgik5v / overseer-i6yp).
+# Every wait below lasts for as long as the Codex TUI keeps writing to its pty, and
+# gives up only when the TUI has written NOTHING for the phase's stall window, or when
+# the whole exercise passes `_CODEX_EXERCISE_CEILING_SECONDS`. A loaded host makes
+# Codex start slowly but it keeps rendering while it does, so slowness extends the wait
+# instead of failing it. The stall windows are the only budgets that can fail an
+# unloaded host, and they fail it quickly when the picker never renders the row.
+#
+# The stall windows are measured against the longest silent gap observed on this host
+# unloaded (about 6.5 s between Codex's first frame and its model line, 2026-11-03),
+# not against how long a phase takes. The ceiling is the single liveness bound.
+_CODEX_STARTUP_STALL_SECONDS = 120.0
+_CODEX_PICKER_STALL_SECONDS = 60.0
+_CODEX_SETTLE_QUIET_SECONDS = 6.0
+_CODEX_EXERCISE_CEILING_SECONDS = 600.0
 _CODEX_PROMPT_MARKER = chr(0x203A)
+# The mentions list `@` opens draws this header before it filters rows.
+_PICKER_OPEN_MARKER = "Mentions"
 _GIT_HOOK_ENV_VARS = (
     "GIT_DIR",
     "GIT_WORK_TREE",
@@ -323,85 +340,143 @@ def _answer_terminal_queries(*, fd: int, current: str, answered: dict[str, int])
             answered[query] = answered.get(query, 0) + 1
 
 
-def _pump_until(
-    *,
-    fd: int,
-    seen: str,
-    predicate: Callable[[str], bool],
-    timeout_seconds: float,
-    answered: dict[str, int],
-) -> tuple[bool, str]:
-    """Read until `predicate` holds. Returns `(matched, transcript)`.
+@dataclass(kw_only=True)
+class _Exercise:
+    """One picker exercise's shared state: the pty, its answered queries, its ceiling.
 
-    Returning rather than raising on timeout is what lets a caller emit its OWN
-    diagnostic against the full transcript instead of a generic timeout message.
+    `started` is when the exercise began, so every phase is held to ONE overall
+    ceiling rather than each phase getting a fresh budget of its own.
     """
-    deadline = time.monotonic() + timeout_seconds
-    current = seen
-    while time.monotonic() < deadline:
-        remaining = max(0.05, deadline - time.monotonic())
-        readable, _, _ = select.select([fd], [], [], min(0.25, remaining))
-        if not readable:
-            continue
-        try:
-            chunk = os.read(fd, 8192).decode("utf-8", errors="replace")
-        except OSError as exc:
-            tail = _plain(text=current)[-3000:]
-            raise AssertionError(f"Codex TUI exited while waiting. Last output:\n{tail}") from exc
-        current += chunk
-        _answer_terminal_queries(fd=fd, current=current, answered=answered)
-        if predicate(_plain(text=current)):
-            return True, current
-    return False, current
+
+    fd: int
+    ceiling_seconds: float = _CODEX_EXERCISE_CEILING_SECONDS
+    started: float = field(default_factory=time.monotonic)
+    answered: dict[str, int] = field(default_factory=dict)
 
 
-def _read_until(
-    *,
-    fd: int,
-    seen: str,
-    predicate: Callable[[str], bool],
-    timeout_seconds: float,
-    answered: dict[str, int],
-) -> str:
-    matched, current = _pump_until(
-        fd=fd,
-        seen=seen,
-        predicate=predicate,
-        timeout_seconds=timeout_seconds,
-        answered=answered,
-    )
-    if matched:
-        return current
+@dataclass(frozen=True, kw_only=True)
+class _Read:
+    """One read window's outcome: the rendered transcript, and whether it grew."""
+
+    plain: str
+    produced: bool
+
+
+def _host_load() -> str:
+    one, five, fifteen = os.getloadavg()
+    return f"{one:.2f} {five:.2f} {fifteen:.2f} (1/5/15 min) on {os.cpu_count()} CPUs"
+
+
+def _wait_expired(
+    *, exercise: _Exercise, phase: str, why: str, phase_started: float, current: str
+) -> AssertionError:
+    """The failure for an expired wait: which wait, how long, against what, under what load."""
+    now = time.monotonic()
     tail = _plain(text=current)[-3000:]
-    raise AssertionError(
-        f"Timed out waiting for Codex picker state. Last output:\n{tail}\n\n"
+    return AssertionError(
+        f"Timed out waiting for Codex picker state: the {phase} wait expired because {why}. "
+        f"Phase elapsed {now - phase_started:.1f}s; exercise elapsed "
+        f"{now - exercise.started:.1f}s of {exercise.ceiling_seconds:g}s allowed. "
+        f"Host load average at expiry: {_host_load()}.\n"
+        f"Last rendered screen:\n{tail}\n\n"
         f"Raw pty tail, escapes visible:\n{_escaped(text=current[-_RAW_TAIL_CHARS:])}"
     )
 
 
-def _read_until_quiet(
-    *, fd: int, seen: str, quiet_seconds: float, timeout_seconds: float, answered: dict[str, int]
+def _pump(
+    *,
+    exercise: _Exercise,
+    phase: str,
+    seen: str,
+    done: Callable[[_Read], bool],
+    stall_seconds: float,
 ) -> str:
-    deadline = time.monotonic() + timeout_seconds
-    quiet_deadline = time.monotonic() + quiet_seconds
+    """Read the pty until `done` holds for a read window; raise a named expiry otherwise.
+
+    `_Read.produced` is whether that window brought new output. The wait is extended
+    by every byte Codex writes: it expires only after `stall_seconds` of silence, or
+    when the exercise's overall ceiling passes.
+    """
+    phase_started = time.monotonic()
+    ceiling = exercise.started + exercise.ceiling_seconds
+    stall_deadline = phase_started + stall_seconds
     current = seen
-    while time.monotonic() < deadline:
-        remaining = max(0.05, min(deadline, quiet_deadline) - time.monotonic())
-        readable, _, _ = select.select([fd], [], [], min(0.25, remaining))
-        if not readable:
-            if time.monotonic() >= quiet_deadline:
-                return current
-            continue
-        try:
-            chunk = os.read(fd, 8192).decode("utf-8", errors="replace")
-        except OSError as exc:
-            tail = _plain(text=current)[-3000:]
-            raise AssertionError(f"Codex TUI exited while waiting. Last output:\n{tail}") from exc
-        current += chunk
-        _answer_terminal_queries(fd=fd, current=current, answered=answered)
-        quiet_deadline = time.monotonic() + quiet_seconds
-    tail = _plain(text=current)[-3000:]
-    raise AssertionError(f"Timed out waiting for Codex TUI to settle. Last output:\n{tail}")
+    while True:
+        now = time.monotonic()
+        if now >= ceiling:
+            why = f"the whole exercise reached its {exercise.ceiling_seconds:g}s ceiling"
+            raise _wait_expired(
+                exercise=exercise,
+                phase=phase,
+                why=why,
+                phase_started=phase_started,
+                current=current,
+            )
+        if now >= stall_deadline:
+            why = f"the Codex TUI wrote nothing for {stall_seconds:g}s"
+            raise _wait_expired(
+                exercise=exercise,
+                phase=phase,
+                why=why,
+                phase_started=phase_started,
+                current=current,
+            )
+        window = max(0.05, min(0.25, ceiling - now, stall_deadline - now))
+        readable, _, _ = select.select([exercise.fd], [], [], window)
+        produced = bool(readable)
+        if produced:
+            try:
+                chunk = os.read(exercise.fd, 8192).decode("utf-8", errors="replace")
+            except OSError as exc:
+                tail = _plain(text=current)[-3000:]
+                raise AssertionError(
+                    f"Codex TUI exited during the {phase} wait. Last output:\n{tail}"
+                ) from exc
+            current += chunk
+            stall_deadline = time.monotonic() + stall_seconds
+            _answer_terminal_queries(fd=exercise.fd, current=current, answered=exercise.answered)
+        if done(_Read(plain=_plain(text=current), produced=produced)):
+            return current
+
+
+def _read_until(
+    *,
+    exercise: _Exercise,
+    phase: str,
+    seen: str,
+    predicate: Callable[[str], bool],
+    stall_seconds: float,
+) -> str:
+    return _pump(
+        exercise=exercise,
+        phase=phase,
+        seen=seen,
+        done=lambda read: predicate(read.plain),
+        stall_seconds=stall_seconds,
+    )
+
+
+def _read_until_quiet(*, exercise: _Exercise, seen: str, quiet_seconds: float) -> str:
+    """Return once Codex has been silent for `quiet_seconds`; silence here is SUCCESS.
+
+    So there is no stall window to expire: only the exercise ceiling bounds a TUI that
+    never stops redrawing.
+    """
+    quiet_since = [time.monotonic()]
+
+    def settled(read: _Read) -> bool:
+        if read.produced:
+            quiet_since[0] = time.monotonic()
+            return False
+        return time.monotonic() - quiet_since[0] >= quiet_seconds
+
+    return _pump(
+        exercise=exercise,
+        phase="startup",
+        seen=seen,
+        done=settled,
+        stall_seconds=exercise.ceiling_seconds,
+    )
 
 
 def _send(*, fd: int, text: str) -> None:
@@ -585,41 +660,30 @@ def _codex_log_digest(*, codex_home: Path) -> str:
     return "\n".join(lines)
 
 
-def _await_codex_prompt(*, fd: int, transcript: str, answered: dict[str, int]) -> str:
+def _await_codex_prompt(*, exercise: _Exercise, transcript: str) -> str:
     current = _read_until(
-        fd=fd,
+        exercise=exercise,
+        phase="startup",
         seen=transcript,
         predicate=lambda plain: _has_main_prompt(plain=plain) or _has_trust_prompt(plain=plain),
-        timeout_seconds=_CODEX_STARTUP_TIMEOUT_SECONDS,
-        answered=answered,
+        stall_seconds=_CODEX_STARTUP_STALL_SECONDS,
     )
-    if not _has_trust_prompt(plain=_plain(text=current)):
-        return _read_until_quiet(
-            fd=fd,
+    if _has_trust_prompt(plain=_plain(text=current)):
+        _send(fd=exercise.fd, text="\r")
+        current = _read_until(
+            exercise=exercise,
+            phase="startup",
             seen=current,
-            quiet_seconds=6.0,
-            timeout_seconds=_CODEX_STARTUP_TIMEOUT_SECONDS,
-            answered=answered,
+            predicate=lambda plain: _has_main_prompt(plain=plain),
+            stall_seconds=_CODEX_STARTUP_STALL_SECONDS,
         )
-    _send(fd=fd, text="\r")
-    current = _read_until(
-        fd=fd,
-        seen=current,
-        predicate=lambda plain: _has_main_prompt(plain=plain),
-        timeout_seconds=_CODEX_STARTUP_TIMEOUT_SECONDS,
-        answered=answered,
-    )
     return _read_until_quiet(
-        fd=fd,
-        seen=current,
-        quiet_seconds=6.0,
-        timeout_seconds=_CODEX_STARTUP_TIMEOUT_SECONDS,
-        answered=answered,
+        exercise=exercise, seen=current, quiet_seconds=_CODEX_SETTLE_QUIET_SECONDS
     )
 
 
 def _open_skills_list(
-    *, fd: int, transcript: str, query: str, expected_row: str, answered: dict[str, int]
+    *, exercise: _Exercise, transcript: str, query: str, expected_row: str
 ) -> str:
     """Open the skills list directly with `@` and filter it by `query`.
 
@@ -643,20 +707,32 @@ def _open_skills_list(
     inside the full `just check` aggregate: under the load of ~66 targets a 2s gap
     opens before the picker has filtered, so the transcript gets asserted mid-render.
     A quiet window measures the HOST, not the UI. Waiting for the expected row
-    instead returns as soon as it renders and only gives up at the timeout, so a
-    slow host costs seconds rather than a false red. This repo carries a P1 about a
+    instead returns as soon as it renders, and gives up only when Codex has stopped
+    writing for a whole stall window or the exercise ceiling passes, so a slow host
+    costs seconds rather than a false red. This repo carries a P1 about a
     check aggregate that is flaky under concurrency (`overseer-jdo`); adding another
     load-sensitive gate to it would have been the same defect, self-inflicted.
     """
-    _send(fd=fd, text="\x15@" + query)
-    _matched, current = _pump_until(
-        fd=fd,
+    _send(fd=exercise.fd, text="\x15@" + query)
+    before = len(_plain(text=transcript))
+    # Picker OPEN: the mentions list has drawn something after the keystrokes (its
+    # header, or the row itself). Picker RENDER: the declared row and its Skill kind.
+    opened = _read_until(
+        exercise=exercise,
+        phase="picker open",
         seen=transcript,
-        predicate=lambda plain: expected_row in plain and "Skill" in plain,
-        timeout_seconds=45,
-        answered=answered,
+        predicate=lambda plain: any(
+            marker in plain[before:] for marker in (_PICKER_OPEN_MARKER, expected_row)
+        ),
+        stall_seconds=_CODEX_PICKER_STALL_SECONDS,
     )
-    return current
+    return _read_until(
+        exercise=exercise,
+        phase="picker render",
+        seen=opened,
+        predicate=lambda plain: expected_row in plain and "Skill" in plain,
+        stall_seconds=_CODEX_PICKER_STALL_SECONDS,
+    )
 
 
 def _stop_codex(*, proc: subprocess.Popen[bytes], fd: int) -> None:
@@ -689,15 +765,14 @@ def _exercise_skills_picker(*, master_fd: int, plugin: str, skill: str) -> str:
     # One tally for the whole exercise: the colour queries are counted against the
     # accumulated stream, so the count of answers-already-sent has to persist across
     # every pump call rather than reset per call.
-    answered: dict[str, int] = {}
+    exercise = _Exercise(fd=master_fd)
     _send(fd=master_fd, text=_TERMINAL_RESPONSES)
-    transcript = _await_codex_prompt(fd=master_fd, transcript="", answered=answered)
+    transcript = _await_codex_prompt(exercise=exercise, transcript="")
     return _open_skills_list(
-        fd=master_fd,
+        exercise=exercise,
         transcript=transcript,
         query=skill,
         expected_row=_skill_row(plugin=plugin, skill=skill),
-        answered=answered,
     )
 
 
@@ -736,6 +811,70 @@ def test_an_unanswered_terminal_query_is_visible_in_the_raw_pty_rendering() -> N
     unanswered = "\x1b[6n\x1b[?u"
     assert _plain(text=unanswered) == ""
     assert _escaped(text=unanswered) == "\\x1b[6n\\x1b[?u"
+
+
+def test_a_wait_returns_once_its_state_renders() -> None:
+    read_fd, write_fd = os.pipe()
+    try:
+        os.write(write_fd, b"booting... overseer (livespec-overseer)  Skill")
+        exercise = _Exercise(fd=read_fd)
+        current = _read_until(
+            exercise=exercise,
+            phase="picker render",
+            seen="",
+            predicate=lambda plain: "overseer (livespec-overseer)" in plain,
+            stall_seconds=_CODEX_PICKER_STALL_SECONDS,
+        )
+    finally:
+        os.close(read_fd)
+        os.close(write_fd)
+    assert current.endswith("Skill")
+
+
+def test_a_silent_codex_fails_naming_the_wait_its_times_and_the_host_load() -> None:
+    """Silence, not a phase budget, is what expires a wait, and the failure says which."""
+    read_fd, write_fd = os.pipe()
+    try:
+        os.write(write_fd, b"Mentions  Files, directories, plugins")
+        exercise = _Exercise(fd=read_fd)
+        with pytest.raises(AssertionError) as raised:
+            _ = _read_until(
+                exercise=exercise,
+                phase="picker render",
+                seen="",
+                predicate=lambda plain: "overseer (livespec-overseer)" in plain,
+                stall_seconds=0.2,
+            )
+    finally:
+        os.close(read_fd)
+        os.close(write_fd)
+    message = str(raised.value)
+    assert "the picker render wait expired because the Codex TUI wrote nothing for 0.2s" in message
+    assert re.search(r"Phase elapsed \d+\.\ds; exercise elapsed \d+\.\ds of 600s allowed", message)
+    assert "Host load average at expiry: " in message
+    assert "(1/5/15 min)" in message
+    assert "Last rendered screen:\nMentions  Files, directories, plugins" in message
+
+
+def test_a_codex_that_never_stops_writing_is_bounded_by_the_exercise_ceiling() -> None:
+    read_fd, write_fd = os.pipe()
+    try:
+        os.write(write_fd, b"loading")
+        exercise = _Exercise(fd=read_fd, started=time.monotonic() - 601.0)
+        with pytest.raises(AssertionError) as raised:
+            _ = _read_until(
+                exercise=exercise,
+                phase="startup",
+                seen="",
+                predicate=lambda plain: "never" in plain,
+                stall_seconds=_CODEX_STARTUP_STALL_SECONDS,
+            )
+    finally:
+        os.close(read_fd)
+        os.close(write_fd)
+    assert "the startup wait expired because the whole exercise reached its 600s ceiling" in str(
+        raised.value
+    )
 
 
 def test_a_stall_digest_names_a_missing_codex_log(tmp_path: Path) -> None:

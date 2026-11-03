@@ -16,6 +16,10 @@ from overseer._vendor.returns.result import Failure, Success
 
 __all__: list[str] = []
 
+# The identity probe returns as soon as the stand-in exits, so this is only a
+# liveness ceiling against a stand-in that never answers. No case here depends on
+# a stand-in answering inside a fixed window; the one timeout case orders the
+# timeout before the answer by holding the answer on a file the test creates.
 _ACCEPTING_PROBE_BOUND_SECONDS = 60.0
 
 
@@ -54,14 +58,38 @@ def _profile_root(*, state_dir: Path) -> Path:
 
 
 def _write_version_candidate(
-    *, path: Path, output: bytes, exit_status: int = 0, delay_seconds: float = 0.0
+    *,
+    path: Path,
+    output: bytes,
+    answered: Path,
+    exit_status: int = 0,
+    hold_until: Path | None = None,
 ) -> None:
+    """A `--version` stand-in that records the moment it answers.
+
+    `answered` is touched right after the version bytes are written, so a refusal
+    can be shown to follow the ANSWER rather than the probe's timeout. With
+    `hold_until`, the stand-in does not answer at all until the test creates that
+    file, so the probe's timeout is ordered before the answer by construction.
+    """
+    hold = (
+        ""
+        if hold_until is None
+        else (
+            f"deadline = time.monotonic() + {_ACCEPTING_PROBE_BOUND_SECONDS!r}\n"
+            f"while not os.path.exists({str(hold_until)!r}):\n"
+            "    if time.monotonic() > deadline:\n"
+            "        raise SystemExit(1)\n"
+            "    time.sleep(0.01)\n"
+        )
+    )
     path.write_text(
         "#!/usr/bin/env python3\n"
         "import os\n"
         "import time\n"
-        f"time.sleep({delay_seconds!r})\n"
+        f"{hold}"
         f"os.write(1, {output!r})\n"
+        f"open({str(answered)!r}, 'w').close()\n"
         f"raise SystemExit({exit_status})\n",
         encoding="utf-8",
     )
@@ -69,28 +97,54 @@ def _write_version_candidate(
 
 
 def _assert_named_non_google_binaries_refuse(*, module: ModuleType, tmp_path: Path) -> None:
+    # Each refusal is decided by what the stand-in ANSWERED: the probe is given the
+    # liveness ceiling, and the stand-in's `answered` marker proves it replied before
+    # resolution refused. A loaded host therefore cannot turn a timeout into a
+    # vacuous pass for a binary the resolver would wrongly have accepted.
     cases = (
-        ("chromium-product", b"Chromium 999.0\n", 0, 1.0),
-        ("failed-version", b"Google Chrome 999.0\n", 3, 1.0),
-        ("invalid-version", b"\xff\n", 0, 1.0),
-        ("version-timeout", b"Google Chrome 999.0\n", 0, 0.01),
+        ("chromium-product", b"Chromium 999.0\n", 0),
+        ("failed-version", b"Google Chrome 999.0\n", 3),
+        ("invalid-version", b"\xff\n", 0),
     )
-    for name, output, exit_status, timeout_seconds in cases:
+    for name, output, exit_status in cases:
         candidate_dir = tmp_path / name
         candidate_dir.mkdir()
         candidate = candidate_dir / "google-chrome"
+        answered = tmp_path / f"{name}.answered"
         _write_version_candidate(
-            path=candidate,
-            output=output,
-            exit_status=exit_status,
-            delay_seconds=1.0 if name == "version-timeout" else 0.0,
+            path=candidate, output=output, answered=answered, exit_status=exit_status
         )
         resolved = module.resolve_installed_google_chrome(
             search_path=(candidate_dir,),
             environ={"PATH": os.environ["PATH"]},
-            timeout_seconds=timeout_seconds,
+            timeout_seconds=_ACCEPTING_PROBE_BOUND_SECONDS,
         )
         assert isinstance(resolved, Failure), name
+        assert answered.is_file(), f"{name}: refused before the stand-in answered"
+
+    # The timeout path: the stand-in holds its (otherwise acceptable) answer until the
+    # test releases it, which happens only after resolution has returned. The refusal
+    # can therefore only have come from the probe's own timeout.
+    timeout_dir = tmp_path / "version-timeout"
+    timeout_dir.mkdir()
+    released = tmp_path / "version-timeout.release"
+    answered = tmp_path / "version-timeout.answered"
+    _write_version_candidate(
+        path=timeout_dir / "google-chrome",
+        output=b"Google Chrome 999.0\n",
+        answered=answered,
+        hold_until=released,
+    )
+    try:
+        resolved = module.resolve_installed_google_chrome(
+            search_path=(timeout_dir,),
+            environ={"PATH": os.environ["PATH"]},
+            timeout_seconds=0.01,
+        )
+        assert isinstance(resolved, Failure)
+        assert not answered.is_file()
+    finally:
+        released.touch()
 
     unspawnable_dir = tmp_path / "unspawnable-version"
     unspawnable_dir.mkdir()
@@ -101,7 +155,7 @@ def _assert_named_non_google_binaries_refuse(*, module: ModuleType, tmp_path: Pa
         module.resolve_installed_google_chrome(
             search_path=(unspawnable_dir,),
             environ={"PATH": os.environ["PATH"]},
-            timeout_seconds=1.0,
+            timeout_seconds=_ACCEPTING_PROBE_BOUND_SECONDS,
         ),
         Failure,
     )
@@ -113,7 +167,7 @@ def _assert_non_chrome_routes_refuse(*, module: ModuleType, tmp_path: Path) -> N
     unavailable = module.resolve_installed_google_chrome(
         search_path=(extension_only,),
         environ={"DISPLAY": ":99", "BROWSER": "browser-extension://open"},
-        timeout_seconds=1.0,
+        timeout_seconds=_ACCEPTING_PROBE_BOUND_SECONDS,
     )
     assert isinstance(unavailable, Failure)
 
@@ -126,7 +180,7 @@ def _assert_non_chrome_routes_refuse(*, module: ModuleType, tmp_path: Path) -> N
         module.resolve_installed_google_chrome(
             search_path=(chromium_only,),
             environ={"WAYLAND_DISPLAY": "wayland-9"},
-            timeout_seconds=1.0,
+            timeout_seconds=_ACCEPTING_PROBE_BOUND_SECONDS,
         ),
         Failure,
     )

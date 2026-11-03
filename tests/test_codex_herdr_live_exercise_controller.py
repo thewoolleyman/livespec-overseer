@@ -125,6 +125,7 @@ _OUTSIDE_POLL_SECONDS = 0.1
 _TERMINAL_PROBE_TIMEOUT = 30.0
 _DAEMON_PROBE_TIMEOUT = 600.0
 _PROBE_POLL_SECONDS = 0.5
+_REFUSAL_LIVENESS_CEILING_SECONDS = 60.0
 _PROBE_TOPIC = "probe-topic"
 _STATUS_SNAPSHOT_NAME = ".livespec-overseer-status.json"
 # The daemon-owned runtime prefix, relative to HOME. `overseer-start` provisions
@@ -934,7 +935,10 @@ def test_the_daemon_probe_names_a_daemon_that_refuses_to_start(short_root: Path)
         daemon=daemon,
         home=home,
         root=short_root,
-        timeout=3.0,
+        # The probe ends when the stub has written its refusal to the daemon log and
+        # touched its marker, so this is a liveness ceiling against a pane that never
+        # runs the stub, never a window the stub must answer inside.
+        timeout=_REFUSAL_LIVENESS_CEILING_SECONDS,
         refusal_observed=refusal_observed,
     )
 
