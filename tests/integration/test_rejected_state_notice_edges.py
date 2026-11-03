@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import registry
@@ -72,7 +73,7 @@ def test_rejected_notice_fresh_gate_rechecks_every_delivery_guard(*, tmp_path, m
     )
 
 
-def test_rejected_notice_surfaces_a_standing_unconfirmed_hold(*, tmp_path):
+def test_rejected_notice_surfaces_a_standing_unconfirmed_hold(*, tmp_path, monkeypatch):
     """A possibly landed channel notice blocks a second send until its release rule fires."""
     notice = _notice_module()
     repo, topic = make_plan(tmp_path=tmp_path)
@@ -102,11 +103,19 @@ def test_rejected_notice_surfaces_a_standing_unconfirmed_hold(*, tmp_path):
         target=session,
         key=f"{repo}::{topic}",
     )
+    observation = replace(observation, rejected_value="waiting: invalid")
 
     notice.maybe_send_rejected_state_notice(
         sup=sup, track=track, obs=observation, session=session, target=session, act=True
     )
 
+    assert not fake.paste_texts()
+
+    registry.clear_channel_hold(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+    monkeypatch.setattr(notice, "_fresh_eligible", lambda **_kwargs: None)
+    notice.maybe_send_rejected_state_notice(
+        sup=sup, track=track, obs=observation, session=session, target=session, act=True
+    )
     assert not fake.paste_texts()
 
 
@@ -115,7 +124,7 @@ def test_rejected_notice_ignores_an_unusable_durable_record(*, tmp_path):
     _notice_module()
     repo, topic = make_plan(tmp_path=tmp_path)
     sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux())
-    key = f"{repo}::{topic}"
+    key = importlib.import_module("_registry_stamp_core").stamp_key(repo=str(repo), topic=topic)
     Path(sup.stamp_path).write_text(
         json.dumps({key: {"rejected_state_notice": {"digest": 3}}}), encoding="utf-8"
     )
