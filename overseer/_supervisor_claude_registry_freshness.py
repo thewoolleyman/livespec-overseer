@@ -12,7 +12,13 @@ import claude_sessions
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
-__all__: list[str] = ["FreshClaudeRegistry", "current_status", "read_joined_registry", "status"]
+__all__: list[str] = [
+    "FreshClaudeRegistry",
+    "current_status",
+    "drop_unjoined_status",
+    "read_joined_registry",
+    "status",
+]
 
 _CLAUDE_IDENTITY_PARTS = 4
 
@@ -96,6 +102,18 @@ def _read_joined(*, sup: Supervisor, joined: tuple[int, str]) -> FreshClaudeRegi
     )
 
 
+def drop_unjoined_status(*, sup: Supervisor) -> None:
+    """Drop discovery-snapshot statuses whose session has no joined identity.
+
+    The status and identity snapshots are separate registry passes; a record that changed
+    between them leaves a status no evaluation-time re-read can verify.
+    """
+    joined = {s for (s, _), v in sup.claude_identity_by_session.items() if _joined_pid(identity=v)}
+    sup.claude_status_by_session = {
+        s: v for s, v in sup.claude_status_by_session.items() if s in joined
+    }
+
+
 def status(*, sup: Supervisor, session: str, topic: str) -> tuple[str | None, float | None]:
     """Return the current joined self-report and its read time for one evaluation.
 
@@ -111,7 +129,7 @@ def status(*, sup: Supervisor, session: str, topic: str) -> tuple[str | None, fl
     )
     joined = next((j for v in candidates if (j := _joined_pid(identity=v)) is not None), None)
     if joined is None:
-        # No parseable join: discovery produced no snapshot either; only injected state remains.
+        # Discovery drops unjoined snapshots, so only injected state remains here.
         return sup.claude_status_by_session.get(session), None
     fresh = _read_joined(sup=sup, joined=joined)
     if fresh.session is None:
