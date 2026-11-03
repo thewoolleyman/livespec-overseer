@@ -9,6 +9,8 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import herdr_identity
+import herdr_write
+import pane_router
 import registry
 
 if TYPE_CHECKING:
@@ -144,6 +146,47 @@ def test_low_level_launch_identity_and_rebind_are_nondestructive(
     assert registrations == [("target-pane",)]
     assert entrypoint._rebind(track=track, target="target-pane", identity="claude:44:55:alpha")
     assert writes[0].tmux == "target-pane"
+
+
+def test_herdr_relaunch_submits_the_launch_as_one_native_input(*, tmp_path: Path) -> None:
+    """A Herdr shell launch must not rely on tmux's separate Enter route."""
+    entrypoint = importlib.import_module("out_of_band_relaunch")
+    target = herdr_identity.HerdrPaneTarget(
+        socket_path="/run/herdr-test.sock",
+        server_pid=41,
+        server_starttime="777",
+        pane_id="w1:p1",
+    )
+    coordinate = herdr_identity.encode_herdr_target(target=target)
+    calls: list[tuple[herdr_identity.HerdrPaneTarget, str, str, dict[str, str | None]]] = []
+
+    class Writer:
+        def bracketed_paste(self, **_kwargs: object) -> herdr_write.WriteOutcome:
+            return herdr_write.WriteOutcome(
+                ok=False, error="not the launch route", effect_unknown=False
+            )
+
+        def launch(
+            self,
+            *,
+            target: herdr_identity.HerdrPaneTarget,
+            cwd: str,
+            command: str,
+            env: dict[str, str | None],
+        ) -> herdr_write.WriteOutcome:
+            calls.append((target, cwd, command, env))
+            return herdr_write.WriteOutcome(ok=True, error="", effect_unknown=False)
+
+    driver = pane_router.MixedPaneDriver(herdr=object(), herdr_writer=Writer())
+    plan = entrypoint.ClaudeLaunchPlan(command="claude --model claude-opus", env={"MODEL": None})
+
+    assert entrypoint._launch_at_shell(
+        sup=SimpleNamespace(tmux=driver),
+        track=_track(tmp_path=tmp_path),
+        target=coordinate,
+        plan=plan,
+    )
+    assert calls == [(target, str(tmp_path), "claude --model claude-opus", {"MODEL": None})]
 
 
 def test_relaunch_refuses_before_intent_or_input_and_records_each_post_launch_outcome(
