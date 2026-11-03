@@ -217,14 +217,13 @@ def _run_gate(
 
 
 def _run_gate_under_pty_with_blocking_pager(
-    repo: Path, *, pager: Path, pager_invoked: Path, timeout_seconds: float = 30.0
+    repo: Path, *, pager: Path, pager_invoked: Path, timeout_seconds: float = 2.0
 ) -> tuple[int | None, str, bool]:
     """Run the real recipe until it exits or the pager proves it was invoked.
 
     The sentinel is the verdict: a gate that invokes the blocking pager fails
-    immediately, while a correct gate can take as long as the loaded host needs
-    to reject.  The ceiling only keeps a genuinely wedged fixture from holding
-    the suite indefinitely.
+    immediately.  The ceiling keeps its pre-fix value and only keeps a genuinely
+    wedged fixture from holding the suite indefinitely.
     """
     env = {
         **os.environ,
