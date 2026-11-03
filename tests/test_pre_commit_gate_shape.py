@@ -166,7 +166,7 @@ def test_gate_suite_uses_the_staged_tree_recipe() -> None:
     assert load_gate_check_suite(repo_root=_REPO_ROOT) == (
         "install-worktree-pack",
         "install-commit-refuse-hooks",
-        "check-pre-commit",
+        "check-pre-push",
     )
     assert (
         _GATED_TREE_SCRIPT.read_text(encoding="utf-8")

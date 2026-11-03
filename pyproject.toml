@@ -76,11 +76,16 @@ delegated_pre_commit = true
 # `check-primary-checkout-commit-refuse-hook-installed` reads `.git/hooks`, and a
 # gate Job's fresh `/workspace` checkout has none until this installs them, so
 # omitting it refused every delegated hand commit (2026-11-02, gate Job
-# gate-livespec-overseer-5tzsz, "failure_mode: missing").
+# gate-livespec-overseer-5tzsz, "failure_mode: missing"). The suite serves BOTH
+# delegated gates: the pre-push Job runs it as declared, so it ends in
+# `check-pre-push`, and the pre-commit client replaces only that final member
+# with `check-pre-commit-gated-tree`. Ending it in `check-pre-commit` made every
+# delegated dev-host pre-push run the pre-commit aggregate
+# (livespec-dev-tooling-jrcp4m, 2026-11-03).
 gate_check_suite = [
     "install-worktree-pack",
     "install-commit-refuse-hooks",
-    "check-pre-commit",
+    "check-pre-push",
 ]
 # Two tests need a real Python child, and in both cases the thing under test is a
 # property only a real process has. Each passes a fixed argv and scrubs coverage
