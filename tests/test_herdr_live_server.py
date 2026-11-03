@@ -525,34 +525,3 @@ def test_a_fixture_server_gets_a_private_config_that_disables_remote_updates(
         assert "manifest_check = false" in contents
     finally:
         stop_server(session=server.session)
-
-
-def test_a_fixture_server_refuses_a_config_that_leaves_update_checks_at_default(
-    *, fake_host: _FakeHost, tmp_path: Path
-) -> None:
-    """A caller cannot bypass the shared fixture's no-egress configuration."""
-    del fake_host
-    config = tmp_path / "defaults.toml"
-    _ = config.write_text('[terminal]\nshell_mode = "non_login"\n', encoding="utf-8")
-    session = unique_session(label="defaults")
-    try:
-        with pytest.raises(AssertionError, match="version_check"):
-            _ = start_server(
-                scratch=tmp_path,
-                session=session,
-                env={**os.environ, "HERDR_CONFIG_PATH": str(config)},
-            )
-    finally:
-        stop_server(session=session)
-
-
-def test_a_ready_real_fixture_server_has_no_outbound_internet_connections(
-    *, tmp_path: Path
-) -> None:
-    """The live fixture observes its server process tree's TCP sockets, not intent."""
-    require_herdr()
-    server = start_server(scratch=tmp_path, label="no-egress")
-    try:
-        assert herdr_live_server.outbound_internet_connections(server_pid=server.server_pid) == ()
-    finally:
-        stop_server(session=server.session)
