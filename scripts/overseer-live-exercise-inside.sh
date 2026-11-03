@@ -56,6 +56,18 @@ trap 'exit 143' TERM
 # cannot consume the controller's first pane submission.
 : >"$HOME/.zshrc"
 
+# The exercise server is a hermetic fixture: Herdr's default background update
+# checks contact herdr.dev, which would make a local live proof depend on the
+# public network before its owned socket can become ready.
+herdr_config="$HOME/.config/herdr/live-exercise-config.toml"
+mkdir -p "$(dirname "$herdr_config")"
+cat >"$herdr_config" <<'EOF'
+[update]
+version_check = false
+manifest_check = false
+EOF
+export HERDR_CONFIG_PATH="$herdr_config"
+
 if [[ "$backend" == herdr ]]; then
   herdr --session "$instance" server >"$evidence/backend.log" 2>&1 &
   backend_pid="$!"
