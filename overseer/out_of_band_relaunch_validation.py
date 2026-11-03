@@ -8,7 +8,13 @@ from typing import TYPE_CHECKING
 import herdr_identity
 import registry
 import signals
-from _supervisor_launch_profile import ClaudeLaunchPlan, LaunchProfileProblem, claude_launch_plan
+from _supervisor_launch_profile import (
+    ClaudeLaunchPlan,
+    CodexLaunchPlan,
+    LaunchProfileProblem,
+    claude_launch_plan,
+    codex_fresh_launch_plan,
+)
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -118,7 +124,7 @@ def _refuse(*, message: str) -> RelaunchResult:
 
 def validated_launch(
     *, request: RelaunchRequest, sup: Supervisor, tracks: list[registry.Track] | None
-) -> tuple[registry.Track, registry.Track, ClaudeLaunchPlan] | RelaunchResult:
+) -> tuple[registry.Track, registry.Track, ClaudeLaunchPlan | CodexLaunchPlan] | RelaunchResult:
     track = matching_track(
         topic=request.topic,
         tracks=registry.read_valid_mapping(store_path=sup.store_path) if tracks is None else tracks,
@@ -133,7 +139,12 @@ def validated_launch(
     profile_track = profile_for_request(track=track, request=request)
     if isinstance(profile_track, RelaunchResult):
         return profile_track
-    plan = claude_launch_plan(track=profile_track)
+    plan = (
+        codex_fresh_launch_plan(track=profile_track)
+        if profile_track.model_profile is not None
+        and profile_track.model_profile["harness"] == "codex"
+        else claude_launch_plan(track=profile_track)
+    )
     if isinstance(plan, LaunchProfileProblem):
         return _refuse(message=plan.message)
     return track, profile_track, plan

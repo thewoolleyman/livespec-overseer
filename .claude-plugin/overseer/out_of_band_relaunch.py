@@ -11,8 +11,17 @@ import pane_router
 import registry
 import signals
 import tmuxio_env
-from _supervisor_launch import await_input_box, await_pane, submit_prompt_result
-from _supervisor_launch_profile import ClaudeLaunchPlan
+from _out_of_band_relaunch_codex import codex_rename_wait_bound as _rename_wait_bound
+from _out_of_band_relaunch_codex import confirm_codex_rename as _confirm_codex_rename
+from _out_of_band_relaunch_codex import derived_session_name as _derived_session_name
+from _out_of_band_relaunch_codex import indexed_codex_thread as _indexed_codex_thread
+from _out_of_band_relaunch_codex import report_codex_agent_session as _report_codex_agent_session
+from _supervisor_launch import (
+    await_input_box,
+    await_pane,
+    submit_prompt_result,
+)
+from _supervisor_launch_profile import ClaudeLaunchPlan, CodexLaunchPlan
 from _supervisor_prompts import resume_for_track
 from out_of_band_relaunch_intent import finish_intent, start_intent
 from out_of_band_relaunch_validation import (
@@ -53,7 +62,7 @@ _VALIDATION_SEAMS = (
 
 
 def _launch_at_shell(
-    *, sup: Supervisor, track: registry.Track, target: str, plan: ClaudeLaunchPlan
+    *, sup: Supervisor, track: registry.Track, target: str, plan: ClaudeLaunchPlan | CodexLaunchPlan
 ) -> bool:
     environment_launch = tmuxio_env.with_env_delta(command=plan.command, env=plan.env)
     command = f"cd -- {shlex.quote(track.repo)} && {environment_launch}"
@@ -140,10 +149,98 @@ def _deliver_resume_and_rebind(
     )
 
 
+def _deliver_codex_resume_and_rebind(
+    *,
+    intent: Path,
+    profile_track: registry.Track,
+    request: RelaunchRequest,
+    sup: Supervisor,
+    track: registry.Track,
+    thread_id: str,
+) -> RelaunchResult:
+    if not _report_codex_agent_session(target=request.target, thread_id=thread_id):
+        return _record_failed_launch(
+            intent=intent,
+            track=track,
+            request=request,
+            outcome="agent_session_report_failed",
+            message=(
+                f"relaunch FAILED: could not report Codex thread {thread_id} "
+                f"for pane {request.target}"
+            ),
+        )
+    resume = resume_for_track(track=track)
+    if resume is None:
+        return _record_failed_launch(
+            intent=intent,
+            track=track,
+            request=request,
+            outcome="resume_unavailable",
+            message="relaunch FAILED: no resume prompt",
+        )
+    submitted = submit_prompt_result(sup=sup, target=request.target, text=resume, expect_codex=True)
+    if not submitted.submitted or not _rebind(
+        track=profile_track, target=request.target, identity=f"codex:{thread_id}"
+    ):
+        return _record_failed_launch(
+            intent=intent,
+            track=track,
+            request=request,
+            outcome="resume_or_rebind_failed",
+            message="relaunch FAILED: resume or mapping rebind was unconfirmed",
+        )
+    _finish_intent(outcome="succeeded", path=intent, request=request, track=track)
+    return RelaunchResult(
+        ok=True,
+        message=(
+            f"relaunched {track.repo}::{track.topic} at {request.target}; Codex rename "
+            f"confirmed within {_rename_wait_bound()}"
+        ),
+    )
+
+
+def _relaunch_codex(
+    *,
+    intent: Path,
+    profile_track: registry.Track,
+    request: RelaunchRequest,
+    sup: Supervisor,
+    track: registry.Track,
+) -> RelaunchResult:
+    name = _derived_session_name(sup=sup, track=track)
+    prior_thread = _indexed_codex_thread(name=name, sup=sup)
+    thread_id = _confirm_codex_rename(
+        name=name,
+        prior_thread=prior_thread,
+        sup=sup,
+        target=request.target,
+    )
+    if thread_id is None:
+        observed = _indexed_codex_thread(name=name, sup=sup)
+        return _record_failed_launch(
+            intent=intent,
+            track=track,
+            request=request,
+            outcome="rename_unconfirmed",
+            message=(
+                f"relaunch FAILED: Codex rename for pane {request.target} was not confirmed "
+                f"within {_rename_wait_bound()}; observed thread {observed or 'none'}"
+            ),
+        )
+    return _deliver_codex_resume_and_rebind(
+        intent=intent,
+        profile_track=profile_track,
+        request=request,
+        sup=sup,
+        track=track,
+        thread_id=thread_id,
+    )
+
+
 def relaunch(
     *, request: RelaunchRequest, sup: Supervisor, tracks: list[registry.Track] | None = None
 ) -> RelaunchResult:
-    """Launch a non-Codex profile at a separately-proven idle pane.
+    """Launch a profile at a separately-proven idle pane.
 
     Every refusal precedes the intent record and any terminal input.  This is
     deliberately not a restart: it neither signals a process nor reads or
@@ -162,13 +259,26 @@ def relaunch(
             outcome="launch_failed",
             message="relaunch FAILED: launch input was not accepted",
         )
-    if not await_pane(sup=sup, target=request.target, is_ready=signals.pane_is_claude):
+    codex = (
+        profile_track.model_profile is not None
+        and profile_track.model_profile["harness"] == "codex"
+    )
+    is_ready = signals.pane_is_codex if codex else signals.pane_is_claude
+    if not await_pane(sup=sup, target=request.target, is_ready=is_ready):
         return _record_failed_launch(
             intent=intent,
             track=track,
             request=request,
             outcome="launch_unconfirmed",
-            message="relaunch FAILED: Claude did not appear",
+            message=f"relaunch FAILED: {'Codex' if codex else 'Claude'} did not appear",
+        )
+    if codex:
+        return _relaunch_codex(
+            intent=intent,
+            profile_track=profile_track,
+            request=request,
+            sup=sup,
+            track=track,
         )
     return _deliver_resume_and_rebind(
         intent=intent,
