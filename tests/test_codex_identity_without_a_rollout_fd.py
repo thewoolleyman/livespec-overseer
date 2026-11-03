@@ -818,6 +818,52 @@ def test_a_gone_herdr_coordinate_rebinds_to_one_named_codex_successor(*, tmp_pat
     assert TRACKED_COORDINATE in log
 
 
+def test_a_gone_herdr_coordinate_with_two_named_successors_is_unidentified(*, tmp_path):
+    """Several qualifying panes are ambiguous, so the stored coordinate stays put."""
+    _module = codex_rebind()
+    dead_pane = coordinate(pane_id="w2H:p2N")
+    second = coordinate(pane_id="w2H:p4")
+    world = make_world(
+        tmp_path=tmp_path,
+        rows=[(tmp_path / "repo", "topic", dead_pane, "claude:dead:topic")],
+        cwds={
+            TRACKED_PID: str(tmp_path / "repo"),
+            OPERATOR_PID: str(tmp_path / "repo"),
+            APP_SERVER_PID: "/",
+            PANELESS_PID: str(tmp_path / "repo"),
+        },
+    )
+    write_state_database(
+        path=world.home / "state_2.sqlite",
+        rows=[
+            (SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+            (OPERATOR_SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+        ],
+    )
+    (world.home / "session_index.jsonl").write_text(
+        "\n".join(
+            (
+                json.dumps({"id": SESSION_ID, "thread_name": "topic"}),
+                json.dumps({"id": OPERATOR_SESSION_ID, "thread_name": "topic"}),
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    world.sup.tmux.pane_pids[OPERATOR_PANE_PID] = second
+    world.sup.tmux.pane_agent_session = lambda *, session: {
+        TRACKED_COORDINATE: SESSION_ID,
+        second: OPERATOR_SESSION_ID,
+    }.get(session)
+
+    outcome, _log = resolve(world=world, act=True)
+
+    assert outcome.status == "unidentified-session"
+    assert "w2H:p3" in outcome.note
+    assert "w2H:p4" in outcome.note
+    assert row_of(store=world.store).tmux == dead_pane
+
+
 def test_a_recorded_identity_no_live_pane_resolves_to_leaves_the_coordinate_alone(*, tmp_path):
     _module = codex_rebind()
     unknown = tmp_path / "unknown"
