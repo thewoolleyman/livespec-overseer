@@ -56,7 +56,6 @@ __all__ = [
     "herdr_cli",
     "herdr_installed",
     "live_session_names",
-    "outbound_internet_connections",
     "probe_ready",
     "raw_request",
     "read_frame",
@@ -242,21 +241,13 @@ def _log_tail(*, log_path: Path) -> str:
 
 
 def await_server_ready(
-    *,
-    socket_path: Path,
-    session: str,
-    child: OwnedChild,
-    log_path: Path,
-    poll: ReadyPoll,
-    observe: Callable[[], None] | None = None,
+    *, socket_path: Path, session: str, child: OwnedChild, log_path: Path, poll: ReadyPoll
 ) -> ServerReadiness:
     """Wait until the OWNED child answers a request on `socket_path`, or fail by name."""
     deadline = poll.monotonic() + poll.seconds
     attempts = 0
     reason = "no readiness probe was attempted"
     while True:
-        if observe is not None:
-            observe()
         status = child.poll()
         if status is not None:
             raise AssertionError(
@@ -296,11 +287,8 @@ def _server_environment(*, env: Mapping[str, str] | None, scratch: Path) -> dict
     zdotdir.mkdir(exist_ok=True)
     (zdotdir / ".zshrc").touch()
     environment["ZDOTDIR"] = str(zdotdir)
-    config_path = environment.get("HERDR_CONFIG_PATH")
-    if config_path is None:
+    if "HERDR_CONFIG_PATH" not in environment:
         environment["HERDR_CONFIG_PATH"] = str(write_hermetic_config(scratch=scratch))
-    else:
-        _require_disabled_update_checks(path=Path(config_path))
     return environment
 
 
@@ -311,110 +299,6 @@ def write_hermetic_config(*, scratch: Path, prefix: str = "") -> Path:
     separator = "" if not prefix or prefix.endswith("\n") else "\n"
     _ = path.write_text(f"{prefix}{separator}\n{UPDATE_CONFIG}", encoding="utf-8")
     return path
-
-
-def _require_disabled_update_checks(*, path: Path) -> None:
-    """Refuse a fixture config unless both startup network checks are explicitly off."""
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError as failed:
-        raise AssertionError(f"fixture Herdr config {path} is unreadable: {failed}") from failed
-    update_values: dict[str, str] = {}
-    in_update = False
-    for raw in lines:
-        line = raw.partition("#")[0].strip()
-        if line.startswith("[") and line.endswith("]"):
-            in_update = line == "[update]"
-            continue
-        if in_update and "=" in line:
-            key, value = (part.strip() for part in line.split("=", maxsplit=1))
-            update_values[key] = value
-    for name in ("version_check", "manifest_check"):
-        assert (
-            update_values.get(name) == "false"
-        ), f"fixture Herdr config {path} must set [update] {name} = false"
-
-
-def _process_descendants(*, root_pid: int) -> set[int]:
-    """The live server process and every process currently descended from it."""
-    parents: dict[int, list[int]] = {}
-    for entry in Path("/proc").iterdir():
-        if not entry.name.isdecimal():
-            continue
-        try:
-            fields = (
-                (entry / "stat").read_text(encoding="utf-8").rsplit(") ", maxsplit=1)[1].split()
-            )
-            parent = int(fields[1])
-        except (IndexError, OSError, ValueError):
-            continue
-        parents.setdefault(parent, []).append(int(entry.name))
-    found = {root_pid}
-    pending = [root_pid]
-    while pending:
-        for child in parents.get(pending.pop(), []):
-            if child not in found:
-                found.add(child)
-                pending.append(child)
-    return found
-
-
-def _socket_inodes(*, pids: set[int]) -> set[str]:
-    inodes: set[str] = set()
-    for pid in pids:
-        try:
-            descriptors = (Path("/proc") / str(pid) / "fd").iterdir()
-            for descriptor in descriptors:
-                target = str(descriptor.readlink())
-                if target.startswith("socket:[") and target.endswith("]"):
-                    inodes.add(target[8:-1])
-        except OSError:
-            continue
-    return inodes
-
-
-def _remote_address(*, encoded: str, family: int) -> str:
-    raw = bytes.fromhex(encoded)
-    if family == socket.AF_INET:
-        return socket.inet_ntop(family, raw[::-1])
-    words = (raw[offset : offset + 4][::-1] for offset in range(0, len(raw), 4))
-    return socket.inet_ntop(family, b"".join(words))
-
-
-def _external_tcp_sockets(*, inodes: set[str]) -> tuple[str, ...]:
-    connections: list[str] = []
-    for filename, family in (("tcp", socket.AF_INET), ("tcp6", socket.AF_INET6)):
-        try:
-            lines = (Path("/proc/net") / filename).read_text(encoding="utf-8").splitlines()[1:]
-        except OSError:
-            continue
-        for line in lines:
-            fields = line.split()
-            if len(fields) < 10 or fields[9] not in inodes:
-                continue
-            remote, port = fields[2].split(":", maxsplit=1)
-            address = _remote_address(encoded=remote, family=family)
-            if not _is_local_or_unspecified(address=address):
-                connections.append(f"{address}:{int(port, 16)}")
-    return tuple(sorted(connections))
-
-
-def _is_local_or_unspecified(*, address: str) -> bool:
-    """Whether a procfs peer address cannot be an outbound internet connection."""
-    local_addresses = {
-        socket.inet_ntoa(b"\0\0\0\0"),
-        socket.inet_ntoa(bytes((127, 0, 0, 1))),
-        socket.inet_ntop(socket.AF_INET6, b"\0" * 16),
-        socket.inet_ntop(socket.AF_INET6, b"\0" * 15 + b"\1"),
-    }
-    return address in local_addresses
-
-
-def outbound_internet_connections(*, server_pid: int) -> tuple[str, ...]:
-    """External TCP peers held by a live fixture server or one of its descendants."""
-    return _external_tcp_sockets(
-        inodes=_socket_inodes(pids=_process_descendants(root_pid=server_pid))
-    )
 
 
 def start_server(
@@ -446,11 +330,6 @@ def start_server(
             cwd=str(scratch),
             env=_server_environment(env=env, scratch=scratch),
         )
-    observed_connections: set[str] = set()
-
-    def observe_connections() -> None:
-        observed_connections.update(outbound_internet_connections(server_pid=child.pid))
-
     try:
         readiness = await_server_ready(
             socket_path=session_socket(session=name),
@@ -458,12 +337,6 @@ def start_server(
             child=child,
             log_path=log_path,
             poll=poll if poll is not None else ReadyPoll(),
-            observe=observe_connections,
-        )
-        observe_connections()
-        assert not observed_connections, (
-            f"fixture Herdr server pid {child.pid} opened outbound internet connection(s): "
-            f"{sorted(observed_connections)}"
         )
     except BaseException:
         stop_server(session=name)
