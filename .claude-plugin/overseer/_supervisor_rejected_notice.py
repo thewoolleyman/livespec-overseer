@@ -25,13 +25,10 @@ _RENOTICE_AFTER = 24 * 60 * 60
 
 def _due(*, sup: Supervisor, track: registry.Track, value: str) -> bool:
     record = registry.read_rejected_state_notice(
-        repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path
+        repo=track.repo, topic=track.topic, value=value, stamp_path=sup.stamp_path
     )
-    digest = registry.rejected_value_digest(value=value)
-    return (
-        record is None
-        or record.digest != digest
-        or (not record.renoticed and sup.now() - record.noticed_at >= _RENOTICE_AFTER)
+    return record is None or (
+        not record.renoticed and sup.now() - record.noticed_at >= _RENOTICE_AFTER
     )
 
 

@@ -130,6 +130,8 @@ def test_rejected_notice_ignores_an_unusable_durable_record(*, tmp_path):
     )
 
     assert (
-        registry.read_rejected_state_notice(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        registry.read_rejected_state_notice(
+            repo=str(repo), topic=topic, value="waiting: invalid", stamp_path=sup.stamp_path
+        )
         is None
     )
