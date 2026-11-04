@@ -147,6 +147,20 @@ def test_styled_codex_placeholder_is_empty_only_when_its_glyphs_are_dim():
     assert composer_empty(capture_text=f"{_CODEX_EMPTY_COMPOSER}\x1bX") is False
 
 
+def test_styled_codex_placeholder_must_be_the_composer_above_the_statusline():
+    historical_placeholder = _CODEX_EMPTY_COMPOSER.replace(
+        "Ask Codex to do anything", "Ask Codex to review the transcript"
+    )
+    capture = (
+        f"● earlier response\n{historical_placeholder}\n"
+        "● response\n◦ Working (1s • esc to interrupt)\n"
+        f"{_CODEX_TYPED_COMPOSER}\n"
+        "  gpt-5.5 high · /x/repo · Context 40% left · topic\n"
+    )
+
+    assert signals.codex_composer_placeholder_empty(capture_text=capture) is False
+
+
 # ## Scenario: A busy session with an empty input box receives the wrap-up
 @pytest.mark.parametrize(
     ("capture", "claude_status"),
