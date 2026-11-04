@@ -17,6 +17,7 @@ import pytest
 
 from overseer import (
     _supervisor_observe,
+    _supervisor_records,
     codex_sessions,
     registry,
     signals,
@@ -96,6 +97,56 @@ def _busy_picker(*, ctx):
     )
 
 
+_CODEX_COMPOSER_BACKGROUND = "\x1b[48;2;49;52;57m"
+_CODEX_EMPTY_COMPOSER = (
+    "\x1b[0m\x1b[1m"
+    f"{_CODEX_COMPOSER_BACKGROUND}›\x1b[0m"
+    f"{_CODEX_COMPOSER_BACKGROUND} \x1b[0m"
+    f"\x1b[2m{_CODEX_COMPOSER_BACKGROUND}Ask Codex to do anything\x1b[0m"
+    f"{_CODEX_COMPOSER_BACKGROUND}   \x1b[0m"
+)
+_CODEX_TYPED_COMPOSER = _CODEX_EMPTY_COMPOSER.replace("\x1b[2m", "", 1)
+
+
+def _styled_codex_busy_capture(*, composer):
+    """The measured Codex busy shape, with a dim and an undimmed composer control."""
+    return (
+        "● response\n"
+        "◦ Working (1s • esc to interrupt)\n"
+        f"{composer}\n"
+        "  gpt-5.5 high · /x/repo · Context 40% left · topic\n"
+    )
+
+
+def _configured_codex_busy_track(*, tmp_path, capture, **supervisor_kwargs):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=capture, cmd="bun")
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, **supervisor_kwargs)
+    sup.live_codex = {
+        (session, topic): codex_sessions.CodexSession(
+            pid=321, name=topic, cwd=str(repo), session_id="codex-1"
+        )
+    }
+    return repo, topic, session, fake, sup
+
+
+def test_styled_codex_placeholder_is_empty_only_when_its_glyphs_are_dim():
+    assert hasattr(signals, "codex_composer_placeholder_empty")
+    composer_empty = signals.codex_composer_placeholder_empty
+
+    assert composer_empty(capture_text=_CODEX_EMPTY_COMPOSER) is True
+    assert (
+        composer_empty(
+            capture_text=_CODEX_EMPTY_COMPOSER.replace(_CODEX_COMPOSER_BACKGROUND, "\x1b[48;5;57m")
+        )
+        is True
+    )
+    assert composer_empty(capture_text=_CODEX_TYPED_COMPOSER) is False
+    assert composer_empty(capture_text=f"{_CODEX_EMPTY_COMPOSER}\x1bX") is False
+
+
 # ## Scenario: A busy session with an empty input box receives the wrap-up
 @pytest.mark.parametrize(
     ("capture", "claude_status"),
@@ -142,18 +193,51 @@ def test_scenario_typed_input_gate_or_human_wait_suppresses_a_busy_wrapup(
     assert not fake.has(method="respawn")
 
 
+# ## Scenario: A busy Codex session whose dim placeholder proves an empty composer receives wrap-up
+def test_scenario_busy_codex_with_dim_placeholder_receives_the_wrapup(*, tmp_path):
+    repo, topic, session, fake, sup = _configured_codex_busy_track(
+        tmp_path=tmp_path, capture=_styled_codex_busy_capture(composer=_CODEX_EMPTY_COMPOSER)
+    )
+
+    view = _act(sup=sup, repo=repo, topic=topic, session=session)
+
+    assert view.status == "warned"
+    assert wrapup_count(fake=fake) == 1
+    assert _stamp(sup=sup, repo=repo, topic=topic) is not None
+
+
 # ## Scenario: A busy Codex session whose empty composer cannot be proven is surfaced, not pasted
 def test_scenario_busy_codex_without_proven_empty_composer_is_surfaced(*, tmp_path):
-    repo, topic = make_plan(tmp_path=tmp_path)
-    session = registry.tmux_id(repo=str(repo), topic=topic)
-    fake = FakeTmux()
-    fake.serve(session=session, repo=repo, capture=codex_busy_capture(ctx=40), cmd="bun")
-    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.live_codex = {
-        (session, topic): codex_sessions.CodexSession(
-            pid=321, name=topic, cwd=str(repo), session_id="codex-1"
-        )
-    }
+    repo, topic, session, fake, sup = _configured_codex_busy_track(
+        tmp_path=tmp_path, capture=_styled_codex_busy_capture(composer=_CODEX_TYPED_COMPOSER)
+    )
+    err = _io.StringIO()
+
+    view = _act(sup=sup, repo=repo, topic=topic, session=session, err=err)
+
+    assert wrapup_count(fake=fake) == 0
+    assert _stamp(sup=sup, repo=repo, topic=topic) is None
+    assert view.status == "working"
+    assert _codex_busy_withheld_note() in (view.note or "")
+    assert _codex_busy_withheld_note() in err.getvalue()
+
+
+def test_scenario_busy_codex_with_unreadable_styled_capture_is_surfaced(*, tmp_path):
+    children = {100: [200], 200: [300]}
+    names = {200: "codex", 300: "bash"}
+    starts = {200: "1000", 300: "2600"}
+    repo, topic, session, fake, sup = _configured_codex_busy_track(
+        tmp_path=tmp_path,
+        capture="",
+        children_of=lambda *, pid: children.get(pid, []),
+        comm_of=lambda *, pid: names.get(pid),
+        starttime_of=lambda *, pid: starts.get(pid),
+        cmdline_of=lambda *, pid: None,
+    )
+    fake.pane_pid_map[session] = 100
+    sup.inject[track_key(repo=str(repo), topic=topic)] = _supervisor_records.InjectState(
+        last_ctx=40, last_ctx_seen=1000.0
+    )
     err = _io.StringIO()
 
     view = _act(sup=sup, repo=repo, topic=topic, session=session, err=err)
