@@ -89,6 +89,16 @@ def test_composer_reader_rejects_a_statusline_without_a_composer_row() -> None:
     assert pane_router_submit_signals.codex_composer_text(capture=capture) is None
 
 
+def test_composer_reader_accepts_a_cwd_statusline_without_context() -> None:
+    """The cwd-bearing statusline remains a fallback when Context is absent."""
+    capture = "› /rename codex-restart-proof\n  gpt-5.5 high · /repo · master · Ready\n"
+
+    assert (
+        pane_router_submit_signals.codex_composer_text(capture=capture)
+        == "/rename codex-restart-proof"
+    )
+
+
 def test_warnings_footer_keeps_only_the_composer_for_rename_and_resume_retries(*, tmp_path) -> None:
     """A footer below Codex's statusline never becomes pending composer input."""
     resume = "resume plan epic overseer-uzvcbn in repository /data/projects/livespec-overseer"
