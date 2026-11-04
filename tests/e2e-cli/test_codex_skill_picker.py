@@ -947,6 +947,18 @@ def test_main_prompt_recognises_the_composer_without_a_placeholder_or_tip() -> N
     assert _has_main_prompt(plain=plain)
 
 
+@pytest.mark.parametrize(
+    "plain",
+    [
+        _plain(text="\x1b[2J\x1b[18;1HDo you trust this folder?\x1b[20;1H› Yes, I trust it"),
+        f"model: {_CODEX_TEST_MODEL}\n/model to change\nTip: press @ to open this list directly",
+        "",
+    ],
+)
+def test_main_prompt_refuses_dialogs_and_screens_without_a_composer(plain: str) -> None:
+    assert not _has_main_prompt(plain=plain)
+
+
 def test_a_wait_returns_once_its_state_renders() -> None:
     read_fd, write_fd = os.pipe()
     try:
