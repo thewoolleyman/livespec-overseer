@@ -96,6 +96,7 @@ def test_profile_selection_and_intent_are_explicit_and_durable(*, tmp_path: Path
     assert (
         entrypoint._profile_for_request(track=track, request=_request(runtime="claude")).ok is False
     )
+    assert entrypoint._profile_for_request(track=track, request=_request(runtime="pi")).ok is False
 
     intent = entrypoint._start_intent(track=track, request=request)
     assert json.loads(intent.read_text(encoding="utf-8")) == {
@@ -454,6 +455,12 @@ def test_validation_refuses_unsafe_targets_before_an_intent_is_written(
             tracks=[track],
         ),
         tuple,
+    )
+    assert (
+        "unsupported runtime"
+        in entrypoint._validated_launch(
+            request=_request(target=target, runtime="pi"), sup=sup, tracks=[track]
+        ).message
     )
     stale = registry.PlanTrack(
         repo=str(tmp_path),

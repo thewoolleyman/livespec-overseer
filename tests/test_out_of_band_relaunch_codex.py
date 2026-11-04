@@ -166,13 +166,48 @@ def test_codex_confirmation_fails_closed_without_a_new_exactly_named_thread(
     assert codex.report_codex_agent_session(sup=sup, target="legacy-pane", thread_id="thread")
     sup.tmux.bracketed_paste = lambda **_kwargs: True
     sup.tmux.send_keys = lambda **_kwargs: False
-    assert codex.confirm_codex_rename(
-        name="alpha", prior_thread_ids=frozenset(), sup=sup, target="legacy-pane"
-    ) is None
+    assert (
+        codex.confirm_codex_rename(
+            name="alpha", prior_thread_ids=frozenset(), sup=sup, target="legacy-pane"
+        )
+        is None
+    )
     sup.tmux.send_keys = lambda **_kwargs: True
-    assert codex.confirm_codex_rename(
-        name="alpha", prior_thread_ids=frozenset(), sup=sup, target="legacy-pane"
-    ) is None
+    assert (
+        codex.confirm_codex_rename(
+            name="alpha", prior_thread_ids=frozenset(), sup=sup, target="legacy-pane"
+        )
+        is None
+    )
+
+
+def test_codex_confirmation_rejects_an_unsent_rename_and_an_unindexed_rename(
+    *, tmp_path: Path
+) -> None:
+    """A failed Enter and a bounded empty index both leave no usable thread."""
+    codex = _codex_module()
+    sup = SimpleNamespace(
+        codex_home=tmp_path / "codex",
+        sleep=lambda _seconds: None,
+        tmux=SimpleNamespace(
+            bracketed_paste=lambda **_kwargs: True,
+            send_keys=lambda **_kwargs: False,
+        ),
+    )
+
+    assert (
+        codex.confirm_codex_rename(
+            name="alpha", prior_thread_ids=frozenset(), sup=sup, target="target-pane"
+        )
+        is None
+    )
+    sup.tmux.send_keys = lambda **_kwargs: True
+    assert (
+        codex.confirm_codex_rename(
+            name="alpha", prior_thread_ids=frozenset(), sup=sup, target="target-pane"
+        )
+        is None
+    )
 
 
 @pytest.mark.parametrize("failure", ["report", "resume", "submit", "rebind"])
