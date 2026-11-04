@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.50.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.50.0...v5.50.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* retire a stalled Codex Herdr replacement after an out-of-band Codex successor ([8a8c0d6](https://github.com/thewoolleyman/livespec-overseer/commit/8a8c0d62da0f530ca00681cd40b8d103d833fbfe))
+
 ## [5.50.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.49.2...v5.50.0) (2026-11-04)
 
 
