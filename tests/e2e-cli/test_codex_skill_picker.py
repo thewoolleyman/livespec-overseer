@@ -796,6 +796,41 @@ def _await_codex_prompt(*, exercise: _Exercise, transcript: str) -> str:
     )
 
 
+def _picker_row_is_rendered(*, plain: str, expected_row: str) -> bool:
+    """Whether the declared Skill row, rather than unrelated screen text, is visible."""
+    return any(expected_row in line and "Skill" in line for line in plain.splitlines())
+
+
+def _read_until_picker_row(*, exercise: _Exercise, opened: str, expected_row: str) -> str:
+    """Move the picker viewport until the declared Skill row is rendered.
+
+    The broad `overseer` query can rank the Plugin, a directory, and worktree files
+    ahead of the Skill row. Moving one row after every non-matching redraw makes
+    rendering that row a content predicate instead of assuming it fits the initial
+    viewport. The existing stall and exercise ceilings remain the only liveness
+    limits: a picker that never draws another row still expires as before.
+    """
+    if _picker_row_is_rendered(plain=_plain(text=opened), expected_row=expected_row):
+        return opened
+
+    _send(fd=exercise.fd, text="\x1b[B")
+
+    def row_is_rendered(read: _Read) -> bool:
+        if _picker_row_is_rendered(plain=read.plain, expected_row=expected_row):
+            return True
+        if read.produced:
+            _send(fd=exercise.fd, text="\x1b[B")
+        return False
+
+    return _pump(
+        exercise=exercise,
+        phase="picker render",
+        seen=opened,
+        done=row_is_rendered,
+        stall_seconds=_CODEX_PICKER_STALL_SECONDS,
+    )
+
+
 def _open_skills_list(
     *, exercise: _Exercise, transcript: str, query: str, expected_row: str
 ) -> str:
@@ -843,13 +878,7 @@ def _open_skills_list(
         ),
         stall_seconds=_CODEX_PICKER_STALL_SECONDS,
     )
-    return _read_until(
-        exercise=exercise,
-        phase="picker render",
-        seen=opened,
-        predicate=lambda plain: expected_row in plain and "Skill" in plain,
-        stall_seconds=_CODEX_PICKER_STALL_SECONDS,
-    )
+    return _read_until_picker_row(exercise=exercise, opened=opened, expected_row=expected_row)
 
 
 def _stop_codex(*, proc: subprocess.Popen[bytes], fd: int) -> None:
@@ -971,6 +1000,92 @@ def test_a_wait_returns_once_its_state_renders() -> None:
         os.close(read_fd)
         os.close(write_fd)
     assert current.endswith("Skill")
+
+
+def test_picker_open_recognises_a_mentions_list_redrawn_before_the_prior_screen_length(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A redraw is a screen replacement, so its marker need not follow the old screen."""
+    read_fd, write_fd = os.pipe()
+    try:
+        transcript = "\x1b[2J" + "".join(f"\x1b[{row};1H{'x' * 100}" for row in range(1, 40))
+        expected_row = "overseer (livespec-overseer)"
+        os.write(
+            write_fd,
+            ("\x1b[2J\x1b[1;1HMentions" f"\x1b[2;1H{expected_row}  Skill").encode(),
+        )
+        monkeypatch.setattr(sys.modules[__name__], "_send", lambda **_: None)
+        monkeypatch.setattr(sys.modules[__name__], "_CODEX_PICKER_STALL_SECONDS", 0.05)
+        current = _open_skills_list(
+            exercise=_Exercise(fd=read_fd),
+            transcript=transcript,
+            query="overseer",
+            expected_row=expected_row,
+        )
+    finally:
+        os.close(read_fd)
+        os.close(write_fd)
+
+    plain = _plain(text=current)
+    assert "Mentions" in plain
+    assert f"{expected_row}  Skill" in plain
+
+
+def test_picker_open_refuses_mentions_that_were_already_on_screen(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    read_fd, write_fd = os.pipe()
+    try:
+        monkeypatch.setattr(sys.modules[__name__], "_send", lambda **_: None)
+        monkeypatch.setattr(sys.modules[__name__], "_CODEX_PICKER_STALL_SECONDS", 0.05)
+        with pytest.raises(AssertionError, match="the picker open wait expired"):
+            _ = _open_skills_list(
+                exercise=_Exercise(fd=read_fd),
+                transcript="Mentions\noverseer (livespec-overseer)  Plugin",
+                query="overseer",
+                expected_row="overseer (livespec-overseer)",
+            )
+    finally:
+        os.close(read_fd)
+        os.close(write_fd)
+
+
+def test_picker_scrolls_until_the_skill_row_is_drawn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    read_fd, write_fd = os.pipe()
+    sent: list[str] = []
+    expected_row = "overseer (livespec-overseer)"
+
+    def send_picker_frame(*, fd: int, text: str) -> None:
+        sent.append(text)
+        if len(sent) == 1:
+            os.write(
+                write_fd,
+                b"\x1b[2J\x1b[1;1HMentions\x1b[2;1Hlivespec-overseer  Plugin"
+                b"\x1b[3;1Hoverseer ./  Dir\x1b[4;1HREADME.md  File\x1b[5;1H\xe2\x86\x93",
+            )
+        elif text == "\x1b[B":
+            os.write(
+                write_fd,
+                ("\x1b[2J\x1b[1;1HMentions" f"\x1b[2;1H{expected_row}  Skill").encode(),
+            )
+
+    try:
+        monkeypatch.setattr(sys.modules[__name__], "_send", send_picker_frame)
+        monkeypatch.setattr(sys.modules[__name__], "_CODEX_PICKER_STALL_SECONDS", 0.05)
+        current = _open_skills_list(
+            exercise=_Exercise(fd=read_fd),
+            transcript="› Ask Codex to do anything",
+            query="overseer",
+            expected_row=expected_row,
+        )
+    finally:
+        os.close(read_fd)
+        os.close(write_fd)
+
+    assert sent == ["\x15@overseer", "\x1b[B"]
+    assert f"{expected_row}  Skill" in _plain(text=current)
 
 
 def test_a_silent_codex_fails_naming_the_wait_its_times_and_the_host_load() -> None:
