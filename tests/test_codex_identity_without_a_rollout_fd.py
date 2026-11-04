@@ -40,6 +40,7 @@ import herdr_adapter
 import herdr_calls
 import herdr_identity
 import pane_router
+import pytest
 import registry
 from test_supervisor_builders import adopt_sup, codex_idle_capture, make_plan
 from test_supervisor_fakes import FakeTmux
@@ -153,6 +154,7 @@ def add_row(*, store, repo, topic, tmux, identity):
             observed_session_identity=identity,
         ),
         store_path=store,
+        added_at="2026-11-04T00:00:00Z",
     )
 
 
@@ -1200,22 +1202,66 @@ def test_a_durable_herdr_replacement_advances_before_unidentified_carrier_refusa
 # --- assertion 6: the read-only list path reports without rewriting ------------------
 
 
-def test_the_read_only_list_path_reports_the_rebindable_track_without_writing(*, tmp_path):
-    """`supervisor.py list` classifies; only an ACTING tick may mutate the store.
+def _rebind_list_world(*, tmp_path, candidate_count):
+    """A dead Herdr row with zero, one, or two otherwise qualifying carriers."""
+    dead_pane = coordinate(pane_id="w2H:p2N")
+    world = make_world(
+        tmp_path=tmp_path,
+        rows=[(tmp_path / "repo", "topic", dead_pane, "claude:dead:topic")],
+        cwds=(
+            {
+                TRACKED_PID: str(tmp_path / "repo"),
+                OPERATOR_PID: str(tmp_path / "repo"),
+                APP_SERVER_PID: "/",
+                PANELESS_PID: str(tmp_path / "repo"),
+            }
+            if candidate_count == 2
+            else None
+        ),
+    )
+    if candidate_count == 0:
+        return world, dead_pane
 
-    The read-only path must still tell the truth about the track — it is the surface an
-    operator reads when deciding whether to touch anything — so it resolves the live
-    coordinate in memory and leaves the stored one alone.
-    """
+    names = [json.dumps({"id": SESSION_ID, "thread_name": "topic"})]
+    reported = {TRACKED_COORDINATE: SESSION_ID}
+    if candidate_count == 2:
+        second = coordinate(pane_id="w2H:p4")
+        write_state_database(
+            path=world.home / "state_2.sqlite",
+            rows=[
+                (SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+                (OPERATOR_SESSION_ID, "gpt-5.6-luna", str(world.repo)),
+            ],
+        )
+        names.append(json.dumps({"id": OPERATOR_SESSION_ID, "thread_name": "topic"}))
+        world.sup.tmux.pane_pids[OPERATOR_PANE_PID] = second
+        reported[second] = OPERATOR_SESSION_ID
+    (world.home / "session_index.jsonl").write_text("\n".join(names) + "\n", encoding="utf-8")
+    world.sup.tmux.pane_agent_session = lambda *, session: reported.get(session)
+    return world, dead_pane
+
+
+@pytest.mark.parametrize(
+    ("candidate_count", "expected_status"),
+    [(0, "session-gone"), (1, "warned"), (2, "unidentified-session")],
+)
+def test_the_read_only_list_path_reports_rebind_classifications_without_writing(
+    *, tmp_path, candidate_count, expected_status
+):
+    """`list` projects loop classifications without rebind writes or identity re-recording."""
     _module = codex_rebind()
-    world = make_world(tmp_path=tmp_path)
+    world, dead_pane = _rebind_list_world(tmp_path=tmp_path, candidate_count=candidate_count)
+    original = row_of(store=world.store)
 
-    outcome, log = resolve(world=world, act=False)
+    rows = world.sup.tick(act=False)
 
-    assert isinstance(outcome, _supervisor_evaluate_target.EvaluateTarget)
-    assert outcome.pane == TRACKED_COORDINATE
-    assert row_of(store=world.store).tmux == DEAD_TMUX
-    assert "rebound" not in log
+    listed = next(row for row in rows if row.topic == "topic" and row.repo == str(world.repo))
+    assert listed.status == expected_status
+    stored = row_of(store=world.store)
+    assert (stored.tmux, stored.observed_session_identity) == (
+        dead_pane,
+        original.observed_session_identity,
+    )
 
 
 # --- carrier_session_id: the database and home resolution ----------------------------

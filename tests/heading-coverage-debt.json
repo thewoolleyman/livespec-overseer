@@ -555,13 +555,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A row whose stored pane is gone is rebound only to a single qualifying pane",
-    "work_item": "overseer-5eqavc",
-    "first_seen": "2026-10-26"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: A run of slow cycles is surfaced once until a cycle completes in time",
     "work_item": "overseer-4j2tlu",
     "first_seen": "2026-10-31"
