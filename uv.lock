@@ -159,8 +159,8 @@ wheels = [
 
 [[package]]
 name = "livespec-dev-tooling"
-version = "1.172.0"
-source = { git = "https://github.com/thewoolleyman/livespec-dev-tooling.git?tag=v1.172.0#c61eaa70d4ec7c8bd7fecb68e68dc0c1db3c4b8e" }
+version = "1.173.0"
+source = { git = "https://github.com/thewoolleyman/livespec-dev-tooling.git?tag=v1.173.0#52f8312e91bc3d4eb57cc812fcc2839155934189" }
 
 [[package]]
 name = "livespec-overseer"
@@ -187,7 +187,7 @@ requires-dist = [{ name = "livespec-runtime", git = "https://github.com/thewooll
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "livespec-dev-tooling", git = "https://github.com/thewoolleyman/livespec-dev-tooling.git?tag=v1.172.0" },
+    { name = "livespec-dev-tooling", git = "https://github.com/thewoolleyman/livespec-dev-tooling.git?tag=v1.173.0" },
     { name = "pyright", specifier = "==1.1.391" },
     { name = "pytest", specifier = "==8.3.4" },
     { name = "pytest-cov", specifier = "==6.0.0" },
