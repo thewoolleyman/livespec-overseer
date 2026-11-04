@@ -337,6 +337,8 @@ def _record_daemon(request):
             last = (info, leader, candidates)
             if len(candidates) == 1 and info["foreground_process_group_id"] != info["shell_pid"]:
                 pid, executable, cmdline = candidates[0]
+                starttime = _starttime(pid)
+                readiness = _await_daemon_readiness(pid=pid, starttime=starttime)
                 return {
                     "kind": "daemon-launch",
                     "method": request["method"],
@@ -345,13 +347,54 @@ def _record_daemon(request):
                     "pane_id": pane_id,
                     "shell_pid": info["shell_pid"],
                     "daemon_pid": pid,
-                    "daemon_starttime": _starttime(pid),
+                    "daemon_starttime": starttime,
                     "daemon_executable": executable,
                     "daemon_cmdline": cmdline,
                     "installed_command": request["params"]["text"],
+                    "daemon_ready": True,
+                    "daemon_instance_id": readiness["daemon_instance_id"],
+                    "daemon_tick_generation": readiness["tick_generation"],
                 }
         time.sleep(0.05)
     raise RuntimeError(f"daemon never became independently observable; last={last!r}")
+
+
+def _await_daemon_readiness(*, pid, starttime):
+    # The daemon itself publishes this only after completing a live tick.
+    snapshot = Path.home() / ".livespec-overseer-status.json"
+    expected_package = Path(os.environ["OVERSEER_FAULT_MODULE_DIR"]).resolve()
+    expected_version = os.environ["OVERSEER_FAULT_VERSION"]
+    deadline = time.monotonic() + 120.0
+    while time.monotonic() < deadline:
+        try:
+            document = json.loads(snapshot.read_text(encoding="utf-8"))
+            package = document.get("daemon_package")
+            generation = document.get("tick_generation")
+            instance_id = document.get("daemon_instance_id")
+            ready = (
+                isinstance(package, dict)
+                and Path(str(package.get("package_dir"))).resolve() == expected_package
+                and package.get("version") == expected_version
+                and isinstance(generation, int)
+                and not isinstance(generation, bool)
+                and generation >= 1
+                and isinstance(instance_id, str)
+                and instance_id
+            )
+        except (OSError, json.JSONDecodeError):
+            ready = False
+        if ready:
+            if _starttime(pid) != starttime:
+                raise RuntimeError("daemon exited before publishing readiness")
+            return {"daemon_instance_id": instance_id, "tick_generation": generation}
+        try:
+            still_running = _starttime(pid) == starttime
+        except OSError:
+            still_running = False
+        if not still_running:
+            raise RuntimeError("daemon exited before publishing readiness")
+        time.sleep(0.05)
+    raise RuntimeError("daemon never published a readiness snapshot")
 
 
 if Path(sys.argv[0]).name == "overseer-start" and os.environ.get("OVERSEER_FAULT_METHOD"):
@@ -435,6 +478,8 @@ def _run_public(
                 f"OVERSEER_FAULT_SERVER_STARTTIME={case.server_starttime}",
                 f"OVERSEER_FAULT_DAEMON={shlex.quote(str(candidate.daemon))}",
                 f"OVERSEER_FAULT_PYTHON={shlex.quote(str(candidate.python.resolve()))}",
+                f"OVERSEER_FAULT_MODULE_DIR={shlex.quote(str(candidate.module_dir))}",
+                f"OVERSEER_FAULT_VERSION={shlex.quote(candidate.version)}",
             )
         )
     command = (
@@ -521,20 +566,75 @@ def _candidate_daemon_pids(*, candidate: Candidate) -> dict[int, CandidateProces
     return found
 
 
-def _await_candidate_daemon(*, case: LiveCase, pane: str, candidate: Candidate) -> CandidateProcess:
+def _daemon_readiness_generation(
+    *, candidate: Candidate, instance_id: str, minimum_generation: int
+) -> int | None:
+    snapshot = candidate.home / ".livespec-overseer-status.json"
+    try:
+        raw: object = json.loads(snapshot.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(raw, dict):
+        return None
+    document = cast(dict[str, object], raw)
+    package = document.get("daemon_package")
+    if not isinstance(package, dict):
+        return None
+    package_info = cast(dict[str, object], package)
+    package_dir = package_info.get("package_dir")
+    generation = document.get("tick_generation")
+    if (
+        not isinstance(package_dir, str)
+        or Path(package_dir).resolve() != candidate.module_dir
+        or package_info.get("version") != candidate.version
+        or document.get("daemon_instance_id") != instance_id
+        or isinstance(generation, bool)
+        or not isinstance(generation, int)
+        or generation < minimum_generation
+    ):
+        return None
+    return generation
+
+
+def _await_candidate_daemon(
+    *,
+    case: LiveCase,
+    pane: str,
+    candidate: Candidate,
+    expected: CandidateProcess,
+    instance_id: str,
+    minimum_generation: int,
+) -> CandidateProcess:
     deadline = time.monotonic() + WAIT_SECONDS
     last: object = None
     while time.monotonic() < deadline:
         reading = _foreground(case=case, pane=pane)
         pane_pids = {pid for pid, _name in reading.processes}
-        candidates = [
-            identity
+        candidates = {
+            pid: identity
             for pid, identity in _candidate_daemon_pids(candidate=candidate).items()
             if pid in pane_pids
-        ]
+        }
         last = (reading, candidates)
-        if len(candidates) == 1 and reading.group_id != reading.shell_pid:
-            return candidates[0]
+        unexpected = set(candidates) - {expected.pid}
+        if unexpected:
+            pytest.fail(f"unexpected candidate daemon(s) occupied {pane!r}: {unexpected!r}")
+        actual = candidates.get(expected.pid)
+        if actual is not None and actual != expected:
+            pytest.fail(f"candidate daemon identity changed before readiness: {actual!r}")
+        if (
+            actual == expected
+            and reading.group_id != reading.shell_pid
+            and _daemon_readiness_generation(
+                candidate=candidate,
+                instance_id=instance_id,
+                minimum_generation=minimum_generation,
+            )
+            is not None
+        ):
+            return expected
+        if claude_sessions.proc_starttime(pid=expected.pid) != expected.starttime:
+            pytest.fail(f"candidate daemon exited before readiness: {expected!r}")
         time.sleep(POLL_SECONDS)
     pytest.fail(f"installed candidate daemon never occupied {pane!r}; last={last!r}")
 
@@ -545,6 +645,8 @@ class ObservedDaemon:
     pid: int
     starttime: str
     panes: frozenset[str]
+    instance_id: str
+    tick_generation: int
 
 
 def _verified_daemon_effect(
@@ -556,6 +658,7 @@ def _verified_daemon_effect(
 ) -> ObservedDaemon:
     observed = _observation(fault=fault)
     assert observed["observation_completed_before_reply_loss"] is True
+    assert observed.get("daemon_ready") is True
     assert observed["ack_shape"] == fault.ack_shape
     assert (observed["server_pid"], observed["server_starttime"]) == (
         case.server_pid,
@@ -568,13 +671,24 @@ def _verified_daemon_effect(
     assert Path(str(observed["daemon_executable"])) == candidate.python.resolve()
     assert str(candidate.daemon) in str(observed["daemon_cmdline"])
     assert str(candidate.daemon) in str(observed["installed_command"])
-    identity = _await_candidate_daemon(case=case, pane=pane, candidate=candidate)
-    assert identity == CandidateProcess(
+    instance_id = str(observed["daemon_instance_id"])
+    tick_generation = _integer(record=observed, name="daemon_tick_generation")
+    assert tick_generation >= 1
+    expected = CandidateProcess(
         pid=pid,
         starttime=starttime,
         executable=candidate.python.resolve(),
         command=Path(f"/proc/{pid}/cmdline").read_bytes(),
     )
+    identity = _await_candidate_daemon(
+        case=case,
+        pane=pane,
+        candidate=candidate,
+        expected=expected,
+        instance_id=instance_id,
+        minimum_generation=tick_generation,
+    )
+    assert identity == expected
     assert _candidate_daemon_pids(candidate=candidate) == {pid: identity}
     tops, focused = _geometry(case=case)
     assert tops[pane] < tops[case.invoking]
@@ -583,7 +697,14 @@ def _verified_daemon_effect(
     assert panes == original | {pane}
     assert Path(f"/proc/{pid}").exists()
     _assert_unrelated_unchanged(case=case)
-    return ObservedDaemon(pane=pane, pid=pid, starttime=starttime, panes=panes)
+    return ObservedDaemon(
+        pane=pane,
+        pid=pid,
+        starttime=starttime,
+        panes=panes,
+        instance_id=instance_id,
+        tick_generation=tick_generation,
+    )
 
 
 @pytest.mark.parametrize("ack_shape", ["lost", "malformed"])
@@ -678,7 +799,17 @@ def test_daemon_launch_reply_loss_observes_exact_candidate_before_reuse(
     assert repeat_rc == 0, repeat_err
     assert frozenset(pane_ids(socket_path=live_case.socket_path)) == observed.panes
     repeat_identity = _await_candidate_daemon(
-        case=live_case, pane=observed.pane, candidate=candidate
+        case=live_case,
+        pane=observed.pane,
+        candidate=candidate,
+        expected=CandidateProcess(
+            pid=observed.pid,
+            starttime=observed.starttime,
+            executable=candidate.python.resolve(),
+            command=Path(f"/proc/{observed.pid}/cmdline").read_bytes(),
+        ),
+        instance_id=observed.instance_id,
+        minimum_generation=observed.tick_generation + 1,
     )
     assert repeat_identity.pid == observed.pid
     assert repeat_identity.starttime == observed.starttime
