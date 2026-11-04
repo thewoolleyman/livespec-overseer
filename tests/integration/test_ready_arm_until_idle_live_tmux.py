@@ -17,6 +17,7 @@ import threading
 import time
 from pathlib import Path
 
+import _supervisor_state_watch
 import pytest
 
 import overseer._supervisor_restart as supervisor_restart
@@ -111,6 +112,7 @@ class RacePaneDriver:
         self.capture = capture
         self.pastes: list[tuple[str, str]] = []
         self.respawns: list[tuple[str, str, str, float]] = []
+        self.respawned = threading.Event()
         self.pasted_text: str | None = None
         self.submitted = False
 
@@ -159,11 +161,14 @@ class RacePaneDriver:
         self, *, session: str, cwd: str, command: str, env: object | None = None
     ) -> bool:
         self.respawns.append((session, cwd, command, time.monotonic()))
-        return self.inner.respawn_pane(
+        respawned = self.inner.respawn_pane(
             session=session,
             cwd=cwd,
             command="bash --noprofile --norc",
         )
+        if respawned:
+            self.respawned.set()
+        return respawned
 
     def new_session(self, *, name: str, cwd: str) -> bool:
         return self.inner.new_session(name=name, cwd=cwd)
@@ -627,12 +632,6 @@ def _prompt_contract_fixture(
     return repo, topic, session, inner, driver, sup, transcript
 
 
-# Seconds after the ready declaration at which the narrator appends a turn.
-# Kept well under the 10.0s loop interval so beating it proves an
-# event-driven wake; see test_state_file_event_wakes_daemon_before_next_narration_turn.
-_NARRATION_DELAY_SECONDS = 2.0
-
-
 def _read_transcript_until(*, path: Path, needle: str) -> list[str]:
     for _attempt in range(100):
         if path.exists():
@@ -654,33 +653,40 @@ def _await_input_ready(*, driver: PromptContractPaneDriver, session: str) -> Non
     raise AssertionError("tiny-context pane never returned to an idle input box")
 
 
-def test_state_file_event_wakes_daemon_before_next_narration_turn(*, tmp_path: Path) -> None:
+def test_state_file_event_wakes_daemon_before_next_narration_turn(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     repo, topic, session, inner, driver, sup, _capture = _race_fixture(tmp_path=tmp_path)
+    state_file_parent = signals.state_path(repo=str(repo), topic=topic).parent
+    watcher_armed = threading.Event()
+    add_inotify_watch = _supervisor_state_watch._add_inotify_watch
+
+    def signal_watcher_armed(*, fd: int, root: Path) -> None:
+        add_inotify_watch(fd=fd, root=root)
+        if root == state_file_parent:
+            watcher_armed.set()
+
+    monkeypatch.setattr(_supervisor_state_watch, "_add_inotify_watch", signal_watcher_armed)
     try:
         _open_warning_round(sup=sup)
         first_tick_done, loop_finished, loop = _loop_until_second_tick(sup=sup)
-        assert first_tick_done.wait(timeout=5.0)
-        time.sleep(0.3)
-        declared_at = time.monotonic()
-        declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=time.time())
-        narrator = threading.Timer(
-            _NARRATION_DELAY_SECONDS, _append_narration, kwargs={"driver": driver}
-        )
-        narrator.start()
         try:
+            assert first_tick_done.wait(timeout=5.0)
+            # Write only after the real state-file watcher has its target directory
+            # registered. This rendezvous removes the host-load race from the old
+            # fixed settle sleep without bypassing the production wait implementation.
+            assert watcher_armed.wait(timeout=5.0)
+            declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=time.time())
+            # The narrator is released only after the test has observed the daemon's
+            # respawn. The timeout is solely a liveness guard: a daemon that ignores
+            # state-file events and waits for its 10s poll cannot satisfy it.
+            assert driver.respawned.wait(timeout=5.0)
+            _append_narration(driver=driver)
             assert loop_finished.wait(timeout=5.0)
         finally:
-            narrator.cancel()
             loop.join(timeout=1.0)
 
         assert driver.respawns
-        # The discriminator is "woke BEFORE the narration turn", not an absolute
-        # latency: the loop polls every 10.0s (run_loop), so a poll-driven wake
-        # could not beat the narration timer, while an event-driven one lands
-        # well inside it. A fixed 1.0s budget here failed on a loaded host
-        # (load 32-45 on 18 cores: wakes at 1.10-1.28s) while the behavior under
-        # test held every time; see overseer-jdo.
-        assert driver.respawns[0][3] - declared_at < _NARRATION_DELAY_SECONDS
         rendered = signals.strip_ansi(text=driver.capture_pane(session=session))
         assert "narrated after ready" not in rendered
     finally:
