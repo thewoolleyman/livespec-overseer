@@ -1,0 +1,4 @@
+› resume plan epic … read its
+  ledger-held plan state
+
+  gpt-5.5 high · /data/projects/livespec-overseer · Context 95% left · codex-restart-proof
