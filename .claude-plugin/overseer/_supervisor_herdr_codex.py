@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import _herdr_replacement_authorization
 import _supervisor_herdr_replacement
 import _supervisor_launch
+import codex_sessions
 import registry
 from _supervisor_launch_profile import CodexLaunchPlan, codex_fresh_launch_plan
 from _supervisor_profile_self_heal import heal_cross_runtime_profile
@@ -55,6 +56,13 @@ def begin_codex_replacement(
             condition="codex-session-vanished-before-restart",
         )
         return None
+    threads_before_launch = tuple(
+        codex_sessions.read_thread_names(
+            codex_home=codex_sessions.default_codex_home()
+            if sup.codex_home is None
+            else sup.codex_home
+        )
+    )
     resume = resume_for_track(track=track)
     if resume is None:
         _refuse(
@@ -88,6 +96,7 @@ def begin_codex_replacement(
             runtime="codex",
             predecessor_identity=f"codex:{live.pid}:{starttime}:{track.topic}",
             predecessor_rollout=prior_rollout,
+            predecessor_named_threads=threads_before_launch,
             resume=resume,
         ),
     )

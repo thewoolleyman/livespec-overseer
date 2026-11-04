@@ -195,6 +195,7 @@ def test_authorization_persists_optional_codex_rollout_and_resume(*, tmp_path, m
             runtime="codex",
             predecessor_identity=f"codex:201:old-start:{track.topic}",
             predecessor_rollout=OLD_ROLLOUT,
+            predecessor_named_threads=(OLD_ROLLOUT,),
             resume="read handoff",
         ),
     )
@@ -202,6 +203,7 @@ def test_authorization_persists_optional_codex_rollout_and_resume(*, tmp_path, m
     assert reason == ""
     assert transaction is not None
     assert transaction["predecessor_rollout"] == OLD_ROLLOUT
+    assert transaction["predecessor_named_threads"] == [OLD_ROLLOUT]
     assert transaction["resume"] == "read handoff"
 
     without_resume, reason = _herdr_replacement_authorization.bind_authorization(
@@ -223,3 +225,4 @@ def test_authorization_persists_optional_codex_rollout_and_resume(*, tmp_path, m
     assert reason == ""
     assert without_resume is not None
     assert "resume" not in without_resume
+    assert "predecessor_named_threads" not in without_resume
