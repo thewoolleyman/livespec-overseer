@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, cast
 
 import herdr_identity
+import pane_router_cycle
 import registry
 import signals
 from _seams import PaneCommandPredicate
@@ -189,6 +190,7 @@ def await_pane(*, sup: Supervisor, target: str, is_ready: PaneCommandPredicate) 
     that runtime.
     """
     for _ in range(RESTART_POLL_MAX):
+        pane_router_cycle.begin_cycle(driver=sup.tmux)
         if is_ready(pane_current_command=sup.tmux.pane_current_command(session=target)):
             return True
         sup.sleep(RESTART_POLL_INTERVAL)
@@ -207,6 +209,7 @@ def await_input_box(*, sup: Supervisor, target: str) -> bool:
     and the next-tick `resume_pending` retry recover a residual drop).
     """
     for _ in range(RESTART_POLL_MAX):
+        pane_router_cycle.begin_cycle(driver=sup.tmux)
         if signals.input_box_ready(capture_text=sup.tmux.capture_pane(session=target)):
             return True
         sup.sleep(RESTART_POLL_INTERVAL)
