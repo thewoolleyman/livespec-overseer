@@ -375,15 +375,8 @@ def _squashed(*, text: str) -> str:
 
 
 def _has_main_prompt(*, plain: str) -> bool:
-    squashed = _squashed(text=plain)
-    return (
-        any(line.lstrip().startswith(_CODEX_PROMPT_MARKER) for line in plain.splitlines())
-        or (f"model:{_CODEX_TEST_MODEL}" in squashed and "/modeltochange" in squashed)
-        or (
-            f"{_CODEX_PROMPT_MARKER}explainthiscodebase" in squashed
-            and f"{_CODEX_TEST_MODEL}default" in squashed
-        )
-        or "tip:" in squashed
+    return not _has_trust_prompt(plain=plain) and any(
+        line.lstrip().startswith(_CODEX_PROMPT_MARKER) for line in plain.splitlines()
     )
 
 
