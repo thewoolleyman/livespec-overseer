@@ -17,9 +17,9 @@ standing declaration, ambiguous identity. The restart interlock is untouched —
 working session.
 
 Codex is the asymmetric arm. Its empty composer shows a grey rotating placeholder that
-an ANSI-stripped capture cannot tell from typed text; the structural idle-input shape is
-the positive evidence for an IDLE Codex session, but a BUSY Codex session presents no
-such evidence, so the paste is withheld and the reason surfaced (fail-closed).
+an ANSI-stripped capture cannot tell from typed text.  Its styled ``›`` row is positive
+BUSY-input evidence only when every placeholder glyph is DIM; otherwise the paste is
+withheld and the reason surfaced (fail-closed).
 """
 
 from __future__ import annotations
@@ -56,17 +56,19 @@ CODEX_BUSY_WITHHELD_NOTE = "wrap-up withheld: busy Codex composer cannot be prov
 _HOLDING_TOKENS = frozenset({signals.STATE_READY, signals.STATE_BLOCKED, signals.STATE_DONE})
 
 
-def input_empty(*, capture: str, is_codex: bool) -> bool:
+def input_empty(*, capture: str, is_codex: bool, busy: bool = False) -> bool:
     """Positive evidence that the pane's INPUT is empty, independent of busyness.
 
     Claude: an available ``❯`` box between its borders (empty, or holding only the
     ANSI-proven generated placeholder) and no structured gate — the same box
     :func:`signals.input_box_ready` reads to confirm a submit, which renders whether or
-    not a turn is running. Codex: only its structural idle-input shape, which cannot
-    hold while it is generating — so a busy Codex session is never positively empty.
+    not a turn is running. Codex: its structural idle-input shape while idle, or, ONLY
+    while busy, a styled composer whose non-blank glyphs are all DIM placeholder text.
     """
     if is_codex:
-        return signals.is_codex_idle_input(capture_text=capture)
+        return signals.is_codex_idle_input(capture_text=capture) or (
+            busy and signals.codex_composer_placeholder_empty(capture_text=capture)
+        )
     return signals.input_box_ready(capture_text=capture) and not signals.is_structured_gate(
         capture_text=capture
     )
@@ -74,7 +76,7 @@ def input_empty(*, capture: str, is_codex: bool) -> bool:
 
 def obs_input_empty(*, obs: Observation) -> bool:
     """:func:`input_empty` for an observation, derived from its own capture."""
-    return input_empty(capture=obs.capture, is_codex=obs.is_codex)
+    return input_empty(capture=obs.capture, is_codex=obs.is_codex, busy=obs.busy)
 
 
 def _expiry_notice_due(*, obs: Observation) -> bool:
@@ -141,8 +143,8 @@ def input_settled(*, sup: Supervisor, target: str, is_codex: bool) -> bool:
     first = sup.tmux.capture_pane(session=target)
     sup.sleep(SETTLE_DELAY)
     second = sup.tmux.capture_pane(session=target)
-    return input_empty(capture=first, is_codex=is_codex) and input_empty(
-        capture=second, is_codex=is_codex
+    return input_empty(capture=first, is_codex=is_codex, busy=is_codex) and input_empty(
+        capture=second, is_codex=is_codex, busy=is_codex
     )
 
 
