@@ -56,6 +56,7 @@ __all__: list[str] = [
     "METHOD_PANE_LIST",
     "METHOD_PANE_PROCESS_INFO",
     "METHOD_PANE_READ",
+    "METHOD_PANE_REPORT_AGENT_SESSION",
     "METHOD_PANE_SEND_INPUT",
     "METHOD_PANE_SPLIT",
     "METHOD_PANE_SWAP",
@@ -70,6 +71,7 @@ __all__: list[str] = [
 METHOD_PANE_READ = "pane.read"
 METHOD_PANE_PROCESS_INFO = "pane.process_info"
 METHOD_PANE_SEND_INPUT = "pane.send_input"
+METHOD_PANE_REPORT_AGENT_SESSION = "pane.report_agent_session"
 # DERIVED from the measured CLI verbs by the dotted convention above; the live
 # verification slice confirms or corrects these four, here and nowhere else.
 METHOD_PANE_LIST = "pane.list"
