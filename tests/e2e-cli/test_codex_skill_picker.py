@@ -813,6 +813,13 @@ def test_an_unanswered_terminal_query_is_visible_in_the_raw_pty_rendering() -> N
     assert _escaped(text=unanswered) == "\\x1b[6n\\x1b[?u"
 
 
+def test_plain_renders_a_cursor_addressed_idle_prompt_on_its_screen_line() -> None:
+    """The timeout's screen is the terminal state, not its write history."""
+    raw = "\x1b[2J\x1b[1;1Hmodel: gpt-5.6-sol\x1b[39;1H› Ask Codex to do anything"
+
+    assert _plain(text=raw).endswith("\n› Ask Codex to do anything")
+
+
 def test_a_wait_returns_once_its_state_renders() -> None:
     read_fd, write_fd = os.pipe()
     try:
