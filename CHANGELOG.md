@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.49.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.49.1...v5.49.2) (2026-11-04)
+
+
+### Bug Fixes
+
+* cover fresh herdr relaunch observation ([acf4748](https://github.com/thewoolleyman/livespec-overseer/commit/acf4748102ce421dc28c00ea5756d9aa03f90b4c))
+* distinguish Codex resume turn evidence ([aee7d89](https://github.com/thewoolleyman/livespec-overseer/commit/aee7d895a56f7a234ae299bcd9b18f086ec452bc))
+* recognize submitted Codex replacement resume ([23dfa8b](https://github.com/thewoolleyman/livespec-overseer/commit/23dfa8b5090fe64b4a4440bde3c7c08e26a51f41))
+* restrict Codex rename recovery steps to Codex replacements ([1d27d68](https://github.com/thewoolleyman/livespec-overseer/commit/1d27d6891b0d0180abf274739d9c6dc60b92c66b))
+* retry missing Codex replacement resume ([6358554](https://github.com/thewoolleyman/livespec-overseer/commit/6358554ff27e723a4685b1cb56e4c35fbed3b72c))
+* surface Codex replacement recovery steps ([426d89e](https://github.com/thewoolleyman/livespec-overseer/commit/426d89ebf19586befe6d47eaf95ec025e782276d))
+
 ## [5.49.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.49.0...v5.49.1) (2026-11-03)
 
 
