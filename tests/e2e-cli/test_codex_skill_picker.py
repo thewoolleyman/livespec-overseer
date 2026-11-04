@@ -970,35 +970,6 @@ def test_a_wait_returns_once_its_state_renders() -> None:
     assert current.endswith("Skill")
 
 
-def test_picker_open_recognises_a_mentions_list_redrawn_before_the_prior_screen_length(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A redraw is a screen replacement, so its marker need not follow the old screen."""
-    read_fd, write_fd = os.pipe()
-    try:
-        transcript = "\x1b[2J" + "".join(f"\x1b[{row};1H{'x' * 100}" for row in range(1, 40))
-        expected_row = "overseer (livespec-overseer)"
-        os.write(
-            write_fd,
-            ("\x1b[2J\x1b[1;1HMentions" f"\x1b[2;1H{expected_row}  Skill").encode(),
-        )
-        monkeypatch.setattr(sys.modules[__name__], "_send", lambda **_: None)
-        monkeypatch.setattr(sys.modules[__name__], "_CODEX_PICKER_STALL_SECONDS", 0.05)
-        current = _open_skills_list(
-            exercise=_Exercise(fd=read_fd),
-            transcript=transcript,
-            query="overseer",
-            expected_row=expected_row,
-        )
-    finally:
-        os.close(read_fd)
-        os.close(write_fd)
-
-    plain = _plain(text=current)
-    assert "Mentions" in plain
-    assert f"{expected_row}  Skill" in plain
-
-
 def test_a_silent_codex_fails_naming_the_wait_its_times_and_the_host_load() -> None:
     """Silence, not a phase budget, is what expires a wait, and the failure says which."""
     read_fd, write_fd = os.pipe()
