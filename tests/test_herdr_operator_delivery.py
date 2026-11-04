@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 from pathlib import Path
 from typing import Protocol, cast
 
@@ -36,6 +37,32 @@ def _load_evidence_verifier() -> EvidenceModule:
     loaded = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(loaded)
     return cast("EvidenceModule", loaded)
+
+
+def _start_ignored_build_churn(*, race_file: Path) -> tuple[threading.Event, threading.Thread]:
+    started = threading.Event()
+    stop = threading.Event()
+
+    def churn() -> None:
+        while not stop.is_set():
+            race_file.parent.mkdir(parents=True, exist_ok=True)
+            race_file.write_text("transient build artefact\n", encoding="utf-8")
+            started.set()
+            race_file.unlink(missing_ok=True)
+
+    churner = threading.Thread(target=churn)
+    churner.start()
+    assert started.wait(timeout=5)
+    return stop, churner
+
+
+def _stop_ignored_build_churn(
+    *, stop: threading.Event, churner: threading.Thread, race_file: Path
+) -> None:
+    stop.set()
+    churner.join()
+    race_file.unlink(missing_ok=True)
+    race_file.parent.rmdir()
 
 
 def test_the_shipped_contract_bootstraps_the_nearest_verified_backend_without_an_override() -> None:
@@ -147,7 +174,9 @@ def test_the_live_exercise_rejects_a_reused_evidence_directory(tmp_path: Path) -
 def test_live_exercise_preserves_a_controller_failure_after_bootstrap(
     tmp_path: Path,
 ) -> None:
-    """A non-zero namespace must not overwrite the controller's failed stage."""
+    """A tracked scratch checkout survives ignored build churn and preserves failures."""
+    source = LIVE_EXERCISE.read_text(encoding="utf-8")
+    assert 'git -C "$checkout" archive --format=tar HEAD | tar -x -C "$scratch_checkout"' in source
     tools = tmp_path / "tools"
     tools.mkdir()
     agent = tools / "codex"
@@ -157,12 +186,21 @@ def test_live_exercise_preserves_a_controller_failure_after_bootstrap(
     bwrap.write_text(
         """#!/bin/sh
 evidence=""
+scratch=""
 while [ "$#" -gt 0 ]; do
   if [ "$1" = --bind ] && [ "$3" = /tmp/livespec-overseer-exercise-evidence ]; then
     evidence="$2"
   fi
+  if [ "$1" = --bind ] && [ "$3" = "$EXERCISE_CHECKOUT" ]; then
+    scratch="$2"
+  fi
   shift
 done
+test -n "$scratch"
+git -C "$EXERCISE_CHECKOUT" ls-files | while IFS= read -r tracked; do
+  test -f "$scratch/$tracked" || exit 1
+done
+test ! -e "$scratch/build"
 printf '%s\\n' '{"stage":"bootstrap","status":"passed"}' \\
   '{"stage":"adoption","status":"failed","detail":"controller-recorded failure"}' \\
   > "$evidence/lifecycle.jsonl"
@@ -172,29 +210,39 @@ exit 1
     )
     bwrap.chmod(0o755)
     evidence = tmp_path / "evidence"
+    race_directory = ROOT / "build" / "overseer-live-exercise-copy-race"
+    race_file = race_directory / "churn.py"
+    stop, churner = _start_ignored_build_churn(race_file=race_file)
 
-    completed = subprocess.run(  # noqa: S603 -- fixed repo-owned script.
-        [
-            str(LIVE_EXERCISE),
-            "run",
-            "--backend",
-            "tmux",
-            "--agent",
-            "codex",
-            "--topic",
-            "controller-failure",
-            "--checkout",
-            str(ROOT),
-            "--evidence",
-            str(evidence),
-            "--",
-            "/bin/true",
-        ],
-        check=False,
-        text=True,
-        capture_output=True,
-        env={**os.environ, "PATH": f"{tools}:{os.environ['PATH']}"},
-    )
+    try:
+        completed = subprocess.run(  # noqa: S603 -- fixed repo-owned script.
+            [
+                str(LIVE_EXERCISE),
+                "run",
+                "--backend",
+                "tmux",
+                "--agent",
+                "codex",
+                "--topic",
+                "controller-failure",
+                "--checkout",
+                str(ROOT),
+                "--evidence",
+                str(evidence),
+                "--",
+                "/bin/true",
+            ],
+            check=False,
+            text=True,
+            capture_output=True,
+            env={
+                **os.environ,
+                "EXERCISE_CHECKOUT": str(ROOT),
+                "PATH": f"{tools}:{os.environ['PATH']}",
+            },
+        )
+    finally:
+        _stop_ignored_build_churn(stop=stop, churner=churner, race_file=race_file)
 
     assert completed.returncode == 1
     assert "FAILED lifecycle at adoption: controller-recorded failure" in completed.stderr
