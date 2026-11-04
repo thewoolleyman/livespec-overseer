@@ -940,6 +940,12 @@ def test_plain_renders_a_cursor_addressed_idle_prompt_on_its_screen_line() -> No
     assert _plain(text=raw).endswith("\n› Ask Codex to do anything")
 
 
+def test_main_prompt_recognises_the_composer_without_a_placeholder_or_tip() -> None:
+    plain = _plain(text="\x1b[2J\x1b[39;1H› Ask Codex to do anything")
+
+    assert _has_main_prompt(plain=plain)
+
+
 def test_a_wait_returns_once_its_state_renders() -> None:
     read_fd, write_fd = os.pipe()
     try:
