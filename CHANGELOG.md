@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.50.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.49.2...v5.50.0) (2026-11-04)
+
+
+### Features
+
+* **overseer:** herdr writer reports a Codex agent session for one pane ([a923108](https://github.com/thewoolleyman/livespec-overseer/commit/a9231082747f238e3fb514d85b35fe4a824a1ca3))
+
 ## [5.49.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.49.1...v5.49.2) (2026-11-04)
 
 
