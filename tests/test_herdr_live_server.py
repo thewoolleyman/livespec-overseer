@@ -508,3 +508,31 @@ def test_the_server_child_never_loads_the_operator_shell_startup(
         assert zdotdir.is_relative_to(tmp_path)
         assert [path.name for path in zdotdir.iterdir()] == [".zshrc"]
         assert (zdotdir / ".zshrc").read_bytes() == b""
+
+
+def test_a_fixture_server_requires_a_private_config_with_remote_updates_disabled(
+    *, fake_host: _FakeHost, tmp_path: Path
+) -> None:
+    """The shared fixture must not let Herdr's startup checks reach herdr.dev."""
+    del fake_host
+    default_config = tmp_path / "defaults.toml"
+    _ = default_config.write_text('[terminal]\nshell_mode = "non_login"\n', encoding="utf-8")
+    session = unique_session(label="defaults")
+    try:
+        with pytest.raises(AssertionError, match="version_check"):
+            _ = start_server(
+                scratch=tmp_path,
+                session=session,
+                env={**os.environ, "HERDR_CONFIG_PATH": str(default_config)},
+            )
+
+        server = start_server(scratch=tmp_path, label="update-config")
+        config = tmp_path / "herdr-fixture-config.toml"
+        assert config.is_file(), "the fixture server started without its own config"
+        assert config.read_text(encoding="utf-8").endswith(
+            "[update]\nversion_check = false\nmanifest_check = false\n"
+        )
+    finally:
+        stop_server(session=session)
+        if "server" in locals():
+            stop_server(session=server.session)
