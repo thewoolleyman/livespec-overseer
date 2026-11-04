@@ -1,0 +1,4 @@
+● /rename codex-restart-proof
+› /rename codex-restart-proof
+  GPT-6.1-Sol high · /data/projects/livespec-overseer · Context 100% left · 01a1a6de-65ca-7623-aaea-2ab6b3c1a428 · livespec-overseer · master · Ready
+⚠ 2 warnings · f2 to view

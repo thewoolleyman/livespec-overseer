@@ -54,6 +54,8 @@ _CLAUDE_PASTE_PLACEHOLDER = re.compile(r"\[Pasted text #\d+(?: \+\d+ lines)?\]")
 # placeholder. As with Claude's placeholder, it proves a payload landed only
 # for a multi-line payload; a one-line paste must still expose its first line.
 _CODEX_PASTE_PLACEHOLDER = re.compile(r"› \[Pasted Content \d+ chars\]")
+_CODEX_CONTEXT_STATUSLINE = re.compile(r"\bContext \d+% left\b")
+_CODEX_CWD_STATUSLINE = re.compile(r" · (?:~|/[^ ·]+)(?: · |$)")
 
 
 def prompt_visible(*, capture: str, text: str) -> bool:
@@ -92,17 +94,20 @@ def codex_composer_text(*, capture: str) -> str | None:
 
     A pane capture contains transcript and composer text in one stream.  The only
     input that can authorize an Enter retry is the composer block immediately before
-    Codex's final statusline: its ``›`` row and any contiguous indented continuation
-    rows.  Blank spacer rows above that statusline are layout, not input.  Anchoring
-    the block at the final statusline prevents an identical transcript line from being
-    treated as pending composer text.
+    Codex's statusline: its ``›`` row and any contiguous indented continuation rows.
+    A warnings footer may appear below that line, so the statusline is identified by
+    its context indicator or cwd-bearing status shape rather than every row with a
+    separator. Blank spacer rows above it are layout, not input. Anchoring the block at
+    the statusline prevents an identical transcript line from being treated as pending
+    composer text.
     """
     lines = signals.strip_ansi(text=capture).splitlines()
     statusline = next(
         (
             index
             for index in range(len(lines) - 1, -1, -1)
-            if "Context" in lines[index] or " · " in lines[index]
+            if _CODEX_CONTEXT_STATUSLINE.search(lines[index]) is not None
+            or _CODEX_CWD_STATUSLINE.search(lines[index]) is not None
         ),
         None,
     )
