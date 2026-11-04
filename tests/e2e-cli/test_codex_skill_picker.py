@@ -83,7 +83,6 @@ _LIVE_CODEX_PICKER_ONLY = pytest.mark.skipif(
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_ANSI_RE = re.compile(r"(?:\x1b\][^\x07]*(?:\x07|\x1b\\)|\x1b\[[0-?]*[ -/]*[@-~]|\x1b[78])")
 _FOREGROUND_QUERY = "\x1b]10;?\x1b\\"
 _BACKGROUND_QUERY = "\x1b]11;?\x1b\\"
 _FOREGROUND_RESPONSE = "\x1b]10;rgb:ffff/ffff/ffff\x1b\\"
@@ -230,8 +229,129 @@ def _declared_codex_command(*, repo_root: Path) -> tuple[str, str]:
     return plugin, skill
 
 
+@dataclass(kw_only=True)
+class _Screen:
+    """The small ANSI terminal model needed to render Codex's 40x120 pty."""
+
+    rows: list[list[str]] = field(default_factory=lambda: [[" "] * 120 for _ in range(40)])
+    row: int = 0
+    column: int = 0
+    saved_row: int = 0
+    saved_column: int = 0
+
+    def render(self) -> str:
+        return "\n".join("".join(line).rstrip() for line in self.rows).strip()
+
+    def write(self, *, text: str) -> None:
+        index = 0
+        while index < len(text):
+            character = text[index]
+            if character == "\x1b" and index + 1 < len(text):
+                index = self._consume_escape(text=text, index=index)
+                continue
+            if character == "\r":
+                self.column = 0
+            elif character == "\n":
+                self.row = min(39, self.row + 1)
+            elif character == "\b":
+                self.column = max(0, self.column - 1)
+            elif character >= " ":
+                self.rows[self.row][self.column] = character
+                self.column = min(119, self.column + 1)
+            index += 1
+
+    def _consume_escape(self, *, text: str, index: int) -> int:
+        introducer = text[index + 1]
+        if introducer == "[":
+            return self._consume_csi(text=text, index=index)
+        if introducer == "]":
+            return self._consume_osc(text=text, index=index)
+        if introducer == "7":
+            self.saved_row, self.saved_column = self.row, self.column
+        elif introducer == "8":
+            self.row, self.column = self.saved_row, self.saved_column
+        return index + 2
+
+    def _consume_osc(self, *, text: str, index: int) -> int:
+        bell = text.find("\x07", index + 2)
+        string_terminator = text.find("\x1b\\", index + 2)
+        endings = [ending for ending in (bell, string_terminator) if ending >= 0]
+        if not endings:
+            return len(text)
+        ending = min(endings)
+        return ending + (2 if ending == string_terminator else 1)
+
+    def _consume_csi(self, *, text: str, index: int) -> int:
+        end = index + 2
+        while end < len(text) and not ("@" <= text[end] <= "~"):
+            end += 1
+        if end == len(text):
+            return end
+        parameters = text[index + 2 : end].lstrip("?>")
+        values = [int(value) if value else 0 for value in parameters.split(";")]
+        handler = {
+            "H": self._position,
+            "f": self._position,
+            "A": self._up,
+            "B": self._down,
+            "C": self._right,
+            "D": self._left,
+            "G": self._column,
+            "d": self._row,
+            "J": self._erase_display,
+            "K": self._erase_line,
+            "s": self._save_cursor,
+            "u": self._restore_cursor,
+        }.get(text[end])
+        if handler is not None:
+            handler(values=values)
+        return end + 1
+
+    def _position(self, *, values: list[int]) -> None:
+        self._row(values=values)
+        self._column(values=values[1:])
+
+    def _up(self, *, values: list[int]) -> None:
+        self.row = max(0, self.row - (values[0] or 1))
+
+    def _down(self, *, values: list[int]) -> None:
+        self.row = min(39, self.row + (values[0] or 1))
+
+    def _right(self, *, values: list[int]) -> None:
+        self.column = min(119, self.column + (values[0] or 1))
+
+    def _left(self, *, values: list[int]) -> None:
+        self.column = max(0, self.column - (values[0] or 1))
+
+    def _column(self, *, values: list[int]) -> None:
+        self.column = min(119, max(0, (values[0] if values else 1) - 1))
+
+    def _row(self, *, values: list[int]) -> None:
+        self.row = min(39, max(0, (values[0] if values else 1) - 1))
+
+    def _erase_display(self, *, values: list[int]) -> None:
+        if not values or values[0] in {2, 3}:
+            self.rows = [[" "] * 120 for _ in range(40)]
+
+    def _erase_line(self, *, values: list[int]) -> None:
+        mode = values[0] if values else 0
+        start, stop = (
+            (0, 120) if mode == 2 else (0, self.column + 1) if mode == 1 else (self.column, 120)
+        )
+        self.rows[self.row][start:stop] = [" "] * (stop - start)
+
+    def _save_cursor(self, *, values: list[int]) -> None:
+        self.saved_row, self.saved_column = self.row, self.column
+
+    def _restore_cursor(self, *, values: list[int]) -> None:
+        self.row, self.column = self.saved_row, self.saved_column
+
+
 def _plain(*, text: str) -> str:
-    return _ANSI_RE.sub("", text).replace("\r", "\n")
+    """Render Codex's cursor-addressed pty stream into the screen it displays."""
+    screen = _Screen()
+    screen.write(text=text)
+    return screen.render()
 
 
 def _escaped(*, text: str) -> str:
