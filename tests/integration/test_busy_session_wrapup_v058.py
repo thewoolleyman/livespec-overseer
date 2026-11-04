@@ -161,6 +161,14 @@ def test_styled_codex_placeholder_must_be_the_composer_above_the_statusline():
     assert signals.codex_composer_placeholder_empty(capture_text=capture) is False
 
 
+def test_styled_codex_placeholder_requires_a_nonblank_composer_row():
+    capture = "● response\n\n  gpt-5.5 high · /x/repo · Context 40% left · topic\n"
+    statusline_only = "  gpt-5.5 high · /x/repo · Context 40% left · topic\n"
+
+    assert signals.codex_composer_placeholder_empty(capture_text=capture) is False
+    assert signals.codex_composer_placeholder_empty(capture_text=statusline_only) is False
+
+
 # ## Scenario: A busy session with an empty input box receives the wrap-up
 @pytest.mark.parametrize(
     ("capture", "claude_status"),
