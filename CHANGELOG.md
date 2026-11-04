@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.52.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.52.0...v5.52.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* cover Codex warning footer composer parsing ([b321a2e](https://github.com/thewoolleyman/livespec-overseer/commit/b321a2e5631df03ca0ad472f043b4138d75106bb))
+
 ## [5.52.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.51.2...v5.52.0) (2026-11-04)
 
 
