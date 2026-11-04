@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.51.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.51.1...v5.51.2) (2026-11-04)
+
+
+### Bug Fixes
+
+* **overseer:** cover wrapped Codex resume reader ([5cb6b65](https://github.com/thewoolleyman/livespec-overseer/commit/5cb6b65d9ab7975b144118e85dad81bef5f9645b))
+
 ## [5.51.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.51.0...v5.51.1) (2026-11-04)
 
 
