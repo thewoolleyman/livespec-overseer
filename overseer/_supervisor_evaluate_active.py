@@ -121,6 +121,9 @@ def active_decision(*, request: ActiveRequest) -> ActiveDecision | None:
                     shell_only
                     and request.eff_ctx is not None
                     and request.eff_ctx <= request.threshold
+                    and not _supervisor_busy_delivery.codex_busy_withheld(
+                        obs=request.obs, threshold=request.threshold
+                    )
                 )
                 # Spec v058: a busy pane whose input is positively empty still receives
                 # the owed wind-down; only input-protecting evidence holds it back.
