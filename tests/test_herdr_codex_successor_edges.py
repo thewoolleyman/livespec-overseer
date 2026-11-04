@@ -281,7 +281,7 @@ def test_fresh_codex_without_rollout_reports_its_named_thread_and_still_resumes_
     )
 
     assert reason is None
-    assert reports == [{"session": target, "source": "overseerd", "agent_session_id": NEW}]
+    assert reports == [{"session": target, "source": "herdr:codex", "agent_session_id": NEW}]
     assert resumes == ["read the durable handoff"]
     assert bool(alerts) is not report_ok
     record = json.loads(path.read_text(encoding="utf-8"))
