@@ -9,13 +9,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
-    "heading": "## Expedited incident operator routing",
-    "work_item": "overseer-czsqpx",
-    "first_seen": "2026-11-03"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "contracts.md",
     "heading": "## Independent recovery of authorized session obligations",
     "work_item": "overseer-okf6bu",
     "first_seen": "2026-10-08"
@@ -1951,13 +1944,6 @@
     "heading": "## Scenario: Worker operation phases retain every terminal effect",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: an incident repair returns to normal factory repayment before closure",
-    "work_item": "overseer-czsqpx",
-    "first_seen": "2026-11-03"
   },
   {
     "spec_root": "SPECIFICATION",

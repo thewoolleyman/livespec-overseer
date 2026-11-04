@@ -24,7 +24,8 @@ The single sentence the maintainer wrote that this skill exists to honour:
 > for the trees.
 
 Everything below is one of: a rule that kept the drive moving, or a rule
-learned by stalling. Read the whole file once; then execute §2 → §8 in order.
+learned by stalling. Read the whole file once; resolve §1's route first, then
+execute the applicable §2 → §9 steps in order.
 
 ## 0. Invocation and state
 
@@ -102,7 +103,51 @@ Every ledger call goes through the repo's credential wrapper:
 
 ## 1. Preconditions — measure, never carry a claim
 
-Run these before anything else, every resume, and again before every launch.
+### Receipt-bound incident selection comes first
+
+Resolve an incident request before factory admission, credential probing or a green-master precondition.
+Use the active implementation orchestrator's supported incident reader to resolve
+the item, attempt, phase, repository and current operation identity. Follow that
+installed reader's documented interface; do not invent an incident command, receipt or second lifecycle store.
+An ambient flag, retained marker or factory-exempt label is never authorization.
+New incident intake uses the orchestrator's sanctioned fast canonical filing
+surface; deferred admission judgement stays attached to that same item.
+
+| Canonical observation | Operator route |
+|---|---|
+| Current authorized repair | Use the installed sanctioned local incident worktree, commit and push route with the reader's immutable context. |
+| Current recorded emergency revert | Use the sanctioned recorded inverse route for that incident attempt. |
+| Normal repayment or ordinary work | Keep the normal factory route and the preconditions below. |
+| Stale attempt or lost ownership | Perform no incident side effect; retain the obligation and resolve current ownership through the orchestrator. |
+| Unavailable or unsupported incident reader | Report the precise missing capability and retain the unresolved obligation; create neither an exemption nor another incident identity. |
+
+For either local recovery route, revalidate canonical phase, generation and ownership immediately before each side effect.
+Preserve the orchestrator's cancellation and claim fences. An old receipt is not
+authority for a later attempt. Do not launch the normal full aggregate or probe the factory to authorize this route.
+For a repair, record changed or directly related tests, coverage scoped to touched product files,
+one manual incident reproduction, and deferred verification and specification work
+through the canonical incident surface. Preserve the exact incident marker required
+by that surface, and use the recorded inverse rather than treating marker removal
+as rollback evidence. Existing prohibitions on --no-verify, LEFTHOOK disabling,
+primary-checkout mutation, unsafe host mutation and bare-backgrounded gate commands
+still apply to this product route. Use the established detached command mechanism
+and an independently verified supervising mechanism; never substitute a shell
+polling loop or treat receipt acknowledgement as completion.
+
+After the canonical observer records normal-master success, request a
+new unexpedited factory run on the SAME incident item with no incident execution flag set.
+Pass the original cumulative change scope and all deferred verification and
+specification obligations. A follow-up-only proof defect is fixed in that follow-up
+without reverting otherwise healthy master solely for that finding. A
+canonically attributed deployed or other-PR regression returns to incident recovery
+under the orchestrator's current generation fence. Retain the obligation until
+the canonical reader confirms final normal factory, PR and master proof plus repaid debt.
+The ready-only restart, independent recovery and plan proof/archive interlocks
+remain effective. Neither an expedited merge nor removal of a marker closes the item.
+
+### Normal factory preconditions
+
+Run these for ordinary work and normal repayment, every resume, and again before every factory launch.
 A prior session's note about any of them is a claim, not a measurement.
 
 ```bash
@@ -310,11 +355,12 @@ measured text, and MUST be gradeable: name the behaviour, the test that proves
 it (positive and negative control), and `just check green`. The engine refuses
 an item without them.
 
-## 4. Execution — everything goes through the factory
+## 4. Execution — factory work and receipt-bound recovery
 
-The only execution verbs for a work item are `drive --action impl:<id>` and
-the dispatcher loop. **Exemption is a closed enum**, carried as a ledger label
-because the orchestrator's `factory-bypass-audit --allow-label` reads it:
+Ordinary implementation and normal repayment use `drive --action impl:<id>` or
+the dispatcher loop. Section 1 selects authorized incident recovery before these
+factory-only steps. **Exemption is a closed enum**, carried as a ledger label;
+the incident entry is descriptive only and never an unrestricted audit allow-label:
 
 - `factory-exempt:infra-in-person` — a host, secret, registrar, or billing act
   no sandbox can perform.
@@ -323,12 +369,18 @@ because the orchestrator's `factory-bypass-audit --allow-label` reads it:
   lane that reds every PR). The factory cannot fix the thing that blocks it.
 - `factory-exempt:workflow-only` — the diff is entirely under
   `.github/workflows/`, which the App token cannot push. Retires when it can.
+- `factory-exempt:expedited-incident` — only the current receipt-bound repair
+  or recorded revert selected in §1; revalidate its canonical phase and ownership
+  before acting, and exclude normal repayment. The retrospective audit must retain
+  its incident exception and outstanding repayment evidence rather than suppress it.
 
 Classify at triage, record it in the ruling, label the item, and only then
 hand-work it through worktree → PR → merge → cleanup. **Hand-fixing a
 dispatchable item because "it's quicker" is the leak this rule closes.**
 
-**A failed run is re-dispatched or groomed, never hand-fixed.** On a failed
+**An ordinary failed factory run is re-dispatched or groomed, never hand-fixed.**
+A failed run does not itself authorize the incident route: only §1's current
+canonical authorization does. On a failed
 outcome: read the journal outcome's `detail` (the `✗` node and `Error:` line),
 and the run dump when it says nothing (`fabro dump <run> --server … -o <dir>`,
 then `stages/*/response.md`). Then exactly one of:
@@ -345,7 +397,7 @@ then `stages/*/response.md`). Then exactly one of:
   `bd create … --deps discovered-from:<snapshot-id>`, labelled exempt if the
   factory cannot land it, then hand-work it.
 
-**The engine.** Launch ONLY through the shipped launcher, DETACHED:
+**The normal factory engine.** Launch ONLY through the shipped launcher, DETACHED:
 
 ```bash
 setsid nohup "$DRAIN_SCRIPTS/engine-on-green.sh" <label> <parallel> <id>... \
@@ -382,7 +434,9 @@ tmp/fabro-dispatch-journal.jsonl outcome events since the last tick (tick.py), n
 and the open PRs — plus the engine logs under tmp/drain-backlog/ and live runs via
 fabro ps --server <FABRO_SERVER>. Act only on what is ripe: re-dispatch a run-environment
 failure once, groom a repeat, close a zero-diff "already landed" run as landed, close merged
-items on CI evidence, work the valves as findings, launch the next keeps as claims free
+ordinary items on CI evidence, retain every incident on the same incident item until its canonical
+reader confirms final normal factory/PR/master proof and repaid debt, route incident events through
+section 1 before factory preconditions, work the valves as findings, launch the next keeps as claims free
 (wip_cap counts ledger claims; engines DETACHED through $DRAIN_SCRIPTS/engine-on-green.sh, which gates
 on the credential probe and master CI, never on a clock), file discovered-during defects with
 discovered-from provenance, and propose the next batch when a tier drains. Healthy waits are
@@ -412,7 +466,9 @@ gh pr list --state open --json number,title,mergeStateStatus,statusCheckRollup
 
 Ripe acts, by outcome:
 
-- `done green` → nothing; the engine closed it. Count it.
+- `done green` for ordinary work → nothing; the engine closed it. Count it.
+  An incident still requires §1's canonical final proof and repaid debt; an
+  expedited merge or a closed row alone does not discharge that obligation.
 - `failed` / `blocked needs-human` → §4's four-way decision.
 - a factory PR `BLOCKED` on a red lane → **read the failing job's own finding
   before re-running anything** (`gh run view --job <id> --log-failed`). A
@@ -480,7 +536,7 @@ same fields to `tmp/drain-backlog/handoff.md`.
 
 The prose `next action:` line carries no authority; the typed field wins.
 
-Resume protocol, in one turn: preconditions (§1), read the handoff, take the
+Resume protocol, in one turn: incident selection then applicable preconditions (§1), read the handoff, take the
 typed action, arm the Monitor, invoke `/loop`. Do not open by asking the
 maintainer which action to take when the typed action is dispatchable.
 
@@ -514,6 +570,9 @@ The drain is complete when `snapshot.py --status` reports every frozen id
 closed or dispositioned **AND `plans_needing_action` EMPTY**, every engine has
 exited, no worktree or branch from the drain remains, and the final handoff
 names the follow-up plan(s) or item(s) that carry anything transferred out.
+Every incident retained by this drain must also have §1's canonical final normal
+proof and repaid debt, or an explicit owned transfer that preserves that same-item
+obligation. An unfinished incident cannot disappear from the exit audit.
 
 **The plan half of that gate is not a footnote.** Every plan the snapshot can
 identify — by directory or by ledger slug, §2 — must have reached
