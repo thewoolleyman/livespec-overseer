@@ -828,15 +828,18 @@ def _open_skills_list(
     load-sensitive gate to it would have been the same defect, self-inflicted.
     """
     _send(fd=exercise.fd, text="\x15@" + query)
-    before = len(_plain(text=transcript))
-    # Picker OPEN: the mentions list has drawn something after the keystrokes (its
-    # header, or the row itself). Picker RENDER: the declared row and its Skill kind.
+    before = _plain(text=transcript)
+    # Picker OPEN: a mentions-list marker has appeared in the rendered screen that
+    # was not already present before the keystrokes. `plain` is a terminal-screen
+    # redraw, not an append-only stream, so an offset into `before` cannot identify
+    # what Codex drew after input.
     opened = _read_until(
         exercise=exercise,
         phase="picker open",
         seen=transcript,
         predicate=lambda plain: any(
-            marker in plain[before:] for marker in (_PICKER_OPEN_MARKER, expected_row)
+            marker in plain and marker not in before
+            for marker in (_PICKER_OPEN_MARKER, expected_row)
         ),
         stall_seconds=_CODEX_PICKER_STALL_SECONDS,
     )
