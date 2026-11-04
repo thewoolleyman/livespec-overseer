@@ -1,5 +1,19 @@
 # Changelog
 
+## [5.52.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.51.2...v5.52.0) (2026-11-04)
+
+
+### Features
+
+* rebind a gone Herdr pane to named Codex ([6026efd](https://github.com/thewoolleyman/livespec-overseer/commit/6026efd696cd899938dbbe6a588df92a61240876))
+* refuse ambiguous gone-pane Codex rebinds ([c46a31f](https://github.com/thewoolleyman/livespec-overseer/commit/c46a31f0b5868f3c65c538aaafa93b6b594c6ab3))
+
+
+### Bug Fixes
+
+* count Codex rebind candidates per pane, not per carrier pid ([0d534e0](https://github.com/thewoolleyman/livespec-overseer/commit/0d534e0a981b2a3c238f8a64a7e9cf0acdf72abc))
+* exclude other track bindings from pane rebind ([19e35b6](https://github.com/thewoolleyman/livespec-overseer/commit/19e35b6f241e98f2285a1506ee78e6c1798616a1))
+
 ## [5.51.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.51.1...v5.51.2) (2026-11-04)
 
 
