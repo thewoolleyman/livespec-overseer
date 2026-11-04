@@ -829,18 +829,16 @@ def _open_skills_list(
     """
     _send(fd=exercise.fd, text="\x15@" + query)
     before = _plain(text=transcript)
-    # Picker OPEN: a mentions-list marker has appeared in the rendered screen that
-    # was not already present before the keystrokes. `plain` is a terminal-screen
-    # redraw, not an append-only stream, so an offset into `before` cannot identify
-    # what Codex drew after input.
+    # Picker OPEN: the rendered mentions list has changed after the keystrokes.
+    # `plain` is a terminal-screen redraw, not an append-only stream, so neither an
+    # offset into `before` nor whether a marker was already present identifies what
+    # Codex drew after input.
     opened = _read_until(
         exercise=exercise,
         phase="picker open",
         seen=transcript,
-        predicate=lambda plain: any(
-            marker in plain and marker not in before
-            for marker in (_PICKER_OPEN_MARKER, expected_row)
-        ),
+        predicate=lambda plain: plain != before
+        and any(marker in plain for marker in (_PICKER_OPEN_MARKER, expected_row)),
         stall_seconds=_CODEX_PICKER_STALL_SECONDS,
     )
     return _read_until(

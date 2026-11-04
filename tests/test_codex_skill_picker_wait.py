@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 _HELPER_PATH = Path(__file__).parent / "e2e-cli" / "test_codex_skill_picker.py"
 
 
@@ -49,6 +51,64 @@ def test_a_mentions_list_redrawn_at_an_earlier_screen_offset_opens_the_picker(
     plain = helpers._plain(text=current)
     assert "Mentions" in plain
     assert f"{expected_row}  Skill" in plain
+
+
+def test_a_redrawn_mentions_list_opens_even_when_its_header_was_already_visible(
+    monkeypatch,
+) -> None:
+    helpers = _picker_helpers()
+    transcript = "Mentions\n  livespec-overseer  Plugin"
+    redrawn = helpers._plain(text="Mentions\n  overseer  Dir")
+    expected_row = "overseer (livespec-overseer)"
+
+    def read_until(**kwargs: object) -> str:
+        predicate = kwargs["predicate"]
+        assert callable(predicate)
+        if kwargs["phase"] == "picker open":
+            assert predicate(redrawn)
+            return redrawn
+        rendered_row = f"{redrawn}\n{expected_row}  Skill"
+        assert predicate(rendered_row)
+        return rendered_row
+
+    monkeypatch.setattr(helpers, "_send", lambda **_: None)
+    monkeypatch.setattr(helpers, "_read_until", read_until)
+
+    current = helpers._open_skills_list(
+        exercise=helpers._Exercise(fd=1),
+        transcript=transcript,
+        query="livespec-overseer:overseer",
+        expected_row=expected_row,
+    )
+
+    assert current.endswith("Skill")
+
+
+def test_an_unchanged_mentions_list_does_not_open_the_picker(monkeypatch) -> None:
+    helpers = _picker_helpers()
+    transcript = "Mentions\n  livespec-overseer  Plugin"
+    before = helpers._plain(text=transcript)
+
+    class StopAfterOpeningCheckError(Exception):
+        pass
+
+    def read_until(**kwargs: object) -> str:
+        predicate = kwargs["predicate"]
+        assert callable(predicate)
+        assert kwargs["phase"] == "picker open"
+        assert not predicate(before)
+        raise StopAfterOpeningCheckError
+
+    monkeypatch.setattr(helpers, "_send", lambda **_: None)
+    monkeypatch.setattr(helpers, "_read_until", read_until)
+
+    with pytest.raises(StopAfterOpeningCheckError):
+        _ = helpers._open_skills_list(
+            exercise=helpers._Exercise(fd=1),
+            transcript=transcript,
+            query="livespec-overseer:overseer",
+            expected_row="overseer (livespec-overseer)",
+        )
 
 
 def test_the_picker_filters_on_the_declared_plugin_and_skill(monkeypatch) -> None:
