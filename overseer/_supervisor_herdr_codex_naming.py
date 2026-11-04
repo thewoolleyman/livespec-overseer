@@ -41,7 +41,7 @@ from _supervisor_config import RESTART_POLL_INTERVAL, RESTART_POLL_MAX
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
-__all__: list[str] = ["name_fresh_successor", "rollout_named"]
+__all__: list[str] = ["name_fresh_successor", "named_thread", "rollout_named"]
 
 
 class PendingEnterRetry(Protocol):
@@ -54,7 +54,9 @@ class PendingEnterRetry(Protocol):
     ) -> tuple[bool, bool]: ...
 
 
-def rollout_named(*, sup: Supervisor, track: registry.Track, rollout: str) -> bool:
+def named_thread(
+    *, sup: Supervisor, track: registry.Track, predecessors: frozenset[str]
+) -> str | None:
     """True once the durable session index binds ``rollout`` to this track's plan topic.
 
     This record is written while the successor is still idle and outlives its process, so
@@ -64,7 +66,19 @@ def rollout_named(*, sup: Supervisor, track: registry.Track, rollout: str) -> bo
     indexed = codex_sessions.latest_session_for_thread_name(
         thread_name=track.topic, codex_home=sup.codex_home
     )
-    return indexed == rollout
+    return indexed if isinstance(indexed, str) and indexed not in predecessors else None
+
+
+def rollout_named(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    rollout: str,
+    predecessors: frozenset[str] | None = None,
+) -> bool:
+    """Whether the index names a thread created after the recorded launch."""
+    before = frozenset((rollout,)) if predecessors is None else predecessors
+    return named_thread(sup=sup, track=track, predecessors=before) is not None
 
 
 def _submit_no_turn(*, sup: Supervisor, target: str, text: str) -> bool:
@@ -93,6 +107,7 @@ def name_fresh_successor(
     target: str,
     text: str,
     rollout: str,
+    predecessors: frozenset[str] | None = None,
 ) -> bool:
     """Submit the no-turn naming payload, then wait — bounded — for the index to record it.
 
@@ -103,7 +118,7 @@ def name_fresh_successor(
     if not _submit_no_turn(sup=sup, target=target, text=text):
         return False
     for _ in range(RESTART_POLL_MAX):
-        if rollout_named(sup=sup, track=track, rollout=rollout):
+        if rollout_named(sup=sup, track=track, rollout=rollout, predecessors=predecessors):
             return True
         sup.sleep(RESTART_POLL_INTERVAL)
     return False

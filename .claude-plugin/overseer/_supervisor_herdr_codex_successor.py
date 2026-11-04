@@ -7,7 +7,9 @@ from typing import TYPE_CHECKING, cast
 
 import _herdr_replacement_process
 import _herdr_replacement_store
+import _supervisor_herdr_codex_carrier
 import _supervisor_herdr_codex_naming
+import _supervisor_herdr_codex_report
 import _supervisor_herdr_codex_retry
 import _supervisor_herdr_completion
 import _supervisor_launch
@@ -27,30 +29,29 @@ def _prove_successor(
     track: registry.Track,
     target: str,
     current: dict[str, object],
-) -> tuple[_herdr_replacement_process.ProcessObservation | None, str | None, str | None]:
+) -> tuple[_herdr_replacement_process.ProcessObservation | None, str | None]:
+    pane = cast(_herdr_replacement_process.ReplacementPane, sup.tmux)
+    snapshot = pane.herdr_replacement_snapshot(session=target)
     session = _supervisor_launch.session_of(sup=sup, track=track)
     sup.refresh_codex_sessions()
     live = sup.live_codex.get((session, track.topic))
     prior = current.get("predecessor_rollout")
-    if (
-        live is None
-        or live.session_id == prior
-        or _supervisor_launch.canonical_codex_session_id(value=live.session_id) is None
-        or not signals.path_in_repo(pane_current_path=live.cwd, repo=track.repo)
-    ):
-        return None, None, "fresh Codex rollout is not yet observable in the original pane"
-    starttime = sup.starttime_of(pid=live.pid)
-    if starttime is None:
-        return None, None, "fresh Codex process generation is not readable"
-    pane = cast(_herdr_replacement_process.ReplacementPane, sup.tmux)
-    snapshot = pane.herdr_replacement_snapshot(session=target)
-    identity = f"codex:{live.pid}:{starttime}:{track.topic}"
+    carrier, reason = (
+        _supervisor_herdr_codex_carrier.carrier_without_rollout(sup=sup, snapshot=snapshot)
+        if live is None
+        else _supervisor_herdr_codex_carrier.carrier_from_live_rollout(
+            sup=sup, track=track, snapshot=snapshot, live=live, predecessor=prior
+        )
+    )
+    if carrier is None:
+        return None, reason
+    identity = f"codex:{carrier.pid}:{carrier.starttime}:{track.topic}"
     successor = _herdr_replacement_process.proven_successor(
         transaction=current, snapshot=snapshot, identity=identity
     )
     if successor is None:
-        return None, None, "Codex successor is not a fresh process in the retained shell"
-    return successor, live.session_id, None
+        return None, "Codex successor is not a fresh process in the retained shell"
+    return successor, None
 
 
 def _rename_successor(
@@ -62,8 +63,22 @@ def _rename_successor(
     record_path: Path,
     rollout: str,
 ) -> str | None:
+    recorded = current.get("predecessor_named_threads")
+    predecessors: frozenset[str] = (
+        frozenset(value for value in cast(list[object], recorded) if isinstance(value, str))
+        if isinstance(recorded, list)
+        else (
+            frozenset((rollout,))
+            if isinstance(current.get("predecessor_rollout"), str)
+            else frozenset()
+        )
+    )
+    thread = None
     if current.get("phase") == "rename-attempted":
-        if not _supervisor_herdr_codex_naming.rollout_named(sup=sup, track=track, rollout=rollout):
+        thread = _supervisor_herdr_codex_naming.named_thread(
+            sup=sup, track=track, predecessors=predecessors
+        )
+        if thread is None:
             _, reason = _supervisor_herdr_codex_retry.retry_pending(
                 sup=sup,
                 target=target,
@@ -72,9 +87,10 @@ def _rename_successor(
                 key="rename",
             )
             sup.refresh_codex_sessions()
-            if not _supervisor_herdr_codex_naming.rollout_named(
-                sup=sup, track=track, rollout=rollout
-            ):
+            thread = _supervisor_herdr_codex_naming.named_thread(
+                sup=sup, track=track, predecessors=predecessors
+            )
+            if thread is None:
                 return reason
     else:
         capture = sup.tmux.capture_pane(session=target)
@@ -94,8 +110,16 @@ def _rename_successor(
             target=target,
             text=current["rename"],
             rollout=rollout,
+            predecessors=predecessors,
         ):
             return "fresh Codex successor was never named for this plan topic"
+        thread = _supervisor_herdr_codex_naming.named_thread(
+            sup=sup, track=track, predecessors=predecessors
+        )
+    if thread is None:
+        return "fresh Codex successor was never named for this plan topic"
+    current["successor_thread"] = thread
+    current["successor_rollout"] = thread
     current["phase"] = "successor-observed"
     _herdr_replacement_store.durable_write(path=record_path, value=current)
     return None
@@ -145,7 +169,7 @@ def continue_codex_successor(
     target: str,
     transaction: dict[str, object],
 ) -> str | None:
-    """Prove process and rollout, then name and resume without replaying either paste."""
+    """Prove process, name its index thread, report it, then resume without replaying."""
     scratch = _herdr_replacement_store.scratch_path(track=track)
     record_path = scratch / _herdr_replacement_store.RECORD_NAME
     with _herdr_replacement_store.transaction_lock(
@@ -155,17 +179,14 @@ def continue_codex_successor(
         if current != transaction:
             return "durable replacement changed during Codex successor verification"
         current = cast(dict[str, object], current)
-        successor, rollout, reason = _prove_successor(
-            sup=sup, track=track, target=target, current=current
-        )
-        if successor is None or rollout is None:
+        successor, reason = _prove_successor(sup=sup, track=track, target=target, current=current)
+        if successor is None:
             return reason
         recorded = current.get("successor")
         process_record = _herdr_replacement_process.process_record(process=successor)
         if recorded is not None and recorded != process_record:
             return "Codex successor no longer matches its durable process generation"
         current["successor"] = process_record
-        current["successor_rollout"] = rollout
         if current.get("phase") in {"launch-attempted", "rename-attempted"}:
             reason = _rename_successor(
                 sup=sup,
@@ -173,7 +194,11 @@ def continue_codex_successor(
                 target=target,
                 current=current,
                 record_path=record_path,
-                rollout=rollout,
+                rollout=cast(str, current["predecessor_rollout"]),
+            )
+        if reason is None:
+            _supervisor_herdr_codex_report.report_successor_thread(
+                sup=sup, track=track, target=target, current=current, record_path=record_path
             )
         if reason is None and current.get("phase") in {"successor-observed", "resume-attempted"}:
             reason = _resume_successor(

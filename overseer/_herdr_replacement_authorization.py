@@ -33,6 +33,7 @@ class ReplacementBinding:
     runtime: str = "claude"
     predecessor_identity: str | None = None
     predecessor_rollout: str | None = None
+    predecessor_named_threads: tuple[str, ...] = ()
     resume: str | None = None
 
 
@@ -125,6 +126,8 @@ def bind_authorization(
     }
     if binding.predecessor_rollout is not None:
         transaction["predecessor_rollout"] = binding.predecessor_rollout
+    if binding.predecessor_named_threads:
+        transaction["predecessor_named_threads"] = list(binding.predecessor_named_threads)
     if binding.resume is not None:
         transaction["resume"] = binding.resume
     return transaction, ""
