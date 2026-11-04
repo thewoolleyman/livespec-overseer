@@ -64,6 +64,7 @@ __all__ = [
     "start_server",
     "stop_server",
     "unique_session",
+    "write_hermetic_config",
 ]
 
 HERDR_BINARY = "herdr"
@@ -78,6 +79,8 @@ LOG_TAIL_BYTES = 800
 # Removed from every server child's environment: it names the OPERATOR's live
 # socket on a host that runs herdr, and nothing here has any use for it.
 SCRUBBED_VARIABLES = ("HERDR_SOCKET_PATH",)
+FIXTURE_CONFIG_NAME = "herdr-fixture-config.toml"
+UPDATE_CONFIG = "[update]\nversion_check = false\nmanifest_check = false\n"
 
 
 class OwnedChild(Protocol):
@@ -284,7 +287,36 @@ def _server_environment(*, env: Mapping[str, str] | None, scratch: Path) -> dict
     zdotdir.mkdir(exist_ok=True)
     (zdotdir / ".zshrc").touch()
     environment["ZDOTDIR"] = str(zdotdir)
+    config_path = environment.get("HERDR_CONFIG_PATH")
+    if config_path is None:
+        environment["HERDR_CONFIG_PATH"] = str(write_hermetic_config(scratch=scratch))
+    else:
+        _require_disabled_update_checks(path=Path(config_path))
     return environment
+
+
+def write_hermetic_config(*, scratch: Path, prefix: str = "") -> Path:
+    """Write one fixture-only config that disables Herdr's startup web checks."""
+    scratch.mkdir(parents=True, exist_ok=True)
+    path = scratch / FIXTURE_CONFIG_NAME
+    separator = "" if not prefix or prefix.endswith("\n") else "\n"
+    _ = path.write_text(f"{prefix}{separator}\n{UPDATE_CONFIG}", encoding="utf-8")
+    return path
+
+
+def _require_disabled_update_checks(*, path: Path) -> None:
+    """Refuse a fixture config unless both startup network checks are explicitly off."""
+    try:
+        contents = path.read_text(encoding="utf-8")
+    except OSError as failed:
+        raise AssertionError(f"fixture Herdr config {path} is unreadable: {failed}") from failed
+    update = contents.partition("[update]")[2]
+    assert (
+        "version_check = false" in update
+    ), f"fixture Herdr config {path} must set [update] version_check = false"
+    assert (
+        "manifest_check = false" in update
+    ), f"fixture Herdr config {path} must set [update] manifest_check = false"
 
 
 def start_server(
