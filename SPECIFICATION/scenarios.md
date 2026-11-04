@@ -6043,6 +6043,8 @@ And when two such panes exist instead, the stored coordinate is unchanged and th
 
 And when none exists, the stored coordinate is unchanged and the track reads session-gone
 
+And when the read-only list path observes that row instead, it reports the same classification and the stored coordinate and recorded identity are unchanged
+
 ## Scenario: Every cycle records its own timing
 
 Given a running daemon supervising tracks on a Herdr server

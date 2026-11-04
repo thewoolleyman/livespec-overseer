@@ -1315,6 +1315,10 @@ or misnamed per §"Session-name derivation". When more than one exists, the
 stored coordinate is unchanged and the track reads unidentified-session with
 the refusing condition ambiguous panes, naming every candidate pane. A done
 track and a discovered-but-unassigned plan never read unidentified-session.
+The rebind, and the session-identity re-record it performs, is an act of the
+supervising loop: the read-only list path MUST report the classification the
+loop would report for such a row, and MUST leave the row's stored coordinate
+and recorded session identity unchanged.
 
 A tracked session MAY have an attended SUPERVISOR session beside it (the
 authoring permissions are in §"Non-interference with tracked work"). That
