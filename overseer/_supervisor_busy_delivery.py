@@ -62,11 +62,14 @@ def input_empty(*, capture: str, is_codex: bool) -> bool:
     Claude: an available ``❯`` box between its borders (empty, or holding only the
     ANSI-proven generated placeholder) and no structured gate — the same box
     :func:`signals.input_box_ready` reads to confirm a submit, which renders whether or
-    not a turn is running. Codex: only its structural idle-input shape, which cannot
-    hold while it is generating — so a busy Codex session is never positively empty.
+    not a turn is running. Codex: its structural idle-input shape, or while busy, a
+    visible composer row whose every non-blank glyph is ANSI-dimmed placeholder text.
     """
     if is_codex:
-        return signals.is_codex_idle_input(capture_text=capture)
+        return signals.is_codex_idle_input(capture_text=capture) or (
+            signals.codex_prompt_present(capture_text=capture)
+            and signals.codex_composer_empty(capture_text=capture)
+        )
     return signals.input_box_ready(capture_text=capture) and not signals.is_structured_gate(
         capture_text=capture
     )

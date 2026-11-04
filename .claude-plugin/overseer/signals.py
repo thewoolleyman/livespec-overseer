@@ -20,6 +20,7 @@ from __future__ import annotations
 import re
 from pathlib import Path as Path
 
+from _signals_codex_composer import codex_composer_empty
 from _signals_context import is_available_prompt, parse_ctx_remaining, strip_ansi
 from _signals_delivery import queued_cross_session_delivery_sender
 from _signals_pane_identity import pane_is_claude, pane_is_codex, pane_is_shell, path_in_repo
@@ -70,6 +71,7 @@ __all__: list[str] = [
     "STATE_TOKENS",
     "STATE_WINDING_DOWN",
     "TrackState",
+    "codex_composer_empty",
     "codex_prompt_present",
     "input_box_ready",
     "input_box_text",
