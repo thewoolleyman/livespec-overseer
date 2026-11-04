@@ -9,6 +9,8 @@ from types import SimpleNamespace
 import _herdr_replacement_store
 import _supervisor_herdr_codex_naming
 import _supervisor_herdr_codex_successor
+import herdr_identity
+import herdr_write
 import pytest
 from _codex_session_models import CodexSession
 from test_supervisor_builders import (
@@ -237,3 +239,105 @@ def test_codex_successor_rename_refusal_skips_completion(*, tmp_path, monkeypatc
 
     assert reason == "fresh Codex successor is waiting at a structured gate"
     assert completed == []
+
+
+@pytest.mark.parametrize("report_ok", [False, True])
+def test_fresh_codex_without_rollout_reports_its_named_thread_and_still_resumes_on_rejection(
+    *, tmp_path, monkeypatch, report_ok: bool
+) -> None:
+    sup, fake, track, target, transaction, path = _world(tmp_path=tmp_path)
+    del sup.live_codex[(target, track.topic)]
+    reports = []
+    resumes = []
+    alerts = []
+    fake.report_agent_session = lambda **kwargs: reports.append(kwargs) or herdr_write.WriteOutcome(
+        ok=report_ok,
+        error="denied" if not report_ok else "",
+        effect_unknown=False,
+    )
+    sup.alert = lambda **kwargs: alerts.append(kwargs)
+    monkeypatch.setattr(
+        _supervisor_herdr_codex_naming.codex_sessions,
+        "latest_session_for_thread_name",
+        lambda **kwargs: NEW,
+    )
+    monkeypatch.setattr(
+        _supervisor_herdr_codex_successor._supervisor_launch,
+        "submit_prompt",
+        lambda **kwargs: resumes.append(kwargs["text"]) or True,
+    )
+    monkeypatch.setattr(
+        _supervisor_herdr_codex_successor._supervisor_herdr_completion,
+        "complete_replacement_round",
+        lambda **kwargs: None,
+    )
+
+    reason = _supervisor_herdr_codex_successor.continue_codex_successor(
+        sup=sup, track=track, target=target, transaction=transaction
+    )
+
+    assert reason is None
+    assert reports == [{"session": target, "source": "overseerd", "agent_session_id": NEW}]
+    assert resumes == ["read the durable handoff"]
+    assert bool(alerts) is not report_ok
+    record = json.loads(path.read_text(encoding="utf-8"))
+    assert record["successor_thread"] == NEW
+    assert record["backend_report"] == {"thread": NEW, "accepted": report_ok}
+
+
+def test_unconfirmed_fresh_codex_without_rollout_is_neither_reported_nor_resumed(
+    *, tmp_path, monkeypatch
+) -> None:
+    sup, fake, track, target, transaction, _path = _world(tmp_path=tmp_path)
+    del sup.live_codex[(target, track.topic)]
+    reports = []
+    fake.report_agent_session = lambda **kwargs: reports.append(kwargs) or pytest.fail(
+        "unexpected report"
+    )
+    monkeypatch.setattr(
+        _supervisor_herdr_codex_naming.codex_sessions,
+        "latest_session_for_thread_name",
+        lambda **kwargs: OLD,
+    )
+
+    reason = _supervisor_herdr_codex_successor.continue_codex_successor(
+        sup=sup, track=track, target=target, transaction=transaction
+    )
+
+    assert reason == "fresh Codex successor was never named for this plan topic"
+    assert reports == []
+
+
+def test_herdr_writer_reports_only_the_explicit_backend_pane(*, monkeypatch) -> None:
+    target = herdr_identity.HerdrPaneTarget(
+        socket_path="/tmp/herdr.sock",
+        server_pid=700,
+        server_starttime="server-start",
+        pane_id="w1:p9",
+    )
+    writer = herdr_write.HerdrWriter()
+    calls = []
+    monkeypatch.setattr(
+        herdr_write.HerdrWriter,
+        "request",
+        lambda _self, **kwargs: calls.append(kwargs)
+        or SimpleNamespace(ok=True, error="", effect_unknown=False),
+    )
+
+    assert hasattr(writer, "report_agent_session")
+    outcome = writer.report_agent_session(target=target, source="overseerd", agent_session_id=NEW)
+
+    assert outcome.ok
+    assert calls == [
+        {
+            "target": target,
+            "method": "pane.report_agent_session",
+            "params": {
+                "pane_id": "w1:p9",
+                "source": "overseerd",
+                "agent": "codex",
+                "agent_session_id": NEW,
+            },
+            "expect": herdr_write.herdr_write_calls.EXPECT_OK,
+        }
+    ]
