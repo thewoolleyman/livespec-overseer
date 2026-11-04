@@ -84,9 +84,15 @@ def test_profile_selection_and_intent_are_explicit_and_durable(*, tmp_path: Path
         "model": "claude-opus",
         "wrapper": None,
     }
-    assert (
-        entrypoint._profile_for_request(track=track, request=_request(runtime="codex")).ok is False
+    codex = entrypoint._profile_for_request(
+        track=track,
+        request=_request(runtime="codex", model="gpt-5.1-codex"),
     )
+    assert codex.model_profile == {
+        "harness": "codex",
+        "model": "gpt-5.1-codex",
+        "wrapper": None,
+    }
     assert (
         entrypoint._profile_for_request(track=track, request=_request(runtime="claude")).ok is False
     )
@@ -441,11 +447,13 @@ def test_validation_refuses_unsafe_targets_before_an_intent_is_written(
         in entrypoint._validated_launch(request=request, sup=sup, tracks=[track]).message
     )
     tmux.pane_current_command = lambda *, session: "bash"
-    assert (
-        "unsupported runtime"
-        in entrypoint._validated_launch(
-            request=_request(target=target, runtime="codex"), sup=sup, tracks=[track]
-        ).message
+    assert isinstance(
+        entrypoint._validated_launch(
+            request=_request(target=target, runtime="codex", model="gpt-5.1-codex"),
+            sup=sup,
+            tracks=[track],
+        ),
+        tuple,
     )
     stale = registry.PlanTrack(
         repo=str(tmp_path),
