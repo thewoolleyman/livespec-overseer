@@ -4094,16 +4094,16 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## Expedited incident operator routing",
-    "test": "TODO",
-    "reason": "A real test at the integration tier or above is owed for this receipt-bound incident operator route; overseer-czsqpx owns the implementation and verification.",
+    "test": "tests.integration.test_expedited_incident_operator_routing.test_canonical_observations_have_explicit_routes",
+    "reason": "Integration-tier instruction contract: reads the shared shipped operator artifact and checks distinct canonical repair, recorded inverse, normal repayment, stale ownership and unsupported-reader routes. The same integration module verifies all three runtime bindings, focused evidence, ownership fences, repayment and retained closure obligations; released-tooling incident execution remains plan-level proof.",
     "work_item": "overseer-czsqpx"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: an incident repair returns to normal factory repayment before closure",
-    "test": "TODO",
-    "reason": "A real test at the integration tier or above is owed for this receipt-bound incident operator route; overseer-czsqpx owns the implementation and verification.",
+    "test": "tests.integration.test_expedited_incident_operator_routing.test_canonical_observations_have_explicit_routes",
+    "reason": "Integration-tier instruction contract: reads the shared shipped operator artifact and checks distinct canonical repair, recorded inverse, normal repayment, stale ownership and unsupported-reader routes. The same integration module verifies all three runtime bindings, focused evidence, ownership fences, repayment and retained closure obligations; released-tooling incident execution remains plan-level proof.",
     "work_item": "overseer-czsqpx"
   }
 ]
