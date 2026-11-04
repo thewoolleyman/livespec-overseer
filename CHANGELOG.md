@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.51.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.51.0...v5.51.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* archive live exercise checkout from tracked files ([6c58fb0](https://github.com/thewoolleyman/livespec-overseer/commit/6c58fb05eaebaaed66bedf335f17a3ae3aed56d2))
+* retain Herdr Codex successor session ([d7538d8](https://github.com/thewoolleyman/livespec-overseer/commit/d7538d81b3653cbb74ebb41af30230a855f98257))
+
 ## [5.51.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.50.1...v5.51.0) (2026-11-04)
 
 
