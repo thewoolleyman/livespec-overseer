@@ -888,7 +888,7 @@ def _exercise_skills_picker(*, master_fd: int, plugin: str, skill: str) -> str:
     return _open_skills_list(
         exercise=exercise,
         transcript=transcript,
-        query=skill,
+        query=f"{plugin}:{skill}",
         expected_row=_skill_row(plugin=plugin, skill=skill),
     )
 

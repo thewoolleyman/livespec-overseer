@@ -49,3 +49,25 @@ def test_a_mentions_list_redrawn_at_an_earlier_screen_offset_opens_the_picker(
     plain = helpers._plain(text=current)
     assert "Mentions" in plain
     assert f"{expected_row}  Skill" in plain
+
+
+def test_the_picker_filters_on_the_declared_plugin_and_skill(monkeypatch) -> None:
+    helpers = _picker_helpers()
+    opened: dict[str, object] = {}
+    monkeypatch.setattr(helpers, "_send", lambda **_: None)
+    monkeypatch.setattr(helpers, "_await_codex_prompt", lambda **_: "prompt")
+    monkeypatch.setattr(
+        helpers,
+        "_open_skills_list",
+        lambda **kwargs: opened.update(kwargs) or "picker transcript",
+    )
+
+    assert (
+        helpers._exercise_skills_picker(
+            master_fd=1,
+            plugin="livespec-overseer",
+            skill="overseer",
+        )
+        == "picker transcript"
+    )
+    assert opened["query"] == "livespec-overseer:overseer"
