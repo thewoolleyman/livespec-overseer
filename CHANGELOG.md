@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.51.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.50.1...v5.51.0) (2026-11-04)
+
+
+### Features
+
+* report fresh Codex successor to herdr ([aaeaf50](https://github.com/thewoolleyman/livespec-overseer/commit/aaeaf509218ea578a8cab318d47a99390f144e72))
+
 ## [5.50.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.50.0...v5.50.1) (2026-11-04)
 
 
