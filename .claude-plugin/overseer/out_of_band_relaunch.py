@@ -12,9 +12,14 @@ import pane_router
 import registry
 import signals
 import tmuxio_env
+from _out_of_band_relaunch_codex import CodexRelaunch as _CodexRelaunch
+from _out_of_band_relaunch_codex import codex_thread_ids as _codex_thread_ids
+from _out_of_band_relaunch_codex import derived_session_name as _derived_session_name
+from _out_of_band_relaunch_codex import relaunch_codex as _relaunch_codex
 from _supervisor_launch import await_input_box, await_pane, submit_prompt_result
-from _supervisor_launch_profile import ClaudeLaunchPlan
+from _supervisor_launch_profile import ClaudeLaunchPlan, CodexLaunchPlan
 from _supervisor_prompts import resume_for_track
+from out_of_band_relaunch_actions import RelaunchActions
 from out_of_band_relaunch_intent import finish_intent, start_intent
 from out_of_band_relaunch_validation import (
     RelaunchRequest,
@@ -54,7 +59,7 @@ _VALIDATION_SEAMS = (
 
 
 def _launch_at_shell(
-    *, sup: Supervisor, track: registry.Track, target: str, plan: ClaudeLaunchPlan
+    *, sup: Supervisor, track: registry.Track, target: str, plan: ClaudeLaunchPlan | CodexLaunchPlan
 ) -> bool:
     if herdr_identity.decode_herdr_target(value=target) is not None:
         return (
@@ -63,7 +68,7 @@ def _launch_at_shell(
                 session=target,
                 cwd=track.repo,
                 command=plan.command,
-                env=plan.env,
+                env=plan.env or {},
             )
             .ok
         )
@@ -155,7 +160,7 @@ def _deliver_resume_and_rebind(
 def relaunch(
     *, request: RelaunchRequest, sup: Supervisor, tracks: list[registry.Track] | None = None
 ) -> RelaunchResult:
-    """Launch a non-Codex profile at a separately-proven idle pane.
+    """Launch a profile at a separately-proven idle pane.
 
     Every refusal precedes the intent record and any terminal input.  This is
     deliberately not a restart: it neither signals a process nor reads or
@@ -166,6 +171,10 @@ def relaunch(
         return validated
     track, profile_track, plan = validated
     intent = _start_intent(track=track, request=request)
+    codex_name = (
+        _derived_session_name(sup=sup, track=track) if isinstance(plan, CodexLaunchPlan) else None
+    )
+    prior_thread_ids = _codex_thread_ids(sup=sup) if codex_name is not None else frozenset[str]()
     if not _launch_at_shell(sup=sup, track=track, target=request.target, plan=plan):
         return _record_failed_launch(
             intent=intent,
@@ -174,13 +183,36 @@ def relaunch(
             outcome="launch_failed",
             message="relaunch FAILED: launch input was not accepted",
         )
-    if not await_pane(sup=sup, target=request.target, is_ready=signals.pane_is_claude):
+    codex = isinstance(plan, CodexLaunchPlan)
+    if not await_pane(
+        sup=sup,
+        target=request.target,
+        is_ready=signals.pane_is_codex if codex else signals.pane_is_claude,
+    ):
         return _record_failed_launch(
             intent=intent,
             track=track,
             request=request,
             outcome="launch_unconfirmed",
-            message="relaunch FAILED: Claude did not appear",
+            message=f"relaunch FAILED: {'Codex' if codex else 'Claude'} did not appear",
+        )
+    if codex:
+        return _relaunch_codex(
+            actions=RelaunchActions(
+                finish_intent=_finish_intent,
+                resume_for_track=resume_for_track,
+                submit_prompt_result=submit_prompt_result,
+                rebind=_rebind,
+            ),
+            relaunch=_CodexRelaunch(
+                intent=intent,
+                name=cast(str, codex_name),
+                prior_thread_ids=prior_thread_ids,
+                profile_track=profile_track,
+                request=request,
+                track=track,
+            ),
+            sup=sup,
         )
     return _deliver_resume_and_rebind(
         intent=intent,

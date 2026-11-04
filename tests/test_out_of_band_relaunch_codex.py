@@ -164,6 +164,15 @@ def test_codex_confirmation_fails_closed_without_a_new_exactly_named_thread(
     assert "legacy-pane" in result.message and "observed thread none" in result.message
     assert finished[0]["outcome"] == "rename_unconfirmed"
     assert codex.report_codex_agent_session(sup=sup, target="legacy-pane", thread_id="thread")
+    sup.tmux.bracketed_paste = lambda **_kwargs: True
+    sup.tmux.send_keys = lambda **_kwargs: False
+    assert codex.confirm_codex_rename(
+        name="alpha", prior_thread_ids=frozenset(), sup=sup, target="legacy-pane"
+    ) is None
+    sup.tmux.send_keys = lambda **_kwargs: True
+    assert codex.confirm_codex_rename(
+        name="alpha", prior_thread_ids=frozenset(), sup=sup, target="legacy-pane"
+    ) is None
 
 
 @pytest.mark.parametrize("failure", ["report", "resume", "submit", "rebind"])
