@@ -12,7 +12,7 @@ import pane_router
 import registry
 import signals
 import tmuxio_env
-from _supervisor_launch import await_input_box, await_pane, submit_prompt_result
+from _supervisor_launch import await_input_box, await_pane, submit_prompt
 from _supervisor_launch_profile import ClaudeLaunchPlan
 from _supervisor_prompts import resume_for_track
 from out_of_band_relaunch_intent import finish_intent, start_intent
@@ -127,10 +127,10 @@ def _deliver_resume_and_rebind(
             outcome="resume_unavailable",
             message="relaunch FAILED: no resume prompt",
         )
-    submitted = submit_prompt_result(sup=sup, target=request.target, text=resume)
+    submitted = submit_prompt(sup=sup, target=request.target, text=resume)
     identity = _identity_after_launch(sup=sup, track=track, target=request.target)
     if (
-        not submitted.submitted
+        not submitted
         or identity is None
         or not _rebind(track=profile_track, target=request.target, identity=identity)
     ):
