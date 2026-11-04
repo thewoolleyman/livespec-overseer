@@ -15,6 +15,7 @@ def test_codex_launch_or_resume_stall_names_the_pane_and_manual_recovery() -> No
         track=SimpleNamespace(repo="/repo", topic="topic"),
         target="w2:p1",
         phase="resume-attempted",
+        runtime="codex",
         reason="pending Codex resume Enter retry budget is exhausted",
     )
 

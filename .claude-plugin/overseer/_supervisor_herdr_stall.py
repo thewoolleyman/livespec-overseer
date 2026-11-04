@@ -22,15 +22,19 @@ STALL_CONDITION = "herdr-replacement-stalled"
 _CLAUDE_IDENTITY_FIELD_COUNT = 4
 
 
-def _recorded_phase(*, track: registry.Track) -> object:
+def _recorded_phase_and_runtime(*, track: registry.Track) -> tuple[object, object]:
     scratch = _herdr_replacement_store.scratch_path(track=track)
     try:
         transaction = _herdr_replacement_store.read_transaction(
             path=scratch / _herdr_replacement_store.RECORD_NAME
         )
     except (AttributeError, OSError, TypeError, ValueError):
-        return "unknown"
-    return "unknown" if transaction is None else transaction.get("phase")
+        return "unknown", None
+    return (
+        ("unknown", None)
+        if transaction is None
+        else (transaction.get("phase"), transaction.get("runtime"))
+    )
 
 
 def _stall_reason(*, row: RowView, act: bool) -> str | None:
@@ -131,11 +135,13 @@ def _matches_recorded_process(*, identity: str, record: object) -> bool:
     )
 
 
-def stall_attention_message(*, track: registry.Track, target: str, phase: str, reason: str) -> str:
-    """Describe a Codex retry stall with the operator's exact recovery sequence."""
+def stall_attention_message(
+    *, track: registry.Track, target: str, phase: str, runtime: object, reason: str
+) -> str:
+    """Describe a stalled replacement, adding the Codex recovery sequence only for Codex."""
     manual_steps = (
         f" Manual steps: /rename {track.topic}, then submit the durable resume line."
-        if phase in {"launch-attempted", "resume-attempted"}
+        if runtime == "codex" and phase in {"launch-attempted", "resume-attempted"}
         else ""
     )
     return (
@@ -175,6 +181,7 @@ def reconcile_and_alert(
     )
     reason = None if row is None or not alert else _stall_reason(row=row, act=act)
     if reason is not None:
+        phase, runtime = _recorded_phase_and_runtime(track=track)
         sup.alert(
             repo=track.repo,
             topic=track.topic,
@@ -183,7 +190,8 @@ def reconcile_and_alert(
             message=stall_attention_message(
                 track=track,
                 target=target,
-                phase=cast(str, _recorded_phase(track=track)),
+                phase=cast(str, phase),
+                runtime=runtime,
                 reason=reason,
             ),
             condition=STALL_CONDITION,
