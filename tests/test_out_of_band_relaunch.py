@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
+import herdr_adapter
 import herdr_identity
 import herdr_write
 import pane_router
@@ -187,6 +188,88 @@ def test_herdr_relaunch_submits_the_launch_as_one_native_input(*, tmp_path: Path
         plan=plan,
     )
     assert calls == [(target, str(tmp_path), "claude --model claude-opus", {"MODEL": None})]
+
+
+def test_herdr_relaunch_refreshes_a_preflight_cached_shell_before_confirming_launch(
+    *, monkeypatch, tmp_path: Path
+) -> None:
+    """A bounded launch wait must not reuse the shell read that admitted the launch."""
+    entrypoint = importlib.import_module("out_of_band_relaunch")
+    target = herdr_identity.HerdrPaneTarget(
+        socket_path="/run/herdr-test.sock",
+        server_pid=41,
+        server_starttime="777",
+        pane_id="w1:p1",
+    )
+    coordinate = herdr_identity.encode_herdr_target(target=target)
+
+    class Herdr:
+        def __init__(self) -> None:
+            self.command = "zsh"
+            self.foreground_reads = 0
+
+        def capture_pane(
+            self, *, target: herdr_identity.HerdrPaneTarget, retain_ansi: bool = True
+        ) -> herdr_adapter.PaneCapture:
+            del target, retain_ansi
+            return herdr_adapter.PaneCapture(
+                ok=True,
+                text=("─" * 40) + "\n❯ \n" + ("─" * 40) + "\n",
+                error="",
+            )
+
+        def foreground(
+            self, *, target: herdr_identity.HerdrPaneTarget
+        ) -> herdr_adapter.ForegroundReading:
+            self.foreground_reads += 1
+            return herdr_adapter.ForegroundReading(
+                ok=True,
+                process=SimpleNamespace(name=self.command),
+                error="",
+            )
+
+    herdr = Herdr()
+    driver = pane_router.MixedPaneDriver(herdr=herdr)
+    assert driver.pane_current_command(session=coordinate) == "zsh"
+    track = _track(
+        tmp_path=tmp_path,
+        profile={"harness": "claude", "model": "claude-opus", "wrapper": None},
+    )
+    plan = entrypoint.ClaudeLaunchPlan(command="claude", env={})
+    delivered: list[str] = []
+    outcomes: list[str] = []
+    sup = SimpleNamespace(tmux=driver, sleep=lambda _seconds: None, store_path=tmp_path / "store")
+
+    monkeypatch.setattr(entrypoint, "_validated_launch", lambda **_kwargs: (track, track, plan))
+    monkeypatch.setattr(entrypoint, "_start_intent", lambda **_kwargs: tmp_path / "intent")
+    monkeypatch.setattr(
+        entrypoint,
+        "_finish_intent",
+        lambda **kwargs: outcomes.append(str(kwargs["outcome"])),
+    )
+    monkeypatch.setattr(
+        entrypoint,
+        "_launch_at_shell",
+        lambda **_kwargs: setattr(herdr, "command", "claude") or True,
+    )
+    monkeypatch.setattr(entrypoint, "resume_for_track", lambda **_kwargs: "resume")
+    monkeypatch.setattr(
+        entrypoint,
+        "submit_prompt_result",
+        lambda **kwargs: delivered.append(str(kwargs["text"])) or SimpleNamespace(submitted=True),
+    )
+    monkeypatch.setattr(entrypoint, "_identity_after_launch", lambda **_kwargs: "claude:1:2:alpha")
+    monkeypatch.setattr(entrypoint, "_rebind", lambda **_kwargs: True)
+
+    result = entrypoint.relaunch(
+        request=_request(target=coordinate),
+        sup=sup,
+    )
+
+    assert result.ok
+    assert delivered == ["resume"]
+    assert outcomes == ["succeeded"]
+    assert herdr.foreground_reads == 2
 
 
 def test_relaunch_refuses_before_intent_or_input_and_records_each_post_launch_outcome(
