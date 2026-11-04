@@ -26,8 +26,8 @@ def retry_enter_once(
     target = cast(herdr_identity.HerdrPaneTarget, reads.decode(value=session).herdr)
     expected = text.partition("\n")[0].strip()
     capture = reads.capture_pane(session=session)
-    prompt_visible = partial(pane_router_submit_signals.prompt_visible, text=expected)
-    if not prompt_visible(capture=capture):
+    prompt_pending = partial(pane_router_submit_signals.prompt_pending, text=expected)
+    if not prompt_pending(capture=capture):
         return False, False
     entered = writer.send_enter(target=target)
     if not entered.ok and not entered.effect_unknown:
@@ -40,5 +40,5 @@ def retry_enter_once(
     )
     if pane_router_submit_signals.submitted(capture=observed):
         return True, False
-    still_pending = prompt_visible(capture=observed)
+    still_pending = prompt_pending(capture=observed)
     return False, entered.effect_unknown or not still_pending

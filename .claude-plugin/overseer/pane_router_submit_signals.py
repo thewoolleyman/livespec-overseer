@@ -18,6 +18,7 @@ __all__: list[str] = [
     "codex_composer_text",
     "composer_empty",
     "delivered",
+    "prompt_pending",
     "prompt_visible",
     "resolved",
     "submitted",
@@ -68,6 +69,22 @@ def prompt_visible(*, capture: str, text: str) -> bool:
     )
     codex_visible = bool(first_line) & ((f"› {first_line}" in codex_capture) | codex_collapsed)
     return bool(claude_visible | codex_visible)
+
+
+def prompt_pending(*, capture: str, text: str) -> bool:
+    """Whether the exact payload sits in an input row, never in transcript scrollback.
+
+    A Codex pane is judged only by its composer row (the row above the statusline), so
+    the payload echoed in the transcript above an empty composer is not pending input.
+    """
+    composer = codex_composer_text(capture=capture)
+    if composer is None:
+        return prompt_visible(capture=capture, text=text)
+    first_line = text.partition("\n")[0].strip()
+    collapsed = ("\n" in text.strip()) & (
+        _CODEX_PASTE_PLACEHOLDER.fullmatch(f"› {composer}") is not None
+    )
+    return bool(first_line) & ((composer == first_line) | collapsed)
 
 
 def codex_composer_text(*, capture: str) -> str | None:
