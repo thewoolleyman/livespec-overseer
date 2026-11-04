@@ -434,7 +434,9 @@ if [[ "$plan_only" == true ]]; then
 fi
 
 command -v bwrap >/dev/null 2>&1 || die "bwrap is required"
-cp -a "$checkout/." "$scratch_checkout/"
+# Archive the checkout's tracked tree instead of walking its working directory: ignored
+# build products can appear and vanish while the release host is building a wheel.
+git -C "$checkout" archive --format=tar HEAD | tar -x -C "$scratch_checkout"
 
 if [[ -n "$credential" ]]; then
   [[ -f "$credential" ]] || die "--credential must name a file"
