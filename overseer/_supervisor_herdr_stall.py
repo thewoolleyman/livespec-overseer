@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 import _herdr_replacement_store
+import _supervisor_herdr_codex_out_of_band
 import _supervisor_herdr_dead_generation
 import _supervisor_herdr_recovery
 import _supervisor_launch
@@ -51,10 +52,38 @@ def _stall_reason(*, row: RowView, act: bool) -> str | None:
     return None
 
 
+def _live_third_generation(
+    *, sup: Supervisor, track: registry.Track, target: str, transaction: dict[str, object]
+) -> str | None:
+    """The live session identity that is neither recorded generation, per runtime.
+
+    Claude is read from the registry identity.  A managed Codex carrier holds no rollout
+    file, so Codex is read from the pane's own foreground process instead.
+    """
+    if transaction.get("runtime") == "codex":
+        return _supervisor_herdr_codex_out_of_band.third_generation_identity(
+            sup=sup, topic=track.topic, target=target, transaction=transaction
+        )
+    identity = sup.claude_identity_by_session.get((target, track.topic))
+    predecessor = transaction.get("predecessor")
+    successor = transaction.get("successor")
+    return (
+        identity
+        if transaction.get("runtime") == "claude"
+        and isinstance(identity, str)
+        and isinstance(predecessor, dict)
+        and isinstance(successor, dict)
+        and identity.startswith("claude:")
+        and not _matches_recorded_process(identity=identity, record=cast("object", predecessor))
+        and not _matches_recorded_process(identity=identity, record=cast("object", successor))
+        else None
+    )
+
+
 def _retire_out_of_band_resume(
     *, sup: Supervisor, track: registry.Track, target: str
 ) -> str | None:
-    """Retire a stalled resume whose pane now proves a different Claude generation.
+    """Retire a stalled resume whose pane now proves a different runtime generation.
 
     The replacement's exact-process fence must never authorize a retry against this
     session.  It has no remaining owner once the pane proves a third generation, so
@@ -69,25 +98,17 @@ def _retire_out_of_band_resume(
             path=scratch / _herdr_replacement_store.LOCK_NAME
         ):
             transaction = _herdr_replacement_store.read_transaction(path=record)
-            identity = sup.claude_identity_by_session.get((target, track.topic))
-            predecessor = transaction.get("predecessor") if transaction is not None else None
-            successor = transaction.get("successor") if transaction is not None else None
-            if not (
-                transaction is not None
-                and transaction.get("phase") == "resume-attempted"
-                and transaction.get("runtime") == "claude"
-                and transaction.get("target") == target
-                and isinstance(identity, str)
-                and isinstance(predecessor, dict)
-                and isinstance(successor, dict)
-                and identity.startswith("claude:")
-                and not _matches_recorded_process(
-                    identity=identity, record=cast("object", predecessor)
-                )
-                and not _matches_recorded_process(
-                    identity=identity, record=cast("object", successor)
-                )
-                and _retire_recorded_round(sup=sup, track=track, transaction=transaction)
+            if (
+                transaction is None
+                or transaction.get("phase") != "resume-attempted"
+                or transaction.get("target") != target
+            ):
+                return None
+            identity = _live_third_generation(
+                sup=sup, track=track, target=target, transaction=transaction
+            )
+            if identity is None or not _retire_recorded_round(
+                sup=sup, track=track, transaction=transaction
             ):
                 return None
             _ = record.replace(scratch / ".herdr-replacement.retired-out-of-band.json")
