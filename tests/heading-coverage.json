@@ -3907,9 +3907,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A row whose stored pane is gone is rebound only to a single qualifying pane",
-    "test": "TODO",
-    "work_item": "overseer-5eqavc",
-    "reason": "Owed integration-tier test over the shipped supervision round, to be written by overseer-5eqavc with the implementation; ratified 2026-10-26 under the codex-unidentified-session revise (spec-first)."
+    "test": "tests.integration.test_herdr_rebind_read_only.test_the_read_only_list_path_reports_rebind_classifications_without_writing_at_integration_tier",
+    "reason": "Pins all read-only outcomes over the real tick path: exactly one qualifying pane yields the loop's live classification, while two and none yield unidentified-session and session-gone; each case proves the stored coordinate and identity remain unchanged."
   },
   {
     "spec_root": "SPECIFICATION",
