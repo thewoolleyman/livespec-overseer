@@ -39,7 +39,7 @@ def report_successor_thread(
         or not callable(reporter)
     ):
         return
-    outcome = reporter(session=target, source="overseerd", agent_session_id=thread)
+    outcome = reporter(session=target, source="herdr:codex", agent_session_id=thread)
     current["backend_report"] = {"thread": thread, "accepted": outcome.ok}
     _herdr_replacement_store.durable_write(path=record_path, value=current)
     if not outcome.ok:
