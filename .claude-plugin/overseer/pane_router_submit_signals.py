@@ -88,20 +88,38 @@ def prompt_pending(*, capture: str, text: str) -> bool:
 
 
 def codex_composer_text(*, capture: str) -> str | None:
-    """Return the Codex composer row immediately above its statusline.
+    """Return the current Codex composer payload, normalized across wrapped rows.
 
-    A pane capture contains transcript and composer text in one stream.  The row next
-    to Codex's statusline is the only row whose content can authorize an Enter retry;
-    an identical payload in scrollback is never a pending input.
+    A pane capture contains transcript and composer text in one stream.  The only
+    input that can authorize an Enter retry is the composer block immediately before
+    Codex's final statusline: its ``›`` row and any contiguous indented continuation
+    rows.  Blank spacer rows above that statusline are layout, not input.  Anchoring
+    the block at the final statusline prevents an identical transcript line from being
+    treated as pending composer text.
     """
     lines = signals.strip_ansi(text=capture).splitlines()
-    for index in range(len(lines) - 1, 0, -1):
-        if "Context" not in lines[index] and " · " not in lines[index]:
-            continue
-        composer = lines[index - 1].lstrip()
-        if composer.startswith("›"):
-            return composer[1:].strip()
-    return None
+    statusline = next(
+        (
+            index
+            for index in range(len(lines) - 1, -1, -1)
+            if "Context" in lines[index] or " · " in lines[index]
+        ),
+        None,
+    )
+    if statusline is None:
+        return None
+    last_content = statusline - 1
+    while last_content >= 0 and not lines[last_content].strip():
+        last_content -= 1
+    first_content = last_content
+    while first_content > 0 and lines[first_content].startswith((" ", "\t")):
+        first_content -= 1
+    composer = lines[first_content].lstrip()
+    if not composer.startswith("›"):
+        return None
+    return " ".join(
+        part.strip() for part in (composer[1:], *lines[first_content + 1 : last_content + 1])
+    ).strip()
 
 
 def codex_composer_empty(*, capture: str) -> bool:
