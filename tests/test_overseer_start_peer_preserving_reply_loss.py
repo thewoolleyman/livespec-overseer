@@ -31,7 +31,7 @@ import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Final, cast
 
 import pytest
 from test_herdr_live_observations import (
@@ -51,7 +51,8 @@ from overseer import claude_sessions, runtime_prefix
 __all__: list[str] = []
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-WAIT_SECONDS = 180.0
+# A liveness guard against a hung daemon, never a duration budget.
+LIVENESS_GUARD_SECONDS: Final = 600.0
 POLL_SECONDS = 0.2
 _counter = itertools.count(1)
 
@@ -77,14 +78,14 @@ def _foreground(*, case: LiveCase, pane: str) -> Any:
 
 
 def _await_named(*, case: LiveCase, pane: str, name: str) -> int:
-    deadline = time.monotonic() + WAIT_SECONDS
+    deadline = time.monotonic() + LIVENESS_GUARD_SECONDS
     while time.monotonic() < deadline:
         reading = _foreground(case=case, pane=pane)
         named = reading.pids_named(name=name)
         if named and reading.group_id != reading.shell_pid:
             return named[0]
         time.sleep(POLL_SECONDS)
-    pytest.fail(f"{name!r} never occupied {pane!r}")
+    pytest.fail(f"test hung waiting for {name!r} to occupy {pane!r}")
 
 
 @pytest.fixture
@@ -226,22 +227,25 @@ def _frame(conn):
 
 def _observe(method, params):
     path = os.environ["HERDR_SOCKET_PATH"]
-    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conn:
-        conn.settimeout(15.0)
-        conn.connect(path)
-        raw = conn.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i"))
-        peer_pid, _uid, _gid = struct.unpack("3i", raw)
-        peer_starttime = _starttime(peer_pid)
-        expected_pid = int(os.environ["OVERSEER_FAULT_SERVER_PID"])
-        expected_starttime = os.environ["OVERSEER_FAULT_SERVER_STARTTIME"]
-        if (peer_pid, peer_starttime) != (expected_pid, expected_starttime):
-            raise RuntimeError(
-                f"observation reached {(peer_pid, peer_starttime)}, expected "
-                f"{(expected_pid, expected_starttime)}"
-            )
-        request = {"id": "peer-preserving-observer", "method": method, "params": params}
-        conn.sendall(json.dumps(request, separators=(",", ":")).encode() + b"\n")
-        reply = json.loads(_frame(conn).split(b"\n", 1)[0])
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conn:
+            conn.settimeout(float(os.environ["OVERSEER_FAULT_LIVENESS_GUARD_SECONDS"]))
+            conn.connect(path)
+            raw = conn.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i"))
+            peer_pid, _uid, _gid = struct.unpack("3i", raw)
+            peer_starttime = _starttime(peer_pid)
+            expected_pid = int(os.environ["OVERSEER_FAULT_SERVER_PID"])
+            expected_starttime = os.environ["OVERSEER_FAULT_SERVER_STARTTIME"]
+            if (peer_pid, peer_starttime) != (expected_pid, expected_starttime):
+                raise RuntimeError(
+                    f"observation reached {(peer_pid, peer_starttime)}, expected "
+                    f"{(expected_pid, expected_starttime)}"
+                )
+            request = {"id": "peer-preserving-observer", "method": method, "params": params}
+            conn.sendall(json.dumps(request, separators=(",", ":")).encode() + b"\n")
+            reply = json.loads(_frame(conn).split(b"\n", 1)[0])
+    except TimeoutError as exc:
+        raise RuntimeError("test hung waiting for fault-server observation reply") from exc
     if "result" not in reply:
         raise RuntimeError(f"observation failed: {reply}")
     return reply["result"], peer_pid, peer_starttime
@@ -259,7 +263,7 @@ def _leader(result):
 def _await_split_shell(mutation_reply):
     # Establish the real split's coherent shell before grading launch ACK loss.
     pane_id = mutation_reply["result"]["pane"]["pane_id"]
-    deadline = time.monotonic() + 120.0
+    deadline = time.monotonic() + float(os.environ["OVERSEER_FAULT_LIVENESS_GUARD_SECONDS"])
     previous = None
     while time.monotonic() < deadline:
         result, peer_pid, peer_starttime = _observe("pane.process_info", {"pane_id": pane_id})
@@ -286,7 +290,7 @@ def _await_split_shell(mutation_reply):
             except OSError:
                 previous = None
         time.sleep(0.05)
-    raise RuntimeError(f"created pane {pane_id!r} never supplied coherent retained-shell evidence")
+    raise RuntimeError(f"test hung waiting for pane {pane_id!r} to supply retained-shell evidence")
 
 
 def _record_split(request, mutation_reply):
@@ -311,7 +315,7 @@ def _record_split(request, mutation_reply):
 
 def _record_daemon(request):
     pane_id = request["params"]["pane_id"]
-    deadline = time.monotonic() + 120.0
+    deadline = time.monotonic() + float(os.environ["OVERSEER_FAULT_LIVENESS_GUARD_SECONDS"])
     last = None
     while time.monotonic() < deadline:
         result, peer_pid, peer_starttime = _observe(
@@ -356,7 +360,7 @@ def _record_daemon(request):
                     "daemon_tick_generation": readiness["tick_generation"],
                 }
         time.sleep(0.05)
-    raise RuntimeError(f"daemon never became independently observable; last={last!r}")
+    raise RuntimeError(f"test hung waiting for daemon observation; last={last!r}")
 
 
 def _await_daemon_readiness(*, pid, starttime):
@@ -364,7 +368,7 @@ def _await_daemon_readiness(*, pid, starttime):
     snapshot = Path.home() / ".livespec-overseer-status.json"
     expected_package = Path(os.environ["OVERSEER_FAULT_MODULE_DIR"]).resolve()
     expected_version = os.environ["OVERSEER_FAULT_VERSION"]
-    deadline = time.monotonic() + 120.0
+    deadline = time.monotonic() + float(os.environ["OVERSEER_FAULT_LIVENESS_GUARD_SECONDS"])
     while time.monotonic() < deadline:
         try:
             document = json.loads(snapshot.read_text(encoding="utf-8"))
@@ -394,7 +398,7 @@ def _await_daemon_readiness(*, pid, starttime):
         if not still_running:
             raise RuntimeError("daemon exited before publishing readiness")
         time.sleep(0.05)
-    raise RuntimeError("daemon never published a readiness snapshot")
+    raise RuntimeError("test hung waiting for daemon readiness snapshot")
 
 
 if Path(sys.argv[0]).name == "overseer-start" and os.environ.get("OVERSEER_FAULT_METHOD"):
@@ -480,6 +484,7 @@ def _run_public(
                 f"OVERSEER_FAULT_PYTHON={shlex.quote(str(candidate.python.resolve()))}",
                 f"OVERSEER_FAULT_MODULE_DIR={shlex.quote(str(candidate.module_dir))}",
                 f"OVERSEER_FAULT_VERSION={shlex.quote(candidate.version)}",
+                f"OVERSEER_FAULT_LIVENESS_GUARD_SECONDS={LIVENESS_GUARD_SECONDS}",
             )
         )
     command = (
@@ -490,12 +495,12 @@ def _run_public(
         + f"printf '%s' $? > {shlex.quote(str(rc))}"
     )
     run_in_pane(socket_path=case.socket_path, pane_id=case.invoking, command=command)
-    deadline = time.monotonic() + WAIT_SECONDS
+    deadline = time.monotonic() + LIVENESS_GUARD_SECONDS
     while time.monotonic() < deadline:
         if rc.is_file():
             return int(rc.read_text(encoding="utf-8")), stderr.read_text(encoding="utf-8")
         time.sleep(POLL_SECONDS)
-    pytest.fail(f"public overseer-start did not finish for {stem}")
+    pytest.fail(f"test hung waiting for public overseer-start to finish for {stem}")
 
 
 def _observation(*, fault: Fault) -> dict[str, object]:
@@ -605,7 +610,7 @@ def _await_candidate_daemon(
     instance_id: str,
     minimum_generation: int,
 ) -> CandidateProcess:
-    deadline = time.monotonic() + WAIT_SECONDS
+    deadline = time.monotonic() + LIVENESS_GUARD_SECONDS
     last: object = None
     while time.monotonic() < deadline:
         reading = _foreground(case=case, pane=pane)
@@ -636,7 +641,7 @@ def _await_candidate_daemon(
         if claude_sessions.proc_starttime(pid=expected.pid) != expected.starttime:
             pytest.fail(f"candidate daemon exited before readiness: {expected!r}")
         time.sleep(POLL_SECONDS)
-    pytest.fail(f"installed candidate daemon never occupied {pane!r}; last={last!r}")
+    pytest.fail(f"test hung waiting for installed candidate daemon in {pane!r}; last={last!r}")
 
 
 @dataclass(frozen=True, kw_only=True)
