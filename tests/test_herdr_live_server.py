@@ -536,3 +536,33 @@ def test_a_fixture_server_requires_a_private_config_with_remote_updates_disabled
         stop_server(session=session)
         if "server" in locals():
             stop_server(session=server.session)
+
+
+def test_the_outbound_socket_observer_reads_a_socket_opened_by_the_test(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The egress guard follows the fixture process's own socket inode."""
+    missing = tmp_path / "missing.toml"
+    with pytest.raises(AssertionError, match="unreadable"):
+        herdr_live_server._require_disabled_update_checks(path=missing)
+
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen()
+        port = int(listener.getsockname()[1])
+        client.connect(("127.0.0.1", port))
+        accepted, _ = listener.accept()
+        with accepted:
+            monkeypatch.setattr(
+                herdr_live_server,
+                "_is_local_or_unspecified",
+                lambda *, address: False,
+            )
+            connections = herdr_live_server.outbound_internet_connections(server_pid=os.getpid())
+    finally:
+        client.close()
+        listener.close()
+
+    assert f"127.0.0.1:{port}" in connections
