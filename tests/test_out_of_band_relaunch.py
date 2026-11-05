@@ -255,8 +255,8 @@ def test_herdr_relaunch_refreshes_a_preflight_cached_shell_before_confirming_lau
     monkeypatch.setattr(entrypoint, "resume_for_track", lambda **_kwargs: "resume")
     monkeypatch.setattr(
         entrypoint,
-        "submit_prompt_result",
-        lambda **kwargs: delivered.append(str(kwargs["text"])) or SimpleNamespace(submitted=True),
+        "submit_prompt",
+        lambda **kwargs: delivered.append(str(kwargs["text"])) or True,
     )
     monkeypatch.setattr(entrypoint, "_identity_after_launch", lambda **_kwargs: "claude:1:2:alpha")
     monkeypatch.setattr(entrypoint, "_rebind", lambda **_kwargs: True)
@@ -313,16 +313,16 @@ def test_relaunch_refuses_before_intent_or_input_and_records_each_post_launch_ou
     monkeypatch.setattr(entrypoint, "resume_for_track", lambda **kwargs: "resume")
     monkeypatch.setattr(
         entrypoint,
-        "submit_prompt_result",
-        lambda **kwargs: SimpleNamespace(submitted=False),
+        "submit_prompt",
+        lambda **kwargs: False,
     )
     monkeypatch.setattr(entrypoint, "_identity_after_launch", lambda **kwargs: "identity")
     assert "rebind" in entrypoint.relaunch(request=request, sup=sup).message
 
     monkeypatch.setattr(
         entrypoint,
-        "submit_prompt_result",
-        lambda **kwargs: SimpleNamespace(submitted=True),
+        "submit_prompt",
+        lambda **kwargs: True,
     )
     monkeypatch.setattr(entrypoint, "_rebind", lambda **kwargs: True)
     assert entrypoint.relaunch(request=request, sup=sup).ok
@@ -333,6 +333,102 @@ def test_relaunch_refuses_before_intent_or_input_and_records_each_post_launch_ou
         "resume_or_rebind_failed",
         "succeeded",
     ]
+
+
+class _NativeTmux:
+    """A Herdr-shaped driver whose tmux-style Enter route sends nothing."""
+
+    def __init__(self, *, outcome: tuple[bool, bool]) -> None:
+        self.outcome = outcome
+        self.native: list[tuple[str, str]] = []
+
+    def bracketed_paste(self, **_kwargs: object) -> bool:
+        return False
+
+    def send_keys(self, **_kwargs: object) -> bool:
+        return False
+
+    def capture_pane(self, **_kwargs: object) -> str:
+        return ""
+
+    def submit_prompt_once(
+        self, *, session: str, text: str, expect_codex: bool, sleep: object
+    ) -> tuple[bool, bool]:
+        assert expect_codex is False
+        assert callable(sleep)
+        self.native.append((session, text))
+        return self.outcome
+
+
+def _relaunch_on_herdr(
+    *, monkeypatch, tmp_path: Path, outcome: tuple[bool, bool]
+) -> tuple[out_of_band_relaunch.RelaunchResult, _NativeTmux, list[str], list[str]]:
+    entrypoint = importlib.import_module("out_of_band_relaunch")
+    coordinate = herdr_identity.encode_herdr_target(
+        target=herdr_identity.HerdrPaneTarget(
+            socket_path="/run/herdr-test.sock",
+            server_pid=41,
+            server_starttime="777",
+            pane_id="w1:p1",
+        )
+    )
+    track = _track(
+        tmp_path=tmp_path,
+        profile={"harness": "claude", "model": "claude-opus", "wrapper": None},
+    )
+    plan = entrypoint.ClaudeLaunchPlan(command="claude", env={})
+    tmux = _NativeTmux(outcome=outcome)
+    sup = SimpleNamespace(
+        tmux=tmux,
+        sleep=lambda _seconds: None,
+        log=lambda **_kwargs: None,
+        store_path=tmp_path / "store",
+    )
+    outcomes: list[str] = []
+    rebinds: list[str] = []
+    monkeypatch.setattr(entrypoint, "_validated_launch", lambda **_kwargs: (track, track, plan))
+    monkeypatch.setattr(entrypoint, "_start_intent", lambda **_kwargs: tmp_path / "intent")
+    monkeypatch.setattr(
+        entrypoint, "_finish_intent", lambda **kwargs: outcomes.append(str(kwargs["outcome"]))
+    )
+    monkeypatch.setattr(entrypoint, "_launch_at_shell", lambda **_kwargs: True)
+    monkeypatch.setattr(entrypoint, "await_pane", lambda **_kwargs: True)
+    monkeypatch.setattr(entrypoint, "await_input_box", lambda **_kwargs: True)
+    monkeypatch.setattr(entrypoint, "resume_for_track", lambda **_kwargs: "resume")
+    monkeypatch.setattr(entrypoint, "_identity_after_launch", lambda **_kwargs: "claude:1:2:a")
+    monkeypatch.setattr(
+        entrypoint, "_rebind", lambda **kwargs: rebinds.append(str(kwargs["target"])) or True
+    )
+    result = entrypoint.relaunch(request=_request(target=coordinate), sup=sup)
+    return result, tmux, outcomes, rebinds
+
+
+def test_herdr_relaunch_submits_the_resume_through_the_native_route(
+    *, monkeypatch, tmp_path: Path
+) -> None:
+    """The resume prompt on a Herdr pane is submitted natively, then the row is re-bound."""
+    result, tmux, outcomes, rebinds = _relaunch_on_herdr(
+        monkeypatch=monkeypatch, tmp_path=tmp_path, outcome=(True, False)
+    )
+
+    assert result.ok
+    assert [text for _session, text in tmux.native] == ["resume"]
+    assert outcomes == ["succeeded"]
+    assert rebinds == [tmux.native[0][0]]
+
+
+def test_herdr_relaunch_with_an_unconfirmed_submit_leaves_the_row_unchanged(
+    *, monkeypatch, tmp_path: Path
+) -> None:
+    """An unconfirmed native submit records the failure outcome and never re-binds."""
+    result, tmux, outcomes, rebinds = _relaunch_on_herdr(
+        monkeypatch=monkeypatch, tmp_path=tmp_path, outcome=(False, True)
+    )
+
+    assert not result.ok
+    assert [text for _session, text in tmux.native] == ["resume"]
+    assert outcomes == ["resume_or_rebind_failed"]
+    assert rebinds == []
 
 
 def test_relaunch_requires_a_ready_input_box_before_submitting_resume(
@@ -362,8 +458,8 @@ def test_relaunch_requires_a_ready_input_box_before_submitting_resume(
     monkeypatch.setattr(entrypoint, "await_input_box", lambda **kwargs: False)
     monkeypatch.setattr(
         entrypoint,
-        "submit_prompt_result",
-        lambda **kwargs: submitted.append(str(kwargs["text"])) or SimpleNamespace(submitted=True),
+        "submit_prompt",
+        lambda **kwargs: submitted.append(str(kwargs["text"])) or True,
     )
     monkeypatch.setattr(entrypoint, "_identity_after_launch", lambda **kwargs: "identity")
     monkeypatch.setattr(entrypoint, "_rebind", lambda **kwargs: True)
