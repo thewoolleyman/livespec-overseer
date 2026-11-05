@@ -1906,6 +1906,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: The capacity cell shows the plan display name without wrapping",
+    "work_item": "overseer-zmkkef",
+    "first_seen": "2026-11-05"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: The coexistence proof schema retains its first qualifying evidence",
     "work_item": "overseer-5tpc72",
     "first_seen": "2026-09-12"
