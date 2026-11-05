@@ -62,6 +62,7 @@ from pathlib import Path
 
 import livespec_dev_tooling
 import pytest
+from codex_skill_picker_predicates import mentions_list_has_new_marker
 
 _VENDOR_DIR = Path(livespec_dev_tooling.__file__).resolve().parent / "_vendor"
 if str(_VENDOR_DIR) not in sys.path:
@@ -837,9 +838,10 @@ def _open_skills_list(
         exercise=exercise,
         phase="picker open",
         seen=transcript,
-        predicate=lambda plain: any(
-            marker in plain and marker not in before
-            for marker in (_PICKER_OPEN_MARKER, expected_row)
+        predicate=lambda plain: mentions_list_has_new_marker(
+            plain=plain,
+            before=before,
+            markers=(_PICKER_OPEN_MARKER, expected_row),
         ),
         stall_seconds=_CODEX_PICKER_STALL_SECONDS,
     )
