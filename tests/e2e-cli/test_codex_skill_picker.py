@@ -801,6 +801,13 @@ def _picker_row_is_rendered(*, plain: str, expected_row: str) -> bool:
     return any(expected_row in line and "Skill" in line for line in plain.splitlines())
 
 
+def _mentions_list_has_redrawn(*, plain: str, before: str, expected_row: str) -> bool:
+    """Whether a mentions-list screen that was not present before input now renders."""
+    return plain != before and any(
+        marker in plain for marker in (_PICKER_OPEN_MARKER, expected_row)
+    )
+
+
 def _read_until_picker_row(*, exercise: _Exercise, opened: str, expected_row: str) -> str:
     """Move the picker viewport until the declared Skill row is rendered.
 
@@ -872,9 +879,10 @@ def _open_skills_list(
         exercise=exercise,
         phase="picker open",
         seen=transcript,
-        predicate=lambda plain: any(
-            marker in plain and marker not in before
-            for marker in (_PICKER_OPEN_MARKER, expected_row)
+        predicate=lambda plain: _mentions_list_has_redrawn(
+            plain=plain,
+            before=before,
+            expected_row=expected_row,
         ),
         stall_seconds=_CODEX_PICKER_STALL_SECONDS,
     )
@@ -1048,6 +1056,32 @@ def test_picker_open_refuses_mentions_that_were_already_on_screen(
     finally:
         os.close(read_fd)
         os.close(write_fd)
+
+
+def test_picker_open_recognises_a_changed_mentions_screen_with_existing_markers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A redraw remains new when its header and row label were already visible."""
+    read_fd, write_fd = os.pipe()
+    expected_row = "overseer (livespec-overseer)"
+    try:
+        os.write(
+            write_fd,
+            ("\x1b[2J\x1b[1;1HMentions" f"\x1b[2;1H{expected_row}  Skill").encode(),
+        )
+        monkeypatch.setattr(sys.modules[__name__], "_send", lambda **_: None)
+        monkeypatch.setattr(sys.modules[__name__], "_CODEX_PICKER_STALL_SECONDS", 0.05)
+        current = _open_skills_list(
+            exercise=_Exercise(fd=read_fd),
+            transcript=f"Mentions\n{expected_row}  Plugin",
+            query="overseer",
+            expected_row=expected_row,
+        )
+    finally:
+        os.close(read_fd)
+        os.close(write_fd)
+
+    assert f"{expected_row}  Skill" in _plain(text=current)
 
 
 def test_picker_scrolls_until_the_skill_row_is_drawn(
