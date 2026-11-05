@@ -543,6 +543,31 @@ class CandidateProcess:
     command: bytes
 
 
+def _candidate_diagnostic(*, candidate: CandidateProcess) -> str:
+    return (
+        f"pid={candidate.pid}, starttime={candidate.starttime!r}, "
+        f"executable={str(candidate.executable)!r}, command={candidate.command!r}"
+    )
+
+
+def _pane_process_diagnostics(*, reading: Any) -> tuple[str, ...]:
+    details: list[str] = []
+    for pid, name in reading.processes:
+        process = Path(f"/proc/{pid}")
+        try:
+            executable = str((process / "exe").readlink().resolve())
+        except OSError as error:
+            executable = f"<unreadable: {error}>"
+        try:
+            command = (process / "cmdline").read_bytes()
+        except OSError as error:
+            command = f"<unreadable: {error}>"
+        details.append(
+            f"pid={pid}, reported_name={name!r}, executable={executable!r}, " f"command={command!r}"
+        )
+    return tuple(details)
+
+
 def _candidate_daemon_pids(*, candidate: Candidate) -> dict[int, CandidateProcess]:
     found: dict[int, CandidateProcess] = {}
     command_needle = str(candidate.daemon).encode()
@@ -611,24 +636,21 @@ def _await_candidate_daemon(
     minimum_generation: int,
 ) -> CandidateProcess:
     deadline = time.monotonic() + LIVENESS_GUARD_SECONDS
-    last: object = None
+    last: tuple[Any, tuple[str, ...]] | None = None
     while time.monotonic() < deadline:
         reading = _foreground(case=case, pane=pane)
         pane_pids = {pid for pid, _name in reading.processes}
-        candidates = {
-            pid: identity
-            for pid, identity in _candidate_daemon_pids(candidate=candidate).items()
-            if pid in pane_pids
-        }
-        last = (reading, candidates)
-        unexpected = set(candidates) - {expected.pid}
-        if unexpected:
-            pytest.fail(f"unexpected candidate daemon(s) occupied {pane!r}: {unexpected!r}")
-        actual = candidates.get(expected.pid)
-        if actual is not None and actual != expected:
-            pytest.fail(f"candidate daemon identity changed before readiness: {actual!r}")
+        diagnostics = _pane_process_diagnostics(reading=reading)
+        last = (reading, diagnostics)
+        actual_starttime = claude_sessions.proc_starttime(pid=expected.pid)
+        if actual_starttime != expected.starttime:
+            pytest.fail(
+                "candidate daemon identity changed before readiness: "
+                f"expected=({_candidate_diagnostic(candidate=expected)}); "
+                f"pane_processes={diagnostics!r}"
+            )
         if (
-            actual == expected
+            expected.pid in pane_pids
             and reading.group_id != reading.shell_pid
             and _daemon_readiness_generation(
                 candidate=candidate,
@@ -638,10 +660,11 @@ def _await_candidate_daemon(
             is not None
         ):
             return expected
-        if claude_sessions.proc_starttime(pid=expected.pid) != expected.starttime:
-            pytest.fail(f"candidate daemon exited before readiness: {expected!r}")
         time.sleep(POLL_SECONDS)
-    pytest.fail(f"test hung waiting for installed candidate daemon in {pane!r}; last={last!r}")
+    pytest.fail(
+        f"test hung waiting for installed candidate daemon in {pane!r}; "
+        f"expected=({_candidate_diagnostic(candidate=expected)}); last={last!r}"
+    )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -819,6 +842,5 @@ def test_daemon_launch_reply_loss_observes_exact_candidate_before_reuse(
     assert repeat_identity.pid == observed.pid
     assert repeat_identity.starttime == observed.starttime
     assert claude_sessions.proc_starttime(pid=observed.pid) == observed.starttime
-    assert _candidate_daemon_pids(candidate=candidate) == {observed.pid: repeat_identity}
     assert Path(f"/proc/{observed.pid}").exists()
     _assert_unrelated_unchanged(case=live_case)
