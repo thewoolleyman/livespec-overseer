@@ -3369,6 +3369,14 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: The capacity cell shows the plan display name without wrapping",
+    "test": "TODO",
+    "work_item": "overseer-zmkkef",
+    "reason": "Ratified ahead of its implementation under work item overseer-zmkkef; overseer-zmkkef MUST replace this TODO with a test at integration tier that renders the shipped account table for seven accounts at 120 columns with the provider reporting the display name Ultra, and asserts the capacity cell carries the class with Ultra as detail and no row wraps."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A plan change shows without a fresh login",
     "test": "tests.integration.test_caam_capacity_reporting.test_scenario_a_plan_change_shows_without_a_fresh_login",
     "reason": "Writes the disagreement measured on host hp 2026-10-13 \u2014 a stored login-time credential naming `default_claude_max_20x` while the live read reports `default_claude_ai` \u2014 and asserts the row shows the live read's `small` class; the stored field is asserted present first, so an implementation reading no plan source at all cannot pass."

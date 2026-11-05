@@ -5631,6 +5631,18 @@ When the operation renders the account table
 
 Then each row shows its capacity class with the provider's plan name as detail
 
+## Scenario: The capacity cell shows the plan display name without wrapping
+
+Given the provider reports the display name `Ultra` and the tier `default_claude_max_20x` for an account
+
+When the operation renders the account table for seven accounts in a 120-column terminal
+
+Then the account's capacity cell shows the class with `Ultra` as detail
+
+And the class is still `large`
+
+And no row wraps
+
 ## Scenario: A plan change shows without a fresh login
 
 Given an account's stored login-time credential names a large plan
