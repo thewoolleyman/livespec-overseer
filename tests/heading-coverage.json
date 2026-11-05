@@ -4104,5 +4104,149 @@
     "test": "tests.integration.test_expedited_incident_operator_routing.test_canonical_observations_have_explicit_routes",
     "reason": "Integration-tier instruction contract: reads the shared shipped operator artifact and checks distinct canonical repair, recorded inverse, normal repayment, stale ownership and unsupported-reader routes. The same integration module verifies all three runtime bindings, focused evidence, ownership fences, repayment and retained closure obligations; released-tooling incident execution remains plan-level proof.",
     "work_item": "overseer-czsqpx"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready track held from replacement past the hold window logs a hold event",
+    "test": "TODO",
+    "work_item": "overseer-qz7ez7",
+    "reason": "An integration-tier test is owed for this scenario, ratified at v087 ahead of its implementation (proposal a-ready-track-held-from); work item overseer-qz7ez7 owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready hold is not re-reported within the same hold window",
+    "test": "TODO",
+    "work_item": "overseer-qz7ez7",
+    "reason": "An integration-tier test is owed for this scenario, ratified at v087 ahead of its implementation (proposal a-ready-track-held-from); work item overseer-qz7ez7 owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A persisting ready hold is re-reported at the next window boundary",
+    "test": "TODO",
+    "work_item": "overseer-qz7ez7",
+    "reason": "An integration-tier test is owed for this scenario, ratified at v087 ahead of its implementation (proposal a-ready-track-held-from); work item overseer-qz7ez7 owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready hold that ends measures a later hold afresh",
+    "test": "TODO",
+    "work_item": "overseer-qz7ez7",
+    "reason": "An integration-tier test is owed for this scenario, ratified at v087 ahead of its implementation (proposal a-ready-track-held-from); work item overseer-qz7ez7 owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A busy hold names the source of its busy evidence",
+    "test": "TODO",
+    "work_item": "overseer-qz7ez7",
+    "reason": "An integration-tier test is owed for this scenario, ratified at v087 ahead of its implementation (proposal a-ready-track-held-from); work item overseer-qz7ez7 owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A failed pre-act identity re-check is a pane-identity hold",
+    "test": "TODO",
+    "work_item": "overseer-qz7ez7",
+    "reason": "An integration-tier test is owed for this scenario, ratified at v087 ahead of its implementation (proposal a-ready-track-held-from); work item overseer-qz7ez7 owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An uncertifiable ready on a busy pane is never a ready hold",
+    "test": "TODO",
+    "work_item": "overseer-qz7ez7",
+    "reason": "An integration-tier test is owed for this scenario, ratified at v087 ahead of its implementation (proposal a-ready-track-held-from); work item overseer-qz7ez7 owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A read-only listing neither starts nor ends a ready-hold measurement",
+    "test": "TODO",
+    "work_item": "overseer-qz7ez7",
+    "reason": "An integration-tier test is owed for this scenario, ratified at v087 ahead of its implementation (proposal a-ready-track-held-from); work item overseer-qz7ez7 owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The ready-hold window is configured at daemon launch",
+    "test": "TODO",
+    "work_item": "overseer-qz7ez7",
+    "reason": "An integration-tier test is owed for this scenario, ratified at v087 ahead of its implementation (proposal a-ready-track-held-from); work item overseer-qz7ez7 owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The ready-hold window defaults to 600 seconds",
+    "test": "TODO",
+    "work_item": "overseer-qz7ez7",
+    "reason": "An integration-tier test is owed for this scenario, ratified at v087 ahead of its implementation (proposal a-ready-track-held-from); work item overseer-qz7ez7 owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The daemon refuses to start with an invalid ready-hold window",
+    "test": "TODO",
+    "work_item": "overseer-qz7ez7",
+    "reason": "An integration-tier test is owed for this scenario, ratified at v087 ahead of its implementation (proposal a-ready-track-held-from); work item overseer-qz7ez7 owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready hold resting only on a harness session-status is diagnosed as a possible stuck status",
+    "test": "TODO",
+    "work_item": "overseer-qz7ez7",
+    "reason": "An integration-tier test is owed for this scenario, ratified at v087 ahead of its implementation (proposal a-ready-track-held-from); work item overseer-qz7ez7 owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready hold with visible busy evidence is not diagnosed as a stuck status",
+    "test": "TODO",
+    "work_item": "overseer-qz7ez7",
+    "reason": "An integration-tier test is owed for this scenario, ratified at v087 ahead of its implementation (proposal a-ready-track-held-from); work item overseer-qz7ez7 owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A latched track's wrap-up names the latch and the live context reading",
+    "test": "TODO",
+    "work_item": "overseer-qz7ez7",
+    "reason": "An integration-tier test is owed for this scenario, ratified at v087 ahead of its implementation (proposal a-ready-track-held-from); work item overseer-qz7ez7 owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A latched track below its threshold names the threshold and keeps its sharper band",
+    "test": "TODO",
+    "work_item": "overseer-qz7ez7",
+    "reason": "An integration-tier test is owed for this scenario, ratified at v087 ahead of its implementation (proposal a-ready-track-held-from); work item overseer-qz7ez7 owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A latched track with an unreadable statusline names its kept last-known reading",
+    "test": "TODO",
+    "work_item": "overseer-qz7ez7",
+    "reason": "An integration-tier test is owed for this scenario, ratified at v087 ahead of its implementation (proposal a-ready-track-held-from); work item overseer-qz7ez7 owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A latched track with no effective reading says live unknown",
+    "test": "TODO",
+    "work_item": "overseer-qz7ez7",
+    "reason": "An integration-tier test is owed for this scenario, ratified at v087 ahead of its implementation (proposal a-ready-track-held-from); work item overseer-qz7ez7 owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unlatched track's wrap-up keeps its bare live context figure",
+    "test": "TODO",
+    "work_item": "overseer-qz7ez7",
+    "reason": "An integration-tier test is owed for this scenario, ratified at v087 ahead of its implementation (proposal a-ready-track-held-from); work item overseer-qz7ez7 owns landing it and MUST replace this TODO."
   }
 ]
