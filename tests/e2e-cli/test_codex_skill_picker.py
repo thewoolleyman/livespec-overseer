@@ -975,6 +975,78 @@ def test_a_wait_returns_once_its_state_renders() -> None:
     assert current.endswith("Skill")
 
 
+def test_picker_open_recognises_a_redrawn_mentions_list_before_the_old_screen_end() -> None:
+    """The picker is a screen redraw, so prior character offsets are irrelevant."""
+    before = "\n".join("x" * 100 for _ in range(39))
+    after = "Mentions\noverseer (livespec-overseer)  Skill"
+
+    assert mentions_list_has_new_marker(
+        plain=after,
+        before=before,
+        markers=(_PICKER_OPEN_MARKER, "overseer (livespec-overseer)"),
+    )
+
+
+def test_picker_open_recognises_a_mentions_list_redrawn_beneath_an_existing_header() -> None:
+    """A changed list is new even if its persistent header was already visible."""
+    before = "Mentions\nlivespec-overseer  Plugin"
+    after = "Mentions\noverseer ./  Dir\nREADME.md  File\n↓"
+
+    assert mentions_list_has_new_marker(
+        plain=after,
+        before=before,
+        markers=(_PICKER_OPEN_MARKER, "overseer (livespec-overseer)"),
+    )
+
+
+def test_picker_open_refuses_an_unchanged_mentions_list() -> None:
+    before = "Mentions\nlivespec-overseer  Plugin"
+
+    assert not mentions_list_has_new_marker(
+        plain=before,
+        before=before,
+        markers=(_PICKER_OPEN_MARKER, "overseer (livespec-overseer)"),
+    )
+
+
+def test_picker_scrolls_until_the_skill_row_is_drawn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    read_fd, write_fd = os.pipe()
+    sent: list[str] = []
+    expected_row = "overseer (livespec-overseer)"
+
+    def send_picker_frame(*, fd: int, text: str) -> None:
+        sent.append(text)
+        if len(sent) == 1:
+            os.write(
+                write_fd,
+                b"\x1b[2J\x1b[1;1HMentions\x1b[2;1Hlivespec-overseer  Plugin"
+                b"\x1b[3;1Hoverseer ./  Dir\x1b[4;1HREADME.md  File\x1b[5;1H\xe2\x86\x93",
+            )
+        elif text == "\x1b[B":
+            os.write(
+                write_fd,
+                ("\x1b[2J\x1b[1;1HMentions" f"\x1b[2;1H{expected_row}  Skill").encode(),
+            )
+
+    try:
+        monkeypatch.setattr(sys.modules[__name__], "_send", send_picker_frame)
+        monkeypatch.setattr(sys.modules[__name__], "_CODEX_PICKER_STALL_SECONDS", 0.05)
+        current = _open_skills_list(
+            exercise=_Exercise(fd=read_fd),
+            transcript="› Ask Codex to do anything",
+            query="overseer",
+            expected_row=expected_row,
+        )
+    finally:
+        os.close(read_fd)
+        os.close(write_fd)
+
+    assert sent == ["\x15@overseer", "\x1b[B"]
+    assert f"{expected_row}  Skill" in _plain(text=current)
+
+
 def test_a_silent_codex_fails_naming_the_wait_its_times_and_the_host_load() -> None:
     """Silence, not a phase budget, is what expires a wait, and the failure says which."""
     read_fd, write_fd = os.pipe()
