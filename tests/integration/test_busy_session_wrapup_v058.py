@@ -163,7 +163,7 @@ def test_styled_codex_placeholder_is_empty_only_when_its_glyphs_are_dim():
     )
     assert (
         composer_empty(
-            capture_text=f"{_styled_codex_busy_capture(composer=_CODEX_EMPTY_COMPOSER)}\x1bX"
+            capture_text=_styled_codex_busy_capture(composer=f"{_CODEX_EMPTY_COMPOSER}\x1bX")
         )
         is False
     )
