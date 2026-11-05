@@ -541,7 +541,7 @@
       "factories": {
         "petri": {
           "registry": true,
-          "bin": "/home/ubuntu/.local/state/fabro-currency/carrier-petri-v0.382-adeefec4c/fabro",
+          "bin": "/home/ubuntu/.local/state/fabro-web-prod/v0393-85af3547e/fabro",
           "secret_channel": "native_secrets",
           // factory-python: the toolchain-named catalog id (livespec-dev-tooling
           // SPECIFICATION, "Factory sandbox environment naming"). Its provider, not
