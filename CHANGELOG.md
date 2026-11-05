@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.52.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.52.1...v5.52.2) (2026-11-05)
+
+
+### Bug Fixes
+
+* submit relaunch resume through Herdr-aware wrapper ([6a35d2d](https://github.com/thewoolleyman/livespec-overseer/commit/6a35d2dc4f9820a66b2e073141ae70a1a83045b9))
+
 ## [5.52.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.52.0...v5.52.1) (2026-11-04)
 
 
