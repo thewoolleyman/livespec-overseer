@@ -401,6 +401,172 @@ activity
 And the round's durable record and already-notified escalation bands are
 unaffected
 
+## Scenario: A ready track held from replacement past the hold window logs a hold event
+
+Given a track whose state file reads ready with a declaration that satisfies
+every restart-interlock precondition
+
+And the supervising loop's evaluation withholds replacement because the pane is
+unsettled
+
+When the hold has persisted for longer than the ready-hold window
+
+Then the daemon writes one overseer: diagnostic event to its event history
+naming the track's plan topic, repository, session, pane and jump command
+
+And the event names the holding condition unsettled, the declaration's age, and
+the hold's age at the window boundary crossed
+
+And no overseer[SURFACE]: alert or attention membership is raised for the hold
+
+And no restart, keystroke, paste, declaration write or declaration voiding
+occurs on account of the event
+
+And the evaluation selects exactly the branch it would select without the event
+
+## Scenario: A ready hold is not re-reported within the same hold window
+
+Given a ready hold that has already written its hold event at the 600-second
+boundary of a 600-second window
+
+When the hold persists through further supervision cycles before the
+1200-second boundary, its holding condition changing from busy to unsettled
+
+Then no further hold event is written for the track
+
+## Scenario: A persisting ready hold is re-reported at the next window boundary
+
+Given a ready hold that has already written its hold event at the 600-second
+boundary of a 600-second window
+
+When the hold persists past the 1200-second boundary
+
+Then exactly one further hold event is written, naming the holding conditions
+observed in that evaluation
+
+## Scenario: A ready hold that ends measures a later hold afresh
+
+Given a ready hold that has already written its hold event
+
+When the state file no longer reads ready and a later ready declaration is held
+again
+
+Then the later hold's window is measured from its own first acting evaluation
+
+## Scenario: A busy hold names the source of its busy evidence
+
+Given a track whose state file reads ready with a declaration that satisfies
+every restart-interlock precondition
+
+And the supervising loop's evaluation withholds replacement because a
+background-wait line is visible in the pane
+
+When the hold has persisted for longer than the ready-hold window
+
+Then the hold event names the holding condition busy with source
+background-wait
+
+## Scenario: A failed pre-act identity re-check is a pane-identity hold
+
+Given a track whose state file reads ready with a declaration that satisfies
+every restart-interlock precondition
+
+And every acting evaluation's immediate pre-act identity re-check fails after
+the settle captures, so the evaluation waits instead of acting
+
+When the hold has persisted for longer than the ready-hold window
+
+Then the hold event names the holding condition pane-identity
+
+And no restart occurs
+
+## Scenario: An uncertifiable ready on a busy pane is never a ready hold
+
+Given a track whose standing ready declaration fails a restart-interlock
+precondition
+
+And the pane shows a spinner
+
+When the declaration stands past the ready-hold window
+
+Then the daemon writes no ready-hold event for the track
+
+And the declaration is surfaced only through the certification failure's own
+attention membership
+
+## Scenario: A read-only listing neither starts nor ends a ready-hold measurement
+
+Given a track in a ready hold whose measurement began at an acting evaluation
+
+When the track is evaluated by the read-only listing path
+
+Then the hold measurement is neither restarted nor ended by that evaluation
+
+## Scenario: The ready-hold window is configured at daemon launch
+
+Given the daemon launched with --ready-hold-window-seconds 120
+
+And a track in a ready hold
+
+When the hold has persisted for longer than 120 seconds
+
+Then the daemon writes the hold event
+
+## Scenario: The ready-hold window defaults to 600 seconds
+
+Given the daemon launched without --ready-hold-window-seconds
+
+When a track's ready hold has persisted for 599 seconds
+
+Then no hold event has been written for the track
+
+## Scenario: The daemon refuses to start with an invalid ready-hold window
+
+Given an overseerd launch with --ready-hold-window-seconds 0
+
+When the daemon starts
+
+Then it exits non-zero with a message naming --ready-hold-window-seconds and
+the rejected value
+
+And no startup gate runs and no track is observed
+
+## Scenario: A ready hold resting only on a harness session-status is diagnosed as a possible stuck status
+
+Given a track whose state file reads ready with a declaration that satisfies
+every restart-interlock precondition
+
+And the harness reports the session's status as shell
+
+And the pane shows an idle empty composer with no spinner and no
+background-wait line
+
+When the hold has persisted for longer than the ready-hold window
+
+Then the hold event names the holding condition busy with source session-status
+and value shell
+
+And the event states explicitly that the harness session-status disagrees with
+an idle pane showing no spinner and no background wait
+
+And the restart remains withheld exactly as it would be without the diagnosis
+
+## Scenario: A ready hold with visible busy evidence is not diagnosed as a stuck status
+
+Given a track whose state file reads ready with a declaration that satisfies
+every restart-interlock precondition
+
+And the harness reports the session's status as busy
+
+And the pane shows a spinner
+
+When the hold has persisted for longer than the ready-hold window
+
+Then the hold event names busy with both its spinner and session-status sources
+
+And the event does not state that the harness session-status disagrees with the
+pane
+
 ## Scenario: Repeated expiries never re-send an already-notified band
 
 Given a session that repeatedly declares ready and each declaration ages past
@@ -5574,6 +5740,73 @@ And its state file is absent
 When the daemon's supervising loop observes the track
 
 Then the round stays open
+
+## Scenario: A latched track's wrap-up names the latch and the live context reading
+
+Given a track carrying a context-compaction latch whose wind-down threshold is
+50%
+
+And the pane's live remaining context reads 86%
+
+When the daemon delivers a wrap-up to the track under the latch
+
+Then the wrap-up's context figure reads ctx latched to 50%; live 86%
+
+And the wrap-up does not present 50% as a bare remaining-context percentage
+
+And the wrap-up still states that a context compaction was detected and a
+restart is required
+
+## Scenario: A latched track below its threshold names the threshold and keeps its sharper band
+
+Given a track carrying a context-compaction latch whose wind-down threshold is
+50%
+
+And the pane's live remaining context reads 30%
+
+When the daemon delivers a wrap-up to the track under the latch
+
+Then the wrap-up's context figure reads ctx latched to 50%; live 30%
+
+And the escalation band is selected by the 30% figure exactly as without this
+wording, so the insistent 30% band applies
+
+## Scenario: A latched track with an unreadable statusline names its kept last-known reading
+
+Given a track carrying a context-compaction latch whose wind-down threshold is
+50%
+
+And the daemon last read 72% remaining for the session within the staleness
+window
+
+And the current capture's statusline is unreadable
+
+When the daemon delivers a wrap-up to the track under the latch
+
+Then the wrap-up's context figure reads ctx latched to 50%; live 72%
+
+## Scenario: A latched track with no effective reading says live unknown
+
+Given a track carrying a durable context-compaction latch whose wind-down
+threshold is 50%
+
+And the daemon has observed no remaining-context reading for the session since
+it started
+
+When the daemon delivers a wrap-up to the track under the latch
+
+Then the wrap-up's context figure reads ctx latched to 50%; live unknown
+
+And the threshold is not presented as the live reading
+
+## Scenario: An unlatched track's wrap-up keeps its bare live context figure
+
+Given a track carrying no context-compaction latch at 40% remaining context
+
+When the daemon delivers a wrap-up to the track
+
+Then the wrap-up names the live remaining context as 40% without any latch
+wording
 
 ## Scenario: A session told of a compaction keeps its declaration on context recovery
 

@@ -44,6 +44,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A busy hold names the source of its busy evidence",
+    "work_item": "overseer-qz7ez7",
+    "first_seen": "2026-11-05"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A cache failure falls back to the store without admitting an unvalidated credential",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
@@ -233,6 +240,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A failed pre-act identity re-check is a pane-identity hold",
+    "work_item": "overseer-qz7ez7",
+    "first_seen": "2026-11-05"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed restore names every file left unrestored",
     "work_item": "overseer-5o3ebm",
     "first_seen": "2026-10-26"
@@ -306,6 +320,34 @@
     "heading": "## Scenario: A lapsing reset that would refill almost nothing is not claimed",
     "work_item": "overseer-33kyxp",
     "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A latched track below its threshold names the threshold and keeps its sharper band",
+    "work_item": "overseer-qz7ez7",
+    "first_seen": "2026-11-05"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A latched track with an unreadable statusline names its kept last-known reading",
+    "work_item": "overseer-qz7ez7",
+    "first_seen": "2026-11-05"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A latched track with no effective reading says live unknown",
+    "work_item": "overseer-qz7ez7",
+    "first_seen": "2026-11-05"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A latched track's wrap-up names the latch and the live context reading",
+    "work_item": "overseer-qz7ez7",
+    "first_seen": "2026-11-05"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -408,6 +450,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A persisting ready hold is re-reported at the next window boundary",
+    "work_item": "overseer-qz7ez7",
+    "first_seen": "2026-11-05"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A post-lifecycle held-worker crash becomes a defined failed acquisition",
     "work_item": "overseer-psqcmg",
     "first_seen": "2026-09-12"
@@ -432,6 +481,48 @@
     "heading": "## Scenario: A provisioning request drives suspect and dead credential recovery",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A read-only listing neither starts nor ends a ready-hold measurement",
+    "work_item": "overseer-qz7ez7",
+    "first_seen": "2026-11-05"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready hold is not re-reported within the same hold window",
+    "work_item": "overseer-qz7ez7",
+    "first_seen": "2026-11-05"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready hold resting only on a harness session-status is diagnosed as a possible stuck status",
+    "work_item": "overseer-qz7ez7",
+    "first_seen": "2026-11-05"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready hold that ends measures a later hold afresh",
+    "work_item": "overseer-qz7ez7",
+    "first_seen": "2026-11-05"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready hold with visible busy evidence is not diagnosed as a stuck status",
+    "work_item": "overseer-qz7ez7",
+    "first_seen": "2026-11-05"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready track held from replacement past the hold window logs a hold event",
+    "work_item": "overseer-qz7ez7",
+    "first_seen": "2026-11-05"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -849,6 +940,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: An uncertifiable ready on a busy pane is never a ready hold",
+    "work_item": "overseer-qz7ez7",
+    "first_seen": "2026-11-05"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: An uncommitted or nonoverlapping peer cannot satisfy spread proof",
     "work_item": "overseer-5tpc72",
     "first_seen": "2026-09-12"
@@ -887,6 +985,13 @@
     "heading": "## Scenario: An unknown operation-less expiry write remains recoverable",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unlatched track's wrap-up keeps its bare live context figure",
+    "work_item": "overseer-qz7ez7",
+    "first_seen": "2026-11-05"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -1815,6 +1920,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: The daemon refuses to start with an invalid ready-hold window",
+    "work_item": "overseer-qz7ez7",
+    "first_seen": "2026-11-05"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: The declaration command clears only what a session may clear",
     "work_item": "overseer-ryc6sh",
     "first_seen": "2026-10-31"
@@ -1853,6 +1965,20 @@
     "heading": "## Scenario: The narrowest qualifying reset is claimed",
     "work_item": "overseer-33kyxp",
     "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The ready-hold window defaults to 600 seconds",
+    "work_item": "overseer-qz7ez7",
+    "first_seen": "2026-11-05"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The ready-hold window is configured at daemon launch",
+    "work_item": "overseer-qz7ez7",
+    "first_seen": "2026-11-05"
   },
   {
     "spec_root": "SPECIFICATION",

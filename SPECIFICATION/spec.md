@@ -355,12 +355,20 @@ can never escalate. A fresh session that comes up showing a structured gate
 is never keystroked; it is surfaced as waiting on a human, with the round
 held open.
 
-A session that declares `ready` and then resumes work — narrates further,
-emits more turns, streams stop-hook output — keeps its declaration armed; the
-restart branch's settle and busy gates prevent a kill mid-work without
-requiring any activity-based clearing. The declaration is cleared only by a
-successful restart or by exceeding its bounded maximum age (per contracts.md
-§"The state file", its "Stale-declaration voiding" rule).
+A session that declares `ready` and then resumes work — narrates further, emits
+more turns, streams stop-hook output — keeps its declaration armed; the restart
+branch's settle and busy gates prevent a kill mid-work without requiring any
+activity-based clearing. The declaration is cleared only by a successful
+restart or by exceeding its bounded maximum age (per contracts.md §"The state
+file", its "Stale-declaration voiding" rule). Withholding the restart of such a
+ready hold remains unbounded under §"Fail-soft posture", but the daemon MUST
+NOT leave such a hold unreported past the ready-hold window: a certifiable
+`ready` withheld by the busy, not-idle, unsettled or pane-identity condition
+(the immediate pre-act identity re-check) for longer than that window MUST
+produce a report-only diagnostic event naming the track and every holding
+condition observed, repeated at most once per window while the hold persists
+(per contracts.md §"The restart interlock", its "ready-hold event" rule); the
+event changes no gate and authorizes nothing.
 
 After a respawn succeeds, the daemon retains enough live observation to
 recognize a fresh session that has consumed no context and whose composer
@@ -899,9 +907,12 @@ The latch is an OBLIGATION, never an authorization. While it stands:
   round's open time and certification floor MUST NOT move;
 - a latched track's round MUST NOT be closed as recovered under §"The
   supervision round", whatever its reading;
-- every wrap-up delivered under the latch MUST state that a context
-  compaction was detected and that a restart is required regardless of the
-  remaining context the session sees.
+- every wrap-up delivered under the latch MUST state that a context compaction
+  was detected and that a restart is required regardless of the remaining
+  context the session sees, and MUST name the latch in its context figure — the
+  track's wind-down threshold and the daemon's effective live reading together,
+  per contracts.md §"The wrap-up injection" — never a single bare ctx
+  percentage.
 
 The cardinal rule is unchanged: only the session's own fresh certifiable
 `ready` restarts it, under the unchanged restart interlock. Each latch is
