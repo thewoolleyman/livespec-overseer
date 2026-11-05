@@ -136,15 +136,37 @@ def test_styled_codex_placeholder_is_empty_only_when_its_glyphs_are_dim():
     assert hasattr(signals, "codex_composer_placeholder_empty")
     composer_empty = signals.codex_composer_placeholder_empty
 
-    assert composer_empty(capture_text=_CODEX_EMPTY_COMPOSER) is True
+    assert (
+        composer_empty(capture_text=_styled_codex_busy_capture(composer=_CODEX_EMPTY_COMPOSER))
+        is True
+    )
     assert (
         composer_empty(
-            capture_text=_CODEX_EMPTY_COMPOSER.replace(_CODEX_COMPOSER_BACKGROUND, "\x1b[48;5;57m")
+            capture_text=_styled_codex_busy_capture(
+                composer=_CODEX_EMPTY_COMPOSER.replace(_CODEX_COMPOSER_BACKGROUND, "\x1b[48;5;57m")
+            )
         )
         is True
     )
-    assert composer_empty(capture_text=_CODEX_TYPED_COMPOSER) is False
-    assert composer_empty(capture_text=f"{_CODEX_EMPTY_COMPOSER}\x1bX") is False
+    assert (
+        composer_empty(capture_text=_styled_codex_busy_capture(composer=_CODEX_TYPED_COMPOSER))
+        is False
+    )
+    assert (
+        composer_empty(
+            capture_text=(
+                f"{_CODEX_EMPTY_COMPOSER}\n"
+                f"{_styled_codex_busy_capture(composer=_CODEX_TYPED_COMPOSER)}"
+            )
+        )
+        is False
+    )
+    assert (
+        composer_empty(
+            capture_text=f"{_styled_codex_busy_capture(composer=_CODEX_EMPTY_COMPOSER)}\x1bX"
+        )
+        is False
+    )
 
 
 # ## Scenario: A busy session with an empty input box receives the wrap-up
