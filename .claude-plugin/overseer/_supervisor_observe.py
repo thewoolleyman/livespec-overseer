@@ -16,7 +16,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import _supervisor_claude_registry_freshness as _claude_freshness
 import _supervisor_compaction
+import _supervisor_idle
 import _supervisor_ready
 import claude_sessions
 import registry
@@ -46,7 +48,6 @@ __all__: list[str] = [
     "observed_stale_ctx_age",
     "pane_is_managed",
     "pane_is_managed_claude",
-    "update_idle_episode",
 ]
 
 
@@ -80,17 +81,6 @@ def effective_ctx(
     if state.last_ctx_seen is not None and (now - state.last_ctx_seen) >= CTX_STALE_AFTER:
         return None
     return state.last_ctx
-
-
-def update_idle_episode(*, state: InjectState, idle: bool, busy: bool, now: float) -> None:
-    """Advance the continuous-idle episode used by the keep-going nudge."""
-    if idle and not busy:
-        if state.idle_since is None:
-            state.idle_since = now
-        state.idle_last_seen = now
-        return
-    state.idle_since = None
-    state.idle_last_seen = None
 
 
 def _cmdline_names_codex_launcher(*, cmdline: bytes | None) -> bool:
@@ -207,6 +197,9 @@ def pane_is_managed_claude(
         pane_current_path=sup.tmux.pane_current_path(session=target), repo=repo
     ):
         return False
+    fresh = _claude_freshness.read_joined_registry(sup=sup, session=session or "", topic=topic)
+    if fresh is not None and fresh.session is not None and fresh.session.name != topic:
+        return False
     names = sup.claude_names_by_session.get(session or "")
     if not names or topic in names:
         return True
@@ -251,7 +244,9 @@ def observe(
     # shells (false-working). `has_active_subshell` (`bg_shell`) remains ONLY the
     # runtime-agnostic FALLBACK for a session with no registry entry (Codex).
     # `claude_status is None` ⇒ not an adopted Claude session.
-    claude_status = sup.claude_status_by_session.get(session)
+    claude_status, claude_status_read_at = _claude_freshness.status(
+        sup=sup, session=session, topic=topic
+    )
     claude_busy = claude_status in CLAUDE_BUSY_STATUSES
     is_codex = is_codex_track(sup=sup, session=session, repo=repo, topic=topic, target=target)
     codex_fallback = claude_status is None and bg_shell and is_codex
@@ -297,7 +292,7 @@ def observe(
     # misses — a sub-agent / background command is active work). The FIRST cleanly-idle
     # tick stamps `idle_since`; ANY non-idle tick clears it, so brief activity resets the
     # clock and only a genuinely long idle spell reaches the nudge.
-    update_idle_episode(state=istate, idle=idle, busy=busy, now=now)
+    _supervisor_idle.update_idle_episode(state=istate, idle=idle, busy=busy, now=now)
     ctx_stale_age = observed_stale_ctx_age(
         state=istate, current=current_ctx, eff_ctx=eff_ctx, now=now
     )
@@ -346,6 +341,7 @@ def observe(
         runtime=runtime,
         codex_fallback=codex_fallback,
         claude_status=claude_status,
+        claude_status_read_at=claude_status_read_at,
         current_ctx=current_ctx,
         eff_ctx=eff_ctx,
         ctx_reading=ctx_reading(state=istate, current=current_ctx, now=now),

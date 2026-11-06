@@ -15,6 +15,7 @@ from test_supervisor_builders import (
     mapped_track,
     nudge_count,
 )
+from test_supervisor_claude_status_inject import inject_claude_status
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
@@ -37,7 +38,7 @@ def test_standing_stale_session_declaration_is_not_idle_nudge_absence(
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     declare(repo=repo, topic=topic, value=stale_declaration, mtime=1.0)
     track = mapped_track(repo=repo, topic=topic, session=session)
 

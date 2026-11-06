@@ -23,6 +23,7 @@ from test_supervisor_builders import (
     make_supervisor,
     mapped_track,
 )
+from test_supervisor_claude_status_inject import inject_claude_status
 from test_supervisor_fakes import (
     FakeTmux,
 )
@@ -43,7 +44,7 @@ def test_stale_blocked_is_voided_for_an_in_process_sub_agent(*, tmp_path):
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))  # pane looks idle
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {session: "busy"}  # sub-agent running in-process
+    inject_claude_status(sup=sup, statuses={session: "busy"})  # sub-agent running in-process
     declare(repo=repo, topic=topic, value="blocked: stale", mtime=800.0)
     with contextlib.redirect_stderr(_io.StringIO()):
         view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
@@ -60,7 +61,7 @@ def test_idle_blocked_session_is_never_voided(*, tmp_path):
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {session: "waiting"}
+    inject_claude_status(sup=sup, statuses={session: "waiting"})
     declare(repo=repo, topic=topic, value="blocked: still waiting on you", mtime=800.0)
     with contextlib.redirect_stderr(_io.StringIO()):
         view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
@@ -194,7 +195,7 @@ def test_supervision_surfaces_do_not_preempt_blocked_or_danger(*, tmp_path):
     other_repo, other_topic = make_plan(tmp_path=tmp_path, repo_name="other", topic="other")
     other_session = registry.tmux_id(repo=str(other_repo), topic=other_topic)
     fake.serve(session=other_session, repo=other_repo, capture=idle_capture(ctx=15))
-    sup.claude_status_by_session[other_session] = "idle"
+    inject_claude_status(sup=sup, statuses={other_session: "idle"}, merge=True)
     danger = sup.evaluate(
         track=mapped_track(repo=other_repo, topic=other_topic, session=other_session), act=True
     )

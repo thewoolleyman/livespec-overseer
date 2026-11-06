@@ -17,6 +17,7 @@ from test_supervisor_builders import (
     make_supervisor,
     mapped_track,
 )
+from test_supervisor_claude_status_inject import inject_claude_status
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
@@ -54,7 +55,7 @@ def test_round_starvation_surfaces_after_floor_without_acting(*, tmp_path):
             assert sup.evaluate(track=track, act=True).status == "working"
         declare(repo=repo, topic=topic, value="blocked: need a decision", mtime=clock["t"])
         fake.panes[session] = idle_capture(ctx=40)
-        sup.claude_status_by_session = {session: "shell"}
+        inject_claude_status(sup=sup, statuses={session: "shell"})
         clock["t"] += 800.0
         starved = sup.evaluate(track=track, act=True)
 
@@ -129,7 +130,7 @@ def test_malformed_state_note_survives_background_shell_ticks(*, tmp_path):
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {session: "shell"}
+    inject_claude_status(sup=sup, statuses={session: "shell"})
     declare(repo=repo, topic=topic, value="bogus-token")
     track = mapped_track(repo=repo, topic=topic, session=session)
 

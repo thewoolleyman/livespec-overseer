@@ -30,6 +30,7 @@ from overseer.test_supervisor_builders import (
     mapped_track,
     write_fresh_supervisor_state,
 )
+from overseer.test_supervisor_claude_status_inject import inject_claude_status
 
 
 class LivePaneDriver:
@@ -354,8 +355,8 @@ def _supervisor(
         which=lambda _name: "/usr/bin/tmux",
         gitignore_check=lambda *, repo: True,
     )
-    sup.claude_status_by_session = {session: "idle"}
     sup.claude_identity_by_session = {(session, session): f"claude:{session}:{session}"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     sup.refresh_claude_status = lambda: None
     return sup
 
@@ -383,8 +384,8 @@ def _loop_supervisor(
         which=lambda _name: "/usr/bin/tmux",
         gitignore_check=lambda *, repo: True,
     )
-    sup.claude_status_by_session = {session: "idle"}
     sup.claude_identity_by_session = {(session, session): f"claude:{session}:{session}"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     sup.refresh_claude_status = lambda: None
     return sup
 

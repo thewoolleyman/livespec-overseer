@@ -25,6 +25,7 @@ from overseer.test_supervisor_builders import (
     mapped_track,
     write_fresh_supervisor_state,
 )
+from overseer.test_supervisor_claude_status_inject import inject_claude_status
 from overseer.test_supervisor_compaction_builders import (
     claude_busy,
     claude_compaction_track,
@@ -214,7 +215,7 @@ def test_scenario_a_done_declaration_survives_a_background_command(*, tmp_path) 
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {session: "shell"}
+    inject_claude_status(sup=sup, statuses={session: "shell"})
     declare(repo=repo, topic=topic, value="done: tests are running", mtime=1.0)
 
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
@@ -239,7 +240,7 @@ def test_done_is_not_voided_by_age_idle_or_peer_injected_generation(*, tmp_path)
             "target_session": session,
         }
         sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 1000.0)
-        sup.claude_status_by_session = {session: status}
+        inject_claude_status(sup=sup, statuses={session: status})
         marker_mtime = 1.0 if repo_name != "young-generation" else 999.0
         declare(repo=repo, topic=topic, value="done", mtime=marker_mtime)
 

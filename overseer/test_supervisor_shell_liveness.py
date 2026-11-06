@@ -12,6 +12,7 @@ from test_supervisor_builders import (
     make_supervisor,
     mapped_track,
 )
+from test_supervisor_claude_status_inject import inject_claude_status
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
@@ -29,7 +30,7 @@ def test_above_threshold_shell_only_no_progress_surfaces_after_long_floor(*, tmp
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    sup.claude_status_by_session = {session: "shell"}
+    inject_claude_status(sup=sup, statuses={session: "shell"})
     track = mapped_track(repo=repo, topic=topic, session=session)
 
     assert sup.evaluate(track=track, act=True).status == "working"
@@ -53,18 +54,18 @@ def test_above_threshold_shell_episode_resets_on_progress_or_idle(*, tmp_path):
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    sup.claude_status_by_session = {session: "shell"}
+    inject_claude_status(sup=sup, statuses={session: "shell"})
     track = mapped_track(repo=repo, topic=topic, session=session)
 
     sup.evaluate(track=track, act=True)
-    sup.claude_status_by_session = {session: "busy"}
+    inject_claude_status(sup=sup, statuses={session: "busy"})
     clock["t"] += _supervisor_config.SHELL_PROLONGED_AFTER + 1
     assert sup.evaluate(track=track, act=True).status == "working"
     assert sup.inject[key_for(repo=repo, topic=topic)].shell_episode.since is None
 
-    sup.claude_status_by_session = {session: "shell"}
+    inject_claude_status(sup=sup, statuses={session: "shell"})
     sup.evaluate(track=track, act=True)
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     clock["t"] += _supervisor_config.SHELL_PROLONGED_AFTER + 1
     assert sup.evaluate(track=track, act=True).status == "idle-with-context-left"
     assert sup.inject[key_for(repo=repo, topic=topic)].shell_episode.since is None
@@ -77,14 +78,14 @@ def test_above_threshold_shell_episode_survives_daemon_restart(*, tmp_path):
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     clock = {"t": 1000.0}
     first = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    first.claude_status_by_session = {session: "shell"}
+    inject_claude_status(sup=first, statuses={session: "shell"})
     track = mapped_track(repo=repo, topic=topic, session=session)
 
     assert first.evaluate(track=track, act=True).status == "working"
 
     clock["t"] += _supervisor_config.SHELL_PROLONGED_AFTER + 1.0
     recovered = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    recovered.claude_status_by_session = {session: "shell"}
+    inject_claude_status(sup=recovered, statuses={session: "shell"})
     view = recovered.evaluate(track=track, act=True)
 
     assert view.status == "shell-prolonged"

@@ -11,6 +11,8 @@ import time
 from pathlib import Path
 from types import SimpleNamespace
 
+from test_supervisor_claude_status_inject import inject_claude_status
+
 from overseer import registry, signals, supervisor, tmuxio
 from overseer.test_supervisor_builders import idle_capture, make_plan, mapped_track
 
@@ -347,7 +349,7 @@ def _supervisor(
         which=lambda _name: "/usr/bin/tmux",
         gitignore_check=lambda *, repo: True,
     )
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     return sup
 
 

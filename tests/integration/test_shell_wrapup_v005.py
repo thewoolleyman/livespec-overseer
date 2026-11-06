@@ -20,6 +20,7 @@ from overseer.test_supervisor_builders import (
     mapped_track,
     wrapup_count,
 )
+from overseer.test_supervisor_claude_status_inject import inject_claude_status
 from overseer.test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
@@ -78,7 +79,7 @@ def test_claude_status_shell_allows_guarded_low_context_wrapup(*, tmp_path):
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {session: "shell"}
+    inject_claude_status(sup=sup, statuses={session: "shell"})
 
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
 
@@ -146,7 +147,7 @@ def test_declarations_suppress_shell_only_wrapup(*, tmp_path, state_value, expec
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {session: "shell"}
+    inject_claude_status(sup=sup, statuses={session: "shell"})
     declare(repo=repo, topic=topic, value=state_value, mtime=1001.0)
 
     with contextlib.redirect_stderr(_io.StringIO()):
@@ -163,7 +164,7 @@ def test_malformed_declaration_does_not_suppress_shell_only_wrapup(*, tmp_path):
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {session: "shell"}
+    inject_claude_status(sup=sup, statuses={session: "shell"})
     declare(repo=repo, topic=topic, value="nonsense", mtime=1001.0)
 
     with contextlib.redirect_stderr(_io.StringIO()):
@@ -180,7 +181,7 @@ def test_ready_declaration_suppresses_shell_only_wrapup_and_does_not_restart(*, 
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {session: "shell"}
+    inject_claude_status(sup=sup, statuses={session: "shell"})
     registry.write_injection_stamp(repo=str(repo), topic=topic, ts=900.0, stamp_path=sup.stamp_path)
     marker = arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
 
@@ -198,7 +199,7 @@ def test_uncertified_ready_declaration_suppresses_shell_only_wrapup(*, tmp_path)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {session: "shell"}
+    inject_claude_status(sup=sup, statuses={session: "shell"})
     marker = arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
 
     with contextlib.redirect_stderr(_io.StringIO()):
@@ -224,7 +225,7 @@ def test_gate_or_missing_input_suppresses_shell_only_wrapup(*, tmp_path, capture
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=capture)
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {session: "shell"}
+    inject_claude_status(sup=sup, statuses={session: "shell"})
 
     with contextlib.redirect_stderr(_io.StringIO()):
         view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
@@ -240,7 +241,7 @@ def test_unknown_claude_status_cancels_before_shell_only_wrapup(*, tmp_path):
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {session: "mystery"}
+    inject_claude_status(sup=sup, statuses={session: "mystery"})
 
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
 
@@ -255,7 +256,7 @@ def test_unavailable_claude_registry_cancels_before_shell_only_wrapup(*, tmp_pat
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {}
+    inject_claude_status(sup=sup, statuses={})
     sup.claude_names_by_session = {}
 
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
@@ -281,7 +282,7 @@ def test_pre_paste_recheck_cancels_when_capture_changes_after_settle(*, tmp_path
         ],
     )
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {session: "shell"}
+    inject_claude_status(sup=sup, statuses={session: "shell"})
 
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
 
@@ -295,12 +296,12 @@ def test_pre_paste_recheck_cancels_when_claude_status_changes_after_settle(*, tm
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {session: "shell"}
+    inject_claude_status(sup=sup, statuses={session: "shell"})
     _change_before_fresh_observe(
         fake=fake,
         after_captures=4,
         # A runtime-reported human wait appearing after the settle cancels the paste.
-        change=lambda: sup.claude_status_by_session.update({session: "waiting"}),
+        change=lambda: inject_claude_status(sup=sup, statuses={session: "waiting"}),
     )
 
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
@@ -348,7 +349,7 @@ def test_pre_paste_recheck_cancels_when_identity_changes_after_settle(*, tmp_pat
         session=session, repo=repo, capture=idle_capture(ctx=40), cmd=["node", "node", "zsh"]
     )
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {session: "shell"}
+    inject_claude_status(sup=sup, statuses={session: "shell"})
 
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
 
@@ -368,7 +369,7 @@ def test_pre_paste_recheck_cancels_when_runtime_changes_after_settle(*, tmp_path
         cmd=["node", "node", "node", "bun", "bun"],
     )
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {session: "shell"}
+    inject_claude_status(sup=sup, statuses={session: "shell"})
     sup.live_codex = {
         (session, topic): codex_sessions.CodexSession(
             pid=321, name=topic, cwd=str(repo), session_id="codex-1"
@@ -388,7 +389,7 @@ def test_shell_only_danger_wrapup_is_report_only_and_never_restarts_or_writes_st
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=20))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {session: "shell"}
+    inject_claude_status(sup=sup, statuses={session: "shell"})
 
     with contextlib.redirect_stderr(_io.StringIO()) as err:
         view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)

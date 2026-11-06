@@ -14,6 +14,7 @@ from overseer.test_supervisor_builders import (
     idle_capture,
     make_plan,
     make_supervisor,
+    write_session,
 )
 from overseer.test_supervisor_fakes import FakeTmux
 
@@ -94,6 +95,14 @@ def _entity_fixture(
         declare(repo=repo, topic=topic, value=state_token, mtime=1787201194.0)
     if live_identity is not None:
         sup.claude_identity_by_session[(session, topic)] = live_identity
+        _, pid, proc_start, _ = live_identity.split(":")
+        sessions_dir = tmp_path / "sessions"
+        sessions_dir.mkdir()
+        write_session(
+            sessions_dir=sessions_dir, pid=int(pid), name=topic, cwd=repo, proc_start=proc_start
+        )
+        sup.sessions_dir = str(sessions_dir)
+        sup.starttime_of = lambda *, pid: proc_start
     obs = _supervisor_observe.observe(
         sup=sup,
         track=track,

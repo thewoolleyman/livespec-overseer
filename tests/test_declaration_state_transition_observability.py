@@ -20,6 +20,7 @@ from test_supervisor_builders import (
     mapped_track,
     nudge_count,
 )
+from test_supervisor_claude_status_inject import inject_claude_status
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
@@ -121,7 +122,7 @@ def test_idle_marker_clear_leaves_diagnostic_and_one_edge_log(*, tmp_path):
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     track = mapped_track(repo=repo, topic=topic, session=session)
 
     _ = sup.evaluate(track=track, act=True)
@@ -129,7 +130,7 @@ def test_idle_marker_clear_leaves_diagnostic_and_one_edge_log(*, tmp_path):
     assert sup.evaluate(track=track, act=True).status == "idle-with-context-left"
     assert nudge_count(fake=fake) == 1
 
-    sup.claude_status_by_session = {session: "busy"}
+    inject_claude_status(sup=sup, statuses={session: "busy"})
     with contextlib.redirect_stderr(_io.StringIO()) as err:
         assert sup.evaluate(track=track, act=True).status == "working"
 
@@ -139,7 +140,7 @@ def test_idle_marker_clear_leaves_diagnostic_and_one_edge_log(*, tmp_path):
     assert "session left idle episode" in state.detail
     assert err.getvalue().count("cleared idle-with-context-left marker") == 1
 
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     with contextlib.redirect_stderr(_io.StringIO()) as second_err:
         assert sup.evaluate(track=track, act=True).status == "idle-with-context-left"
     assert nudge_count(fake=fake) == 1

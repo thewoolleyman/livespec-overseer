@@ -11,6 +11,7 @@ from test_supervisor_builders import (
     make_supervisor,
     mapped_track,
 )
+from test_supervisor_claude_status_inject import inject_claude_status
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
@@ -66,7 +67,7 @@ def test_ready_activity_preserves_inject_state_until_idle_restart(*, tmp_path):
     track = mapped_track(repo=repo, topic=topic, session=session)
     # Round 1: inject (stamp written, a band recorded) on an idle low-ctx pane.
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     sup.evaluate(track=track, act=True)
     assert key_for(repo=repo, topic=topic) in sup.inject  # in-memory last_ctx tracked
     assert registry.read_notified_bands(
@@ -80,7 +81,7 @@ def test_ready_activity_preserves_inject_state_until_idle_restart(*, tmp_path):
     assert key_for(repo=repo, topic=topic) in sup.inject
     # Next idle low-ctx tick spends the still-armed declaration on a restart.
     fake.panes[session] = idle_capture(ctx=35)
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     assert sup.evaluate(track=track, act=True).status == "restarting"
     assert (
         registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)

@@ -14,6 +14,7 @@ from test_supervisor_builders import (
     make_supervisor,
     mapped_track,
 )
+from test_supervisor_claude_status_inject import inject_claude_status
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
@@ -87,7 +88,7 @@ def test_blocked_with_only_a_background_shell_is_never_voided(*, tmp_path):
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))  # no spinner
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {session: "shell"}  # busy via a background command only
+    inject_claude_status(sup=sup, statuses={session: "shell"})  # busy via a background command only
     declare(
         repo=repo, topic=topic, value="blocked: need your call", mtime=800.0
     )  # old, but NOT stale

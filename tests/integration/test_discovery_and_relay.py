@@ -38,6 +38,7 @@ from overseer.test_supervisor_builders import (
     nudge_count,
     wrapup_count,
 )
+from overseer.test_supervisor_claude_status_inject import inject_claude_status
 from overseer.test_supervisor_fakes import (
     FakeTmux,
 )
@@ -239,7 +240,7 @@ def test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode(*
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))  # well ABOVE the threshold
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"], out=_io.StringIO())
-    sup.claude_status_by_session = {session: "idle"}  # not `waiting`: free to continue
+    inject_claude_status(sup=sup, statuses={session: "idle"})  # not `waiting`: free to continue
     track = mapped_track(repo=repo, topic=topic, session=session)
 
     assert sup.evaluate(track=track, act=True).status == "idle-with-context-left"
@@ -257,11 +258,11 @@ def test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode(*
     sup.evaluate(track=track, act=True)
     assert nudge_count(fake=fake) == 1  # same episode: not nudged again
 
-    sup.claude_status_by_session = {session: "busy"}  # the session works again
+    inject_claude_status(sup=sup, statuses={session: "busy"})  # the session works again
     assert sup.evaluate(track=track, act=True).status == "working"
     assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_IDLE_NUDGE_CLEARED
 
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     sup.evaluate(track=track, act=True)
     assert nudge_count(fake=fake) == 1  # ...re-arming a FUTURE episode, not an immediate one
     clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1

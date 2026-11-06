@@ -16,7 +16,7 @@ from _supervisor_records import InjectState
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
-__all__: list[str] = ["IdleRequest", "idle_room"]
+__all__: list[str] = ["IdleRequest", "idle_room", "update_idle_episode"]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -32,6 +32,17 @@ class IdleRequest:
     istate: InjectState
     act: bool
     is_codex: bool
+
+
+def update_idle_episode(*, state: InjectState, idle: bool, busy: bool, now: float) -> None:
+    """Advance the continuous-idle episode used by the keep-going nudge."""
+    if idle and not busy:
+        if state.idle_since is None:
+            state.idle_since = now
+        state.idle_last_seen = now
+        return
+    state.idle_since = None
+    state.idle_last_seen = None
 
 
 def idle_room(*, request: IdleRequest) -> str:
