@@ -182,8 +182,8 @@ wheels = [
 
 [[package]]
 name = "livespec-dev-tooling"
-version = "1.184.1"
-source = { git = "https://github.com/thewoolleyman/livespec-dev-tooling.git?tag=v1.184.1#ff13b0023c60f11f3230209e10c2c19ac8634094" }
+version = "1.184.2"
+source = { git = "https://github.com/thewoolleyman/livespec-dev-tooling.git?tag=v1.184.2#d8f364446c67c21aa12e776e8c084be8244a92b8" }
 dependencies = [
     { name = "anyio" },
     { name = "typing-extensions" },
@@ -214,7 +214,7 @@ requires-dist = [{ name = "livespec-runtime", git = "https://github.com/thewooll
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "livespec-dev-tooling", git = "https://github.com/thewoolleyman/livespec-dev-tooling.git?tag=v1.184.1" },
+    { name = "livespec-dev-tooling", git = "https://github.com/thewoolleyman/livespec-dev-tooling.git?tag=v1.184.2" },
     { name = "pyright", specifier = "==1.1.391" },
     { name = "pytest", specifier = "==8.3.4" },
     { name = "pytest-cov", specifier = "==6.0.0" },
