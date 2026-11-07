@@ -144,6 +144,7 @@ def test_a_record_under_an_unsafe_directory_is_refused_before_it_is_staged(tmp_p
     (localstate,) = _modules()
     broad = tmp_path / "state"
     broad.mkdir(mode=0o755)
+    broad.chmod(0o755)
 
     refusal = localstate.write_local_record(
         path=broad / "lease.json", value={"version": 1}, owner_uid=_uid()
@@ -196,6 +197,7 @@ def test_an_unsafe_state_directory_is_refused_rather_than_repaired(tmp_path):
     (localstate,) = _modules()
     broad = tmp_path / "state"
     broad.mkdir(mode=0o755)
+    broad.chmod(0o755)
     linked = tmp_path / "linked"
     linked.symlink_to(broad)
 
