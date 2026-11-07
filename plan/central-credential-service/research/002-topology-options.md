@@ -109,12 +109,25 @@ have a host client that pulls over HTTPS and applies changes atomically. They di
 
 ## 4. Recommended topology in detail
 
-**Where it runs: the VPS.** The vault and loop are already there, so one instance exists on day one and nothing about caam moves.
-The VPS outlives the coordinator move, and `incident_observer` is a working precedent for a tailnet-only service role with
-1Password-projected secrets (livespec-dev-tooling `ansible/roles/incident_observer`). Its load should fall as seats leave.
-Alternatives rejected: `hetzner-xubuntu` is scoped not to become a control plane (its note 002); `gmktec-xubuntu` carries the
-factories, so an outage there would take both down together. The client reads the service URL from config, so moving the service
-later is a config change.
+**Where it runs: on the machine holding the credential-rotation role.** Maintainer ruling, 2026-11-07, relayed by seat
+`bootstrap-credentials-and-onboarding`: "There is a machine ROLE that runs caam. Currently the VPS is this role. It may move in the
+future. Do NOT hardcode hostnames." So the VPS is the role's first holder, and nothing below may name it as the service's address.
+It is the right first holder because the vault and loop are already there, so one instance exists on day one and nothing about caam
+moves. It also outlives the coordinator move, and `incident_observer` is a working precedent for a tailnet-only service role with
+1Password-projected secrets (livespec-dev-tooling `ansible/roles/incident_observer`). Its load should fall as seats leave. Rejected
+as first holders: `hetzner-xubuntu` is scoped not to become a control plane (its note 002); `gmktec-xubuntu` carries the factories,
+so an outage there would take both down together.
+
+**Role binding.** Clients reach the service through a name bound to the role, never a hostname. Tailscale Serve certificates name the
+node, so the existing `incident_observer` address shape does not satisfy this. Candidates, to measure in P0: a Tailscale Service name,
+checked against the retired tag apparatus, or a DNS name repointed on move. A config value rendered onto each client does not qualify,
+because moving the role would then need a change on every host, and a sleeping laptop would miss it. Ansible and tmux seat placement
+name the role too.
+
+**Moving the role.** A supported operation, in this order, because only one machine may hold refresh tokens (section 1): stop the old
+holder issuing, transfer the vault and the loop's state, start the new holder, repoint the role name, confirm every client reports in.
+Clients keep working on their current access token during the move. The binding lands in P1; a move drill is part of P5's proof, before
+per-host caam is deprecated.
 
 **How hosts swap in place.** A small stdlib client, a systemd user unit on Linux. It polls often and also wakes on a
 central change, then atomically merges `claudeAiOauth` into `.credentials.json`, leaving other keys such as `mcpOAuth` intact
@@ -152,7 +165,7 @@ need the coordinator to lift its 2026-11-02 hold when P2 starts.
 
 ## 5. Decisions only the maintainer can make
 
-1. **The topology:** A, B or C. Recommendation: B on the VPS.
+1. **The topology:** A, B or C. Recommendation: B, with the VPS as the role's first holder.
 2. **One additive input to the loop.** Remote refusals never reach the loop, because it reads refusals from local transcripts. Once
    the coordinator moves, most refusals would happen where the loop cannot see them, and refusals are the trigger that catches a
    wrong usage reading (2026-10-13: 45 percent remaining nine minutes before refusal). The hard constraint says leave the loop
@@ -185,8 +198,8 @@ need the coordinator to lift its 2026-11-02 hold when P2 starts.
   detached-host detection. Measure macOS storage first. Claude Desktop is unmeasured and out of scope until measured.
 - **P4, providers.** Codex first: `livespec-codex-cred-refresh.timer` and the factory's Codex overlay leg already exist. caam's vault
   holds no Codex accounts today (`caam-quota-resets` note 002). Then other providers through the same axes.
-- **P5, deprecation.** Convert the VPS to a plain client, replace the session cron with a service schedule, then deprecate per-host
-  caam, using the manager's own proof gate.
+- **P5, deprecation.** Convert the role holder to a plain client, replace the session cron with a service schedule, drill a role move,
+  then deprecate per-host caam, using the manager's own proof gate.
 
 Sequence: P0 and P1 first, because hetzner waits on them. P2 to P5 order is for the coordinator to place once the maintainer sets the
 track's rank.
