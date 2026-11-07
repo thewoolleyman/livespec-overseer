@@ -837,18 +837,21 @@ def _read_until_picker_row(*, exercise: _Exercise, opened: str, expected_row: st
         return opened
 
     _send(fd=exercise.fd, text="\x1b[B")
+    last_screen = [_plain(text=opened)]
 
-    def row_is_rendered(plain: str) -> bool:
-        if _picker_row_is_rendered(plain=plain, expected_row=expected_row):
+    def row_is_rendered(read: _Read) -> bool:
+        if _picker_row_is_rendered(plain=read.plain, expected_row=expected_row):
             return True
-        _send(fd=exercise.fd, text="\x1b[B")
+        if read.produced and read.plain != last_screen[0]:
+            last_screen[0] = read.plain
+            _send(fd=exercise.fd, text="\x1b[B")
         return False
 
-    return _read_until(
+    return _pump(
         exercise=exercise,
         phase="picker render",
         seen=opened,
-        predicate=row_is_rendered,
+        done=row_is_rendered,
         stall_seconds=_CODEX_PICKER_STALL_SECONDS,
     )
 
