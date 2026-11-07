@@ -57,31 +57,39 @@ def test_a_redrawn_mentions_list_opens_even_when_its_header_was_already_visible(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     helpers = _picker_helpers()
-    transcript = "Mentions\nlivespec-overseer  Plugin"
-    redrawn = "Mentions\noverseer ./  Dir\nREADME.md  File\n↓"
+    read_fd, write_fd = os.pipe()
     expected_row = "overseer (livespec-overseer)"
+    sent: list[str] = []
 
-    def read_until(**kwargs: object) -> str:
-        predicate = kwargs["predicate"]
-        assert callable(predicate)
-        if kwargs["phase"] == "picker open":
-            assert predicate(redrawn)
-            return redrawn
-        rendered_row = f"{redrawn}\n{expected_row}  Skill"
-        assert predicate(rendered_row)
-        return rendered_row
+    def send_frames(*, fd: int, text: str) -> None:
+        sent.append(text)
+        if len(sent) == 1:
+            os.write(
+                write_fd,
+                b"\x1b[2J\x1b[1;1HMentions\x1b[2;1Hoverseer ./  Dir"
+                b"\x1b[3;1HREADME.md  File\x1b[4;1H\xe2\x86\x93",
+            )
+        else:
+            os.write(
+                write_fd,
+                ("\x1b[2J\x1b[1;1HMentions" f"\x1b[2;1H{expected_row}  Skill").encode(),
+            )
 
-    monkeypatch.setattr(helpers, "_send", lambda **_: None)
-    monkeypatch.setattr(helpers, "_read_until", read_until)
+    try:
+        monkeypatch.setattr(helpers, "_send", send_frames)
+        monkeypatch.setattr(helpers, "_CODEX_PICKER_STALL_SECONDS", 0.5)
+        current = helpers._open_skills_list(
+            exercise=helpers._Exercise(fd=read_fd),
+            transcript="\x1b[2J\x1b[1;1HMentions\x1b[2;1Hlivespec-overseer  Plugin",
+            query="overseer",
+            expected_row=expected_row,
+        )
+    finally:
+        os.close(read_fd)
+        os.close(write_fd)
 
-    current = helpers._open_skills_list(
-        exercise=helpers._Exercise(fd=1),
-        transcript=transcript,
-        query="overseer",
-        expected_row=expected_row,
-    )
-
-    assert current.endswith("Skill")
+    assert sent == ["\x15@overseer", "\x1b[B"]
+    assert f"{expected_row}  Skill" in helpers._plain(text=current)
 
 
 def test_an_unchanged_mentions_list_does_not_open_the_picker(
@@ -191,3 +199,35 @@ def test_an_expected_row_without_a_mentions_list_does_not_open_the_picker() -> N
         plain=f"› Ask Codex to do anything\n{expected_row} Skill is mentioned in a banner",
         expected_row=expected_row,
     )
+
+
+def test_the_picker_moves_once_per_redraw_and_not_during_silent_windows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    helpers = _picker_helpers()
+    read_fd, write_fd = os.pipe()
+    sent: list[str] = []
+
+    def send_one_unrelated_redraw(*, fd: int, text: str) -> None:
+        sent.append(text)
+        if len(sent) == 1:
+            os.write(
+                write_fd,
+                b"\x1b[2J\x1b[1;1HMentions\x1b[2;1Hlivespec-overseer  Plugin",
+            )
+
+    try:
+        monkeypatch.setattr(helpers, "_send", send_one_unrelated_redraw)
+        monkeypatch.setattr(helpers, "_CODEX_PICKER_STALL_SECONDS", 0.6)
+        with pytest.raises(AssertionError, match="picker render wait expired"):
+            _ = helpers._open_skills_list(
+                exercise=helpers._Exercise(fd=read_fd),
+                transcript="› Ask Codex to do anything",
+                query="overseer",
+                expected_row="overseer (livespec-overseer)",
+            )
+    finally:
+        os.close(read_fd)
+        os.close(write_fd)
+
+    assert sent == ["\x15@overseer", "\x1b[B"]
