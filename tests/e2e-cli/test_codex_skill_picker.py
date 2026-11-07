@@ -106,6 +106,7 @@ _CODEX_EXERCISE_CEILING_SECONDS = 600.0
 _CODEX_PROMPT_MARKER = chr(0x203A)
 # The mentions list `@` opens draws this header before it filters rows.
 _PICKER_OPEN_MARKER = "Mentions"
+_PICKER_ROW_KIND = re.compile(r"\s(?:Plugin|Dir|File|Skill)\s*$")
 _GIT_HOOK_ENV_VARS = (
     "GIT_DIR",
     "GIT_WORK_TREE",
@@ -801,6 +802,29 @@ def _picker_row_is_rendered(*, plain: str, expected_row: str) -> bool:
     return any(expected_row in line and "Skill" in line for line in plain.splitlines())
 
 
+def _mentions_list_rows(*, plain: str) -> tuple[str, ...]:
+    """Return the typed rows rendered beneath the first mentions-list header."""
+    lines = plain.splitlines()
+    try:
+        header = next(index for index, line in enumerate(lines) if _PICKER_OPEN_MARKER in line)
+    except StopIteration:
+        return ()
+    return tuple(line for line in lines[header + 1 :] if _PICKER_ROW_KIND.search(line))
+
+
+def _mentions_list_is_new(*, before: str, plain: str, expected_row: str) -> bool:
+    """Whether input produced a mentions list rather than an unrelated redraw."""
+    if plain == before:
+        return False
+    if expected_row in plain and expected_row not in before:
+        return True
+    if _PICKER_OPEN_MARKER not in plain:
+        return False
+    if _PICKER_OPEN_MARKER not in before:
+        return True
+    return _mentions_list_rows(plain=plain) != _mentions_list_rows(plain=before)
+
+
 def _read_until_picker_row(*, exercise: _Exercise, opened: str, expected_row: str) -> str:
     """Move the picker viewport until the declared Skill row is rendered.
 
@@ -862,16 +886,16 @@ def _open_skills_list(
     """
     _send(fd=exercise.fd, text="\x15@" + query)
     before = _plain(text=transcript)
-    # Picker OPEN: the rendered mentions list has changed after the keystrokes.
-    # `plain` is a terminal-screen redraw, not an append-only stream, so neither an
-    # offset into `before` nor whether a marker was already present identifies what
-    # Codex drew after input.
+    # Picker OPEN: a new mentions list has drawn after the keystrokes. `plain` is a
+    # terminal-screen redraw, not an append-only stream, so compare the two screens
+    # and their typed list rows rather than slicing by a pre-input character offset.
     opened = _read_until(
         exercise=exercise,
         phase="picker open",
         seen=transcript,
-        predicate=lambda plain: plain != before
-        and any(marker in plain for marker in (_PICKER_OPEN_MARKER, expected_row)),
+        predicate=lambda plain: _mentions_list_is_new(
+            before=before, plain=plain, expected_row=expected_row
+        ),
         stall_seconds=_CODEX_PICKER_STALL_SECONDS,
     )
     return _read_until_picker_row(exercise=exercise, opened=opened, expected_row=expected_row)
