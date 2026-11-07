@@ -180,3 +180,14 @@ def test_the_picker_scrolls_until_the_skill_row_is_drawn(
 
     assert sent == ["\x15@overseer", "\x1b[B"]
     assert f"{expected_row}  Skill" in helpers._plain(text=current)
+
+
+def test_an_expected_row_without_a_mentions_list_does_not_open_the_picker() -> None:
+    helpers = _picker_helpers()
+    expected_row = "overseer (livespec-overseer)"
+
+    assert not helpers._mentions_list_is_new(
+        before="› Ask Codex to do anything",
+        plain=f"› Ask Codex to do anything\n{expected_row} Skill is mentioned in a banner",
+        expected_row=expected_row,
+    )
