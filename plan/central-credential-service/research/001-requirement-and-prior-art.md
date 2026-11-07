@@ -4,7 +4,7 @@ I want one caam instance running somewhere, on a single machine, to manage all o
 
 ## Definition of Done assertions derived from that statement
 
-- Exactly one running instance, on one named machine, decides account rotation for every enrolled host, and no other host makes its own rotation decision.
+- Exactly one running instance, on whichever machine holds the credential-rotation role, decides account rotation for every enrolled host, and no other host makes its own rotation decision.
 - After the central instance rotates, Claude sessions on each reachable enrolled host authenticate directly to the provider as the selected account without a restart, and no process sits in the request path.
 - One central view shows every managed account's limits, the account each enrolled host is using, and when each host last reported, and it reports a silent host as stale.
 - A Claude session on an enrolled laptop follows central rotation the same way a session on a server host does.
@@ -12,6 +12,8 @@ I want one caam instance running somewhere, on a single machine, to manage all o
 - Codex accounts rotate through the same central instance, and adding another provider requires no change to the topology.
 - A compromised enrolled host's credentials cannot read the central store or another host's credential material.
 - caam-anthropic-loop keeps running with its selection rules unchanged until the central instance is proven, and per-host caam is then deprecated with no host left unmanaged.
+- Reassigning the credential-rotation role to another machine moves the central instance, and every enrolled host's client follows it with no change on that host.
+- Provisioning and client configuration name the credential-rotation role and contain no hostname for it.
 
 # central-credential-service: the requirement, and the prior art it extends
 
@@ -20,6 +22,12 @@ Opened 2026-11-07 by the seat `central-credential-service`, on the maintainer's 
 form that coordinator relayed it, including its `...` elision and its typos. When this plan drifts, that text wins over every
 summary here. The eight assertions under it were derived by this session and await the maintainer's correction, recorded in
 the first handoff entry.
+
+## Maintainer ruling, 2026-11-07: the central host is a role
+
+Verbatim, relayed by seat `bootstrap-credentials-and-onboarding`, which received it directly: "There is a machine ROLE that runs caam. Currently the VPS is this role. It may move in the future. Do NOT hardcode hostnames."
+
+This session reworded the first derived assertion and added the last two to carry it. The statement above is unchanged.
 
 ## Hard constraints inherited from `llm-provider-manager`
 
