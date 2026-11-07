@@ -796,6 +796,39 @@ def _await_codex_prompt(*, exercise: _Exercise, transcript: str) -> str:
     )
 
 
+def _picker_row_is_rendered(*, plain: str, expected_row: str) -> bool:
+    """Whether the declared Skill row, rather than unrelated screen text, is visible."""
+    return any(expected_row in line and "Skill" in line for line in plain.splitlines())
+
+
+def _read_until_picker_row(*, exercise: _Exercise, opened: str, expected_row: str) -> str:
+    """Move the picker viewport until the declared Skill row is rendered.
+
+    The broad skill query can rank the Plugin, a directory, and worktree files ahead
+    of the Skill row. Moving one row after every non-matching redraw makes rendering
+    that row a content predicate instead of assuming it fits the initial viewport.
+    The existing stall and exercise ceilings remain the only liveness limits.
+    """
+    if _picker_row_is_rendered(plain=_plain(text=opened), expected_row=expected_row):
+        return opened
+
+    _send(fd=exercise.fd, text="\x1b[B")
+
+    def row_is_rendered(plain: str) -> bool:
+        if _picker_row_is_rendered(plain=plain, expected_row=expected_row):
+            return True
+        _send(fd=exercise.fd, text="\x1b[B")
+        return False
+
+    return _read_until(
+        exercise=exercise,
+        phase="picker render",
+        seen=opened,
+        predicate=row_is_rendered,
+        stall_seconds=_CODEX_PICKER_STALL_SECONDS,
+    )
+
+
 def _open_skills_list(
     *, exercise: _Exercise, transcript: str, query: str, expected_row: str
 ) -> str:
@@ -829,27 +862,19 @@ def _open_skills_list(
     """
     _send(fd=exercise.fd, text="\x15@" + query)
     before = _plain(text=transcript)
-    # Picker OPEN: a mentions-list marker has appeared in the rendered screen that
-    # was not already present before the keystrokes. `plain` is a terminal-screen
-    # redraw, not an append-only stream, so an offset into `before` cannot identify
-    # what Codex drew after input.
+    # Picker OPEN: the rendered mentions list has changed after the keystrokes.
+    # `plain` is a terminal-screen redraw, not an append-only stream, so neither an
+    # offset into `before` nor whether a marker was already present identifies what
+    # Codex drew after input.
     opened = _read_until(
         exercise=exercise,
         phase="picker open",
         seen=transcript,
-        predicate=lambda plain: any(
-            marker in plain and marker not in before
-            for marker in (_PICKER_OPEN_MARKER, expected_row)
-        ),
+        predicate=lambda plain: plain != before
+        and any(marker in plain for marker in (_PICKER_OPEN_MARKER, expected_row)),
         stall_seconds=_CODEX_PICKER_STALL_SECONDS,
     )
-    return _read_until(
-        exercise=exercise,
-        phase="picker render",
-        seen=opened,
-        predicate=lambda plain: expected_row in plain and "Skill" in plain,
-        stall_seconds=_CODEX_PICKER_STALL_SECONDS,
-    )
+    return _read_until_picker_row(exercise=exercise, opened=opened, expected_row=expected_row)
 
 
 def _stop_codex(*, proc: subprocess.Popen[bytes], fd: int) -> None:
