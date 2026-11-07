@@ -816,10 +816,10 @@ def _mentions_list_is_new(*, before: str, plain: str, expected_row: str) -> bool
     """Whether input produced a mentions list rather than an unrelated redraw."""
     if plain == before:
         return False
-    if expected_row in plain and expected_row not in before:
-        return True
     if _PICKER_OPEN_MARKER not in plain:
         return False
+    if expected_row in plain and expected_row not in before:
+        return True
     if _PICKER_OPEN_MARKER not in before:
         return True
     return _mentions_list_rows(plain=plain) != _mentions_list_rows(plain=before)
