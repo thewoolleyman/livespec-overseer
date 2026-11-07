@@ -113,6 +113,36 @@ def test_an_unchanged_mentions_list_does_not_open_the_picker(
         )
 
 
+def test_an_unrelated_redraw_does_not_open_an_existing_mentions_list(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    helpers = _picker_helpers()
+    transcript = "Mentions\nlivespec-overseer  Plugin\n› Ask Codex to do anything"
+    unrelated_redraw = "Mentions\nlivespec-overseer  Plugin\n› Loading model…"
+    redrawn = helpers._plain(text=unrelated_redraw)
+
+    class StopAfterOpeningCheckError(Exception):
+        pass
+
+    def read_until(**kwargs: object) -> str:
+        predicate = kwargs["predicate"]
+        assert callable(predicate)
+        assert kwargs["phase"] == "picker open"
+        assert not predicate(redrawn)
+        raise StopAfterOpeningCheckError
+
+    monkeypatch.setattr(helpers, "_send", lambda **_: None)
+    monkeypatch.setattr(helpers, "_read_until", read_until)
+
+    with pytest.raises(StopAfterOpeningCheckError):
+        _ = helpers._open_skills_list(
+            exercise=helpers._Exercise(fd=1),
+            transcript=transcript,
+            query="overseer",
+            expected_row="overseer (livespec-overseer)",
+        )
+
+
 def test_the_picker_scrolls_until_the_skill_row_is_drawn(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
