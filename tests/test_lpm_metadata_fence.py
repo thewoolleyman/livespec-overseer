@@ -397,6 +397,7 @@ def test_an_unsafe_or_unencodable_fence_never_reaches_the_filesystem(tmp_path):
     )
     broad = tmp_path / "state" / "pending-metadata-effects"
     broad.mkdir(parents=True, mode=0o755)
+    broad.chmod(0o755)
     unsafe_dir = broad / f"{_RECORD_ID}.json"
     readable = tmp_path / "other"
     readable.mkdir(mode=0o700)
