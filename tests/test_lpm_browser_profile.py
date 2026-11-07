@@ -96,6 +96,7 @@ def _assert_unsafe_state_is_untouched(*, profile_module: ModuleType, tmp_path: P
     safe.mkdir(mode=0o700)
     broad = tmp_path / "broad"
     broad.mkdir(mode=0o750)
+    broad.chmod(0o750)
     wrong_owner = profile_module.validate_profile(profile=safe, owner_uid=os.geteuid() + 1)
     assert isinstance(wrong_owner, Failure)
     assert isinstance(

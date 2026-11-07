@@ -173,6 +173,7 @@ def test_an_unrepresentable_or_unwritable_append_is_refused_before_the_store_mut
     (audit,) = _modules()
     broad = tmp_path / "state"
     broad.mkdir(mode=0o755)
+    broad.chmod(0o755)
 
     bad_time = audit.append_audit_entry(
         path=tmp_path / "audit.jsonl",
