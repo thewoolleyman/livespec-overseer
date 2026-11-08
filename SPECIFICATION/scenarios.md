@@ -5825,6 +5825,8 @@ Given the delivery service on the role holder is stopped
 
 And no enrolled host has reported within `delivery.stale_after`
 
+And the report store holds no forwarded refusal that is still eligible for attribution
+
 When the rotation operation runs a pass that switches accounts
 
 Then the pass completes and reports exactly as it would with no enrolled host
@@ -5900,6 +5902,16 @@ Then the command writes a new entry and shows its credential once
 And the revoked entry is still recorded as revoked
 
 And a request presenting the old enrolment credential is still refused
+
+## Scenario: A revoked host's label cannot be reused for another device
+
+Given host A's enrolment under the label `laptop` has been revoked
+
+When the operator issues an enrolment for a different device under the label `laptop`
+
+Then the command refuses and the registry is unchanged
+
+And no enrolment credential is shown
 
 ## Scenario: The client refuses a service it cannot authenticate
 
@@ -6014,6 +6026,48 @@ When the client restarts and the service serves that instruction again
 Then the client does not act on it
 
 And the client reports that instruction's outcome as `unknown`
+
+## Scenario: An instruction whose outcome was reported is never served again
+
+Given the client applied an enforcement instruction to a remote session and reported its outcome
+
+And the client has discarded that instruction's identifier
+
+And more than seven days have passed since the report store recorded that outcome
+
+And no rotation pass has deleted that instruction's record
+
+When the client requests a delivery
+
+Then the service does not serve that instruction
+
+And the client does not act on it again
+
+## Scenario: A superseded enforcement instruction is never served
+
+Given a rotation pass wrote an enforcement instruction for a remote session and the host has reported no outcome for it
+
+And a later pass wrote a newer instruction for the same session
+
+And the host has reported within `delivery.stale_after` throughout
+
+When the client requests a delivery
+
+Then the service serves only the newer instruction
+
+And after the host reports the newer instruction's outcome and a pass deletes every instruction record it may delete, the service serves neither instruction
+
+## Scenario: An instruction decided before a host returns from silence is not served
+
+Given a rotation pass wrote an enforcement instruction for a session on a following host and the host has reported no outcome for it
+
+And no authenticated request from that host then arrived for longer than `delivery.stale_after`
+
+When the client next requests a delivery, before any report from it arrives
+
+Then the service does not serve that instruction
+
+And the client does not act on it
 
 ## Scenario: A context rise under an unchanged session identity latches a restart obligation
 
