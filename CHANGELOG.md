@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.52.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.52.2...v5.52.3) (2026-11-08)
+
+
+### Bug Fixes
+
+* cover picker redraw detection ([81411bb](https://github.com/thewoolleyman/livespec-overseer/commit/81411bb91ef4e2f610c536a4ff5b412bda3eb307))
+
 ## [5.52.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.52.1...v5.52.2) (2026-11-05)
 
 
