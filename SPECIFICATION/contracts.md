@@ -1246,7 +1246,7 @@ The operation MUST NOT require that any consumer exist: an unread record MUST be
    - The delivery carries the delivery sequence, the selected account's stable account identifier, the account-identity key values, and the interactive OAuth object with no refresh token.
    - An enforcement instruction carries a unique INSTRUCTION IDENTIFIER, names one of that host's sessions, and names the model that spec.md **Model enforcement** decided for it.
    - Instructions are NOT gated by the delivery sequence. The client MUST act on each instruction AT MOST ONCE, whether or not the response carries a new delivery, and MUST report its outcome under its instruction identifier.
-   - The service MUST stop serving an instruction once its outcome has been reported. It serves a new instruction only when a later rotation pass decides one.
+   - The service MUST stop serving an instruction as **Enforcement instructions** defines.
    - A request MAY name the delivery sequence the client last applied, and MAY wait up to a bounded interval for a later one.
 2. `report` accepts the host's report.
 3. `enrolment-check` confirms that the host's enrolment is current, and returns no credential material.
@@ -1257,6 +1257,7 @@ The service MUST NOT return, through any operation, another host's delivery, the
 - The client MUST request a delivery at least once per `delivery.poll_interval`, whose default MUST be 60 seconds. It MUST send a report after every request, and MAY wait on a delivery request between polls.
 - A host user MUST NOT run more than one client.
 - The client MUST hold an exclusive lock from its sequence check until its writes and verification are complete.
+- Before it acts on an enforcement instruction, the client MUST record the instruction's identifier in owner-only storage that survives a restart, and it MUST NOT act on an identifier it has recorded. On starting, the client MUST report each recorded identifier whose outcome it has not reported with the outcome `unknown`. The client MAY discard a recorded identifier once the service no longer serves it.
 
 **Client writes.**
 - In the credential file, the client MUST set `claudeAiOauth` to the delivered object, which MUST NOT contain a `refreshToken` field, and MUST preserve every other top-level key.
@@ -1271,18 +1272,28 @@ Accepted and unfixed: the host's own agent sessions write the global state file 
 - the delivery sequence and stable account identifier the host last applied, and when it applied them;
 - whether its credential file holds a refresh token, which is the NOT CONVERTED condition;
 - the time of each authentication failure its sessions recorded since the previous report;
-- the outcome of each enforcement instruction it acted on, under that instruction's identifier.
-- each refusal record that the host's sessions recorded since the previous report, with the time it was recorded, the window it names, its reported reset time if any, and the delivery sequence and stable account identifier that the host had applied at that time;
+- the outcome of each enforcement instruction it acted on, under that instruction's identifier;
+- each refusal record that the host's sessions recorded since the previous report, unaltered, with the identifier of the session that recorded it, whether that session's agent configuration directory is the host's default directory, the provider that session authenticates with, and the delivery sequence and stable account identifier that the host had applied when the refusal was recorded;
 - for each running session, its identifier, whether its agent configuration directory is the host's default directory, and its observed model, or `unknown`.
+
+The client MUST forward each refusal record unaltered. It MUST read from a record only what it needs to recognise the record as a refusal and to know when it was recorded. It MUST NOT summarize a record or derive its window or reset time: the operation on the role holder parses it, as spec.md **Forwarded refusals** requires. A report that omits the recording session's directory or provider leaves the refusal unattributed, because the attribution conjuncts of spec.md §"Account rotation and quota supervision" then cannot be established.
 
 A report MUST NOT carry credential material. Times in a report come from the enrolled host's clock. Any offset between that clock and the role holder's is accepted and unfixed.
 
 **Service stores.** The service MUST keep these stores in the operation's host state directory, each created owner-only and written atomically:
 - the ENROLMENT REGISTRY;
 - the DELIVERY-SEQUENCE COUNTER, written before the delivery that consumes the sequence is served;
-- the REPORT STORE, holding each host's latest report and every forwarded refusal record. A rotation pass MUST read the report store without consuming or deleting anything, as **Concurrency** requires of observation. The service MUST keep each forwarded refusal record for at least seven days, the longest window a refusal can name.
+- the REPORT STORE, holding each host's latest report together with every forwarded refusal record, every enforcement-instruction outcome and every authentication-failure time that any report carried. A rotation pass MUST read the report store without consuming or deleting anything, as **Concurrency** requires of observation. The service MUST keep each of those records for at least seven days, the longest window a refusal can name, so that a pass on the normal schedule reads each before it is discarded. Enforcement-instruction outcomes are recorded only here.
 
 The status view takes account limits from the operation's own cache.
+
+**Enforcement instructions.** A rotation pass MUST write each enforcement instruction it decides for a remote session as a record of its own, in the operation's host state directory and separate from the cache, atomically and with owner-only permissions, as a reset claim's record is written. The pass MUST mint each instruction identifier from at least 128 random bits, and MUST record in the instruction the time it was decided. Only a rotation pass writes these records; the service MUST only read them. An instruction's outcome is exactly one of `applied`, `skipped-busy`, `failed` or `unknown`.
+- The service MUST serve, for each remote session, only the newest instruction a pass has written for it, ordered by decision time with ties broken by identifier. A newer instruction for the same session supersedes an older one.
+- The service MUST NOT serve an instruction decided before the host's latest return from silence, that is, before the first report the host sent after a gap longer than `delivery.stale_after`.
+- The service MUST stop serving an instruction once the report store holds its outcome or a newer instruction supersedes it.
+- A rotation pass MAY delete an instruction record once the report store holds its outcome or it is superseded.
+
+Accepted and unfixed: rotation passes do not hold the decision lock while deciding enforcement, so two concurrent passes MAY each write an instruction for one session, and a client MAY act on both.
 
 **Enrolment registry.** Each entry records:
 - the host's operator-given label;
@@ -1291,9 +1302,11 @@ The status view takes account limits from the operation's own cache.
 - when the enrolment was issued;
 - whether it is revoked.
 
-Labels and network identities MUST each be unique across the registry. The service MUST NOT store an enrolment credential in recoverable form. The client MUST store its enrolment credential readable only by the user that runs it, or in that user's OS keyring.
+Labels and network identities MUST each be unique among the registry's unrevoked entries. A label that a revoked entry holds MAY be reused only for that entry's network identity, so a label never names two devices. The service MUST NOT store an enrolment credential in recoverable form. The client MUST store its enrolment credential readable only by the user that runs it, or in that user's OS keyring.
 
-**Revocation.** Revoking a host's enrolment MUST be an operator command run on the role holder. Revocation MUST take effect on that host's next request, MUST NOT affect any other host's enrolment, and MUST be recorded in the audit log.
+**Issuance.** Issuing an enrolment MUST be an operator command run on the role holder that names the host's label and its network identity. Under the REGISTRY LOCK, which **Revocation** also holds for its write, the command MUST refuse a label or a network identity that an unrevoked entry already holds, or a label that a revoked entry holds for a different network identity, and MUST then write the new entry. It MUST store only the one-way digest of the enrolment credential it generates, MUST show that credential once so the operator can install it on the client, and MUST be recorded in the audit log. A revoked entry stays in the registry as a record, and a device whose enrolment was revoked MAY be enrolled again under a new entry.
+
+**Revocation.** Revoking a host's enrolment MUST be an operator command run on the role holder, which writes the registry under the registry lock defined in **Issuance**. Revocation MUST take effect on that host's next request, MUST NOT affect any other host's enrolment, and MUST be recorded in the audit log.
 
 Accepted and unfixed: revocation does not invalidate an access token already delivered. That token stays usable until the next refresh on the role holder revokes it, or until it expires, whichever comes first. The service MUST NOT force a refresh to shorten that window.
 
@@ -1326,7 +1339,7 @@ STATE MUST be exactly one of the values below. Where more than one applies, the 
 **Moving the role.** Moving the role MUST proceed in this order:
 1. On the old holder, stop the delivery service, every agent session using the live credential, the rotation operation's schedule, and its refresh maintenance. From this step on, the old holder MUST NOT use the managed accounts' refresh tokens.
 2. Copy to the new holder:
-   - the account manager's vault;
+   - the account manager's stored snapshots;
    - the live credential;
    - the account-identity keys of the old holder's global state file, and nothing else from that file;
    - the operation's durable store;

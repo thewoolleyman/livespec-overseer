@@ -5819,6 +5819,16 @@ And the delivery service opens no connection to the powered-off host
 
 And the status view shows that host as `stale` once `delivery.stale_after` has passed since its last report
 
+## Scenario: A stopped delivery service does not affect a rotation pass
+
+Given the delivery service on the role holder is stopped
+
+And no enrolled host has reported within `delivery.stale_after`
+
+When the rotation operation runs a pass that switches accounts
+
+Then the pass completes and reports exactly as it would with no enrolled host
+
 ## Scenario: An expired live credential is reported, not refreshed
 
 Given the live credential's access token reaches its expiry and no agent session on the role holder refreshes it
@@ -5869,6 +5879,28 @@ Then host A's next request is refused and the status view shows host A as `revok
 
 And host B's next request is served
 
+## Scenario: Enrolling a host under a label already in use is refused
+
+Given the enrolment registry holds an unrevoked host labelled `laptop`
+
+When the operator issues an enrolment for another device under the label `laptop`
+
+Then the command refuses and the registry is unchanged
+
+And no enrolment credential is shown
+
+## Scenario: A revoked device can be enrolled again
+
+Given host A's enrolment has been revoked
+
+When the operator issues a new enrolment for the same device under the same label
+
+Then the command writes a new entry and shows its credential once
+
+And the revoked entry is still recorded as revoked
+
+And a request presenting the old enrolment credential is still refused
+
 ## Scenario: The client refuses a service it cannot authenticate
 
 Given an enrolled host whose role name resolves to a server that cannot present the service credential
@@ -5907,6 +5939,14 @@ When the client forwards a refusal that its session recorded under that delivery
 
 Then the operation does not attribute the refusal to the active account
 
+## Scenario: A forwarded refusal from outside the host's default directory is not attributed
+
+Given a following host has applied a delivery naming the active account
+
+When the client forwards a usage-limit refusal that a session recorded under a separately provisioned configuration directory, and the report states that directory is not the host's default directory
+
+Then the operation does not attribute the refusal to the active account
+
 ## Scenario: A remote enforcement is recorded only once the client applies it
 
 Given an enrolled host reports a session with an operator-set per-session pin it is not running
@@ -5927,6 +5967,34 @@ When the operation runs a scheduled pass
 
 Then the scoped-model trigger fires exactly as it would for a local session on the scoped model
 
+## Scenario: A silent host whose token has expired arms no trigger
+
+Given a following host whose last report listed a running session observed on the scoped model
+
+And the host has not reported within `delivery.stale_after` and its last-applied delivery's access token has expired
+
+And no other tracked session and no per-session pin names the scoped model
+
+And the active account is at or below the scoped-model reserve
+
+When the operation runs a scheduled pass
+
+Then the status view shows the host as `expired`
+
+And the scoped-model trigger does not fire
+
+## Scenario: A refusal forwarded before a host falls silent is still attributed
+
+Given a following host has applied a delivery naming the active account
+
+And its client reported a usage-limit refusal from a session in that host's default directory, recorded after the active account became active
+
+And the host has since not reported within `delivery.stale_after`
+
+When the operation runs a scheduled pass
+
+Then the operation attributes the refusal to the active account
+
 ## Scenario: An enforcement instruction is applied at most once
 
 Given the client applied an enforcement instruction to a remote session and reported its outcome
@@ -5936,6 +6004,16 @@ When the operator changes that session's model before the next rotation pass
 Then the client does not apply that instruction again
 
 And the next rotation pass, seeing the session's known model differ from the model enforcement last set, treats the session as operator-set
+
+## Scenario: A client restarted after recording an instruction does not act on it again
+
+Given the client recorded an enforcement instruction's identifier and stopped before reporting its outcome
+
+When the client restarts and the service serves that instruction again
+
+Then the client does not act on it
+
+And the client reports that instruction's outcome as `unknown`
 
 ## Scenario: A context rise under an unchanged session identity latches a restart obligation
 

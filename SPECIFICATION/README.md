@@ -2,7 +2,7 @@
 
 This tree is the living specification for livespec-overseer, the
 Control-Plane operator tool whose governed behavior includes long-running
-agent supervision, identity-only account rotation and direct LLM credential
+agent supervision, account rotation (identity-only except for enrolled-host credential delivery) and direct LLM credential
 provisioning. The supervision contract watches context headroom and restarts a
 session only after its filesystem declaration; the credential contracts keep
 account identity, secret lifecycle and isolated consumer provisioning distinct.
