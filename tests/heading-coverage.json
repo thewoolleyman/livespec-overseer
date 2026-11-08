@@ -4188,6 +4188,62 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A silent host whose token has expired arms no trigger",
+    "test": "TODO",
+    "work_item": "overseer-3vnxkd",
+    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A refusal forwarded before a host falls silent is still attributed",
+    "test": "TODO",
+    "work_item": "overseer-3vnxkd",
+    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A forwarded refusal from outside the host's default directory is not attributed",
+    "test": "TODO",
+    "work_item": "overseer-3vnxkd",
+    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A client restarted after recording an instruction does not act on it again",
+    "test": "TODO",
+    "work_item": "overseer-3vnxkd",
+    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Enrolling a host under a label already in use is refused",
+    "test": "TODO",
+    "work_item": "overseer-3vnxkd",
+    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A revoked device can be enrolled again",
+    "test": "TODO",
+    "work_item": "overseer-3vnxkd",
+    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A stopped delivery service does not affect a rotation pass",
+    "test": "TODO",
+    "work_item": "overseer-3vnxkd",
+    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: Every cycle records its own timing",
     "test": "TODO",
     "work_item": "overseer-4j2tlu",

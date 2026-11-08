@@ -143,8 +143,8 @@ for the daemon's whole lifetime. Storage failures on the overseer's own
 files degrade with a warning; they never crash the supervision loop.
 
 The second and third exceptions within the caam operation are:
-- the enrolled-host client's writes of an enrolled host's interactive credential file and global state file;
-- the delivery service's writes of its enrolment registry, delivery-sequence counter and report store on the role holder.
+- the enrolled-host client's writes of an enrolled host's interactive credential file and global state file, and of its record of acted enforcement-instruction identifiers;
+- on the role holder, the delivery service's writes of its delivery-sequence counter and report store, the issuance and revocation commands' writes of the enrolment registry, which the registry lock serializes, and each rotation pass's writes of its own enforcement-instruction records.
 
 Both MUST meet the whole-file atomic-replacement guarantee of the paragraph beginning "Writes to the overseer's own stores". Neither inherits the warning-only fallback. A failed client write restores the previous bytes of both files and is reported, as contracts.md §"Enrolled-host delivery" defines.
 

@@ -100,6 +100,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A client restarted after recording an instruction does not act on it again",
+    "work_item": "overseer-3vnxkd",
+    "first_seen": "2026-11-08"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A closed consumer run identity cannot be reused",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
@@ -276,6 +283,13 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A following host receives an access token and never a refresh token",
+    "work_item": "overseer-3vnxkd",
+    "first_seen": "2026-11-08"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A forwarded refusal from outside the host's default directory is not attributed",
     "work_item": "overseer-3vnxkd",
     "first_seen": "2026-11-08"
   },
@@ -583,6 +597,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A refusal forwarded before a host falls silent is still attributed",
+    "work_item": "overseer-3vnxkd",
+    "first_seen": "2026-11-08"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A refusal on a following host rotates the active account",
     "work_item": "overseer-3vnxkd",
     "first_seen": "2026-11-08"
@@ -702,6 +723,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A revoked device can be enrolled again",
+    "work_item": "overseer-3vnxkd",
+    "first_seen": "2026-11-08"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A rotation on the role holder reaches every following host",
     "work_item": "overseer-3vnxkd",
     "first_seen": "2026-11-08"
@@ -751,6 +779,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A silent host whose token has expired arms no trigger",
+    "work_item": "overseer-3vnxkd",
+    "first_seen": "2026-11-08"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A slow cycle is surfaced once with its dominant phase",
     "work_item": "overseer-4j2tlu",
     "first_seen": "2026-10-31"
@@ -766,6 +801,13 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A stale delivery cannot move a host back",
+    "work_item": "overseer-3vnxkd",
+    "first_seen": "2026-11-08"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A stopped delivery service does not affect a rotation pass",
     "work_item": "overseer-3vnxkd",
     "first_seen": "2026-11-08"
   },
@@ -1363,6 +1405,13 @@
     "heading": "## Scenario: Duplicate recovery reconciles an ambiguous command effect",
     "work_item": "overseer-okf6bu",
     "first_seen": "2026-10-08"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Enrolling a host under a label already in use is refused",
+    "work_item": "overseer-3vnxkd",
+    "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
