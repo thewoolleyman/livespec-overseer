@@ -1197,7 +1197,7 @@ track and discovered-but-unassigned tracks remain outside this membership.
 
 **Pi package discovery.** Repository-root `package.json` MUST be regular UTF-8 JSON whose `pi.skills` value is exactly `["./.claude-plugin/.pi-plugin/skills"]`, so Pi discovers the namespaced bindings required by both operator operations. Its package version remains outside operation-version lockstep.
 
-**Surfaces.** In this repository, supported harness is the closed shipped set consisting of Claude, Codex and namespaced Pi bindings. The `.livespec.jsonc` `harnesses` declaration covers the Claude and Codex plugin-resolution checks only; Pi support is instead established by the required namespaced binding and package metadata and is outside that declaration. `caam-anthropic-loop` is the identity-only account-rotation operation. It MUST be constituted as a first-class plugin operation with one visible binding per supported harness. Plugin manifest versions MUST be bumped in lockstep across every manifest that declares the operation, so availability and version agree across supported harnesses.
+**Surfaces.** In this repository, supported harness is the closed shipped set consisting of Claude, Codex and namespaced Pi bindings. The `.livespec.jsonc` `harnesses` declaration covers the Claude and Codex plugin-resolution checks only; Pi support is instead established by the required namespaced binding and package metadata and is outside that declaration. `caam-anthropic-loop` is the account-rotation operation, identity-only except for the delivery of spec.md §"Enrolled-host credential delivery". It MUST be constituted as a first-class plugin operation with one visible binding per supported harness. Plugin manifest versions MUST be bumped in lockstep across every manifest that declares the operation, so availability and version agree across supported harnesses.
 
 Throughout the operator-surface contracts, “manifest that declares the operation” means exactly `<plugin-root>/plugin.json` and `<plugin-root>/.codex-plugin/plugin.json`; their name, version and description MUST remain equal. The repository-root `package.json` advertises namespaced Pi skill paths through `pi.skills`, but its package version is not an operation version and is excluded from manifest lockstep. Pi operation availability and version derive from the namespaced binding's existence plus the outer plugin manifest.
 
@@ -1207,7 +1207,7 @@ Throughout the operator-surface contracts, “manifest that declares the operati
 
 **Reporting.** The caller MUST present the operation's account table to the operator verbatim and MUST NOT summarize or paraphrase its figures. On a reported failure the caller MUST surface it plainly and MUST stop; it MUST NOT retry with a relaxed threshold and MUST NOT attempt a switch by other means.
 
-**Durable store.** The operation's cache and lock MUST live in a host state directory created with owner-only permissions, and the state file MUST be written atomically with owner-only permissions. Concurrent writers MAY overwrite one another, which MUST cost at most: a cached reading; one premature drain return where the overwritten state was the drain trigger's memory of an account it moved off on a short-window trigger; one pass with an unknown burn rate or a burn rate measured from an older baseline, where the overwritten state was a baseline reading or the time an account was observed to become active; the last known fleet load, which then counts as stale; or a refusal memory, in which case the account loses its refusal hold early, at most one return to that account can follow, and its refusal is then attributed afresh while it is active, holding it again until that refusal's reset; or a departed entry, in which case refusals that departed account's lagging sessions record can be attributed to accounts that become active before the departed window's reset, costing, for each such account, at most one switch off it and its refusal hold until that reset. Losing the time an account was observed to become active MUST cost at most one pass on which no refusal is attributed, because attribution fails closed without it. A write MUST NOT be able to corrupt the file. The lock MUST guard the decision, not the credential write, which the account manager already performs atomically; the one credential write the operation makes itself, the restore of spec.md **Installing an account MUST swap identity only**, MUST be atomic and made while the switch lock is held. A claim identifier recorded under spec.md §"Account rotation and quota supervision" for an unsettled reset claim MUST NOT be stored where a concurrent writer can overwrite it. It MUST be written atomically, with owner-only permissions, to a record of its own in the same host state directory, separate from the cache, before the claim is sent, and MUST be removed only once the claim's outcome has been read. A concurrent overwrite of the cache MUST NOT be able to discard it, because the cost of losing it is a second use of a scarce reset, not a cached reading. The time a reset claim settled an account's refusals MAY be overwritten by a concurrent writer, which MUST cost at most that account's refusal hold until the settled refusal's own reported reset, as though no claim had settled it.
+**Durable store.** The operation's cache and lock MUST live in a host state directory created with owner-only permissions, and the state file MUST be written atomically with owner-only permissions. Concurrent writers MAY overwrite one another, which MUST cost at most: a cached reading; one premature drain return where the overwritten state was the drain trigger's memory of an account it moved off on a short-window trigger; one pass with an unknown burn rate or a burn rate measured from an older baseline, where the overwritten state was a baseline reading or the time an account was observed to become active; the last known fleet load, which then counts as stale; or a refusal memory, in which case the account loses its refusal hold early, at most one return to that account can follow, and its refusal is then attributed afresh while it is active, holding it again until that refusal's reset; or a departed entry, in which case refusals that departed account's lagging sessions record can be attributed to accounts that become active before the departed window's reset, costing, for each such account, at most one switch off it and its refusal hold until that reset. Losing the time an account was observed to become active MUST cost at most one pass on which no refusal is attributed, because attribution fails closed without it. A write MUST NOT be able to corrupt the file. The lock MUST guard the decision, not the credential write, which the account manager already performs atomically; the one credential write the operation makes itself on the role holder, the restore of spec.md **Installing an account MUST swap identity only**, MUST be atomic and made while the switch lock is held. A claim identifier recorded under spec.md §"Account rotation and quota supervision" for an unsettled reset claim MUST NOT be stored where a concurrent writer can overwrite it. It MUST be written atomically, with owner-only permissions, to a record of its own in the same host state directory, separate from the cache, before the claim is sent, and MUST be removed only once the claim's outcome has been read. A concurrent overwrite of the cache MUST NOT be able to discard it, because the cost of losing it is a second use of a scarce reset, not a cached reading. The time a reset claim settled an account's refusals MAY be overwritten by a concurrent writer, which MUST cost at most that account's refusal hold until the settled refusal's own reported reset, as though no claim had settled it.
 
 **Capacity weights.** Capacity weights MUST be configurable per provider and capacity class. Only the ratio between two weights of one provider affects a decision. The defaults for the Anthropic provider MUST be `small` 1, `medium` 2 and `large` 7. The medium default is deliberately low, which makes the capacity test stricter for medium accounts, because no medium-class ratio has been measured. A provider added to rotation later MUST state its own defaults.
 
@@ -1224,6 +1224,121 @@ The operation MUST NOT require that any consumer exist: an unread record MUST be
 **Concurrency.** Any number of concurrent callers MUST be able to report safely, since observation is read-only. At most one MAY switch or claim a reset, because both are made only while holding the decision lock. The contract MUST record, as accepted and unfixed, that a hand-run activation takes no lock, that a decision rests on readings taken moments earlier, that schedules are not deduplicated across sessions, and that the published selection record is written outside the decision lock by every pass that does publish. The lock withholds publication only from a pass that TRIED and FAILED to take it; the identity-suppression rule above withholds independently of the lock, and nothing here licenses a publication that rule forbids. A pass that holds without contending for the lock publishes normally, so a holding pass and a switching pass MAY both write and the last writer wins — which can briefly leave the record naming the pre-switch account. This is bounded rather than corrected: the next pass converges the record, and its write time lets a consumer see how old the reading is. The contract MUST also record, as accepted and unfixed, that the host agent's own sessions write the global state file without taking the switch lock, so a write a session makes between the operation's capture and its rename is lost, and a session MAY rewrite the previous account's identity keys after the rename; the post-switch identity verification of spec.md **Installing an account MUST swap identity only** reports the second case as a switch that did not take effect.
 
 **Exit contract.** A completed pass that held, reported, or switched successfully MUST exit zero. Every failure MUST exit non-zero and MUST be preceded by a clearly-marked failure line, including failures arising from unexpected exceptions, which MUST be caught at the top level rather than surfacing as an untrimmed traceback. A pass whose readings carry no short-window limit, or carry an unrecognised limit, is a completed pass and MUST exit zero when it otherwise held, reported, or switched successfully.
+
+## Enrolled-host delivery
+
+**Transport.**
+- The client MUST reach the delivery service over HTTPS at the role name, and only at the role name.
+- The role name's DNS record MUST resolve to an address on the private network the enrolled hosts share.
+- The service MUST accept requests only over that network.
+
+**Authentication in both directions.**
+- The service MUST present a SERVICE CREDENTIAL bound to the role name rather than to the machine. That credential moves with the role.
+- The client MUST verify the service credential before it sends its enrolment credential or accepts any delivery, and MUST stop if verification fails.
+- The service MUST authenticate every request by BOTH of the following, and MUST refuse the request when either is missing, unknown or revoked:
+  - the client's ENROLMENT CREDENTIAL;
+  - the NETWORK IDENTITY of the requesting device, which is the device identity that the private network's coordination service reports for the request's source address.
+
+**The account-confirmation request.** For the Anthropic provider, the request that spec.md **A delivery names the account its token belongs to** requires is the `GET https://api.anthropic.com/api/oauth/profile` read defined under **Capacity class source** in §"The account-rotation operation". It MUST be sent with the live access token, and the service MUST compare the account identifier in the response with the stable account identifier the identity keys carry. It is read-only, and it is the only provider request the service sends.
+
+**Operations.** The service MUST expose exactly three operations to an enrolled host:
+1. `delivery` returns the host's own current delivery and its current ENFORCEMENT INSTRUCTIONS.
+   - The delivery carries the delivery sequence, the selected account's stable account identifier, the account-identity key values, and the interactive OAuth object with no refresh token.
+   - An enforcement instruction carries a unique INSTRUCTION IDENTIFIER, names one of that host's sessions, and names the model that spec.md **Model enforcement** decided for it.
+   - Instructions are NOT gated by the delivery sequence. The client MUST act on each instruction AT MOST ONCE, whether or not the response carries a new delivery, and MUST report its outcome under its instruction identifier.
+   - The service MUST stop serving an instruction once its outcome has been reported. It serves a new instruction only when a later rotation pass decides one.
+   - A request MAY name the delivery sequence the client last applied, and MAY wait up to a bounded interval for a later one.
+2. `report` accepts the host's report.
+3. `enrolment-check` confirms that the host's enrolment is current, and returns no credential material.
+
+The service MUST NOT return, through any operation, another host's delivery, the enrolment registry, the audit log, the report store, or any refresh token. The service MUST NOT open a connection to a host, so an unreachable host costs it nothing.
+
+**Client schedule and single instance.**
+- The client MUST request a delivery at least once per `delivery.poll_interval`, whose default MUST be 60 seconds. It MUST send a report after every request, and MAY wait on a delivery request between polls.
+- A host user MUST NOT run more than one client.
+- The client MUST hold an exclusive lock from its sequence check until its writes and verification are complete.
+
+**Client writes.**
+- In the credential file, the client MUST set `claudeAiOauth` to the delivered object, which MUST NOT contain a `refreshToken` field, and MUST preserve every other top-level key.
+- In the global state file, it MUST change only the account-identity keys `oauthAccount` and `userID`.
+- Each write MUST go to a temporary file in the same directory, with mode 0600, which is then renamed into place.
+
+If either write fails, the client MUST restore the captured previous bytes of BOTH files, the credential file first and then the global state file, each atomically in the same way. It MUST attempt every restore whatever the outcome of an earlier one, and MUST report the delivery as not applied. A restore that fails MUST be reported as a further, distinct failure naming the file left unrestored.
+
+Accepted and unfixed: the host's own agent sessions write the global state file without the client's lock, so they can replace the identity keys after the client's rename. The client's verification reports that case.
+
+**Host report.** Each report MUST carry:
+- the delivery sequence and stable account identifier the host last applied, and when it applied them;
+- whether its credential file holds a refresh token, which is the NOT CONVERTED condition;
+- the time of each authentication failure its sessions recorded since the previous report;
+- the outcome of each enforcement instruction it acted on, under that instruction's identifier.
+- each refusal record that the host's sessions recorded since the previous report, with the time it was recorded, the window it names, its reported reset time if any, and the delivery sequence and stable account identifier that the host had applied at that time;
+- for each running session, its identifier, whether its agent configuration directory is the host's default directory, and its observed model, or `unknown`.
+
+A report MUST NOT carry credential material. Times in a report come from the enrolled host's clock. Any offset between that clock and the role holder's is accepted and unfixed.
+
+**Service stores.** The service MUST keep these stores in the operation's host state directory, each created owner-only and written atomically:
+- the ENROLMENT REGISTRY;
+- the DELIVERY-SEQUENCE COUNTER, written before the delivery that consumes the sequence is served;
+- the REPORT STORE, holding each host's latest report and every forwarded refusal record. A rotation pass MUST read the report store without consuming or deleting anything, as **Concurrency** requires of observation. The service MUST keep each forwarded refusal record for at least seven days, the longest window a refusal can name.
+
+The status view takes account limits from the operation's own cache.
+
+**Enrolment registry.** Each entry records:
+- the host's operator-given label;
+- its network identity;
+- a one-way digest of its enrolment credential;
+- when the enrolment was issued;
+- whether it is revoked.
+
+Labels and network identities MUST each be unique across the registry. The service MUST NOT store an enrolment credential in recoverable form. The client MUST store its enrolment credential readable only by the user that runs it, or in that user's OS keyring.
+
+**Revocation.** Revoking a host's enrolment MUST be an operator command run on the role holder. Revocation MUST take effect on that host's next request, MUST NOT affect any other host's enrolment, and MUST be recorded in the audit log.
+
+Accepted and unfixed: revocation does not invalidate an access token already delivered. That token stays usable until the next refresh on the role holder revokes it, or until it expires, whichever comes first. The service MUST NOT force a refresh to shorten that window.
+
+**Audit log.** The service MUST append one record to an append-only, owner-only log in the operation's host state directory for each of these events:
+- a delivery served;
+- a report received;
+- a refused request;
+- an enrolment issued or revoked.
+
+Each record names the host label and the time. Where they apply, it also names the stable account identifier and the delivery sequence. A record MUST NOT contain credential material.
+
+**Status view.** The status view MUST be readable on the role holder. It MUST NOT be served to an enrolment credential, and it MUST contain no credential material. It MUST show whether the live credential has expired without replacement. For each enrolled host, it MUST show:
+- its label;
+- the stable account identifier its last-applied delivery named, with the profile name the operation's account table gives that identifier;
+- that delivery's sequence and when the host applied it;
+- the time of the host's last report;
+- the authentication failures the host's sessions recorded between each delivery's issue and its application;
+- its STATE.
+
+STATE MUST be exactly one of the values below. Where more than one applies, the one listed first MUST be shown:
+- `revoked`: the host's enrolment is revoked;
+- `not-converted`: the host's last report says its credential file holds a refresh token;
+- `expired`: the host's last-applied delivery's access token has reached its expiry;
+- `stale`: no report has arrived within `delivery.stale_after`, whose default MUST be 15 minutes;
+- `lagging`: the service has issued a later delivery sequence than the one the host last applied;
+- `current`: none of the above applies.
+
+**Configuration.** The role name, `delivery.poll_interval` and `delivery.stale_after` MUST be configurable on the role holder. The role name MUST be configurable on each client, and MUST NOT default to any machine's hostname.
+
+**Moving the role.** Moving the role MUST proceed in this order:
+1. On the old holder, stop the delivery service, every agent session using the live credential, the rotation operation's schedule, and its refresh maintenance. From this step on, the old holder MUST NOT use the managed accounts' refresh tokens.
+2. Copy to the new holder:
+   - the account manager's vault;
+   - the live credential;
+   - the account-identity keys of the old holder's global state file, and nothing else from that file;
+   - the operation's durable store;
+   - the service stores;
+   - the audit log;
+   - the service credential.
+3. Repoint the role name. From this step, the new machine is the role holder.
+4. Remove every managed account's refresh token from the old machine.
+5. Start the new holder.
+6. Confirm in the status view that every enrolled host reports in.
+
+Step 4 MUST complete before step 5, so no two machines ever use the role holder's refresh tokens. Step 4 does not breach **Coexistence on the role holder**: by then the old machine is no longer the role holder. Enrolments remain valid across the move. Clients keep their last-applied delivery until the new holder issues a later one.
 
 ## The LLM credential-provider operation
 
