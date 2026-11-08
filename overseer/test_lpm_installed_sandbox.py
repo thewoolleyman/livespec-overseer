@@ -1,7 +1,6 @@
 """Chrooted installed-distribution fixture for LPM subprocess scenarios."""
 
 import json
-import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -9,6 +8,11 @@ from pathlib import Path
 from typing import TypedDict, cast
 
 from overseer import test_lpm_installed_runtime as runtime
+from overseer.lpm_installed_modes import (
+    make_launcher_tree_runnable,
+    make_support_directories_traversable,
+    write_account_database,
+)
 from overseer.test_lpm_installed_attention import write_attention
 from overseer.test_lpm_installed_credentials import (
     SeededCredential,
@@ -79,12 +83,15 @@ class InstalledManagerSandbox:
         _ = runtime.chroot_binary()
         sandbox = cls(root=root / "installed-root", repository=repository)
         sandbox.root.mkdir(mode=0o755, parents=True)
+        make_launcher_tree_runnable(root=sandbox.root)
         sandbox._install_distribution()
         runtime.copy_installed_python(root=sandbox.root)
         runtime.copy_shell_runtime(root=sandbox.root)
         sandbox._copy_plugin()
+        make_launcher_tree_runnable(root=sandbox.root)
         sandbox._write_account_database()
         install_credential_services(root=sandbox.root)
+        make_support_directories_traversable(root=sandbox.root)
         return sandbox
 
     def console_on_path(self) -> str | None:
@@ -227,18 +234,4 @@ class InstalledManagerSandbox:
         shutil.copytree(self.repository / ".claude-plugin", self.root / "plugin")
 
     def _write_account_database(self) -> None:
-        etc = self.root / "etc"
-        etc.mkdir(mode=0o755)
-        _ = (etc / "passwd").write_text(
-            f"fixture:x:{_UID}:{_GID}:fixture:/home/fixture:/bin/sh\n",
-            encoding="utf-8",
-        )
-        _ = (etc / "group").write_text(f"fixture:x:{_GID}:\n", encoding="utf-8")
-        home = self.root / "home" / "fixture"
-        home.mkdir(mode=0o700, parents=True)
-        os.chown(home, _UID, _GID)
-        device = self.root / "dev"
-        device.mkdir(mode=0o755)
-        null = device / "null"
-        null.touch(mode=0o666)
-        null.chmod(0o666)
+        write_account_database(root=self.root, uid=_UID, gid=_GID)
