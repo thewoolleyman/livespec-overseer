@@ -146,7 +146,7 @@ The second and third exceptions within the caam operation are:
 - the enrolled-host client's writes of an enrolled host's interactive credential file and global state file, and of its record of acted enforcement-instruction identifiers;
 - on the role holder, the delivery service's writes of its delivery-sequence counter and report store, the issuance and revocation commands' writes of the enrolment registry, which the registry lock serializes, and each rotation pass's writes of its own enforcement-instruction records.
 
-Both MUST meet the whole-file atomic-replacement guarantee of the paragraph beginning "Writes to the overseer's own stores". Neither inherits the warning-only fallback. A failed client write restores the previous bytes of both files and is reported, as contracts.md §"Enrolled-host delivery" defines.
+Both MUST meet the whole-file atomic-replacement guarantee of the paragraph beginning "Writes to the overseer's own stores". Neither inherits the warning-only fallback. A failed client write of the interactive credential file or the global state file restores the previous bytes of those two files and is reported, as contracts.md §"Enrolled-host delivery" defines. That restore MUST NOT rewrite the record of acted enforcement-instruction identifiers, because restoring an earlier copy of it could drop a recorded identifier and let the client act on that instruction again. A failed write of that record leaves the client not acting on the instruction, because the same section requires the client to record an identifier before it acts on it.
 
 ## Acting safety
 
