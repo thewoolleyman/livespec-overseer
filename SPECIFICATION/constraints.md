@@ -43,6 +43,12 @@ NOT fall back to another operating system, plaintext secret storage, another
 agent credential source, a bundled or cloud browser, or network-exposed browser
 control.
 
+Enrolled-host delivery is Linux-only on both ends in this revision.
+- The delivery service depends on: the role holder's account manager and live credential; the operation's host state directory; a per-user service manager; a listener reachable at the role name over the private network; and that network's device-identity lookup.
+- The client depends on: a per-user service manager; owner-only storage or the OS keyring for its enrolment credential; and the host's interactive credential file and global state file.
+
+Each part MUST validate its prerequisites before the dependent action. Each part MUST NOT fall back to an unauthenticated request, an address other than the role name, a credential carrying a refresh token, or a refresh of its own.
+
 ## Language and dependencies
 
 The product package is standard-library-only Python. Every substantive
@@ -126,7 +132,7 @@ audit and provisioning semantics are defined in contracts.md §"The LLM
 credential-provider operation". Neither operation inherits the warning-only
 fallback below.
 
-The ONE exception within the caam operation is its own writes of the host agent's global state file and settings file, and its restore of the credential, (spec.md §"Account rotation and quota supervision", **Installing an account MUST swap identity only**). Those writes and that restore MUST meet the whole-file atomic-replacement guarantee of the next paragraph, and they are serialized by the operation's switch lock rather than by this section's advisory locks. They do NOT inherit the warning-only fallback: a failed write restores the pre-switch state and fails the switch loudly, as that clause defines.
+The first of three exceptions within the caam operation is, on the role holder, its own writes of the host agent's global state file and settings file, and its restore of the credential, (spec.md §"Account rotation and quota supervision", **Installing an account MUST swap identity only**). Those writes and that restore MUST meet the whole-file atomic-replacement guarantee of the next paragraph, and they are serialized by the operation's switch lock rather than by this section's advisory locks. They do NOT inherit the warning-only fallback: a failed write restores the pre-switch state and fails the switch loudly, as that clause defines.
 
 Writes to the overseer's own stores replace the whole file atomically: a
 reader observes the previous or the new complete content, never a partial
@@ -135,6 +141,12 @@ one-shot operator commands — serialize through advisory locks. At most ONE
 daemon instance runs per mapping store, enforced by a singleton lock taken
 for the daemon's whole lifetime. Storage failures on the overseer's own
 files degrade with a warning; they never crash the supervision loop.
+
+The second and third exceptions within the caam operation are:
+- the enrolled-host client's writes of an enrolled host's interactive credential file and global state file;
+- the delivery service's writes of its enrolment registry, delivery-sequence counter and report store on the role holder.
+
+Both MUST meet the whole-file atomic-replacement guarantee of the paragraph beginning "Writes to the overseer's own stores". Neither inherits the warning-only fallback. A failed client write restores the previous bytes of both files and is reported, as contracts.md §"Enrolled-host delivery" defines.
 
 ## Acting safety
 
