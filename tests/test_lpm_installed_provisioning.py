@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import importlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 from types import ModuleType
 from typing import cast
@@ -36,6 +38,63 @@ def test_clean_install_exposes_console_and_absolute_plugin_executable(tmp_path: 
     assert result.executable == "/plugin/bin/llm-provider-manager"
     assert result.exit_status == 2
     assert result.body["error_type"] == "invalid-request"
+
+
+def test_clean_install_launchers_survive_a_private_process_umask(tmp_path: Path) -> None:
+    previous_umask = os.umask(0o077)
+    try:
+        sandbox = _support().InstalledManagerSandbox.create(root=tmp_path, repository=_ROOT)
+    finally:
+        _ = os.umask(previous_umask)
+
+    for surface in ("console", "plugin"):
+        result = sandbox.run(
+            surface=surface,
+            arguments=("target", "--target-json", "-"),
+            input_text="{}",
+        )
+
+        assert result.exit_status == 2
+        assert result.body["error_type"] == "invalid-request"
+
+
+def test_installed_launcher_modes_are_normalized_by_a_dedicated_module(
+    tmp_path: Path,
+) -> None:
+    module_path = _ROOT / "overseer" / "lpm_installed_modes.py"
+    assert module_path.is_file()
+
+    root = tmp_path / "installed-root"
+    launcher = root / "opt" / "lpm" / "bin" / "llm-provider-manager"
+    launcher.parent.mkdir(parents=True, mode=0o700)
+    _ = launcher.write_text("#!/bin/sh\n", encoding="utf-8")
+    launcher.chmod(0o700)
+    for directory in (
+        root / "bin",
+        root / "lib",
+        root / "lib64",
+        root / "plugin",
+        root / "usr",
+        root / "dev",
+        root / "etc",
+        root / "home",
+        root / "proc" / "self" / "fd",
+    ):
+        directory.mkdir(parents=True, mode=0o700)
+        directory.chmod(0o700)
+    for directory in (root, *root.rglob("*")):
+        if directory.is_dir():
+            directory.chmod(0o700)
+
+    modes = importlib.import_module("overseer.lpm_installed_modes")
+    modes.make_launcher_tree_runnable(root=root)
+    modes.make_support_directories_traversable(root=root)
+
+    assert launcher.stat().st_mode & 0o777 == 0o755
+    assert all(
+        path.stat().st_mode & 0o001 for path in launcher.parents if path.is_relative_to(root)
+    )
+    assert (root / "proc" / "self" / "fd").stat().st_mode & 0o777 == 0o555
 
 
 def test_fresh_installed_target_and_provision_write_only_the_registered_target(
