@@ -133,7 +133,7 @@ jobs:
     # red-in-sandbox drift this epic exists to remove, on either lane.
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.187.0
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.188.1
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -219,7 +219,7 @@ jobs:
     name: check-per-file-coverage
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.187.0
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.188.1
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -301,7 +301,7 @@ jobs:
     needs: check-per-file-coverage
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.187.0
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.188.1
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -377,7 +377,7 @@ jobs:
     name: check-python-batch
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.187.0
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.188.1
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -445,7 +445,7 @@ jobs:
     # Self-hosted in the baked image, same rationale as check-python above.
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.187.0
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.188.1
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -566,7 +566,7 @@ jobs:
     # preserved).
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.187.0
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.188.1
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -631,7 +631,7 @@ jobs:
     name: check-metadata-batch
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.187.0
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.188.1
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -694,6 +694,7 @@ jobs:
           just check-claude-md-coverage || failed="$failed check-claude-md-coverage"
           just check-heading-coverage || failed="$failed check-heading-coverage"
           just check-required-role-keys-declared || failed="$failed check-required-role-keys-declared"
+          just check-rule-26-keep-out || failed="$failed check-rule-26-keep-out"
           just check-self-hosted-routing || failed="$failed check-self-hosted-routing"
           just check-source-trees-scoped-to-consumer || failed="$failed check-source-trees-scoped-to-consumer"
           just check-vendor-manifest || failed="$failed check-vendor-manifest"
