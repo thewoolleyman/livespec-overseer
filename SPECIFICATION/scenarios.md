@@ -6710,3 +6710,13 @@ Feature: Receipt-bound incident routing preserves normal repayment
     When the canonical observer instead attributes a deployed or other-PR regression to the incident
     Then the operator follows the current generation-fenced recovery route on the same incident item
 ```
+
+## Scenario: A pipefail script reports a match in a large input as a match
+
+Given a shell script of this repository that runs with `set -o pipefail` and tests whether its input contains a pattern
+
+When the input contains the pattern near its start and is larger than 64 KiB
+
+Then the script MUST report the pattern as present
+
+And its verdict MUST be the same as for a 200-byte input that contains the pattern
