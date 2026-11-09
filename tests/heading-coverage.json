@@ -73,7 +73,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Supervised runtimes",
-    "test": "overseer.test_supervisor_codex_restart_safety.test_a_codex_ready_restart_never_issues_the_claude_command",
+    "test": "overseer.test_supervisor_codex_restart_safety.test_an_adopted_codex_track_declaring_ready_is_restarted_with_a_fresh_codex_session",
     "reason": "Pins the one destructive cross-runtime failure the spec designs out \u2014 a restart must resume the SAME runtime. SABOTAGE-VERIFIED 2026-07-25: re-pointing _do_codex_restart at the CLAUDE command turned this and two sibling tests red, then was reverted to a zero diff."
   },
   {
@@ -101,7 +101,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Fail-soft posture",
-    "test": "overseer.test_supervisor_row_color_operator.test_uncertifiable_ready_renders_the_dead_end_not_restart_in_progress",
+    "test": "overseer.test_supervisor_row_liveness_notes.test_uncertifiable_ready_renders_the_dead_end_not_restart_in_progress",
     "reason": "Pins the RENDERING half of the heading's prohibition: a structurally impossible act is never shown as restart-in-progress or as otherwise going to occur. The read-only rendered row names the certification dead end instead."
   },
   {
@@ -178,7 +178,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "constraints.md",
     "heading": "## Determinism boundary",
-    "test": "overseer.test_package_constraints.test_the_supervision_loop_cannot_make_model_calls",
+    "test": "overseer.test_package_constraints.test_the_supervision_loop_network_imports_are_limited_to_the_otlp_emitter",
     "reason": "Asserts the package imports NO network-capable stdlib module (urllib/http/socket/ssl/asyncio/...). A model call needs a client; proving there is no client is stronger and more durable than auditing call sites. subprocess is deliberately excluded \u2014 constraints.md contemplates driving a real tmux. SABOTAGE-VERIFIED 2026-07-26: import urllib.request into supervisor.py turns it red naming urllib."
   },
   {
@@ -199,7 +199,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "constraints.md",
     "heading": "## Acting safety",
-    "test": "overseer.test_supervisor_codex_restart_safety2.test_claude_act_refuses_pane_whose_live_name_differs_from_topic",
+    "test": "overseer.test_supervisor_claude_name_gate.test_claude_act_refuses_pane_whose_live_name_differs_from_topic",
     "reason": "Pins the heading's governing clause \u2014 every keystroke-bearing act is suppressed unless the pane is POSITIVELY IDENTIFIED as this track's supervised session. Chosen over the individual suppression tests because it is the hardest case: process and cwd both pass, only the name betrays the pane, and the act is refused even with a valid `ready` that would otherwise restart. The four never-paste cases have their own tests (busy/gate/shell/foreign) mapped nowhere else."
   },
   {
@@ -526,7 +526,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A collision-derived worker name ending in supervisor is refused",
-    "test": "tests.integration.test_dhkjxf_discovery_attention_and_gates.test_scenario_collision_derived_worker_name_ending_in_foreman_is_refused",
+    "test": "tests.integration.test_dhkjxf_discovery_attention_and_gates.test_scenario_collision_derived_worker_name_ending_in_supervisor_is_refused",
     "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
@@ -540,8 +540,9 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A dead track with conflicting runtime evidence is not launched",
-    "test": "tests.integration.test_dhkjxf_foreman_evidence_routing.test_scenario_dead_track_with_conflicting_runtime_evidence_is_not_launched",
-    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
+    "test": "TODO",
+    "reason": "The integration-tier test for this scenario was removed with the retired foreman seat (tests/integration/test_dhkjxf_foreman_evidence_routing.py no longer exists) and no current test drives conflicting runtime evidence for a dead track. A real test at integration tier is owed.",
+    "work_item": "overseer-lx5l7i"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -812,7 +813,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## The stalled-picker charter reminder",
-    "test": "overseer.test_supervisor_liveness_starvation.test_charter_authorized_picker_stall_gets_clause_nudge_without_answering_picker",
+    "test": "overseer.test_supervisor_picker_starvation.test_charter_authorized_picker_stall_gets_clause_nudge_without_answering_picker",
     "reason": "Pins the section's load-bearing property in the direction that matters: the act pastes EXACTLY ONE charter-reminder payload into a stalled reserved-entity picker and sends NO Enter, digit, or other selection keystroke. Paste-without-submitting is what separates this act from every other daemon keystroke-bearing act and is the whole basis on which constraints.md grants it the sole daemon exception to the gated / human-waiting prohibition, so a regression that started answering the picker fails here first."
   },
   {
@@ -833,8 +834,9 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The charter reminder's own echo does not re-arm the once-per-episode bound",
-    "test": "tests.integration.test_picker_stall_charter_reminder.test_scenario_charter_reminder_echo_does_not_rearm_but_external_change_does",
-    "reason": "Added by the acting-safety-third-keystroke-act ratification, and it is the leg whose absence let the prior letter claim a bound the daemon did not hold. This integration-tier scenario installs the fake pane's paste echo, asserts the reminder text is visible in the subsequent capture, observes the track again past the bounded floor with no second paste, then changes the capture for a non-daemon reason and asserts the act re-arms."
+    "test": "TODO",
+    "reason": "The integration-tier test named here no longer exists. The nearest current test, test_scenario_charter_reminder_stays_single_shot_across_external_redraw, covers only the no-second-paste leg and asserts no re-arm after a capture redraw, so nothing proves that a later capture change not attributable to the paste re-arms the act. A real test at integration tier covering the re-arm leg is owed.",
+    "work_item": "overseer-lx5l7i"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -933,24 +935,24 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A killed session start leaves an attempted-and-failed record naming its invoker",
-    "test": "tests.integration.test_start_intent_before_spawn.test_a_killed_plan_start_leaves_an_attempted_and_failed_record_naming_its_invoker",
-    "reason": "Integration-tier: runs the actuator in a forked child whose spawn seam SIGKILLs that child, so the process is interrupted between issuing the spawn and returning from it. SIGKILL cannot be caught, handled, or deferred, which is what makes this an ORDERING control rather than a content one: no post-hoc write is possible, so a record nonetheless on file can only have preceded the spawn. It asserts the record names the action, the target track, and the invoker, and that it carries NO outcome \u2014 the attempted-and-failed signal that distinguishes a dead attempt both from live work and from a start never attempted. It drives plan_start deliberately, the half research note 002 measured as writing nothing before its spawn, since a fix scoped to the already-instrumented work-item path would leave this leg untouched; its sibling in the same module drives work_item_session_start, and a third asserts every start action has its intent on file by the time it spawns. SABOTAGE-VERIFIED 2026-08-26: moving the record write to after the spawn \u2014 the pre-change post-hoc shape \u2014 fails this test and its ordering siblings. Discharges the TODO filed by plan session-start-and-registry-integrity (anchor overseer-zidpiu); implemented by overseer-zidpiu.3.",
+    "test": "TODO",
+    "reason": "The integration-tier test named here was removed with the retired foreman seat's start-intent recording (no start-intent code or test remains). No current test drives a killed session start. A real test at integration tier is owed.",
     "work_item": "overseer-zidpiu.3"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A killed session start leaves an attempted-and-failed record naming its invoker",
-    "test": "tests.integration.test_start_intent_before_spawn.test_an_outcome_less_intent_record_does_not_read_as_live_work",
-    "reason": "Integration-tier, and a SECOND entry against this heading because its sibling above pins the record's CONTENT while this one pins the clause that the track is not left reading as live work on the strength of that record. It kills a work_item_session_start in a forked child, leaving an outcome-less record beside the claim.json research note 002 measured being left in place, then drives a fresh start through the shipped actuator and asserts it ACTS \u2014 the dead attempt did not read as live work, and its stale claim was reconciled with the reason journalled. THE DISCRIMINATING CONTROL is the second leg, a start that RESOLVED: without it the test passes against an implementation that simply stopped refusing on a claim at all, which is the opposite defect, since a claim beside a resolved start names a session that really is live. Two further siblings pin the fail-closed direction: a claim whose intent record is absent, and one whose record does not parse, are silence rather than the attempted-and-failed signal and still refuse the start. Implemented by overseer-zidpiu.4.",
-    "work_item": "overseer-zidpiu.4"
+    "test": "TODO",
+    "reason": "The integration-tier test named here was removed with the retired foreman seat's start-intent recording (no start-intent code or test remains). No current test shows an outcome-less intent record does not read as live work. A real test at integration tier is owed.",
+    "work_item": "overseer-zidpiu.3"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A spawn that fails and returns has its start-intent record amended with the error",
-    "test": "tests.integration.test_start_intent_before_spawn.test_a_spawn_that_fails_and_returns_amends_its_intent_record_with_the_error",
-    "reason": "Integration-tier: drives the shipped actuator over a plan_start proposal whose spawn seam RETURNS non-zero, so the surface survives and owes the amendment \u2014 the SATISFIABLE half the killed-spawn scenario structurally cannot exercise, because a dead surface writes nothing. It asserts the amended outcome carries the ERROR and not merely a failure flag: a record saying only 'it failed' cannot tell the next reader whether the spawn was refused, crashed, or never found its command. It drives plan_start deliberately, the half research note 002 measured as carrying no pre-spawn record at all and therefore nothing to amend. Its siblings in the same module carry the rest of the reconciliation: the work_item_session_start family, whose failed spawn also releases the stale claim research note 002 measured being left in place; a control that an intent record deleted underneath the surface is reconciled rather than resurrected, since re-creating one from the wrong side of the spawn would fabricate evidence of an attempt. Replaces the TODO filed by plan session-start-and-registry-integrity (anchor overseer-zidpiu); implemented by overseer-zidpiu.4.",
+    "test": "TODO",
+    "reason": "The integration-tier test named here was removed with the retired foreman seat's start-intent recording (no start-intent code or test remains). No current test drives a failed spawn amending its intent record. A real test at integration tier is owed.",
     "work_item": "overseer-zidpiu.4"
   },
   {
