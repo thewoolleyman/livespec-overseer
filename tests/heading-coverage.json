@@ -878,16 +878,16 @@
     "spec_file": "spec.md",
     "heading": "## Enrolled-host credential delivery",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-fbt5hu",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-fbt5hu owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## Enrolled-host delivery",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-4uafx2",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-4uafx2 owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4022,256 +4022,256 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A rotation on the role holder reaches every following host",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-lfyj7e",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-lfyj7e owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Moving the credential-rotation role changes nothing on an enrolled host",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-lfyj7e",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-lfyj7e owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A following host receives an access token and never a refresh token",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-4uafx2",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-4uafx2 owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A refresh on the role holder is delivered and its exposure is measured",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-7ezzch",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-7ezzch owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A token and identity that disagree produce no delivery",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-fbt5hu",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-fbt5hu owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A stale delivery cannot move a host back",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-lfyj7e",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-lfyj7e owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed client write leaves the host on its previous delivery",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-lfyj7e",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-lfyj7e owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The client refuses to overwrite a host's own login",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-lfyj7e",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-lfyj7e owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unreachable enrolled host does not affect a rotation pass",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-fbt5hu",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-fbt5hu owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An expired live credential is reported, not refreshed",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-7ezzch",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-7ezzch owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The delivery sequence continues across a move of the role",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-fbt5hu",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-fbt5hu owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An enrolled host cannot read another host's delivery",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-4uafx2",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-4uafx2 owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A valid enrolment presented from the wrong device is refused",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-4uafx2",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-4uafx2 owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Revoking one host's enrolment leaves every other host served",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-4uafx2",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-4uafx2 owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The client refuses a service it cannot authenticate",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-lfyj7e",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-lfyj7e owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A silent enrolled host is reported as stale",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-7ezzch",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-7ezzch owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A refusal on a following host rotates the active account",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-xoishu",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-xoishu owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A forwarded refusal under another account's delivery is not attributed",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-xoishu",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-xoishu owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A remote enforcement is recorded only once the client applies it",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-c6gjgl",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-c6gjgl owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A remote session on the scoped model arms the scoped-model trigger",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-xoishu",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-xoishu owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An enforcement instruction is applied at most once",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-c6gjgl",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-c6gjgl owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A silent host whose token has expired arms no trigger",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-xoishu",
+    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-xoishu owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A refusal forwarded before a host falls silent is still attributed",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-xoishu",
+    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-xoishu owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A forwarded refusal from outside the host's default directory is not attributed",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-xoishu",
+    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-xoishu owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A client restarted after recording an instruction does not act on it again",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-c6gjgl",
+    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-c6gjgl owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An instruction whose outcome was reported is never served again",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v091 ahead of its implementation (proposal central-credential-service-v090-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-c6gjgl",
+    "reason": "An integration-tier test is owed for this heading, ratified at v091 ahead of its implementation (proposal central-credential-service-v090-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-c6gjgl owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A superseded enforcement instruction is never served",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v091 ahead of its implementation (proposal central-credential-service-v090-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-c6gjgl",
+    "reason": "An integration-tier test is owed for this heading, ratified at v091 ahead of its implementation (proposal central-credential-service-v090-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-c6gjgl owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An instruction decided before a host returns from silence is not served",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v091 ahead of its implementation (proposal central-credential-service-v090-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-c6gjgl",
+    "reason": "An integration-tier test is owed for this heading, ratified at v091 ahead of its implementation (proposal central-credential-service-v090-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-c6gjgl owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Enrolling a host under a label already in use is refused",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-heok6f",
+    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-heok6f owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A revoked device can be enrolled again",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-heok6f",
+    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-heok6f owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A revoked host's label cannot be reused for another device",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v091 ahead of its implementation (proposal central-credential-service-v090-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-heok6f",
+    "reason": "An integration-tier test is owed for this heading, ratified at v091 ahead of its implementation (proposal central-credential-service-v090-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-heok6f owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A stopped delivery service does not affect a rotation pass",
     "test": "TODO",
-    "work_item": "overseer-3vnxkd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-3vnxkd owns landing it and MUST replace this TODO."
+    "work_item": "overseer-fbt5hu",
+    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-fbt5hu owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
