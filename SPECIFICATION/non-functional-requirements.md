@@ -167,6 +167,7 @@ would otherwise live in.
   with no installed third-party packages. A library vendored in-tree under the
   exemption in that same section is staged with the package by construction
   and does not fail that test.
+- Every shell script this repository ships or runs in its tests, in whichever directory it lives, that runs with `set -o pipefail` MUST judge a pipeline's success only from a reader that consumes the pipeline's whole input. A pipeline whose exit status the script uses MUST NOT end in a reader that can exit before its writer finishes — `grep -q`, `grep --quiet`, `grep -m N`, `head -n N`, `head -c N`, or an `awk` program that calls `exit` — because under `pipefail` the writer's SIGPIPE (exit 141) turns a match into a failure. Where only a membership test is wanted, the script SHOULD use a here-string (`grep -q PAT <<<"$var"`), a reader that drains its input (`grep PAT >/dev/null`), or a grouping whose status excludes the writer's. Such a script MUST give the same verdict on an input larger than a pipe buffer (64 KiB) as on a small one. A pipeline whose status the script does not use, or one that runs where `pipefail` is off, is out of scope. Scenario: "A pipefail script reports a match in a large input as a match".
 
 ## Scenarios
 

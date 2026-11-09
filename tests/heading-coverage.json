@@ -4528,5 +4528,13 @@
     "test": "TODO",
     "work_item": "overseer-qz7ez7",
     "reason": "An integration-tier test is owed for this scenario, ratified at v087 ahead of its implementation (proposal a-ready-track-held-from); work item overseer-qz7ez7 owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A pipefail script reports a match in a large input as a match",
+    "test": "TODO",
+    "work_item": "overseer-ng3b3w",
+    "reason": "An integration-tier test is owed for this scenario, ratified at v092 ahead of its implementation (proposal shell-script-pipeline-verdicts): a pipefail script that tests for a pattern reports it present in an input larger than 64 KiB, with the same verdict as on a 200-byte input. Work item overseer-ng3b3w owns landing it and MUST replace this TODO."
   }
 ]
