@@ -102,9 +102,15 @@ gate_check_suite = [
 # (work-item `overseer-crjbmp`). An in-process stand-in has no `/proc` entry at
 # all, so it would leave the exercise passing for the reason it always passed in
 # the factory: no second Codex world on the host.
+#
+# `test_pytest_cov_bare_spelling.py` runs the bare `pytest --cov=<pkg>` spelling in
+# a throwaway project (work-item `overseer-2tx6us`). The defect lives in the
+# combine step of a real pytest-cov session whose test subprocesses lack a
+# pyproject in view, so only a real child pytest process can exhibit it.
 subprocess_spawn_allowlist = [
     "tests/test_codex_herdr_live_exercise_controller.py",
     "tests/test_herdr_operator_delivery.py",
+    "tests/test_pytest_cov_bare_spelling.py",
 ]
 # Role trees. This section must exist at all: without it the loader falls back to
 # defaults naming core's layout (`.claude-plugin/scripts/livespec`, `.../io`,
@@ -463,7 +469,13 @@ reportUnnecessaryIsInstance = "error"
 
 [tool.pytest.ini_options]
 testpaths = ["overseer", "tests"]
-addopts = "-q"
+# `--cov-config=pyproject.toml` is inert without `--cov`. With the bare
+# `pytest --cov=<pkg>` spelling pytest-cov hands its test subprocesses the
+# coverage config by path only when `--cov-config` names an existing file; the
+# default `.coveragerc` does not exist here, so a subprocess with no pyproject in
+# view measured statements only and the combine step died mixing that with the
+# main process's branch data (work-item `overseer-2tx6us`).
+addopts = "-q --cov-config=pyproject.toml"
 markers = [
     "integration: integration-tier scenario coverage",
 ]
