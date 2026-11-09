@@ -540,9 +540,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A dead track with conflicting runtime evidence is not launched",
-    "test": "TODO",
-    "reason": "The integration-tier test for this scenario was removed with the retired foreman seat (tests/integration/test_dhkjxf_foreman_evidence_routing.py no longer exists) and no current test drives conflicting runtime evidence for a dead track. A real test at integration tier is owed.",
-    "work_item": "overseer-lx5l7i"
+    "test": "tests.integration.test_dead_track_conflicting_runtime_evidence.test_scenario_dead_track_with_conflicting_runtime_evidence_is_not_launched",
+    "reason": "Integration-tier: drives the shipped `start` command through supervisor.main over a real registry store, for a mapped track whose session died to a bare shell and whose topic also names a stale same-topic entry in the Codex session index with no durable identity recorded. It asserts the refusal (exit 1, reason=ambiguous_runtime), that the message carries BOTH candidates' evidence (the absent recorded identity that would mean Claude, and the Codex index's session id), and that no tmux session was created or respawned and the mapping row is untouched."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -834,9 +833,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The charter reminder's own echo does not re-arm the once-per-episode bound",
-    "test": "TODO",
-    "reason": "The integration-tier test named here no longer exists. The nearest current test, test_scenario_charter_reminder_stays_single_shot_across_external_redraw, covers only the no-second-paste leg and asserts no re-arm after a capture redraw, so nothing proves that a later capture change not attributable to the paste re-arms the act. A real test at integration tier covering the re-arm leg is owed.",
-    "work_item": "overseer-lx5l7i"
+    "test": "tests.integration.test_picker_stall_charter_reminder.test_scenario_charter_reminder_echo_does_not_rearm_but_external_change_does",
+    "reason": "Added by the acting-safety-third-keystroke-act ratification, and it is the leg whose absence let the prior letter claim a bound the daemon did not hold. This integration-tier scenario installs the fake pane's paste echo, asserts the reminder text is visible in the subsequent capture, observes the track again past the bounded floor with no second paste, then replaces the picker with a different one (a capture change not attributable to the paste, which changes the gate signature and so starts a new stall episode) and asserts the act re-arms: after the floor elapses a second reminder is pasted and no selection keystroke is sent. Its sibling test_scenario_charter_reminder_stays_single_shot_across_external_redraw pins the opposite direction, that a redraw of the SAME picker does not re-arm."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -935,24 +933,24 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A killed session start leaves an attempted-and-failed record naming its invoker",
-    "test": "TODO",
-    "reason": "The integration-tier test named here was removed with the retired foreman seat's start-intent recording (no start-intent code or test remains). No current test drives a killed session start. A real test at integration tier is owed.",
+    "test": "tests.integration.test_start_intent_before_spawn.test_a_killed_plan_start_leaves_an_attempted_and_failed_record_naming_its_invoker",
+    "reason": "Integration-tier: runs the shipped attended relaunch surface (out_of_band_relaunch.relaunch) over a real registry store in a forked child whose launch input SIGKILLs that child, so the process is interrupted between issuing the spawn and returning from it. SIGKILL cannot be caught, handled, or deferred, which makes this an ORDERING control: no post-hoc write is possible, so a record nonetheless on file can only have preceded the spawn. It asserts the record names the action, the target track, the target and the invoker, carries NO outcome (the attempted-and-failed signal), and that the mapping row was not rebound. The relaunch surface replaced the retired foreman seat's plan_start and work_item_session_start paths this entry originally drove. Implemented by overseer-zidpiu.3.",
     "work_item": "overseer-zidpiu.3"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A killed session start leaves an attempted-and-failed record naming its invoker",
-    "test": "TODO",
-    "reason": "The integration-tier test named here was removed with the retired foreman seat's start-intent recording (no start-intent code or test remains). No current test shows an outcome-less intent record does not read as live work. A real test at integration tier is owed.",
-    "work_item": "overseer-zidpiu.3"
+    "test": "tests.integration.test_start_intent_before_spawn.test_an_outcome_less_intent_record_does_not_read_as_live_work",
+    "reason": "Integration-tier, and a SECOND entry against this heading because its sibling above pins the record's CONTENT while this one pins the clauses that the track is not left reading as live work on the strength of that record and that the absence of a session is distinguishable from a start never attempted. It kills a relaunch in a forked child, leaving an outcome-less record, then drives a fresh relaunch of the same target through the shipped surface and asserts it ACTS (the dead attempt did not block it) and replaces the record with a terminal outcome, while the mapping row is untouched. The control is a second repository where no start was attempted: it has no record at all, so an outcome-less record (attempted, never finished) and no record (never attempted) are different on-disk states. Implemented by overseer-zidpiu.4.",
+    "work_item": "overseer-zidpiu.4"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A spawn that fails and returns has its start-intent record amended with the error",
-    "test": "TODO",
-    "reason": "The integration-tier test named here was removed with the retired foreman seat's start-intent recording (no start-intent code or test remains). No current test drives a failed spawn amending its intent record. A real test at integration tier is owed.",
+    "test": "tests.integration.test_start_intent_before_spawn.test_a_spawn_that_fails_and_returns_amends_its_intent_record_with_the_error",
+    "reason": "Integration-tier: drives the shipped relaunch surface with a launch input that RETURNS failure, so the surface survives and owes the amendment, the SATISFIABLE half the killed-spawn scenario structurally cannot exercise because a dead surface writes nothing. It asserts the amended record carries a terminal outcome (so it no longer stands as a live attempt) and the ERROR text, not merely a failure flag, with the action, track and invoker still named and the mapping row untouched. Implemented by overseer-zidpiu.4.",
     "work_item": "overseer-zidpiu.4"
   },
   {
