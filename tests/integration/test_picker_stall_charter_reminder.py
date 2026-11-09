@@ -28,9 +28,11 @@ from overseer.test_supervisor_fakes import FakeTmux
 __all__: list[str] = []
 
 
-def picker_capture(*, ctx: int = 80, tail: str = "") -> str:
+def picker_capture(
+    *, ctx: int = 80, tail: str = "", question: str = "How do you want to ratify?"
+) -> str:
     return (
-        "How do you want to ratify?\n"
+        f"{question}\n"
         "❯ 1. Yes, run /livespec:revise\n"
         "  2. No, ask the operator\n"
         "Enter to select · ↑/↓ to navigate · Esc to cancel\n"
@@ -174,6 +176,37 @@ def test_scenario_charter_reminder_stays_single_shot_across_external_redraw(
     assert still_stalled_after_redraw.status == "picker-stalled"
     assert still_stalled_later.status == "picker-stalled"
     assert len(fake.paste_texts()) == 1
+    assert_no_picker_answer_or_restart(fake=fake)
+
+
+def test_scenario_charter_reminder_echo_does_not_rearm_but_external_change_does(
+    *, tmp_path, monkeypatch
+):
+    topic = "picker-charter-supervisor"
+    _repo, fake, clock, sup, track, session = make_stalled_picker_case(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        topic=topic,
+        install_echo=True,
+    )
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        advance_to_picker_stall(clock=clock, sup=sup, track=track)
+        assert "Your supervisor charter already says:" in fake.panes[session]
+        clock["t"] += 31.0
+        after_echo = sup.evaluate(track=track, act=True)
+        pastes_after_echo = len(fake.paste_texts())
+        fake.panes[session] = picker_capture(question="Which branch do you want to land?")
+        new_gate = sup.evaluate(track=track, act=True)
+        clock["t"] += 31.0
+        rearmed = sup.evaluate(track=track, act=True)
+
+    assert after_echo.status == "picker-stalled"
+    assert pastes_after_echo == 1
+    assert new_gate.status == "blocked:human"
+    assert rearmed.status == "picker-stalled"
+    assert len(fake.paste_texts()) == 2
+    assert fake.paste_texts()[0] == fake.paste_texts()[1]
     assert_no_picker_answer_or_restart(fake=fake)
 
 
