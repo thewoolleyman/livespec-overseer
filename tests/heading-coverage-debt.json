@@ -723,20 +723,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A revoked device can be enrolled again",
-    "work_item": "overseer-heok6f",
-    "first_seen": "2026-11-08"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A revoked host's label cannot be reused for another device",
-    "work_item": "overseer-heok6f",
-    "first_seen": "2026-11-08"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: A rotation on the role holder reaches every following host",
     "work_item": "overseer-lfyj7e",
     "first_seen": "2026-11-08"
@@ -1433,13 +1419,6 @@
     "heading": "## Scenario: Duplicate recovery reconciles an ambiguous command effect",
     "work_item": "overseer-okf6bu",
     "first_seen": "2026-10-08"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: Enrolling a host under a label already in use is refused",
-    "work_item": "overseer-heok6f",
-    "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
