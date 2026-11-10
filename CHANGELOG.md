@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.52.4](https://github.com/thewoolleyman/livespec-overseer/compare/v5.52.3...v5.52.4) (2026-11-10)
+
+
+### Bug Fixes
+
+* pin --cov-config in pytest addopts so bare --cov combines branch data ([912671a](https://github.com/thewoolleyman/livespec-overseer/commit/912671a8785c01a04c7a57a4649f8019c829515b))
+
 ## [5.52.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.52.2...v5.52.3) (2026-11-08)
 
 
