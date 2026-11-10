@@ -75,6 +75,9 @@ def issue_enrolment(
             revoked_at=None,
         )
         caam_delivery_registry.save_entries(home=home, entries=(*entries, issued))
+        caam_delivery_registry.append_audit(
+            home=home, event="enrolment-issued", host_label=label, at=issued_at
+        )
     return Success(None)
 
 
@@ -91,6 +94,9 @@ def revoke_enrolment(*, home: Path, label: str, revoked_at: str) -> Result[None,
             for entry in entries
         )
         caam_delivery_registry.save_entries(home=home, entries=revoked)
+        caam_delivery_registry.append_audit(
+            home=home, event="enrolment-revoked", host_label=label, at=revoked_at
+        )
     return Success(None)
 
 
