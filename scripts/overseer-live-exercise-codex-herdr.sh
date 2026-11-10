@@ -484,7 +484,11 @@ stage_replacement() {
 # --------------------------------------------------------------------------- #
 
 resume_line_delivered() {
-  pane_capture "$AGENT_PANE" | grep -qF "resume plan epic $OVERSEER_EXERCISE_EPIC in repository $repo"
+  # Capture the pane first: an early-exiting `grep -q` reader would close the pipe before
+  # `pane_capture` finished and, under pipefail, report the match as a failure.
+  local captured
+  captured="$(pane_capture "$AGENT_PANE")" || return 1
+  grep -qF "resume plan epic $OVERSEER_EXERCISE_EPIC in repository $repo" <<<"$captured"
 }
 
 stage_continuation() {
