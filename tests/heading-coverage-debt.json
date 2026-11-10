@@ -205,9 +205,37 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A credential that cannot be read from its location is unusable",
+    "work_item": "overseer-iyfjbo",
+    "first_seen": "2026-11-10"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A daemon message is delivered through a session-bound channel when one is available",
     "work_item": "overseer-uepcr6",
     "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A dark active login is left on the next pass",
+    "work_item": "overseer-iyfjbo",
+    "first_seen": "2026-11-10"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A dark active login with no surviving candidate holds and reports",
+    "work_item": "overseer-iyfjbo",
+    "first_seen": "2026-11-10"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A dark login raises one push alert at onset",
+    "work_item": "overseer-iyfjbo",
+    "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -229,6 +257,13 @@
     "heading": "## Scenario: A domain provisioning failure leaves its run identity reusable",
     "work_item": "overseer-dykjx4",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A failed alert delivery is reported and does not block rotation",
+    "work_item": "overseer-iyfjbo",
+    "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -278,6 +313,13 @@
     "heading": "## Scenario: A failed store mutation leaves its attempted audit evidence",
     "work_item": "overseer-osb7as",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A first-seen login age is shown as a lower bound and still warns",
+    "work_item": "overseer-iyfjbo",
+    "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -450,6 +492,20 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A login approaching the measured cap is warned",
+    "work_item": "overseer-iyfjbo",
+    "first_seen": "2026-11-10"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A login hold survives a restart",
+    "work_item": "overseer-iyfjbo",
+    "first_seen": "2026-11-10"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A malformed consumer failure report changes no credential state",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
@@ -492,6 +548,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A persisting condition is not re-alerted before the repeat interval",
+    "work_item": "overseer-iyfjbo",
+    "first_seen": "2026-11-10"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A persisting ready hold is re-reported at the next window boundary",
     "work_item": "overseer-qz7ez7",
     "first_seen": "2026-11-05"
@@ -523,6 +586,13 @@
     "heading": "## Scenario: A provisioning request drives suspect and dead credential recovery",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A rate-limited probe is inconclusive and not alerted",
+    "work_item": "overseer-iyfjbo",
+    "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -583,9 +653,30 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A recorded login shows its age in the report",
+    "work_item": "overseer-iyfjbo",
+    "first_seen": "2026-11-10"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A recovered condition sends one recovery alert",
+    "work_item": "overseer-iyfjbo",
+    "first_seen": "2026-11-10"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A refilled protected account is not preferred over an unprotected one",
     "work_item": "overseer-33kyxp",
     "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A refresh does not start a new login record",
+    "work_item": "overseer-iyfjbo",
+    "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -992,6 +1083,20 @@
     "heading": "## Scenario: An exhausted credential pool fails closed without changing the target",
     "work_item": "overseer-dykjx4",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An exhausted factory credential raises a push alert",
+    "work_item": "overseer-iyfjbo",
+    "first_seen": "2026-11-10"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An expired access token alone does not trigger a dark-login rotation",
+    "work_item": "overseer-iyfjbo",
+    "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -1731,6 +1836,20 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: No lifetime-cap warning before the cap is measured",
+    "work_item": "overseer-iyfjbo",
+    "first_seen": "2026-11-10"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: No push channel configured is reported",
+    "work_item": "overseer-iyfjbo",
+    "first_seen": "2026-11-10"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: Non-qualifying completion evidence cannot advance coexistence proof",
     "work_item": "overseer-5tpc72",
     "first_seen": "2026-09-12"
@@ -1741,6 +1860,13 @@
     "heading": "## Scenario: Omitted manager bounds use their contract defaults",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: One refused reading does not judge a login dark",
+    "work_item": "overseer-iyfjbo",
+    "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -1846,6 +1972,13 @@
     "heading": "## Scenario: Purpose names do not restrict a registered credential kind",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Recording a new login replaces the old one and releases a login hold",
+    "work_item": "overseer-iyfjbo",
+    "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -2203,6 +2336,13 @@
     "heading": "## Scenario: The resume prompt and the picker-stall relay keep their paste forms",
     "work_item": "overseer-uepcr6",
     "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The rotation pass runs while every agent session's login is dark",
+    "work_item": "overseer-iyfjbo",
+    "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",

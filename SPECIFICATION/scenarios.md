@@ -6720,3 +6720,207 @@ When the input contains the pattern near its start and is larger than 64 KiB
 Then the script MUST report the pattern as present
 
 And its verdict MUST be the same as for a 200-byte input that contains the pattern
+
+## Scenario: A dark active login is left on the next pass
+
+Given the active account's login has reached its lifetime cap, and a tracked session's transcript records the provider refusing it as unrenewable
+
+And another managed account is live-verified and survives every eligibility rule
+
+When the next scheduled pass runs
+
+Then the operation MUST switch to that other account
+
+And the switch line MUST name the dark login as the reason
+
+And the dark account MUST NOT be selected again until a new login is recorded for it
+
+## Scenario: An expired access token alone does not trigger a dark-login rotation
+
+Given the active account's live access token has reached its expiry
+
+And no transcript records a refusal of that login as unrenewable or revoked
+
+When the next scheduled pass runs
+
+Then the operation MUST NOT judge the login dark
+
+## Scenario: A dark active login with no surviving candidate holds and reports
+
+Given the active account's login is judged dark
+
+And no other managed account survives the eligibility rules
+
+When the scheduled pass runs
+
+Then the operation MUST hold
+
+And it MUST report that the active login is dark and that no account could be selected
+
+## Scenario: One refused reading does not judge a login dark
+
+Given the operation's reading of the active account is refused as unauthenticated while its access token is unexpired
+
+And the live credential has changed by the time the operation re-reads it
+
+When the pass completes
+
+Then the operation MUST NOT judge the login dark
+
+## Scenario: A login hold survives a restart
+
+Given an account's login has been judged dark and no new login has been recorded for it
+
+When the operation restarts and runs a pass
+
+Then that account MUST NOT be selected
+
+## Scenario: The rotation pass runs while every agent session's login is dark
+
+Given the role holder's scheduled passes are host-started
+
+And every agent session on the role holder authenticates with the active account, whose login is dark
+
+When the scheduled time for a pass arrives
+
+Then the pass MUST run
+
+And it MUST rotate to a surviving live-verified account
+
+## Scenario: A recorded login shows its age in the report
+
+Given the operator has completed a login for an account and run the record-login command
+
+When the operation produces its report a day later
+
+Then the report MUST show that account's login age as one day and its mint time as recorded
+
+## Scenario: A refresh does not start a new login record
+
+Given an account's login is recorded with a known mint time
+
+When the agent refreshes that login's access token
+
+Then the account's login record MUST keep its original mint time
+
+## Scenario: Recording a new login replaces the old one and releases a login hold
+
+Given an account is login-held after its login was judged dark
+
+When the operator completes a new login for it and runs the record-login command
+
+Then the previous login's record MUST end with cause dark or replaced
+
+And the account MUST no longer be login-held
+
+## Scenario: A first-seen login age is shown as a lower bound and still warns
+
+Given the lifetime cap is set to 28 days and the warning lead is 48 hours
+
+And an account's current login has mint time first-seen 27 days ago
+
+When the operation produces its report
+
+Then the report MUST mark that login's age as a lower bound
+
+And it MUST warn that the login is approaching its lifetime cap
+
+## Scenario: No lifetime-cap warning before the cap is measured
+
+Given the lifetime cap setting is unset
+
+When the operation produces its report
+
+Then it MUST state that the lifetime cap is not yet measured
+
+And it MUST NOT warn for any account's login age
+
+## Scenario: A login approaching the measured cap is warned
+
+Given the lifetime cap is set to 28 days and the warning lead is 48 hours
+
+And an account's current login was minted 26 days and 1 hour ago
+
+When the operation produces its report
+
+Then it MUST warn that this account's login is approaching its lifetime cap
+
+## Scenario: A dark login raises one push alert at onset
+
+Given a push channel is configured
+
+When the operation judges the active account's login dark
+
+Then it MUST deliver one push alert naming that account and the dark login
+
+And the alert MUST NOT contain any credential material
+
+## Scenario: An exhausted factory credential raises a push alert
+
+Given the probe list names a tenant's factory credential
+
+And that credential's probe reading shows its weekly remaining at zero
+
+When the probe runs
+
+Then the operation MUST deliver a push alert naming that credential's label and tenant
+
+And the report MUST show that credential as unusable
+
+## Scenario: A failed alert delivery is reported and does not block rotation
+
+Given the push channel is unreachable
+
+And the active account's login is judged dark while another account is live-verified and eligible
+
+When the scheduled pass runs
+
+Then the operation MUST rotate to the other account
+
+And it MUST report that the alert could not be delivered
+
+## Scenario: A persisting condition is not re-alerted before the repeat interval
+
+Given a probed factory credential has been unusable since an alert was delivered one hour ago
+
+And the repeat interval is six hours
+
+When the next probe again finds it unusable
+
+Then the operation MUST NOT deliver another alert for that condition
+
+## Scenario: A rate-limited probe is inconclusive and not alerted
+
+Given the probe list names a factory credential
+
+And its probe request is rate limited
+
+When the probe runs
+
+Then the operation MUST report that credential's verdict as inconclusive
+
+And it MUST NOT deliver a push alert for it
+
+## Scenario: A credential that cannot be read from its location is unusable
+
+Given the probe list names a factory credential whose location the role holder cannot read
+
+When the probe runs
+
+Then the operation MUST judge it unusable and deliver a push alert naming its label and tenant
+
+## Scenario: A recovered condition sends one recovery alert
+
+Given a push alert was delivered because a probed factory credential was unusable
+
+When a later probe finds that credential usable
+
+Then the operation MUST deliver one recovery alert for that credential
+
+## Scenario: No push channel configured is reported
+
+Given no push channel is configured
+
+When the operation produces its report
+
+Then the report and the central status view MUST state that alerts cannot be delivered
