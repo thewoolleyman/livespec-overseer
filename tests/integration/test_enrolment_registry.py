@@ -11,6 +11,7 @@ taken from a real credential, so nothing here is a credential fixture.
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 from overseer import caam_delivery_enrol
@@ -157,3 +158,42 @@ def test_a_revoked_hosts_label_cannot_be_reused_for_another_device(
     )
     assert code == 0
     assert out.strip()
+
+
+def test_revocation_marks_only_that_host_and_issue_and_revoke_are_audited(
+    *, tmp_path, monkeypatch, capsys
+):
+    credentials = []
+    for label, identity in (("a", "device-a"), ("b", "device-b"), ("c", "device-c")):
+        _, out, _ = _issue(
+            label=label, identity=identity, home=tmp_path, monkeypatch=monkeypatch, capsys=capsys
+        )
+        credentials.append(out.strip())
+    code, _, _ = _revoke(label="b", home=tmp_path, monkeypatch=monkeypatch, capsys=capsys)
+    assert code == 0
+
+    assert [(entry["label"], entry["revoked"]) for entry in _entries(home=tmp_path)] == [
+        ("a", False),
+        ("b", True),
+        ("c", False),
+    ]
+
+    records = _audit_records(home=tmp_path)
+    assert [(record["event"], record["host_label"]) for record in records] == [
+        ("enrolment-issued", "a"),
+        ("enrolment-issued", "b"),
+        ("enrolment-issued", "c"),
+        ("enrolment-revoked", "b"),
+    ]
+    for record in records:
+        assert set(record) == {"event", "host_label", "time"}
+        assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", record["time"])
+
+    audit_text = (tmp_path / _AUDIT).read_text(encoding="utf-8")
+    for credential in credentials:
+        assert credential not in audit_text
+        assert _digest(credential=credential) not in audit_text
+
+    _revoke(label="ghost", home=tmp_path, monkeypatch=monkeypatch, capsys=capsys)
+    _issue(label="a", identity="device-z", home=tmp_path, monkeypatch=monkeypatch, capsys=capsys)
+    assert _audit_records(home=tmp_path) == records

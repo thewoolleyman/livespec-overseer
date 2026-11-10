@@ -29,6 +29,7 @@ import jsonio
 
 __all__: list[str] = [
     "Entry",
+    "append_audit",
     "load_entries",
     "registry_lock",
     "registry_path",
@@ -38,6 +39,7 @@ __all__: list[str] = [
 STATE_DIR_REL: Final = Path(".local/state/caam-usage-rotate")
 _REGISTRY_NAME: Final = "enrolment-registry.json"
 _LOCK_NAME: Final = "enrolment-registry.lock"
+_AUDIT_NAME: Final = "delivery-audit.log"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -99,3 +101,20 @@ def save_entries(*, home: Path, entries: tuple[Entry, ...]) -> None:
         handle.flush()
         os.fsync(handle.fileno())
     _ = temporary.replace(path)
+
+
+def append_audit(*, home: Path, event: str, host_label: str, at: str) -> None:
+    """Append one record to the append-only audit log.
+
+    The record names the event, the host label and the time, and nothing else, so
+    it cannot carry credential material. The line goes out in a single write on an
+    append-mode descriptor, so concurrent appenders never interleave inside a record.
+    """
+    path = home / STATE_DIR_REL / _AUDIT_NAME
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    record = {"event": event, "host_label": host_label, "time": at}
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    with os.fdopen(descriptor, "a", encoding="utf-8") as handle:
+        _ = handle.write(json.dumps(record, sort_keys=True) + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
