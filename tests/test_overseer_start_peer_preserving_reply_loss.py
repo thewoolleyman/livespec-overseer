@@ -88,9 +88,36 @@ def _await_named(*, case: LiveCase, pane: str, name: str) -> int:
     pytest.fail(f"test hung waiting for {name!r} to occupy {pane!r}")
 
 
+def _isolate_candidate_from_forge(*, directory: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make the forge read the installed daemon performs every tick a degraded verdict.
+
+    The installed candidate daemon runs the release-currency check each tick
+    (``_supervisor_release_runtime``) through ``gh``. Where ``gh`` reaches the forge
+    (the factory sandbox, with its minted installation token) and the forge's
+    ``release`` ref is green and differs from the installed build's ``v<version>``
+    commit, the daemon provisions that release runtime and ``execve``s into it. The
+    process keeps its pid and start time but gets a new image, a new daemon instance
+    id and a reset tick generation, so ``_await_candidate_daemon`` waits forever for
+    the pre-exec identity: the hang this proof reported inside the sandbox while it
+    passed wherever ``gh`` could not authenticate. Master CI never offered a release.
+
+    This test grades reply loss, not release adoption, so its Herdr server (hence the
+    pane shell the daemon is launched from) gets a ``gh`` that always fails. The
+    adapter turns that into a value-level ``currency-blocked`` verdict and the daemon
+    keeps its image. The wait stays event-guarded; nothing here retries on a clock.
+    """
+    stub = directory / "gh"
+    _ = stub.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    stub.chmod(0o700)
+    monkeypatch.setenv("PATH", f"{directory}{os.pathsep}{os.environ['PATH']}")
+
+
 @pytest.fixture
-def live_case(*, tmp_path: Path) -> Iterator[LiveCase]:
+def live_case(*, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[LiveCase]:
     session = f"overseer-peer-loss-{os.getpid()}-{next(_counter)}"
+    forge_stub = tmp_path / "no-forge-bin"
+    forge_stub.mkdir()
+    _isolate_candidate_from_forge(directory=forge_stub, monkeypatch=monkeypatch)
     try:
         owned = start_owned_server(session=session, scratch=tmp_path, cwd=PANE_CWD)
         sibling = split_pane(
