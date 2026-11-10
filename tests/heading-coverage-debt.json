@@ -499,13 +499,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A pipefail script reports a match in a large input as a match",
-    "work_item": "overseer-ng3b3w",
-    "first_seen": "2026-11-09"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: A post-lifecycle held-worker crash becomes a defined failed acquisition",
     "work_item": "overseer-psqcmg",
     "first_seen": "2026-09-12"
