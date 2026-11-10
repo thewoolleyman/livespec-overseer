@@ -132,3 +132,28 @@ def test_a_revoked_device_can_be_enrolled_again(*, tmp_path, monkeypatch, capsys
         assert out == ""
         assert "refus" in err.lower()
         assert _registry_bytes(home=tmp_path) == before
+
+
+def test_a_revoked_hosts_label_cannot_be_reused_for_another_device(
+    *, tmp_path, monkeypatch, capsys
+):
+    _issue(
+        label="laptop", identity="device-a", home=tmp_path, monkeypatch=monkeypatch, capsys=capsys
+    )
+    _revoke(label="laptop", home=tmp_path, monkeypatch=monkeypatch, capsys=capsys)
+    before = _registry_bytes(home=tmp_path)
+
+    code, out, err = _issue(
+        label="laptop", identity="device-b", home=tmp_path, monkeypatch=monkeypatch, capsys=capsys
+    )
+
+    assert code == 1
+    assert out == ""
+    assert "refus" in err.lower()
+    assert _registry_bytes(home=tmp_path) == before
+
+    code, out, _ = _issue(
+        label="desk", identity="device-b", home=tmp_path, monkeypatch=monkeypatch, capsys=capsys
+    )
+    assert code == 0
+    assert out.strip()

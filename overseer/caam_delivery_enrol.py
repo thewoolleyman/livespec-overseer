@@ -60,6 +60,12 @@ def issue_enrolment(
                     )
                 )
             )
+        if any(
+            entry.label == label and entry.network_identity != network_identity
+            for entry in entries
+            if entry.revoked
+        ):
+            return Failure(Refusal(message=f"label {label!r} belongs to another device"))
         issued = caam_delivery_registry.Entry(
             label=label,
             network_identity=network_identity,
