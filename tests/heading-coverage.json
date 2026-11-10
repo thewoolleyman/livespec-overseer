@@ -4533,8 +4533,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A pipefail script reports a match in a large input as a match",
-    "test": "TODO",
-    "work_item": "overseer-ng3b3w",
-    "reason": "An integration-tier test is owed for this scenario, ratified at v092 ahead of its implementation (proposal shell-script-pipeline-verdicts): a pipefail script that tests for a pattern reports it present in an input larger than 64 KiB, with the same verdict as on a 200-byte input. Work item overseer-ng3b3w owns landing it and MUST replace this TODO."
+    "test": "tests/integration/test_pipefail_large_input_scenario.py::test_scenario_a_pipefail_script_reports_a_match_in_a_large_input_as_a_match",
+    "work_item": "overseer-ng3b3w"
   }
 ]
