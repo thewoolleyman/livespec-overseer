@@ -4245,25 +4245,25 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Enrolling a host under a label already in use is refused",
-    "test": "TODO",
+    "test": "tests.integration.test_enrolment_registry.test_enrolling_under_a_label_or_identity_already_in_use_is_refused",
     "work_item": "overseer-heok6f",
-    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-heok6f owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
+    "reason": "Integration-tier: drives the caam-delivery-enrol command against a scratch HOME. An unrevoked entry holds the label `laptop` and `device-a`; issuing `laptop` for another device, and another label for `device-a`, are each refused with exit 1, no credential on stdout, and the registry bytes and audit log unchanged. A control issuance under a fresh label and identity still succeeds and stores the digest of the credential it showed."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A revoked device can be enrolled again",
-    "test": "TODO",
+    "test": "tests.integration.test_enrolment_registry.test_a_revoked_device_can_be_enrolled_again",
     "work_item": "overseer-heok6f",
-    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-heok6f owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
+    "reason": "Integration-tier: issues, revokes, then issues the same label for the same device. The command writes a second entry and shows a different credential once, the first entry stays recorded as revoked and keeps the digest of the OLD credential, and neither credential appears in the registry in recoverable form. Revoking an unknown label is refused and leaves the registry unchanged."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A revoked host's label cannot be reused for another device",
-    "test": "TODO",
+    "test": "tests.integration.test_enrolment_registry.test_a_revoked_hosts_label_cannot_be_reused_for_another_device",
     "work_item": "overseer-heok6f",
-    "reason": "An integration-tier test is owed for this heading, ratified at v091 ahead of its implementation (proposal central-credential-service-v090-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-heok6f owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
+    "reason": "Integration-tier: after revoking `laptop` for `device-a`, issuing `laptop` for `device-b` is refused with exit 1, no credential on stdout and the registry bytes unchanged. The control arm enrols `device-b` under a different label and succeeds, so the refusal is the label rule and not a blanket refusal of the device."
   },
   {
     "spec_root": "SPECIFICATION",
