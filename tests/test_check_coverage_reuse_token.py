@@ -32,18 +32,22 @@ _RESOLVER_INPUTS = ("GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT", "LIVESPEC_COVERAGE_RE
 
 
 def _clean_env(*, tmp_path: Path, extra: dict[str, str] | None = None) -> dict[str, str]:
-    env = {
+    own = {
         "HOME": str(tmp_path),
         "PATH": f"{tmp_path / 'bin'}:{os.environ['PATH']}",
         "UV_LOG": str(tmp_path / "uv.log"),
     }
-    for key, value in os.environ.items():
-        if key.startswith("COV_CORE_") or key == "COVERAGE_PROCESS_START":
-            continue
-        if key in _RESOLVER_INPUTS:
-            continue
-        if key not in env:
-            env[key] = value
+    env = {
+        **own,
+        **{
+            key: value
+            for key, value in os.environ.items()
+            if not key.startswith("COV_CORE_")
+            and key != "COVERAGE_PROCESS_START"
+            and key not in _RESOLVER_INPUTS
+            and key not in own
+        },
+    }
     if extra:
         env.update(extra)
     return env
