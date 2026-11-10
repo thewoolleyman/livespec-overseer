@@ -1,5 +1,16 @@
 # Changelog
 
+## [5.53.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.52.5...v5.53.0) (2026-11-10)
+
+
+### Features
+
+* audit every enrolment issuance and revocation ([e70c25e](https://github.com/thewoolleyman/livespec-overseer/commit/e70c25e189148b1eadc5c547275610ae6eeac72e))
+* list enrolments and fail closed on a corrupt registry ([6ef6491](https://github.com/thewoolleyman/livespec-overseer/commit/6ef6491dceada72a271016434041c7b9a0438b02))
+* refuse a revoked host's label for a different device ([a30c53c](https://github.com/thewoolleyman/livespec-overseer/commit/a30c53c91f9f61ef1a439142ce08d3475705f591))
+* refuse enrolment under a label or identity already in use ([f879b8c](https://github.com/thewoolleyman/livespec-overseer/commit/f879b8c1038bb206f5d556c803c904c405f7dde0))
+* revoke a host's enrolment and enrol a revoked device again ([205f78a](https://github.com/thewoolleyman/livespec-overseer/commit/205f78a2d6b482ae240dc30a29e1c6eb79b31f40))
+
 ## [5.52.5](https://github.com/thewoolleyman/livespec-overseer/compare/v5.52.4...v5.52.5) (2026-11-10)
 
 
