@@ -82,3 +82,53 @@ def test_enrolling_under_a_label_or_identity_already_in_use_is_refused(
     assert hashlib.sha256(first_out.strip().encode()).hexdigest() in (
         (tmp_path / _REGISTRY).read_text(encoding="utf-8")
     )
+
+
+def _revoke(*, label, home, monkeypatch, capsys):
+    return _run(
+        argv=["revoke", "--label", label], home=home, monkeypatch=monkeypatch, capsys=capsys
+    )
+
+
+def _entries(*, home):
+    document = json.loads((home / _REGISTRY).read_text(encoding="utf-8"))
+    return document["entries"]
+
+
+def _digest(*, credential):
+    return hashlib.sha256(credential.encode()).hexdigest()
+
+
+def test_a_revoked_device_can_be_enrolled_again(*, tmp_path, monkeypatch, capsys):
+    _, old_out, _ = _issue(
+        label="laptop", identity="device-a", home=tmp_path, monkeypatch=monkeypatch, capsys=capsys
+    )
+    old_credential = old_out.strip()
+    code, out, _ = _revoke(label="laptop", home=tmp_path, monkeypatch=monkeypatch, capsys=capsys)
+    assert code == 0
+    assert out == ""
+
+    code, new_out, _ = _issue(
+        label="laptop", identity="device-a", home=tmp_path, monkeypatch=monkeypatch, capsys=capsys
+    )
+    new_credential = new_out.strip()
+    assert code == 0
+    assert new_credential
+    assert new_credential != old_credential
+
+    revoked_entry, new_entry = _entries(home=tmp_path)
+    assert revoked_entry["revoked"] is True
+    assert revoked_entry["credential_digest"] == _digest(credential=old_credential)
+    assert new_entry["revoked"] is False
+    assert new_entry["credential_digest"] == _digest(credential=new_credential)
+    registry_text = (tmp_path / _REGISTRY).read_text(encoding="utf-8")
+    assert old_credential not in registry_text
+    assert new_credential not in registry_text
+
+    before = _registry_bytes(home=tmp_path)
+    for label in ("ghost", "laptop-never-enrolled"):
+        code, out, err = _revoke(label=label, home=tmp_path, monkeypatch=monkeypatch, capsys=capsys)
+        assert code == 1
+        assert out == ""
+        assert "refus" in err.lower()
+        assert _registry_bytes(home=tmp_path) == before
