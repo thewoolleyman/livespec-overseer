@@ -16,26 +16,20 @@ from __future__ import annotations
 import argparse
 import hashlib
 import secrets
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
 import caam_delivery_registry
 import streams
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
+from caam_delivery_registry import Refusal
 
 from overseer._vendor.returns.result import Failure, Result, Success
 
 _ = VENDOR_PATHS_INSTALLED
 
-__all__: list[str] = ["Refusal", "issue_enrolment", "main", "revoke_enrolment"]
-
-
-@dataclass(frozen=True, kw_only=True)
-class Refusal:
-    """An expected refusal, carried on the Result failure track."""
-
-    message: str
+__all__: list[str] = ["issue_enrolment", "main", "revoke_enrolment"]
 
 
 def issue_enrolment(
@@ -47,8 +41,13 @@ def issue_enrolment(
     credential: str,
 ) -> Result[None, Refusal]:
     """Write a new entry unless the registry's label and identity rules forbid it."""
+    if not label.strip() or not network_identity.strip():
+        return Failure(Refusal(message="a label and a network identity are required"))
     with caam_delivery_registry.registry_lock(home=home):
-        entries = caam_delivery_registry.load_entries(home=home)
+        loaded = caam_delivery_registry.load_entries(home=home)
+        if isinstance(loaded, Failure):
+            return loaded
+        entries = loaded.unwrap()
         unrevoked = [entry for entry in entries if not entry.revoked]
         if any(entry.label == label for entry in unrevoked):
             return Failure(Refusal(message=f"label {label!r} is held by an unrevoked enrolment"))
@@ -84,7 +83,10 @@ def issue_enrolment(
 def revoke_enrolment(*, home: Path, label: str, revoked_at: str) -> Result[None, Refusal]:
     """Mark the one unrevoked entry holding `label` revoked, and no other entry."""
     with caam_delivery_registry.registry_lock(home=home):
-        entries = caam_delivery_registry.load_entries(home=home)
+        loaded = caam_delivery_registry.load_entries(home=home)
+        if isinstance(loaded, Failure):
+            return loaded
+        entries = loaded.unwrap()
         if not any(entry.label == label and not entry.revoked for entry in entries):
             return Failure(Refusal(message=f"no unrevoked enrolment is labelled {label!r}"))
         revoked = tuple(
@@ -111,6 +113,7 @@ def _parser() -> argparse.ArgumentParser:
     _ = issue.add_argument("--network-identity", required=True)
     revoke = commands.add_parser("revoke", help="revoke one host's enrolment")
     _ = revoke.add_argument("--label", required=True)
+    _ = commands.add_parser("list", help="show every enrolment, never a credential or digest")
     return parser
 
 
@@ -149,8 +152,22 @@ def _revoke(*, args: argparse.Namespace, home: Path) -> int:
     return 0
 
 
+def _list(*, home: Path) -> int:
+    loaded = caam_delivery_registry.load_entries(home=home)
+    if isinstance(loaded, Failure):
+        return _refused(refusal=loaded.failure())
+    for entry in loaded.unwrap():
+        state = "revoked" if entry.revoked else "active"
+        streams.write_stdout(
+            text=f"{entry.label}\t{entry.network_identity}\t{entry.issued_at}\t{state}\n"
+        )
+    return 0
+
+
 def main(*, argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    if args.command == "list":
+        return _list(home=Path.home())
     if args.command == "revoke":
         return _revoke(args=args, home=Path.home())
     return _issue(args=args, home=Path.home())

@@ -26,9 +26,15 @@ from pathlib import Path
 from typing import Final
 
 import jsonio
+from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
+
+from overseer._vendor.returns.result import Failure, Result, Success
+
+_ = VENDOR_PATHS_INSTALLED
 
 __all__: list[str] = [
     "Entry",
+    "Refusal",
     "append_audit",
     "load_entries",
     "registry_lock",
@@ -40,6 +46,13 @@ STATE_DIR_REL: Final = Path(".local/state/caam-usage-rotate")
 _REGISTRY_NAME: Final = "enrolment-registry.json"
 _LOCK_NAME: Final = "enrolment-registry.lock"
 _AUDIT_NAME: Final = "delivery-audit.log"
+
+
+@dataclass(frozen=True, kw_only=True)
+class Refusal:
+    """An expected refusal, carried on the Result failure track."""
+
+    message: str
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -68,26 +81,58 @@ def registry_lock(*, home: Path) -> Iterator[None]:
         os.close(descriptor)
 
 
-def _entry(*, row: object) -> Entry:
-    fields = jsonio.as_object(value=row) or {}
+def _entry(*, row: object) -> Entry | None:
+    fields = jsonio.as_object(value=row)
+    if fields is None:
+        return None
+    label = fields.get("label")
+    network_identity = fields.get("network_identity")
+    credential_digest = fields.get("credential_digest")
+    issued_at = fields.get("issued_at")
+    revoked = fields.get("revoked")
     revoked_at = fields.get("revoked_at")
+    if not (
+        isinstance(label, str)
+        and isinstance(network_identity, str)
+        and isinstance(credential_digest, str)
+        and isinstance(issued_at, str)
+        and isinstance(revoked, bool)
+        and (revoked_at is None or isinstance(revoked_at, str))
+    ):
+        return None
     return Entry(
-        label=str(fields["label"]),
-        network_identity=str(fields["network_identity"]),
-        credential_digest=str(fields["credential_digest"]),
-        issued_at=str(fields["issued_at"]),
-        revoked=fields["revoked"] is True,
-        revoked_at=None if revoked_at is None else str(revoked_at),
+        label=label,
+        network_identity=network_identity,
+        credential_digest=credential_digest,
+        issued_at=issued_at,
+        revoked=revoked,
+        revoked_at=revoked_at,
     )
 
 
-def load_entries(*, home: Path) -> tuple[Entry, ...]:
+def load_entries(*, home: Path) -> Result[tuple[Entry, ...], Refusal]:
+    """Read the registry, failing closed on a file this module did not write.
+
+    A registry that does not parse is reported, never treated as empty: a writer
+    that took a damaged file for an empty one would replace it and silently drop
+    every enrolment it held, including the revocations.
+    """
     path = registry_path(home=home)
     if not path.exists():
-        return ()
-    document = jsonio.parse_object(text=path.read_text(encoding="utf-8")).unwrap() or {}
-    rows = jsonio.as_list(value=document.get("entries")) or []
-    return tuple(_entry(row=row) for row in rows)
+        return Success(())
+    corrupt = Failure(Refusal(message=f"the enrolment registry is corrupt: {path}"))
+    parsed = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
+    document = None if isinstance(parsed, Failure) else parsed.unwrap()
+    rows = None if document is None else jsonio.as_list(value=document.get("entries"))
+    if rows is None:
+        return corrupt
+    entries: list[Entry] = []
+    for row in rows:
+        entry = _entry(row=row)
+        if entry is None:
+            return corrupt
+        entries.append(entry)
+    return Success(tuple(entries))
 
 
 def save_entries(*, home: Path, entries: tuple[Entry, ...]) -> None:
