@@ -16,7 +16,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import secrets
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -28,7 +28,7 @@ from overseer._vendor.returns.result import Failure, Result, Success
 
 _ = VENDOR_PATHS_INSTALLED
 
-__all__: list[str] = ["Refusal", "issue_enrolment", "main"]
+__all__: list[str] = ["Refusal", "issue_enrolment", "main", "revoke_enrolment"]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -72,6 +72,22 @@ def issue_enrolment(
     return Success(None)
 
 
+def revoke_enrolment(*, home: Path, label: str, revoked_at: str) -> Result[None, Refusal]:
+    """Mark the one unrevoked entry holding `label` revoked, and no other entry."""
+    with caam_delivery_registry.registry_lock(home=home):
+        entries = caam_delivery_registry.load_entries(home=home)
+        if not any(entry.label == label and not entry.revoked for entry in entries):
+            return Failure(Refusal(message=f"no unrevoked enrolment is labelled {label!r}"))
+        revoked = tuple(
+            replace(entry, revoked=True, revoked_at=revoked_at)
+            if entry.label == label and not entry.revoked
+            else entry
+            for entry in entries
+        )
+        caam_delivery_registry.save_entries(home=home, entries=revoked)
+    return Success(None)
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="caam-delivery-enrol",
@@ -81,6 +97,8 @@ def _parser() -> argparse.ArgumentParser:
     issue = commands.add_parser("issue", help="enrol a host and show its credential once")
     _ = issue.add_argument("--label", required=True)
     _ = issue.add_argument("--network-identity", required=True)
+    revoke = commands.add_parser("revoke", help="revoke one host's enrolment")
+    _ = revoke.add_argument("--label", required=True)
     return parser
 
 
@@ -88,21 +106,39 @@ def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def main(*, argv: list[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
+def _refused(*, refusal: Refusal) -> int:
+    streams.write_stderr(text=f"caam-delivery-enrol: refused: {refusal.message}\n")
+    return 1
+
+
+def _issue(*, args: argparse.Namespace, home: Path) -> int:
     credential = secrets.token_urlsafe(32)
     result = issue_enrolment(
-        home=Path.home(),
+        home=home,
         label=str(args.label),
         network_identity=str(args.network_identity),
         issued_at=_now(),
         credential=credential,
     )
     if isinstance(result, Failure):
-        streams.write_stderr(text=f"caam-delivery-enrol: refused: {result.failure().message}\n")
-        return 1
+        return _refused(refusal=result.failure())
     streams.write_stdout(text=f"{credential}\n")
     streams.write_stderr(
         text=f"caam-delivery-enrol: enrolled {args.label!r}; the credential is shown once\n"
     )
     return 0
+
+
+def _revoke(*, args: argparse.Namespace, home: Path) -> int:
+    result = revoke_enrolment(home=home, label=str(args.label), revoked_at=_now())
+    if isinstance(result, Failure):
+        return _refused(refusal=result.failure())
+    streams.write_stderr(text=f"caam-delivery-enrol: revoked {args.label!r}\n")
+    return 0
+
+
+def main(*, argv: list[str] | None = None) -> int:
+    args = _parser().parse_args(argv)
+    if args.command == "revoke":
+        return _revoke(args=args, home=Path.home())
+    return _issue(args=args, home=Path.home())
