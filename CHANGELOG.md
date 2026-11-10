@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.52.5](https://github.com/thewoolleyman/livespec-overseer/compare/v5.52.4...v5.52.5) (2026-11-10)
+
+
+### Bug Fixes
+
+* **scripts:** red test for early-exiting readers under pipefail ([dfe4918](https://github.com/thewoolleyman/livespec-overseer/commit/dfe491875657fefef7deef5d9c97c7dcd0a5b919))
+
 ## [5.52.4](https://github.com/thewoolleyman/livespec-overseer/compare/v5.52.3...v5.52.4) (2026-11-10)
 
 
