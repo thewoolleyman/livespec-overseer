@@ -138,7 +138,7 @@ launcher_is_script() {
 # carries no exec line.
 launcher_exec_tokens() {
   local line
-  line="$(sed -n 's/^[[:space:]]*exec[[:space:]]\{1,\}//p' "$1" | head -n 1)"
+  line="$(sed -n 's/^[[:space:]]*exec[[:space:]]\{1,\}//p' "$1" | sed -n '1p')"
   [[ -n "$line" ]] || return 0
   local -a words=()
   read -r -a words <<<"${line//[\"\']/}"
@@ -231,7 +231,10 @@ case "$evidence" in
   "$checkout" | "$checkout"/*) die "--evidence must be outside the released checkout" ;;
 esac
 mkdir -p "$evidence"
-if find "$evidence" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
+# Captured first, not piped into `grep -q .`: that reader exits on the first byte and,
+# under pipefail, would let find's SIGPIPE hide the match.
+evidence_entries="$(find "$evidence" -mindepth 1 -maxdepth 1 -print -quit)"
+if [[ -n "$evidence_entries" ]]; then
   die "--evidence must name an empty directory"
 fi
 chmod 700 "$evidence"
