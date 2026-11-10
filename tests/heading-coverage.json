@@ -4541,159 +4541,159 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A dark active login is left on the next pass",
     "test": "TODO",
-    "work_item": "overseer-iyfjbo",
-    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iyfjbo owns landing it and MUST replace this TODO."
+    "work_item": "overseer-iusknl",
+    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iusknl owns landing it and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An expired access token alone does not trigger a dark-login rotation",
     "test": "TODO",
-    "work_item": "overseer-iyfjbo",
-    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iyfjbo owns landing it and MUST replace this TODO."
+    "work_item": "overseer-iusknl",
+    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iusknl owns landing it and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A dark active login with no surviving candidate holds and reports",
     "test": "TODO",
-    "work_item": "overseer-iyfjbo",
-    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iyfjbo owns landing it and MUST replace this TODO."
+    "work_item": "overseer-iusknl",
+    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iusknl owns landing it and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: One refused reading does not judge a login dark",
     "test": "TODO",
-    "work_item": "overseer-iyfjbo",
-    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iyfjbo owns landing it and MUST replace this TODO."
+    "work_item": "overseer-iusknl",
+    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iusknl owns landing it and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A login hold survives a restart",
     "test": "TODO",
-    "work_item": "overseer-iyfjbo",
-    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iyfjbo owns landing it and MUST replace this TODO."
+    "work_item": "overseer-iusknl",
+    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iusknl owns landing it and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The rotation pass runs while every agent session's login is dark",
     "test": "TODO",
-    "work_item": "overseer-iyfjbo",
-    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iyfjbo owns landing it and MUST replace this TODO."
+    "work_item": "overseer-iusknl",
+    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iusknl owns landing it and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A recorded login shows its age in the report",
     "test": "TODO",
-    "work_item": "overseer-iyfjbo",
-    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iyfjbo owns landing it and MUST replace this TODO."
+    "work_item": "overseer-oomnmk",
+    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-oomnmk owns landing it and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A refresh does not start a new login record",
     "test": "TODO",
-    "work_item": "overseer-iyfjbo",
-    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iyfjbo owns landing it and MUST replace this TODO."
+    "work_item": "overseer-oomnmk",
+    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-oomnmk owns landing it and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Recording a new login replaces the old one and releases a login hold",
     "test": "TODO",
-    "work_item": "overseer-iyfjbo",
-    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iyfjbo owns landing it and MUST replace this TODO."
+    "work_item": "overseer-oomnmk",
+    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-oomnmk owns landing it and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A first-seen login age is shown as a lower bound and still warns",
     "test": "TODO",
-    "work_item": "overseer-iyfjbo",
-    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iyfjbo owns landing it and MUST replace this TODO."
+    "work_item": "overseer-oomnmk",
+    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-oomnmk owns landing it and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: No lifetime-cap warning before the cap is measured",
     "test": "TODO",
-    "work_item": "overseer-iyfjbo",
-    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iyfjbo owns landing it and MUST replace this TODO."
+    "work_item": "overseer-oomnmk",
+    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-oomnmk owns landing it and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A login approaching the measured cap is warned",
     "test": "TODO",
-    "work_item": "overseer-iyfjbo",
-    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iyfjbo owns landing it and MUST replace this TODO."
+    "work_item": "overseer-oomnmk",
+    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-oomnmk owns landing it and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A dark login raises one push alert at onset",
     "test": "TODO",
-    "work_item": "overseer-iyfjbo",
-    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iyfjbo owns landing it and MUST replace this TODO."
+    "work_item": "overseer-hydiph",
+    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-hydiph owns landing it and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An exhausted factory credential raises a push alert",
     "test": "TODO",
-    "work_item": "overseer-iyfjbo",
-    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iyfjbo owns landing it and MUST replace this TODO."
+    "work_item": "overseer-hydiph",
+    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-hydiph owns landing it and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed alert delivery is reported and does not block rotation",
     "test": "TODO",
-    "work_item": "overseer-iyfjbo",
-    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iyfjbo owns landing it and MUST replace this TODO."
+    "work_item": "overseer-hydiph",
+    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-hydiph owns landing it and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A persisting condition is not re-alerted before the repeat interval",
     "test": "TODO",
-    "work_item": "overseer-iyfjbo",
-    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iyfjbo owns landing it and MUST replace this TODO."
+    "work_item": "overseer-hydiph",
+    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-hydiph owns landing it and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A rate-limited probe is inconclusive and not alerted",
     "test": "TODO",
-    "work_item": "overseer-iyfjbo",
-    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iyfjbo owns landing it and MUST replace this TODO."
+    "work_item": "overseer-hydiph",
+    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-hydiph owns landing it and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A credential that cannot be read from its location is unusable",
     "test": "TODO",
-    "work_item": "overseer-iyfjbo",
-    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iyfjbo owns landing it and MUST replace this TODO."
+    "work_item": "overseer-hydiph",
+    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-hydiph owns landing it and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A recovered condition sends one recovery alert",
     "test": "TODO",
-    "work_item": "overseer-iyfjbo",
-    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iyfjbo owns landing it and MUST replace this TODO."
+    "work_item": "overseer-hydiph",
+    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-hydiph owns landing it and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: No push channel configured is reported",
     "test": "TODO",
-    "work_item": "overseer-iyfjbo",
-    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-iyfjbo owns landing it and MUST replace this TODO."
+    "work_item": "overseer-hydiph",
+    "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-hydiph owns landing it and MUST replace this TODO."
   }
 ]
