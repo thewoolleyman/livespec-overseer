@@ -7,6 +7,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import caam_delivery_runner
+import streams
 from caam_capacity_source import OAUTH_BETA_HEADER, PROFILE_URL
 from caam_oauth_get import OAuthRequest, get_json
 
@@ -17,7 +18,7 @@ POLL_INTERVAL_S = 1.0
 
 def confirm_live_account(*, access_token: str) -> str | None:
     """Read the account identity through the one permitted provider GET."""
-    body, _reason = get_json(
+    body, reason = get_json(
         request=OAuthRequest(
             url=PROFILE_URL,
             headers={
@@ -27,7 +28,13 @@ def confirm_live_account(*, access_token: str) -> str | None:
         )
     )
     account_id = None if body is None else body.get("account_uuid")
-    return account_id if isinstance(account_id, str) else None
+    if isinstance(account_id, str):
+        return account_id
+    detail = reason if reason is not None else "no account identifier in the profile"
+    streams.write_stderr(
+        text=f"FAIL delivery account confirmation failed: {detail.replace(access_token, '')}\n"
+    )
+    return None
 
 
 def run_forever(
