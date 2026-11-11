@@ -142,6 +142,9 @@ class InjectState:
     shell_episode: ConditionEpisode = field(default_factory=ConditionEpisode)
     restart_never_worked_episode: ConditionEpisode = field(default_factory=ConditionEpisode)
     undeclared_idle_episode: ConditionEpisode = field(default_factory=ConditionEpisode)
+    ready_hold_condition: str | None = None
+    ready_hold_since: float | None = None
+    ready_hold_last_reported: float | None = None
     # A `ready` declaration held by a standing statusline-mismatch veto must not
     # expire at the max age with only per-tick log lines to show for it: this flag
     # marks that the current ready declaration is (or was) veto-held so expiry is
