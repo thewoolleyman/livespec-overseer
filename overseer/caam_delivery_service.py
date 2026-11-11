@@ -48,7 +48,11 @@ def issue_delivery(
     if not isinstance(token, str) or confirm_account(access_token=token) != account_id:
         return None
     current = load_current_delivery(home=home)
-    if current is not None and current.oauth.get("accessToken") == token:
+    if (
+        current is not None
+        and current.oauth.get("accessToken") == token
+        and current.identity == identity
+    ):
         return None
     with caam_delivery_registry.registry_lock(home=home):
         sequence = _sequence(home=home) + 1
