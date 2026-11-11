@@ -1,0 +1,11 @@
+[Unit]
+Description=CAAM enrolled-host credential delivery service
+
+[Service]
+Type=simple
+ExecStart=caam-delivery-service
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
