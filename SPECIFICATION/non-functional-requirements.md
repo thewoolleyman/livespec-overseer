@@ -99,6 +99,14 @@ would otherwise live in.
   issue the wrong runtime's launch command) MUST be sabotage-verified when
   touched: break the routing deliberately and confirm the test goes red
   before trusting it green.
+- This repository carries `.github/workflows/auto-enable-merge.yml`, so it
+  MUST also carry `.github/workflows/disarm-on-hold-label.yml`, which turns a
+  pull request's auto-merge off when the `do-not-merge` label is added to it.
+  The workflow's required behaviour, and the rule that every fleet member
+  carrying `auto-enable-merge.yml` carries it, are inherited from livespec's
+  `non-functional-requirements.md` §"Shared content sync — copier template"
+  and MUST NOT be restated here; this repository's copy MUST be byte-identical
+  to livespec's root `.github/workflows/disarm-on-hold-label.yml`.
 
 ## Constraints
 

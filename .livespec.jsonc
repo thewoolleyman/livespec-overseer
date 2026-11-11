@@ -46,7 +46,7 @@
   // validated against a local sibling clone that CI runners do not have.
   "external_references": {
     "livespec-dev-tooling": ["§\"Fabro factory registry\"", "§\"Delegated pre-push gate\""],
-    "livespec": ["§\"Enforcement-suite invocation\""]
+    "livespec": ["§\"Enforcement-suite invocation\"", "§\"Shared content sync — copier template\""]
   },
   "template": "livespec",
   "spec_root": "SPECIFICATION",
