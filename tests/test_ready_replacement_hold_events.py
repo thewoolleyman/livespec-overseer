@@ -127,3 +127,33 @@ def test_ready_hold_event_names_post_settle_pane_identity_mismatch(*, tmp_path, 
         event["event"] == "ready-replacement-held" and "pane-identity mismatch" in event["message"]
         for event in events
     )
+
+
+def test_second_ready_declaration_gets_its_own_hold_window(*, tmp_path, monkeypatch):
+    """A ready hold ends with its declaration; a later ready episode starts a fresh window."""
+    monkeypatch.setattr(_supervisor_config, "READY_HOLD_REPORT_AFTER", 30.0, raising=False)
+    monkeypatch.setattr(_supervisor_config, "READY_HOLD_REPORT_WINDOW", 5.0, raising=False)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
+    clock = {"t": 1000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
+    sup.claude_status_by_session[session] = "busy"
+    state_file = declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    sup.evaluate(track=track, act=True)
+    clock["t"] += 31.0
+    with contextlib.redirect_stderr(io.StringIO()) as first:
+        sup.evaluate(track=track, act=True)
+    state_file.unlink()
+    clock["t"] += 9.0
+    sup.evaluate(track=track, act=True)
+    declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1002.0)
+    clock["t"] += 1.0
+    with contextlib.redirect_stderr(io.StringIO()) as second:
+        sup.evaluate(track=track, act=True)
+
+    assert "ready-replacement-held" in first.getvalue()
+    assert "ready-replacement-held" not in second.getvalue()
