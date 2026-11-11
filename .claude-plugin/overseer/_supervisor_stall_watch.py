@@ -59,11 +59,12 @@ class EvaluationMonitorRequest:
 
 
 def apply_evaluation_monitors(*, request: EvaluationMonitorRequest) -> EvaluationMonitorResult:
-    if (
-        request.act
-        and request.obs.declared is not None
-        and request.obs.declared.token == signals.STATE_READY
-    ):
+    ready_declared = (
+        request.obs.declared is not None and request.obs.declared.token == signals.STATE_READY
+    )
+    if request.act and not ready_declared:
+        _supervisor_ready_hold.clear(obs=request.obs)
+    if request.act and ready_declared:
         _supervisor_ready_hold.report(
             request=_supervisor_ready_hold.ReadyHoldRequest(
                 sup=request.sup,

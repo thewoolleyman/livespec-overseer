@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from _supervisor_core import Supervisor
     from _supervisor_records import Observation
 
-__all__: list[str] = ["ReadyHoldRequest", "condition", "report"]
+__all__: list[str] = ["ReadyHoldRequest", "clear", "condition", "report"]
 
 _BACKGROUND_WAIT_RE = re.compile(r"Waiting for \d+ background", re.IGNORECASE)
 
@@ -62,6 +62,14 @@ def condition(*, request: ReadyHoldRequest) -> str | None:
         (_busy_condition(request=request), 4 * int(request.obs.busy)),
     )
     return max(choices, key=lambda choice: choice[1])[0]
+
+
+def clear(*, obs: Observation) -> None:
+    """End the hold episode: a later ready declaration starts its own window."""
+    state = obs.istate
+    state.ready_hold_condition = None
+    state.ready_hold_since = None
+    state.ready_hold_last_reported = None
 
 
 def report(*, request: ReadyHoldRequest) -> None:
