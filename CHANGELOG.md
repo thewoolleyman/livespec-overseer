@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.54.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.53.0...v5.54.0) (2026-11-11)
+
+
+### Features
+
+* add delivery core integration coverage ([7c350e2](https://github.com/thewoolleyman/livespec-overseer/commit/7c350e2464972b188f85843df4b54b42a73022de))
+
 ## [5.53.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.52.5...v5.53.0) (2026-11-10)
 
 
