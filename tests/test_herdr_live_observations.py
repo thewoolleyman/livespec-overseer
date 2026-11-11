@@ -155,6 +155,7 @@ __all__: list[str] = [
     "raw_request",
     "read_foreground",
     "registered_login_shells",
+    "rendezvous_transient",
     "require_herdr",
     "run_in_pane",
     "session_socket",
@@ -248,6 +249,10 @@ TRANSIENT_SECONDS = 2
 # while a platform where `prctl` is unavailable still fails as itself instead of
 # as an unobserved child.
 _PR_SET_NAME = 15
+# The RENDEZVOUS mode: instead of a fixed lifetime, the transient lives until the
+# test writes a release file, bounded by a hang guard. See `rendezvous_transient`.
+_RENDEZVOUS_FLAG = "--until"
+_RENDEZVOUS_POLL_SECONDS = 0.05
 _TRANSIENT_SOURCE = f'''\
 """One real, bounded, SELF-NAMED foreground child for the native herdr exercises.
 
@@ -264,7 +269,15 @@ _ = ctypes.CDLL(None, use_errno=True).prctl({_PR_SET_NAME}, b"{TRANSIENT_NAME}",
 _named = pathlib.Path("/proc/self/comm").read_text(encoding="utf-8").strip()
 if _named != "{TRANSIENT_NAME}":
     raise SystemExit(f"prctl(PR_SET_NAME) left this process named {{_named!r}}")
-time.sleep(float(sys.argv[1]))
+if sys.argv[1] == "{_RENDEZVOUS_FLAG}":
+    _release = pathlib.Path(sys.argv[2])
+    _guard = time.monotonic() + float(sys.argv[3])
+    while not _release.exists():
+        if time.monotonic() >= _guard:
+            raise SystemExit(f"{{_release}} was never written; ended by the hang guard")
+        time.sleep({_RENDEZVOUS_POLL_SECONDS})
+else:
+    time.sleep(float(sys.argv[1]))
 '''
 
 
@@ -299,19 +312,37 @@ def startup_transient(*, scratch: Path) -> str:
     interpreter this process already runs under, and the name is independently
     checked by a `prctl` this fixture makes.
     """
+    return _transient_command(scratch=scratch, arguments=(str(TRANSIENT_SECONDS),))
+
+
+def rendezvous_transient(*, scratch: Path, release: Path, guard_seconds: float) -> str:
+    """The same self-named transient, alive until `release` exists rather than for 2 s.
+
+    **Why a fixed lifetime is not enough for an observer that must SEE it.** A
+    transient that lives :data:`TRANSIENT_SECONDS` races every reading taken
+    while it runs. When several bounded observers must see it IN SEQUENCE, each
+    polling a real server, nothing makes them meet, and on a loaded host it can
+    be gone before the last of them reads (work-item `overseer-aog22f`, the
+    `livespec-dev-tooling-4ulplz` shape). Here the test, not a timer, decides
+    when the observations are complete: the transient exits once the test
+    writes `release`. `guard_seconds` is only a hang guard for a test that dies
+    before releasing it; expiring it exits non-zero and says so.
+    """
+    return _transient_command(
+        scratch=scratch,
+        arguments=(_RENDEZVOUS_FLAG, str(release), str(guard_seconds)),
+    )
+
+
+def _transient_command(*, scratch: Path, arguments: tuple[str, ...]) -> str:
+    """Stage the self-naming launcher and script under `scratch`, and return its command."""
     assert sys.executable, "a native exercise needs a real interpreter path to run"
     launcher = scratch / TRANSIENT_NAME
     if not launcher.exists():
         launcher.symlink_to(sys.executable)
     script = scratch / f"{TRANSIENT_NAME}.py"
     _ = script.write_text(_TRANSIENT_SOURCE, encoding="utf-8")
-    return " ".join(
-        (
-            shlex.quote(str(launcher)),
-            shlex.quote(str(script)),
-            str(TRANSIENT_SECONDS),
-        )
-    )
+    return " ".join(shlex.quote(part) for part in (str(launcher), str(script), *arguments))
 
 
 # ------------------------------------------------------------------ readings
@@ -2301,6 +2332,60 @@ def test_the_startup_transient_runs_where_sleep_dispatches_on_its_invocation_nam
         f"{TRANSIENT_NAME} {run.observed[0]} still carries start time {run.starttime}, so it "
         "never exited"
     )
+
+
+def test_a_rendezvous_transient_outlives_its_fixed_lifetime_until_it_is_released(
+    *, tmp_path: Path
+) -> None:
+    """The rendezvous mode lives exactly as long as the TEST says, not a timer.
+
+    It must still be running past :data:`TRANSIENT_SECONDS`, which is the whole
+    repair for `overseer-aog22f` (an observer delayed past that fixed lifetime
+    found the process already gone), and it must then exit promptly and cleanly
+    once the release file is written.
+    """
+    release = tmp_path / "release"
+    command = rendezvous_transient(scratch=tmp_path, release=release, guard_seconds=READY_TIMEOUT)
+    shell = subprocess.Popen(  # noqa: S603 — /bin/sh running this fixture's own command
+        ["/bin/sh", "-c", command],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    try:
+        deadline = time.monotonic() + READY_TIMEOUT
+        observed: tuple[int, ...] = ()
+        while time.monotonic() < deadline and not observed and shell.poll() is None:
+            observed = _named_processes_under(shell=shell.pid, name=TRANSIENT_NAME)
+            time.sleep(POLL_SECONDS)
+        assert len(observed) == 1, f"no single {TRANSIENT_NAME!r} ran: {observed}"
+        time.sleep(TRANSIENT_SECONDS + 0.5)
+        assert (
+            shell.poll() is None
+        ), f"the rendezvous transient ended on its own before release: {shell.returncode}"
+        assert starttime_of(pid=observed[0]) is not None, "it must still be alive unreleased"
+        released_at = time.monotonic()
+        _ = release.write_text("", encoding="utf-8")
+        output = shell.communicate(timeout=READY_TIMEOUT)[0]
+    finally:
+        if shell.poll() is None:
+            shell.kill()
+            _ = shell.communicate()
+    assert shell.returncode == 0, f"the released transient exited {shell.returncode}: {output!r}"
+    assert output == "", f"the transient wrote to its terminal: {output!r}"
+    assert time.monotonic() - released_at < TRANSIENT_SECONDS, "release must end it promptly"
+
+
+def test_an_unreleased_rendezvous_transient_ends_by_its_hang_guard(*, tmp_path: Path) -> None:
+    """A test that dies before releasing it cannot leave the transient running forever."""
+    release = tmp_path / "never-written"
+    run = _run_transient(
+        command=rendezvous_transient(scratch=tmp_path, release=release, guard_seconds=0.5)
+    )
+
+    assert len(run.observed) == 1, f"no single {TRANSIENT_NAME!r} ran: {run.output!r}"
+    assert run.status != 0, "a guard expiry must not read as an ordinary release"
+    assert "hang guard" in run.output, run.output
 
 
 # ------------------------- the exact created pane's INITIAL setup, as a premise

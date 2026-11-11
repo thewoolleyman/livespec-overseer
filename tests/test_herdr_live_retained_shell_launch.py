@@ -62,6 +62,7 @@ NAME, so no other session — including the operator's `default` — is touched.
 from __future__ import annotations
 
 import shutil
+import time
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -74,13 +75,16 @@ import pytest
 from herdr_live_server import create_workspace, unique_session
 from test_herdr_live_observations import (
     TRANSIENT_NAME,
+    TRANSIENT_SECONDS,
     BoundedPoll,
+    ChildObservation,
     ForegroundReading,
     PaneIdentity,
     PaneReadiness,
     ReadyWriter,
     RegisteredShell,
     ShellIdentityPin,
+    ShellRecovery,
     await_coherent_identity,
     await_idle_shell,
     await_occupying_child,
@@ -91,6 +95,7 @@ from test_herdr_live_observations import (
     process_info_reply,
     read_foreground,
     registered_login_shells,
+    rendezvous_transient,
     run_in_pane,
     split_pane,
     start_owned_server,
@@ -138,6 +143,17 @@ CHILD_EXIT_POLL = BoundedPoll(seconds=LAUNCH_TIMEOUT + BRIEF_SECONDS)
 # The gap between two readings of that same wait, matching the delivered
 # observation helpers' own cadence.
 CHILD_EXIT_INTERVAL = 0.1
+# How long the staged post-command transient may wait for the test to release it
+# before it ends itself. A HANG GUARD only — the release, not this timer, is what
+# ends it on every passing run — and never shorter than the liveness floor, so a
+# loaded host's slow readings cannot reach it first (`overseer-aog22f`).
+RENDEZVOUS_GUARD_SECONDS = 2 * LAUNCH_TIMEOUT
+# A delay added BEFORE every reading the discriminating exercise takes once its
+# brief child is running, longer than the fixed transient's whole lifetime with
+# margin to spare for that transient's own interpreter start-up. It stands in for
+# a loaded host on which each herdr reading arrives late; under it, the fixed
+# lifetime is always over before the next observer reads.
+DELAYED_READING_SECONDS = TRANSIENT_SECONDS + 2.0
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -413,7 +429,7 @@ def test_the_command_runs_once_as_a_child_of_the_verified_retained_shell(*, pair
     assert MARKER in text, f"the command never reached {outcome.pane_id}: {text!r}"
 
 
-def _brief_then_busy(*, pair: ServerPair) -> str:
+def _brief_then_busy(*, transient: str) -> str:
     """The brief child, followed by a REAL post-command process in the SAME shell.
 
     This is what makes the recovery phase below a genuine observation on any
@@ -438,7 +454,7 @@ def _brief_then_busy(*, pair: ServerPair) -> str:
     idle the instant the child exited, and the sabotage control for this very
     repair passed.
     """
-    return f"sleep {BRIEF_SECONDS}; {pair.transient} #{MARKER}"
+    return f"sleep {BRIEF_SECONDS}; {transient} #{MARKER}"
 
 
 def _await_child_gone(
@@ -550,7 +566,7 @@ def test_the_retained_shell_outlives_an_ordinary_child_exit(*, pair: ServerPair)
          same start time, so a replacement at a recycled pid cannot pass —
          owning its foreground again, pane still open.
     """
-    outcome, readiness = _split_top(pair=pair, command=_brief_then_busy(pair=pair))
+    outcome, readiness = _split_top(pair=pair, command=_brief_then_busy(transient=pair.transient))
 
     assert outcome.ok is True, outcome.error
     _ = _established(readiness=readiness, pane_id=outcome.pane_id)
@@ -591,7 +607,88 @@ def test_the_retained_shell_outlives_an_ordinary_child_exit(*, pair: ServerPair)
     ), "the pane must survive its command finishing"
 
 
-def test_a_child_exit_before_shell_idle_is_a_bounded_discriminating_case(*, pair: ServerPair):
+@dataclass(frozen=True, kw_only=True)
+class _PostCommandWindow:
+    """What the three bounded steps of the discriminating exercise each observed."""
+
+    busy: ChildObservation
+    impatient: ShellRecovery
+    recovery: ShellRecovery
+
+
+def _observe_the_post_command_window(
+    *, pair: ServerPair, transient: str, delay: float, release: Path | None
+) -> _PostCommandWindow:
+    """Stage the brief child and `transient` behind it, and take the three readings.
+
+    Every reading after the brief child is observed is taken `delay` seconds late,
+    which is how a loaded host's slow herdr replies are staged on demand. When
+    `release` is given, the transient is a RENDEZVOUS one and is released only
+    after both the occupying-child and the impatient readings are RECORDED — the
+    test, not a fixed lifetime, decides when the window may close
+    (`overseer-aog22f`). It is released in a `finally`, so a failing observation
+    never leaves the transient waiting out its hang guard.
+    """
+    pane_id = _split(server=pair.target, pane_id=pair.unrelated, direction="down")
+
+    def undelayed() -> dict[str, Any]:
+        return process_info_reply(socket_path=pair.target.socket_path, pane_id=pane_id)
+
+    # THE RAW-SPLIT DIRECT OBSERVATION CONTROL, and the measured failure it carries.
+    # This used to read the pane's process info IMMEDIATELY after the split, with no
+    # wait behind it, and assert the reading was usable. On the operator host that
+    # reading carried no usable native fields at all and the exercise failed here —
+    # before it entered the layout adapter, on its own fixture premise. The exact
+    # pane is knowable at this boundary because this exercise split it itself, so the
+    # fix is a BOUNDED establishment of that pane's available and coherent identity:
+    # a one-shot unusable reading is consumed and retried, and a persistently
+    # unavailable or contradictory one expires as a NAMED fixture refusal.
+    identity = await_coherent_identity(
+        read=undelayed,
+        pane_id=pane_id,
+        poll=BoundedPoll(seconds=LAUNCH_TIMEOUT),
+        registered=pair.registered,
+    )
+    assert identity.coherent is True, identity.reason
+    shell = identity.shell_pid
+    starttime = starttime_of(pid=shell)
+    assert starttime is not None, f"the pane's shell {shell} must be alive to begin with"
+    pin = ShellIdentityPin(pid=shell, starttime=starttime)
+
+    def read() -> dict[str, Any]:
+        time.sleep(delay)
+        return undelayed()
+
+    run_in_pane(
+        socket_path=pair.target.socket_path,
+        pane_id=pane_id,
+        command=_brief_then_busy(transient=transient),
+    )
+    try:
+        child = _observe_launched_child(
+            socket_path=pair.target.socket_path, pane_id=pane_id, name=LAUNCH_NAME
+        )
+        departed = _await_child_gone(read=read, pane_id=pane_id, child=child)
+        assert departed == "", departed
+        busy = await_occupying_child(
+            read=read, name=TRANSIENT_NAME, poll=BoundedPoll(seconds=LAUNCH_TIMEOUT)
+        )
+        impatient = await_idle_shell(
+            read=read, pane_id=pane_id, poll=BoundedPoll(seconds=IMPATIENT_BOUND), expected=pin
+        )
+    finally:
+        if release is not None:
+            _ = release.write_text("", encoding="utf-8")
+
+    recovery = await_idle_shell(
+        read=undelayed, pane_id=pane_id, poll=BoundedPoll(seconds=LAUNCH_TIMEOUT), expected=pin
+    )
+    return _PostCommandWindow(busy=busy, impatient=impatient, recovery=recovery)
+
+
+def test_a_child_exit_before_shell_idle_is_a_bounded_discriminating_case(
+    *, pair: ServerPair, tmp_path: Path
+):
     """The window the recovery wait exists for, OBSERVED on every run.
 
     The exercise above stages this window and then waits it out, which proves
@@ -615,63 +712,68 @@ def test_a_child_exit_before_shell_idle_is_a_bounded_discriminating_case(*, pair
 
     Step 3 is what a predecessor could not have passed: it asserted idleness on
     the reading taken at step 1 and would read step 2's as a failed recovery.
+
+    **The window is a RENDEZVOUS, and every reading is staged LATE.** The
+    post-command transient used to live a fixed :data:`TRANSIENT_SECONDS`, and
+    steps 1 to 3 had to fit inside that lifetime with nothing making them meet; on a
+    loaded host it was gone before step 2 or 3 read it (`overseer-aog22f`, the
+    `livespec-dev-tooling-4ulplz` shape). It now lives until this test has
+    recorded steps 2 and 3, with a hang guard no shorter than the liveness floor,
+    and each reading is delayed past that fixed lifetime so a pass here is a pass
+    on a slow host. The control below restores the fixed lifetime under the very
+    same delays and requires the exercise to FAIL.
     """
-    pane_id = _split(server=pair.target, pane_id=pair.unrelated, direction="down")
-
-    def read() -> dict[str, Any]:
-        return process_info_reply(socket_path=pair.target.socket_path, pane_id=pane_id)
-
-    # THE RAW-SPLIT DIRECT OBSERVATION CONTROL, and the measured failure it carries.
-    # This used to read the pane's process info IMMEDIATELY after the split, with no
-    # wait behind it, and assert the reading was usable. On the operator host that
-    # reading carried no usable native fields at all and the exercise failed here —
-    # before it entered the layout adapter, on its own fixture premise. The exact
-    # pane is knowable at this boundary because this exercise split it itself, so the
-    # fix is a BOUNDED establishment of that pane's available and coherent identity:
-    # a one-shot unusable reading is consumed and retried, and a persistently
-    # unavailable or contradictory one expires as a NAMED fixture refusal.
-    identity = await_coherent_identity(
-        read=read,
-        pane_id=pane_id,
-        poll=BoundedPoll(seconds=LAUNCH_TIMEOUT),
-        registered=pair.registered,
-    )
-    assert identity.coherent is True, identity.reason
-    shell = identity.shell_pid
-    starttime = starttime_of(pid=shell)
-    assert starttime is not None, f"the pane's shell {shell} must be alive to begin with"
-    pin = ShellIdentityPin(pid=shell, starttime=starttime)
-
-    run_in_pane(
-        socket_path=pair.target.socket_path, pane_id=pane_id, command=_brief_then_busy(pair=pair)
-    )
-    child = _observe_launched_child(
-        socket_path=pair.target.socket_path, pane_id=pane_id, name=LAUNCH_NAME
-    )
-    departed = _await_child_gone(read=read, pane_id=pane_id, child=child)
-    assert departed == "", departed
-
-    busy = await_occupying_child(
-        read=read, name=TRANSIENT_NAME, poll=BoundedPoll(seconds=LAUNCH_TIMEOUT)
-    )
-    assert busy.pid is not None, (
-        f"the shell was already idle after child {child} exited, so this control staged "
-        f"no window to discriminate: {busy.reason}"
+    window = _observe_the_post_command_window(
+        pair=pair,
+        transient=rendezvous_transient(
+            scratch=tmp_path,
+            release=tmp_path / "release-post-command-transient",
+            guard_seconds=RENDEZVOUS_GUARD_SECONDS,
+        ),
+        delay=DELAYED_READING_SECONDS,
+        release=tmp_path / "release-post-command-transient",
     )
 
-    impatient = await_idle_shell(
-        read=read, pane_id=pane_id, poll=BoundedPoll(seconds=IMPATIENT_BOUND), expected=pin
+    assert window.busy.pid is not None, (
+        "the shell was already idle after the brief child exited, so this control staged "
+        f"no window to discriminate: {window.busy.reason}"
     )
-    assert impatient.recovered is False, (
-        f"recovery was reported while {TRANSIENT_NAME} {busy.pid} still owned the "
-        f"foreground of {pane_id!r}"
+    assert window.impatient.recovered is False, (
+        f"recovery was reported while {TRANSIENT_NAME} {window.busy.pid} still owned the "
+        "pane's foreground"
     )
-    assert "is not the shell" in impatient.reason, impatient.reason
+    assert "is not the shell" in window.impatient.reason, window.impatient.reason
+    assert window.recovery.recovered is True, window.recovery.reason
 
-    recovery = await_idle_shell(
-        read=read, pane_id=pane_id, poll=BoundedPoll(seconds=LAUNCH_TIMEOUT), expected=pin
+
+def test_a_fixed_lifetime_transient_misses_the_same_delayed_readings(*, pair: ServerPair):
+    """The control that proves the RENDEZVOUS is what keeps the exercise above green.
+
+    Same pane, same brief child, same delayed readings — but the transient is the
+    fixed-lifetime one the exercise used before `overseer-aog22f`. Its whole
+    :data:`TRANSIENT_SECONDS` lifetime is shorter than one delayed reading, so it
+    is over before the occupying-child observer (or, at the latest, the impatient
+    one) reads, and the exercise's own assertions cannot both hold. If this
+    control ever passes those assertions, the delay no longer outruns the fixed
+    lifetime and the exercise above has stopped proving anything about the race.
+    """
+    window = _observe_the_post_command_window(
+        pair=pair, transient=pair.transient, delay=DELAYED_READING_SECONDS, release=None
     )
-    assert recovery.recovered is True, recovery.reason
+
+    discriminated = window.busy.pid is not None and window.impatient.recovered is False
+    assert not discriminated, (
+        f"a {TRANSIENT_SECONDS}s fixed-lifetime transient was still observed through readings "
+        f"each delayed {DELAYED_READING_SECONDS}s, so the delay no longer stages the race: "
+        f"busy={window.busy}, impatient={window.impatient}"
+    )
+    assert window.recovery.recovered is True, window.recovery.reason
+
+
+def test_the_rendezvous_hang_guard_is_no_shorter_than_the_liveness_floor() -> None:
+    """The guard ends only an ABANDONED transient, never one a slow host is still reading."""
+    assert RENDEZVOUS_GUARD_SECONDS >= LAUNCH_TIMEOUT, RENDEZVOUS_GUARD_SECONDS
+    assert DELAYED_READING_SECONDS > TRANSIENT_SECONDS, DELAYED_READING_SECONDS
 
 
 def test_no_other_pane_on_either_server_receives_the_launch(*, pair: ServerPair):
