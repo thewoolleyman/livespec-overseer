@@ -47,6 +47,27 @@ def test_live_codex_session_joins_pid_to_its_thread_name_and_cwd(*, tmp_path):
     assert out[0].session_id == ID_A
 
 
+def test_live_codex_session_uses_a_worker_spawned_helpers_rollout(*, tmp_path):
+    """The app-server helper holds a fresh carrier's rollout, not the carrier itself."""
+    home = fake_index(tmp_path=tmp_path, records=[(ID_A, "overseer-proof")])
+    host = fake_host(
+        comms={4242: "codex", 4243: "codex"},
+        cwds={4242: "/data/projects/livespec"},
+        fds={4243: [fake_rollout(session_id=ID_A)]},
+        children={4242: [4243]},
+        foreground_pgrps={4242: 4242, 4243: None},
+    )
+
+    assert codex_sessions.read_live_codex_sessions(codex_home=home, **host) == [
+        codex_sessions.CodexSession(
+            pid=4242,
+            name="overseer-proof",
+            cwd="/data/projects/livespec",
+            session_id=ID_A,
+        )
+    ]
+
+
 def test_non_codex_processes_are_ignored(*, tmp_path):
     """Only `comm == codex`. The `bun` wrapper is the codex binary's PARENT (verified
     live: pid 1681795 `bun` -> pid 1682090 `codex`) and must not be mistaken for it."""
