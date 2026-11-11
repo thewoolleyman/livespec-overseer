@@ -39,9 +39,18 @@ COMPACTION_WRAPUP_NOTICE = (
 wrapup_message_provider = _default_wrapup_message
 
 
-def with_compaction_notice(*, latched: bool, message: str) -> str:
+def with_compaction_notice(
+    *,
+    latched: bool,
+    message: str,
+    latched_ctx: int,
+    live_ctx: int,
+) -> str:
     """Lead a latched wrap-up with the compaction notice; leave any other untouched."""
-    return f"{COMPACTION_WRAPUP_NOTICE}{message}" if latched else message
+    if not latched:
+        return message
+    context = f"ctx latched to {latched_ctx}%; live {live_ctx}%"
+    return f"{COMPACTION_WRAPUP_NOTICE}({context})\n\n{message}"
 
 
 def armed_bands(*, record: registry.RoundRecord, compaction_latched_at: float | None) -> set[int]:
@@ -73,6 +82,7 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
     target: str,
     eff_ctx: int,
     threshold: int,
+    live_ctx: int | None = None,
     is_codex: bool = False,
     blocker: str | None = None,
     compaction_latched_at: float | None = None,
@@ -171,6 +181,8 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
         return
     message = with_compaction_notice(
         latched=compaction_latched_at is not None,
+        latched_ctx=eff_ctx,
+        live_ctx=eff_ctx if live_ctx is None else live_ctx,
         message=select_wrapup_message(
             track=track,
             remaining=eff_ctx,
