@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import importlib
 import json
+import socket
 from pathlib import Path
 
+import caam_delivery_enrol
+import caam_delivery_registry
 import caam_delivery_runner
 import pytest
 
-from tests.integration.test_caam_capacity_reporting import CapacityHarness, usage
+from overseer._vendor.returns.result import Success
+from tests.integration.test_caam_capacity_reporting import NOW, CapacityHarness, usage
 
 
 class _StopLoopError(Exception):
@@ -89,21 +93,91 @@ def test_service_entry_is_supervised_and_never_becomes_a_rotation_dependency(
         "WantedBy=default.target",
     ]
 
-    baseline = CapacityHarness(
-        home=tmp_path / "baseline",
-        active="account-a",
-        usages={"account-a": usage(), "account-b": usage()},
-    ).run()
-    stopped = caam_delivery_runner.DeliveryService(
-        home=tmp_path,
-        now=lambda: 1_000.0,
-        confirm_account=lambda *, access_token: "account-a",
-    )
-    unreachable = CapacityHarness(
-        home=tmp_path / "unreachable",
-        active="account-a",
-        usages={"account-a": usage(), "account-b": usage()},
-    ).run()
 
-    assert stopped is not None
-    assert unreachable == baseline
+def _pass_home(*, home: Path, enrolled: bool) -> CapacityHarness:
+    """A rotation-pass vault whose live stores carry a deliverable identity.
+
+    The harness writes the live credential and its account state; the identity
+    key a delivery requires is added here, to every arm alike, so the arms differ
+    only in whether a host is enrolled.
+    """
+    harness = CapacityHarness(
+        home=home,
+        active="account-a",
+        usages={"account-a": usage(), "account-b": usage()},
+    )
+    state_path = home / ".claude.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    _ = state_path.write_text(json.dumps({**state, "userID": "user-a"}), encoding="utf-8")
+    if enrolled:
+        enrolment = caam_delivery_enrol.issue_enrolment(
+            home=home,
+            label="laptop",
+            network_identity="laptop.example",
+            issued_at="2026-11-11T00:00:00Z",
+            credential="enrolment-" + "credential",
+        )
+        assert isinstance(enrolment, Success)
+    return harness
+
+
+_PASS_OWNED = ("selected-account.json",)
+
+
+def _delivery_files(*, home: Path) -> dict[str, bytes]:
+    """Every host-state file the delivery side owns; the pass's own records are not its."""
+    state = home / caam_delivery_registry.STATE_DIR_REL
+    if not state.is_dir():
+        return {}
+    return {
+        path.name: path.read_bytes()
+        for path in sorted(state.iterdir())
+        if path.is_file() and path.name not in _PASS_OWNED
+    }
+
+
+def test_stopped_delivery_service_does_not_affect_a_rotation_pass(*, tmp_path: Path) -> None:
+    baseline = _pass_home(home=tmp_path / "baseline", enrolled=False).run()
+
+    enrolled_home = tmp_path / "stopped"
+    stopped = _pass_home(home=enrolled_home, enrolled=True)
+    before = _delivery_files(home=enrolled_home)
+
+    # The three Givens: an enrolled host exists, the service never ran so nothing
+    # was ever delivered or reported, and no report store holds a forwarded refusal.
+    assert caam_delivery_registry.registry_path(home=enrolled_home).name in before
+    assert not any("report" in name or "current-delivery" in name for name in before)
+
+    assert stopped.run() == baseline
+    assert _delivery_files(home=enrolled_home) == before
+
+
+def test_unreachable_enrolled_host_does_not_affect_a_rotation_pass(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    baseline = _pass_home(home=tmp_path / "baseline", enrolled=False).run()
+
+    enrolled_home = tmp_path / "unreachable"
+    unreachable = _pass_home(home=enrolled_home, enrolled=True)
+    connections: list[object] = []
+
+    def refuse_connection(self: socket.socket, address: object) -> None:
+        del self
+        connections.append(address)
+        raise ConnectionRefusedError
+
+    monkeypatch.setattr(socket.socket, "connect", refuse_connection)
+    service = caam_delivery_runner.DeliveryService(
+        home=enrolled_home,
+        now=lambda: NOW,
+        confirm_account=lambda *, access_token: "uuid-account-a",
+    )
+    # The service is running and has issued a delivery the powered-off host never
+    # collects; nothing in that path may open a connection to the host.
+    delivery = service.refresh()
+    assert delivery is not None and delivery.sequence == 1
+    before = _delivery_files(home=enrolled_home)
+
+    assert unreachable.run() == baseline
+    assert _delivery_files(home=enrolled_home) == before
+    assert connections == []
