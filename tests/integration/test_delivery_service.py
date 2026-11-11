@@ -41,7 +41,7 @@ def test_live_changes_issue_delivery_and_release_a_waiting_client(*, tmp_path: P
     service = runner_module.DeliveryService(
         home=tmp_path,
         now=lambda: 1_000.0,
-        confirm_account=lambda *, access_token: confirmations.append(access_token) and "account-a",
+        confirm_account=lambda *, access_token: confirmations.append(access_token) or "account-a",
     )
 
     first = service.refresh()
