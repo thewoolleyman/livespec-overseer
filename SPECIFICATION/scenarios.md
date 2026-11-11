@@ -6924,3 +6924,21 @@ Given no push channel is configured
 When the operation produces its report
 
 Then the report and the central status view MUST state that alerts cannot be delivered
+
+## Scenario: a hand commit's passing delegated pre-commit verdict stands in at the pre-push gate
+
+Given this repository sets delegated_gate = true and delegated_pre_commit = true
+
+And a hand commit's delegated pre-commit gate Job J passed the full aggregate of clean staged tree T and recorded pre-push evidence naming J, T and the members it ran and passed
+
+And the pushing worktree is clean and its HEAD tree is T
+
+When the pre-push gate runs for that push
+
+Then it MUST run python -m livespec_dev_tooling.green_token pre-push-reuse with its check-set member names before it submits a gate Job or runs its local aggregate
+
+And when that command exits 0 it MUST submit no gate Job and MUST NOT run the local aggregate
+
+And when that command exits 3 it MUST gate the push exactly as it does with no such evidence
+
+And when that command exits with any other status it MUST refuse the push
