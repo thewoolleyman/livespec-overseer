@@ -129,6 +129,12 @@ MARKER_VOID_GRACE = 120.0
 # ready limit: when exceeded, the declaration is surfaced loudly and no restart occurs.
 READY_ARM_MAX_AGE = 1800.0
 
+# A ready declaration authorizes a restart but never overrides the interlock.  Report a
+# holding guard only after this much continuous observation, then no more than once per
+# window, so daemon history exposes a stuck guard without becoming tick noise.
+READY_HOLD_REPORT_AFTER = 60.0
+READY_HOLD_REPORT_WINDOW = 300.0
+
 # How long a `winding-down` acknowledgement may sit before the daemon SURFACES it as
 # "acknowledged but not finishing". The ACK buys patience — while it is fresh the
 # daemon stops re-warning, so it never keystrokes into a session that is actively

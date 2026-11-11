@@ -8,11 +8,13 @@ from typing import TYPE_CHECKING
 import _supervisor_pane_still
 import _supervisor_parked_delivery
 import _supervisor_picker_stall
+import _supervisor_ready_hold
 import _supervisor_settling_stuck
 import _supervisor_undeclared_idle
 import _supervisor_wait_target
 import _supervisor_working_low_context
 import registry
+import signals
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -57,6 +59,22 @@ class EvaluationMonitorRequest:
 
 
 def apply_evaluation_monitors(*, request: EvaluationMonitorRequest) -> EvaluationMonitorResult:
+    if (
+        request.act
+        and request.obs.declared is not None
+        and request.obs.declared.token == signals.STATE_READY
+    ):
+        _supervisor_ready_hold.report(
+            request=_supervisor_ready_hold.ReadyHoldRequest(
+                sup=request.sup,
+                track=request.track,
+                obs=request.obs,
+                status=request.status,
+                unsettled=(
+                    request.status == "working" and request.obs.idle and not request.obs.busy
+                ),
+            )
+        )
     picker_stall = _supervisor_picker_stall.apply_picker_stall(
         request=_supervisor_picker_stall.PickerStallRequest(
             sup=request.sup,
