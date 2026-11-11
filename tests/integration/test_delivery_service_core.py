@@ -9,7 +9,7 @@ from pathlib import Path
 
 def _write_live_files(*, home: Path, token: str, account: str, user: str) -> None:
     credentials = home / ".claude/.credentials.json"
-    credentials.parent.mkdir(parents=True)
+    credentials.parent.mkdir(parents=True, exist_ok=True)
     _ = credentials.write_text(
         json.dumps(
             {
