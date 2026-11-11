@@ -243,7 +243,30 @@ def resend_enter_budgeted(*, sup: Supervisor, target: str, max_enters: int) -> t
     return False, enters_sent
 
 
-def submit_prompt(*, sup: Supervisor, target: str, text: str, expect_codex: bool = False) -> bool:
+def submit_prompt(
+    *,
+    sup: Supervisor,
+    target: str,
+    text: str,
+    expect_codex: bool = False,
+    retry_native: bool = False,
+) -> bool:
+    """Submit a prompt, optionally completing a bounded Herdr relaunch retry.
+
+    The daemon leaves ``retry_native`` false, preserving its one-native-submit-per-tick
+    cadence.  A sanctioned relaunch has no later tick, so it opts in to retrying the
+    native submitter.  That submitter retains the pasted payload in per-pane state,
+    making every retry an Enter-only attempt rather than a duplicate paste.
+    """
+    submit_once = cast(NativeSubmit | None, getattr(sup.tmux, "submit_prompt_once", None))
+    if retry_native and target.startswith(herdr_identity.HERDR_SCHEME) and submit_once is not None:
+        for _ in range(SUBMIT_MAX_ENTERS):
+            submitted, _effect_unknown = submit_prompt_outcome(
+                sup=sup, target=target, text=text, expect_codex=expect_codex
+            )
+            if submitted:
+                return True
+        return False
     return submit_prompt_outcome(sup=sup, target=target, text=text, expect_codex=expect_codex)[0]
 
 
