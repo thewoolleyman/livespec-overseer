@@ -127,7 +127,12 @@ def _deliver_resume_and_rebind(
             outcome="resume_unavailable",
             message="relaunch FAILED: no resume prompt",
         )
-    submitted = submit_prompt(sup=sup, target=request.target, text=resume)
+    submitted = submit_prompt(
+        sup=sup,
+        target=request.target,
+        text=resume,
+        retry_native=request.target.startswith(herdr_identity.HERDR_SCHEME),
+    )
     identity = _identity_after_launch(sup=sup, track=track, target=request.target)
     if (
         not submitted

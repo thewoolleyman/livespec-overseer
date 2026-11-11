@@ -13,6 +13,7 @@ import herdr_identity
 import herdr_write
 import pane_router
 import registry
+from _supervisor_config import SUBMIT_MAX_ENTERS
 
 if TYPE_CHECKING:
     import out_of_band_relaunch
@@ -338,8 +339,8 @@ def test_relaunch_refuses_before_intent_or_input_and_records_each_post_launch_ou
 class _NativeTmux:
     """A Herdr-shaped driver whose tmux-style Enter route sends nothing."""
 
-    def __init__(self, *, outcome: tuple[bool, bool]) -> None:
-        self.outcome = outcome
+    def __init__(self, *, outcomes: list[tuple[bool, bool]]) -> None:
+        self.outcomes = outcomes
         self.native: list[tuple[str, str]] = []
 
     def bracketed_paste(self, **_kwargs: object) -> bool:
@@ -357,11 +358,11 @@ class _NativeTmux:
         assert expect_codex is False
         assert callable(sleep)
         self.native.append((session, text))
-        return self.outcome
+        return self.outcomes.pop(0) if len(self.outcomes) > 1 else self.outcomes[0]
 
 
 def _relaunch_on_herdr(
-    *, monkeypatch, tmp_path: Path, outcome: tuple[bool, bool]
+    *, monkeypatch, tmp_path: Path, outcomes: list[tuple[bool, bool]]
 ) -> tuple[out_of_band_relaunch.RelaunchResult, _NativeTmux, list[str], list[str]]:
     entrypoint = importlib.import_module("out_of_band_relaunch")
     coordinate = herdr_identity.encode_herdr_target(
@@ -377,7 +378,7 @@ def _relaunch_on_herdr(
         profile={"harness": "claude", "model": "claude-opus", "wrapper": None},
     )
     plan = entrypoint.ClaudeLaunchPlan(command="claude", env={})
-    tmux = _NativeTmux(outcome=outcome)
+    tmux = _NativeTmux(outcomes=outcomes)
     sup = SimpleNamespace(
         tmux=tmux,
         sleep=lambda _seconds: None,
@@ -408,7 +409,7 @@ def test_herdr_relaunch_submits_the_resume_through_the_native_route(
 ) -> None:
     """The resume prompt on a Herdr pane is submitted natively, then the row is re-bound."""
     result, tmux, outcomes, rebinds = _relaunch_on_herdr(
-        monkeypatch=monkeypatch, tmp_path=tmp_path, outcome=(True, False)
+        monkeypatch=monkeypatch, tmp_path=tmp_path, outcomes=[(True, False)]
     )
 
     assert result.ok
@@ -422,13 +423,29 @@ def test_herdr_relaunch_with_an_unconfirmed_submit_leaves_the_row_unchanged(
 ) -> None:
     """An unconfirmed native submit records the failure outcome and never re-binds."""
     result, tmux, outcomes, rebinds = _relaunch_on_herdr(
-        monkeypatch=monkeypatch, tmp_path=tmp_path, outcome=(False, True)
+        monkeypatch=monkeypatch, tmp_path=tmp_path, outcomes=[(False, True)]
     )
 
     assert not result.ok
-    assert [text for _session, text in tmux.native] == ["resume"]
+    assert [text for _session, text in tmux.native] == ["resume"] * SUBMIT_MAX_ENTERS
     assert outcomes == ["resume_or_rebind_failed"]
     assert rebinds == []
+
+
+def test_herdr_relaunch_retries_a_dropped_first_submit_without_rebinding_early(
+    *, monkeypatch, tmp_path: Path
+) -> None:
+    """A relaunch retries the held native submit, then binds only after confirmation."""
+    result, tmux, outcomes, rebinds = _relaunch_on_herdr(
+        monkeypatch=monkeypatch,
+        tmp_path=tmp_path,
+        outcomes=[(False, True), (True, False)],
+    )
+
+    assert result.ok
+    assert [text for _session, text in tmux.native] == ["resume", "resume"]
+    assert outcomes == ["succeeded"]
+    assert rebinds == [tmux.native[0][0]]
 
 
 def test_relaunch_requires_a_ready_input_box_before_submitting_resume(
