@@ -31,6 +31,7 @@ dependencies = [
 [project.scripts]
 caam-anthropic-loop = "overseer.caam_anthropic_loop:main"
 caam-delivery-enrol = "overseer.caam_delivery_enrol:main"
+caam-delivery-service = "overseer.caam_delivery_service_entry:main"
 llm-provider-manager = "overseer.manager_bootstrap:main"
 overseer-declare = "overseer.declare:main"
 overseer-scan-homelab-charters = "overseer.homelab_charter_scan:main"
@@ -570,3 +571,6 @@ include = ["overseer*"]
 # despite a correct declaration would not be caught.
 [tool.setuptools.package-data]
 overseer = ["version.json"]
+
+[tool.setuptools.data-files]
+"share/systemd/user" = ["overseer/caam-delivery-service.service"]
