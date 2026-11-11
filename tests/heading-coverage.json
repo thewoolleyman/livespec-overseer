@@ -4693,5 +4693,13 @@
     "test": "TODO",
     "work_item": "overseer-hydiph",
     "reason": "An integration-tier test is owed for this heading, ratified at v093 ahead of its implementation (proposal central-credential-service-login-health, plan central-credential-service, epic overseer-iyfjbo); work item overseer-hydiph owns landing it and MUST replace this TODO."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: a hand commit's passing delegated pre-commit verdict stands in at the pre-push gate",
+    "test": "TODO",
+    "work_item": "overseer-z2j3vn",
+    "reason": "Integration-tier: a real test at the integration tier or above is owed for this heading, exercising this repository's scripts/check-pre-push.sh calling `python -m livespec_dev_tooling.green_token pre-push-reuse` with its gate recipe's member names: exit 0 submits no gate Job and runs no local gate recipe, exit 3 gates the push as before, any other status refuses it. overseer-z2j3vn owns it."
   }
 ]
