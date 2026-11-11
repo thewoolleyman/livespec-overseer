@@ -4053,9 +4053,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A token and identity that disagree produce no delivery",
-    "test": "TODO",
-    "work_item": "overseer-4slsjd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-4slsjd owns landing it (regroomed from overseer-3vnxkd on 2026-11-09, then from overseer-fbt5hu on 2026-11-11) and MUST replace this TODO."
+    "test": "tests.integration.test_delivery_service_core.test_refuses_mismatched_or_expired_live_credentials",
+    "reason": "Integration-tier: confirms the live access token against the identity account, refuses a differing account without creating a delivery, and skips the confirmation request altogether for a locally expired credential."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4101,9 +4100,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The delivery sequence continues across a move of the role",
-    "test": "TODO",
-    "work_item": "overseer-4slsjd",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-4slsjd owns landing it (regroomed from overseer-3vnxkd on 2026-11-09, then from overseer-fbt5hu on 2026-11-11) and MUST replace this TODO."
+    "test": "tests.integration.test_delivery_service_core.test_counter_copied_to_a_new_holder_starts_above_its_previous_delivery",
+    "reason": "Integration-tier: seeds the delivery-sequence counter as copied role-holder state and verifies that the next delivery carries the strictly greater sequence."
   },
   {
     "spec_root": "SPECIFICATION",

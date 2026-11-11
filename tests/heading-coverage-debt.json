@@ -919,13 +919,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A token and identity that disagree produce no delivery",
-    "work_item": "overseer-4slsjd",
-    "first_seen": "2026-11-08"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: A token-store write invalidates cache and appends a secret-free audit entry",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
@@ -2294,13 +2287,6 @@
     "heading": "## Scenario: The default health strategy performs no usage observation",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The delivery sequence continues across a move of the role",
-    "work_item": "overseer-4slsjd",
-    "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
