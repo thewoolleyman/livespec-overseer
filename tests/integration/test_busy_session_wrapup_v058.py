@@ -247,6 +247,7 @@ def test_scenario_same_identity_rise_latches_and_the_wrapup_states_the_compactio
     assert WRAPUP_SENTINEL in pasted
     notice = _v058(module="_supervisor_wrapup_injection", name="COMPACTION_WRAPUP_NOTICE")
     assert notice.split(":", 1)[0] in pasted
+    assert "ctx latched to 50%; live 82%" in pasted
     assert not fake.has(method="respawn")
 
 
