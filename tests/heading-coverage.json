@@ -878,8 +878,8 @@
     "spec_file": "spec.md",
     "heading": "## Enrolled-host credential delivery",
     "test": "TODO",
-    "work_item": "overseer-fbt5hu",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-fbt5hu owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
+    "work_item": "overseer-vfmz5w",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-vfmz5w owns landing it (regroomed from overseer-3vnxkd on 2026-11-09, then from overseer-fbt5hu on 2026-11-11) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4054,8 +4054,8 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A token and identity that disagree produce no delivery",
     "test": "TODO",
-    "work_item": "overseer-fbt5hu",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-fbt5hu owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
+    "work_item": "overseer-4slsjd",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-4slsjd owns landing it (regroomed from overseer-3vnxkd on 2026-11-09, then from overseer-fbt5hu on 2026-11-11) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4086,8 +4086,8 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unreachable enrolled host does not affect a rotation pass",
     "test": "TODO",
-    "work_item": "overseer-fbt5hu",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-fbt5hu owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
+    "work_item": "overseer-vfmz5w",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-vfmz5w owns landing it (regroomed from overseer-3vnxkd on 2026-11-09, then from overseer-fbt5hu on 2026-11-11) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4102,8 +4102,8 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The delivery sequence continues across a move of the role",
     "test": "TODO",
-    "work_item": "overseer-fbt5hu",
-    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-fbt5hu owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
+    "work_item": "overseer-4slsjd",
+    "reason": "An integration-tier test is owed for this heading, ratified at v089 ahead of its implementation (proposal central-credential-service-enrolled-hosts, plan central-credential-service, epic overseer-iyfjbo); work item overseer-4slsjd owns landing it (regroomed from overseer-3vnxkd on 2026-11-09, then from overseer-fbt5hu on 2026-11-11) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4270,8 +4270,8 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A stopped delivery service does not affect a rotation pass",
     "test": "TODO",
-    "work_item": "overseer-fbt5hu",
-    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-fbt5hu owns landing it (regroomed from overseer-3vnxkd on 2026-11-09) and MUST replace this TODO."
+    "work_item": "overseer-vfmz5w",
+    "reason": "An integration-tier test is owed for this heading, ratified at v090 ahead of its implementation (proposal central-credential-service-v089-doctor-corrections, plan central-credential-service, epic overseer-iyfjbo); work item overseer-vfmz5w owns landing it (regroomed from overseer-3vnxkd on 2026-11-09, then from overseer-fbt5hu on 2026-11-11) and MUST replace this TODO."
   },
   {
     "spec_root": "SPECIFICATION",
