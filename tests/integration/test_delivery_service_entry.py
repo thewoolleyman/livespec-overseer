@@ -11,6 +11,7 @@ import caam_delivery_enrol
 import caam_delivery_registry
 import caam_delivery_runner
 import pytest
+import streams
 
 from overseer._vendor.returns.result import Success
 from tests.integration.test_caam_capacity_reporting import NOW, CapacityHarness, usage
@@ -94,6 +95,29 @@ def test_service_entry_is_supervised_and_never_becomes_a_rotation_dependency(
     ]
 
 
+def test_failed_account_confirmation_emits_a_failure_line_and_continues(
+    *, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    entry = importlib.import_module("caam_delivery_service_entry")
+    failure_lines: list[str] = []
+    monkeypatch.setattr(streams, "write_stderr", lambda *, text: failure_lines.append(text))
+    monkeypatch.setattr(entry, "get_json", lambda *, request: (None, "unavailable"))
+    assert entry.confirm_live_account(access_token="delivery-" + "token") is None
+    assert failure_lines == ["FAIL delivery account confirmation failed: unavailable\n"]
+    failure_lines.clear()
+    monkeypatch.setattr(entry, "get_json", lambda *, request: ({"account_uuid": 7}, None))
+    assert entry.confirm_live_account(access_token="delivery-" + "token") is None
+    assert len(failure_lines) == 1 and failure_lines[0].startswith("FAIL ")
+    assert "delivery-" + "token" not in failure_lines[0]
+
+
+def _run_switching_pass(*, harness: CapacityHarness) -> tuple[int, tuple[str, ...]]:
+    """Run one pass and prove it was a pass that switches accounts."""
+    outcome = harness.run()
+    assert harness.switches == ["account-b"]
+    return outcome
+
+
 def _pass_home(*, home: Path, enrolled: bool) -> CapacityHarness:
     """A rotation-pass vault whose live stores carry a deliverable identity.
 
@@ -104,7 +128,7 @@ def _pass_home(*, home: Path, enrolled: bool) -> CapacityHarness:
     harness = CapacityHarness(
         home=home,
         active="account-a",
-        usages={"account-a": usage(), "account-b": usage()},
+        usages={"account-a": usage(five_hour_remaining=0.0), "account-b": usage()},
     )
     state_path = home / ".claude.json"
     state = json.loads(state_path.read_text(encoding="utf-8"))
@@ -137,7 +161,7 @@ def _delivery_files(*, home: Path) -> dict[str, bytes]:
 
 
 def test_stopped_delivery_service_does_not_affect_a_rotation_pass(*, tmp_path: Path) -> None:
-    baseline = _pass_home(home=tmp_path / "baseline", enrolled=False).run()
+    baseline = _run_switching_pass(harness=_pass_home(home=tmp_path / "baseline", enrolled=False))
 
     enrolled_home = tmp_path / "stopped"
     stopped = _pass_home(home=enrolled_home, enrolled=True)
@@ -148,14 +172,14 @@ def test_stopped_delivery_service_does_not_affect_a_rotation_pass(*, tmp_path: P
     assert caam_delivery_registry.registry_path(home=enrolled_home).name in before
     assert not any("report" in name or "current-delivery" in name for name in before)
 
-    assert stopped.run() == baseline
+    assert _run_switching_pass(harness=stopped) == baseline
     assert _delivery_files(home=enrolled_home) == before
 
 
 def test_unreachable_enrolled_host_does_not_affect_a_rotation_pass(
     *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    baseline = _pass_home(home=tmp_path / "baseline", enrolled=False).run()
+    baseline = _run_switching_pass(harness=_pass_home(home=tmp_path / "baseline", enrolled=False))
 
     enrolled_home = tmp_path / "unreachable"
     unreachable = _pass_home(home=enrolled_home, enrolled=True)
@@ -178,6 +202,6 @@ def test_unreachable_enrolled_host_does_not_affect_a_rotation_pass(
     assert delivery is not None and delivery.sequence == 1
     before = _delivery_files(home=enrolled_home)
 
-    assert unreachable.run() == baseline
+    assert _run_switching_pass(harness=unreachable) == baseline
     assert _delivery_files(home=enrolled_home) == before
     assert connections == []
