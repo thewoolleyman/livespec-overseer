@@ -892,7 +892,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A stopped delivery service does not affect a rotation pass",
-    "work_item": "overseer-fbt5hu",
+    "work_item": "overseer-vfmz5w",
     "first_seen": "2026-11-08"
   },
   {
@@ -920,7 +920,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A token and identity that disagree produce no delivery",
-    "work_item": "overseer-fbt5hu",
+    "work_item": "overseer-4slsjd",
     "first_seen": "2026-11-08"
   },
   {
@@ -1270,7 +1270,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unreachable enrolled host does not affect a rotation pass",
-    "work_item": "overseer-fbt5hu",
+    "work_item": "overseer-vfmz5w",
     "first_seen": "2026-11-08"
   },
   {
@@ -2299,7 +2299,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The delivery sequence continues across a move of the role",
-    "work_item": "overseer-fbt5hu",
+    "work_item": "overseer-4slsjd",
     "first_seen": "2026-11-08"
   },
   {
@@ -2425,7 +2425,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Enrolled-host credential delivery",
-    "work_item": "overseer-fbt5hu",
+    "work_item": "overseer-vfmz5w",
     "first_seen": "2026-11-08"
   },
   {
