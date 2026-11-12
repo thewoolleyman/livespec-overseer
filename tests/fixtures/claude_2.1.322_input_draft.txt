@@ -1,0 +1,40 @@
+
+ ▐▛███▛█   Claude Code v2.1.322
+▝▜██████▀  Opus 5.5 with high effort · Claude Ultra
+ ▝▝   ▝▝   /tmp/claude-1000/-data-projects-livespec-overseer/0d845baf-37de-4be7-9f73-7b4433980585/scratchpad/rcprobe/cwd
+
+⚠ Your login expires in 3 days · run /login to renew
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                                                          
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ half written draft about deploys
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Opus 5.5 | /tmp/claude-1000/-data-projects-livespec-overseer/0d845baf-37de-4be7-9f73-7b4433980585/scratchpad/rcprobe/cwd
+  ⏵⏵ bypass permissions on (shift+tab to cycle)               
