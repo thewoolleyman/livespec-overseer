@@ -112,6 +112,9 @@ subprocess_spawn_allowlist = [
     "tests/test_codex_herdr_live_exercise_controller.py",
     "tests/test_herdr_operator_delivery.py",
     "tests/test_pytest_cov_bare_spelling.py",
+    # The push loop runs this script over ssh as `python3 - < file`; the test
+    # exercises exactly that invocation against a stub tmux (overseer-fdwat6).
+    "tests/integration/test_remote_control_reissue.py",
 ]
 # Role trees. This section must exist at all: without it the loader falls back to
 # defaults naming core's layout (`.claude-plugin/scripts/livespec`, `.../io`,
