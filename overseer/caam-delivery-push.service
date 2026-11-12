@@ -1,0 +1,11 @@
+[Unit]
+Description=CAAM credential push to listed hosts (credential-rotation role holder)
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/caam-delivery-push run
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
