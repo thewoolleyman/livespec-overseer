@@ -205,3 +205,36 @@ def test_unreachable_enrolled_host_does_not_affect_a_rotation_pass(
     assert _run_switching_pass(harness=unreachable) == baseline
     assert _delivery_files(home=enrolled_home) == before
     assert connections == []
+
+
+class _FailingService:
+    """A service whose first poll fails with a message that quotes a credential value."""
+
+    def __init__(self) -> None:
+        self.polls = 0
+
+    def refresh(self) -> None:
+        self.polls += 1
+        if self.polls == 1:
+            raise OSError("cannot read delivery-" + "token")
+
+
+def test_failed_poll_emits_a_failure_line_without_a_value_and_keeps_polling(
+    *, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    entry = importlib.import_module("caam_delivery_service_entry")
+    failure_lines: list[str] = []
+    monkeypatch.setattr(streams, "write_stderr", lambda *, text: failure_lines.append(text))
+    service = _FailingService()
+    waits: list[float] = []
+
+    def stop_after_second_poll(seconds: float) -> None:
+        waits.append(seconds)
+        if len(waits) == 2:
+            raise _StopLoopError
+
+    with pytest.raises(_StopLoopError):
+        entry.run_forever(service=service, wait=stop_after_second_poll)
+    assert service.polls == 2
+    assert failure_lines == ["FAIL delivery poll failed: OSError\n"]
+    assert "delivery-" + "token" not in failure_lines[0]
