@@ -14,6 +14,7 @@ import json
 import os
 import subprocess
 import sys
+import textwrap
 from pathlib import Path
 from types import ModuleType
 
@@ -31,6 +32,12 @@ EMPTY = (FIXTURES / FIXTURE["input_captures"]["empty"]).read_text(encoding="utf-
 DRAFT = (FIXTURES / FIXTURE["input_captures"]["draft"]).read_text(encoding="utf-8")
 TRANSCRIPT = f"  ⎿  {FIXTURE['transcript_prefix']}{FULL}"
 FOOTER = f"  {FIXTURE['footer_prefix']}{FULL}"
+NARROW = textwrap.wrap(
+    f"{FIXTURE['transcript_prefix']}{FULL}",
+    width=48,
+    initial_indent="  ⎿  ",
+    subsequent_indent="     ",
+)
 
 STUB = """#!/usr/bin/env python3
 import json, os, sys
@@ -174,6 +181,34 @@ SCENARIOS = {
     ),
     "notice text quoted without either rendered form": (
         [_pane(pane="%9", screen=_above_input(capture=EMPTY, lines=[f"user pasted: {NOTICE}"]))],
+        [],
+    ),
+    "transcript notice hard-wrapped by a narrow pane": (
+        [_pane(pane="%13", screen=_above_input(capture=EMPTY, lines=NARROW))],
+        ["%13"],
+    ),
+    "full form quoted mid-line in a session's prose": (
+        [
+            _pane(
+                pane="%14",
+                screen=_above_input(
+                    capture=EMPTY,
+                    lines=[f"⏺ After a switch the pane shows {FIXTURE['transcript_prefix']}{FULL}"],
+                ),
+            )
+        ],
+        [],
+    ),
+    "a different Remote Control disconnect reason": (
+        [
+            _pane(
+                pane="%15",
+                screen=_above_input(
+                    capture=EMPTY,
+                    lines=[f"  ⎿  {FIXTURE['transcript_prefix']}the bridge timed out"],
+                ),
+            )
+        ],
         [],
     ),
     "no input box on screen": ([_pane(pane="%10", screen=f"{TRANSCRIPT}\nsome dialog\n")], []),
