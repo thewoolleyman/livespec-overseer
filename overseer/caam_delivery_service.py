@@ -12,7 +12,7 @@ import caam_delivery_registry
 import jsonio
 from caam_profile_state import live_creds_path
 
-__all__: list[str] = ["Delivery", "issue_delivery", "load_current_delivery"]
+__all__: list[str] = ["Delivery", "issue_delivery", "load_current_delivery", "write_private_json"]
 
 _STATE = ".local/state/caam-usage-rotate"
 
@@ -58,8 +58,12 @@ def issue_delivery(
             identity=identity,
             oauth={key: value for key, value in oauth.items() if key != "refreshToken"},
         )
-        _write(path=_path(home=home, name="delivery-sequence.json"), value={"sequence": sequence})
-        _write(path=_path(home=home, name="current-delivery.json"), value=asdict(delivery))
+        write_private_json(
+            path=_path(home=home, name="delivery-sequence.json"), value={"sequence": sequence}
+        )
+        write_private_json(
+            path=_path(home=home, name="current-delivery.json"), value=asdict(delivery)
+        )
     return delivery
 
 
@@ -103,7 +107,8 @@ def _object(*, path: Path) -> dict[str, object] | None:
     return None if jsonio.is_parse_failure(result=parsed) else parsed.unwrap()
 
 
-def _write(*, path: Path, value: dict[str, object]) -> None:
+def write_private_json(*, path: Path, value: dict[str, object]) -> None:
+    """Atomically write `value` as JSON readable only by the owner."""
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     temporary = path.with_name(path.name + ".tmp")
     descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
