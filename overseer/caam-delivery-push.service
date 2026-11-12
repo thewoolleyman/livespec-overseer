@@ -1,10 +1,11 @@
 # caam-delivery-push: pushes the role holder's live login (no refresh token) to
-# every host in ~/.config/caam-delivery/hosts over ssh (plan
+# every host in ~/.local/state/caam-usage-rotate/delivery-hosts over ssh (plan
 # central-credential-service). Install on the credential-rotation role holder
 # from this repo's checkout:
 #   just install-caam-delivery-push     idempotent; rewrites ExecStart to this
 #                                       checkout's .venv entry point, creates the
-#                                       host list if absent, enables and starts
+#                                       host list and known-hosts record if
+#                                       absent, pins listed hosts' keys, starts
 #   just uninstall-caam-delivery-push   revert; disables and removes the unit,
 #                                       keeps the host list
 # Status: <checkout>/.venv/bin/caam-delivery-push status
