@@ -1,10 +1,2 @@
-# Workflow-edit exemption — one exemption binds to one reviewed change.
-#
-# The change: one NEW file, .github/workflows/disarm-on-hold-label.yml, the
-# hold-label disarm workflow livespec core makes fleet policy. It turns a pull
-# request's auto-merge off when do-not-merge is added to it. No existing
-# workflow line is deleted or modified.
-work_item=overseer-kyja3v
-change=additive
-ci_runtime=no-significant-increase
-reason=ADDITIVE tier (approval:workflow-edit-additive under legacy-coordinator-agent's delegation, design approved 20:10Z 2026-11-10, recorded on overseer-kyja3v). Adds the disarm workflow this repository's SPECIFICATION/non-functional-requirements.md ## Contracts now requires (revise v094, hold-label-disarm-inherits-core, citing livespec §"Shared content sync — copier template"). It runs only on pull_request labeled events for do-not-merge (one short job), so CI runtime does not grow measurably. actionlint exit 0. Plan ci-runtime-and-cost (livespec-dev-tooling-ib3oe3).
+work_item=overseer-kw6dgn
+reason=incident-ci job and incident-label-ci workflow so this repository can run expedited incident mode; logically additive (ci-green and export-telemetry require more), coordinator GO under coordinator-duties section 12 and the maintainer ruling of 2026-11-03
