@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import importlib
-import io
 import json
 import os
 import subprocess
@@ -13,6 +12,7 @@ from pathlib import Path
 import pytest
 
 TOKEN = "tok-" + "secret-a"
+_REAL_REPLACE = os.replace
 
 
 def _write(*, path: Path, body: object) -> None:
@@ -37,12 +37,13 @@ def _apply(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> tuple[int, str]:
+    """Run the exact program the push sends, as the host's python3 would."""
     push = importlib.import_module("caam_delivery_push")
     monkeypatch.setenv("HOME", str(home))
-    monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
     code = 0
     try:
-        exec(compile(push.APPLY_SCRIPT, "<apply>", "exec"), {"__name__": "__main__"})  # noqa: S102
+        program = push.apply_program(payload=payload)
+        exec(compile(program, "<apply>", "exec"), {"__name__": "__main__"})  # noqa: S102
     except SystemExit as stop:
         code = int(stop.code or 0)
     return code, capsys.readouterr().out.strip()
@@ -53,13 +54,30 @@ def _delivery(*, sequence: int, oauth: dict[str, object] | None = None) -> str:
         {
             "sequence": sequence,
             "account_id": "a",
-            "identity": {"oauthAccount": {"accountUuid": "a"}, "userID": "u"},
+            "identity": {"oauthAccount": {"accountUuid": "a"}, "userID": "u", "extra": 1},
             "oauth": oauth or {"accessToken": f"t{sequence}", "expiresAt": 1},
         }
     )
 
 
-def test_apply_step_locks_merges_refuses_and_rolls_back(  # noqa: PLR0915 - one end-to-end scenario per test
+def _flaky_replace(*, monkeypatch: pytest.MonkeyPatch, failing: set[int]) -> None:
+    """Make the numbered calls to os.replace raise, counting from 1."""
+    calls = {"n": 0}
+
+    def flaky(src: str, dst: str) -> None:
+        calls["n"] += 1
+        if calls["n"] in failing:
+            raise OSError("disk full")
+        _REAL_REPLACE(src, dst)
+
+    monkeypatch.setattr(os, "replace", flaky)
+
+
+def _read(*, path: Path) -> object:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_apply_step_result_lines_carry_the_sequence_and_change_only_owned_keys(
     *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     host = tmp_path / "host"
@@ -69,104 +87,223 @@ def test_apply_step_locks_merges_refuses_and_rolls_back(  # noqa: PLR0915 - one 
 
     assert _apply(home=host, payload=_delivery(sequence=2), **io_kwargs) == (0, "applied 2")
     creds = host / ".claude/.credentials.json"
-    assert json.loads(creds.read_text(encoding="utf-8")) == {
+    assert _read(path=creds) == {
         "mcpOAuth": {"k": 1},
         "claudeAiOauth": {"accessToken": "t2", "expiresAt": 1},
     }
-    assert creds.stat().st_mode & 0o777 == 0o600
-    assert (host / ".claude.json").stat().st_mode & 0o777 == 0o600
-    assert json.loads((host / ".claude.json").read_text(encoding="utf-8"))["theme"] == "dark"
-    assert _apply(home=host, payload=_delivery(sequence=2), **io_kwargs) == (0, "current 2")
+    assert _read(path=host / ".claude.json") == {
+        "theme": "dark",
+        "oauthAccount": {"accountUuid": "a"},
+        "userID": "u",
+    }
+    applied = host / ".claude/.caam-delivery-sequence"
+    assert applied.read_text(encoding="utf-8") == "2"
+    for path in (creds, host / ".claude.json", applied):
+        assert path.stat().st_mode & 0o777 == 0o600
+    assert _apply(home=host, payload=_delivery(sequence=2), **io_kwargs) == (
+        0,
+        "stale-sequence 2 host-applied 2",
+    )
     assert _apply(home=host, payload=_delivery(sequence=1), **io_kwargs) == (
         0,
-        "stale-sequence 2",
+        "stale-sequence 1 host-applied 2",
     )
     leaky = _delivery(sequence=3, oauth={"accessToken": "t3", "refreshToken": "x"})
-    assert _apply(home=host, payload=leaky, **io_kwargs) == (4, "failed delivered-refresh-token")
-    assert _apply(home=host, payload="not json", **io_kwargs) == (5, "failed bad-delivery")
+    assert _apply(home=host, payload=leaky, **io_kwargs) == (4, "failed 3 delivered-refresh-token")
+    assert _apply(home=host, payload="not json", **io_kwargs) == (5, "failed - bad-delivery")
+    shapeless = json.dumps({"sequence": 4, "identity": "x", "oauth": {}})
+    assert _apply(home=host, payload=shapeless, **io_kwargs) == (5, "failed - bad-delivery")
 
     own = tmp_path / "own"
     _write(path=own / ".claude/.credentials.json", body={"claudeAiOauth": {"refreshToken": "m"}})
-    assert _apply(home=own, payload=_delivery(sequence=1), **io_kwargs) == (3, "not-converted")
+    assert _apply(home=own, payload=_delivery(sequence=1), **io_kwargs) == (3, "not-converted 1")
 
-    partial = tmp_path / "partial"
-    _write(path=partial / ".claude/.credentials.json", body={"keep": 1})
-    _write(path=partial / ".claude.json", body={"keep": 2})
-    real_replace = os.replace
-    calls = {"n": 0}
-
-    def flaky_replace(src: str, dst: str) -> None:
-        calls["n"] += 1
-        if calls["n"] == 2:
-            raise OSError("disk full")
-        real_replace(src, dst)
-
-    monkeypatch.setattr(os, "replace", flaky_replace)
-    reply = _apply(home=partial, payload=_delivery(sequence=1), **io_kwargs)
-    assert reply == (5, "failed rolled-back OSError")
-    assert json.loads((partial / ".claude/.credentials.json").read_text(encoding="utf-8")) == {
-        "keep": 1
-    }
-    assert json.loads((partial / ".claude.json").read_text(encoding="utf-8")) == {"keep": 2}
+    corrupt = tmp_path / "corrupt"
+    (corrupt / ".claude").mkdir(parents=True)
+    _ = (corrupt / ".claude/.credentials.json").write_text("{", encoding="utf-8")
+    assert _apply(home=corrupt, payload=_delivery(sequence=1), **io_kwargs) == (
+        5,
+        "failed 1 JSONDecodeError",
+    )
+    blocked = tmp_path / "blocked"
+    blocked.mkdir()
+    _ = (blocked / ".claude").write_text("a file, not a directory", encoding="utf-8")
+    assert _apply(home=blocked, payload=_delivery(sequence=1), **io_kwargs) == (
+        5,
+        "failed 1 FileExistsError",
+    )
 
 
-def test_push_records_each_host_state_and_never_leaks_the_token(  # noqa: PLR0915 - one end-to-end scenario per test
+def test_apply_step_rolls_back_both_files_and_reports_each_failed_restore(  # noqa: PLR0915 - one end-to-end scenario per test
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    io_kwargs = {"monkeypatch": monkeypatch, "capsys": capsys}
+
+    def seeded(name: str) -> Path:
+        home = tmp_path / name
+        _write(path=home / ".claude/.credentials.json", body={"keep": 1})
+        _write(path=home / ".claude.json", body={"keep": 2})
+        return home
+
+    def untouched(home: Path) -> bool:
+        return (
+            _read(path=home / ".claude/.credentials.json") == {"keep": 1}
+            and _read(path=home / ".claude.json") == {"keep": 2}
+            and not (home / ".claude/.caam-delivery-sequence").exists()
+            and not [p for p in (home / ".claude").iterdir() if p.name.startswith("tmp")]
+        )
+
+    second = seeded("second-write")
+    _flaky_replace(monkeypatch=monkeypatch, failing={2})
+    reply = _apply(home=second, payload=_delivery(sequence=1), **io_kwargs)
+    assert reply == (5, "failed 1 rolled-back OSError")
+    assert untouched(second)
+
+    sequence_write = seeded("sequence-write")
+    _flaky_replace(monkeypatch=monkeypatch, failing={3})
+    reply = _apply(home=sequence_write, payload=_delivery(sequence=1), **io_kwargs)
+    assert reply == (5, "failed 1 rolled-back OSError")
+    assert untouched(sequence_write)
+
+    one_restore = seeded("one-restore")
+    _flaky_replace(monkeypatch=monkeypatch, failing={2, 3})
+    reply = _apply(home=one_restore, payload=_delivery(sequence=1), **io_kwargs)
+    assert reply == (5, "failed 1 OSError; unrestored credential")
+    assert _read(path=one_restore / ".claude.json") == {"keep": 2}
+
+    both = seeded("both-restores")
+    _flaky_replace(monkeypatch=monkeypatch, failing={2, 3, 4})
+    reply = _apply(home=both, payload=_delivery(sequence=1), **io_kwargs)
+    assert reply == (5, "failed 1 OSError; unrestored credential,global-state")
+
+    fresh = tmp_path / "fresh"
+    _flaky_replace(monkeypatch=monkeypatch, failing={2})
+    reply = _apply(home=fresh, payload=_delivery(sequence=1), **io_kwargs)
+    assert reply == (5, "failed 1 rolled-back OSError")
+    assert not (fresh / ".claude/.credentials.json").exists()
+    assert not (fresh / ".claude.json").exists()
+
+
+def test_push_records_each_host_and_status_shows_spec_states(  # noqa: PLR0915 - one end-to-end scenario per test
     *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     push = importlib.import_module("caam_delivery_push")
     entry = importlib.import_module("caam_delivery_push_entry")
     status = importlib.import_module("caam_delivery_push_status")
+    assert push.HOSTS_FILE.startswith(".local/state/caam-usage-rotate/")
+    assert push.KNOWN_HOSTS.startswith(".local/state/caam-usage-rotate/")
     _live(home=tmp_path, token=TOKEN, account="acct-a")
-    _write(path=tmp_path / ".config/caam-delivery/config.json", body={"retry_s": 30})
-    _ = (tmp_path / ".config/caam-delivery/hosts").write_text(
+    (tmp_path / push.HOSTS_FILE).parent.mkdir(parents=True)
+    _ = (tmp_path / push.HOSTS_FILE).write_text(
         "good u@good linux\nkey u@key linux\nnc u@nc linux\nmac u@mac macos\n"
-        "bad -oProxyCommand=x linux\njunk\n# comment\n\n",
+        "bad -oProxyCommand=x linux\nalias good2 linux\njunk\n# comment\n\n",
         encoding="utf-8",
     )
     sent: list[str] = []
     replies = {
         "u@good": "applied 1",
         "u@key": "failed host-key-verification",
-        "u@nc": "not-converted",
+        "u@nc": "not-converted 1",
     }
 
     def fake_run(
-        *, target: str, script: str, payload: str, key: str, timeout: float
+        *, target: str, program: str, key: str, known_hosts: str, timeout: float
     ) -> tuple[int, str]:
-        assert key.endswith("id_ed25519") and timeout > 0 and "refreshToken" not in payload
-        sent.append(target if script == push.APPLY_SCRIPT else "rc:" + target)
+        assert key.endswith("id_ed25519") and timeout > 0
+        assert known_hosts == str(tmp_path / push.KNOWN_HOSTS)
+        is_apply = program.startswith(push.APPLY_SCRIPT)
+        delivered = program[len(push.APPLY_SCRIPT) :] if is_apply else ""
+        assert "refreshToken" not in delivered
+        sent.append(target if is_apply else "rc:" + target)
         return 0, replies.get(target, '{"reissued": []}')
 
     loop = entry.PushLoop()
     run = {"confirm": lambda **_: "acct-a", "run": fake_run, "reissue": "RC"}
     entry.run_once(home=tmp_path, now=100.0, loop=loop, **run)
     assert sorted(sent) == ["rc:u@good", "u@good", "u@key", "u@nc"]
-    assert "host list line 5 rejected" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "host list line 5 rejected" in err and "host list line 6 rejected" in err
 
     sent.clear()
     entry.run_once(home=tmp_path, now=110.0, loop=loop, **run)
+    entry.run_once(home=tmp_path, now=150.0, loop=loop, **run)
     assert sent == []
-    entry.run_once(home=tmp_path, now=140.0, loop=loop, **run)
+    entry.run_once(home=tmp_path, now=161.0, loop=loop, **run)
     assert sent == ["u@key"]
 
     sent.clear()
-    replies["u@good"] = "failed weird " + "tok-" + "secret-b"
+    replies["u@good"] = "failed 2 weird " + "tok-" + "secret-b"
     _live(home=tmp_path, token="tok-" + "secret-b", account="acct-a")
-    entry.run_once(home=tmp_path, now=150.0, loop=loop, **run)
-    assert "rc:u@good" not in sent
+    entry.run_once(home=tmp_path, now=170.0, loop=loop, **run)
+    assert sorted(sent) == ["u@good", "u@key"]
     saved = (tmp_path / push.PUSH_STATE).read_text(encoding="utf-8")
     assert "secret" not in saved and "[redacted]" in saved
 
-    lines = status.status_lines(home=tmp_path, now=160.0, reissue_available=False)
+    lines = status.status_lines(home=tmp_path, now=180.0, reissue_available=False)
     text = "\n".join(lines)
     assert "secret" not in text
-    assert "good  u@good  linux  failed  1" in text
-    assert "key  u@key  linux  failed  -  never  failed host-key-verification" in text
-    assert "nc  u@nc  linux  not-converted" in text
-    assert "mac  u@mac  macos  failed  -  never  failed unsupported-platform" in text
+    assert (
+        "good  u@good  linux  lagging  account acct-a profile -  sequence 1 applied"
+        " 1970-01-01T00:01:40Z  last-success 1970-01-01T00:01:40Z"
+        "  last-error failed 2 weird [redacted] at 1970-01-01T00:02:50Z"
+    ) in text
+    assert (
+        "key  u@key  linux  stale  account - profile -  sequence - applied never"
+        "  last-success never  last-error failed host-key-verification at 1970-01-01T00:02:50Z"
+    ) in text
+    assert "nc  u@nc  linux  not-converted  " in text
+    assert "mac  u@mac  macos  stale  " in text and "failed unsupported-platform" in text
     assert "remote-control: re-issue unavailable" in text
     assert entry.run_once(home=tmp_path, now=1_100.0, loop=loop, **run) is None
     assert "u@nc" in sent
+
+
+def test_push_treats_a_host_already_holding_the_sequence_as_reached(*, tmp_path: Path) -> None:
+    push = importlib.import_module("caam_delivery_push")
+    service = importlib.import_module("caam_delivery_service")
+    delivery = service.Delivery(
+        sequence=3, account_id="acct-a", identity={}, oauth={"accessToken": TOKEN, "expiresAt": 9}
+    )
+    (tmp_path / push.HOSTS_FILE).parent.mkdir(parents=True)
+    _ = (tmp_path / push.HOSTS_FILE).write_text(
+        "same u@same linux\nahead u@ahead linux\n", encoding="utf-8"
+    )
+    replies = {
+        "u@same": "stale-sequence 3 host-applied 3",
+        "u@ahead": "stale-sequence 3 host-applied 7",
+    }
+
+    def fake_run(*, target: str, **_: object) -> tuple[int, str]:
+        return 0, replies[target]
+
+    outcomes = push.push_due(home=tmp_path, delivery=delivery, now=50.0, run=fake_run)
+    assert outcomes == {"same": replies["u@same"], "ahead": replies["u@ahead"]}
+    state = push.load_state(home=tmp_path)
+    assert state["same"]["sequence"] == 3 and state["same"]["account_id"] == "acct-a"
+    assert state["same"]["last_success"] == 50.0
+    assert state["ahead"]["last_error"] == "stale-sequence 3 host-applied 7"
+    assert state["ahead"]["last_error_at"] == 50.0
+    assert "last_success" not in state["ahead"]
+
+
+def test_push_state_write_failure_is_logged_and_the_pass_continues(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    push = importlib.import_module("caam_delivery_push")
+    service = importlib.import_module("caam_delivery_service")
+    delivery = service.Delivery(sequence=1, account_id="a", identity={}, oauth={})
+    (tmp_path / push.HOSTS_FILE).parent.mkdir(parents=True)
+    _ = (tmp_path / push.HOSTS_FILE).write_text("h u@h linux\n", encoding="utf-8")
+
+    def refuse(**_: object) -> None:
+        raise PermissionError("read-only")
+
+    monkeypatch.setattr(service, "write_private_json", refuse)
+    outcomes = push.push_due(
+        home=tmp_path, delivery=delivery, now=1.0, run=lambda **_: (0, "applied 1")
+    )
+    assert outcomes == {"h": "applied 1"}
+    assert "FAIL push state not written: PermissionError" in capsys.readouterr().err
 
 
 def test_status_states_profiles_divergence_and_expiry(  # noqa: PLR0915 - one end-to-end scenario per test
@@ -178,11 +315,16 @@ def test_status_states_profiles_divergence_and_expiry(  # noqa: PLR0915 - one en
     assert state(entry=fresh, current_sequence=1, now=110.0, stale_after=900.0) == "current"
     assert state(entry=fresh, current_sequence=2, now=110.0, stale_after=900.0) == "lagging"
     assert state(entry=fresh, current_sequence=1, now=5_000.0, stale_after=900.0) == "stale"
+    assert state(entry={}, current_sequence=1, now=1.0, stale_after=900.0) == "stale"
+    failed = {"state": "failed", "last_error": "failed timeout"}
+    assert state(entry=failed, current_sequence=1, now=1.0, stale_after=900.0) == "stale"
     expired = {**fresh, "expires_at": 50_000}
     assert state(entry=expired, current_sequence=1, now=110.0, stale_after=900.0) == "expired"
+    held = {**expired, "state": "not-converted"}
+    assert state(entry=held, current_sequence=1, now=110.0, stale_after=900.0) == "not-converted"
 
     _live(home=tmp_path, token=TOKEN, account="acct-live", expires=1_000)
-    assert "role holder live profile: acct-live" in status.status_lines(
+    assert "role holder live account: acct-live profile -" in status.status_lines(
         home=tmp_path, now=10.0, reissue_available=True
     )
     vault = tmp_path / ".local/share/caam/vault/claude"
@@ -193,28 +335,41 @@ def test_status_states_profiles_divergence_and_expiry(  # noqa: PLR0915 - one en
     )
     selection = tmp_path / ".local/state/caam-usage-rotate/selected-account.json"
     _write(path=selection, body={"account_uuid": "x", "profile": "anthropic-1", "written_at": 1})
+    hosts = tmp_path / ".local/state/caam-usage-rotate/delivery-hosts"
+    _ = hosts.write_text("h u@h linux\n", encoding="utf-8")
+    _write(
+        path=tmp_path / ".local/state/caam-usage-rotate/delivery-push.json",
+        body={"h": {"account_id": "acct-live", "sequence": 1, "applied_at": 5.0}},
+    )
     lines = status.status_lines(home=tmp_path, now=10.0, reissue_available=True)
-    assert "role holder live profile: anthropic-2" in lines
-    assert "caam selected profile: anthropic-1" in lines
+    assert "role holder live account: acct-live profile anthropic-2" in lines
+    assert "caam selected account: x profile anthropic-1" in lines
     assert any(line.startswith("diverged") for line in lines)
     assert any(line.startswith("expired") for line in lines)
     assert not any(line.startswith("remote-control") for line in lines)
+    row = "account acct-live profile anthropic-2  sequence 1 applied"
+    assert any(row in line for line in lines)
     _write(path=selection, body={"account_uuid": "acct-live", "profile": "anthropic-2"})
     _ = (vault / "anthropic-1/.claude.json").unlink()
     _ = vault.joinpath("anthropic-1").rmdir()
     lines = status.status_lines(home=tmp_path, now=10.0, reissue_available=True)
     assert not any(line.startswith("diverged") for line in lines)
+    assert "caam selected account: acct-live profile anthropic-2" in lines
 
     other = tmp_path / "other"
     _live(home=other, token=TOKEN, account="acct-z")
     _write(path=other / ".local/share/caam/vault/claude/p/.claude.json", body={})
-    assert "role holder live profile: acct-z" in status.status_lines(
+    assert "role holder live account: acct-z profile -" in status.status_lines(
         home=other, now=10.0, reissue_available=True
     )
 
 
-def test_ssh_runner_hardening_and_failures(*, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ssh_runner_pins_host_keys_to_the_record_and_sends_the_program_on_stdin(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     push = importlib.import_module("caam_delivery_push")
+    record = tmp_path / "known_hosts"
+    _ = record.write_text("good ssh-ed25519 AAAA\n", encoding="utf-8")
     outcomes: dict[str, object] = {
         "ok": subprocess.CompletedProcess([], 0, stdout="x\napplied 3\n", stderr=""),
         "hostkey": subprocess.CompletedProcess(
@@ -225,9 +380,10 @@ def test_ssh_runner_hardening_and_failures(*, monkeypatch: pytest.MonkeyPatch) -
         "slow": subprocess.TimeoutExpired(cmd="ssh", timeout=1),
         "gone": FileNotFoundError("no ssh"),
     }
+    program = "print('applied 3')  # PROGRAM"
 
-    def fake_subprocess(argv: list[str], **_: object) -> object:
-        assert argv[:7] == [
+    def fake_subprocess(argv: list[str], **kwargs: object) -> object:
+        assert argv[:15] == [
             "/usr/bin/ssh",
             "-o",
             "BatchMode=yes",
@@ -235,17 +391,28 @@ def test_ssh_runner_hardening_and_failures(*, monkeypatch: pytest.MonkeyPatch) -
             "ConnectTimeout=8",
             "-o",
             "StrictHostKeyChecking=yes",
+            "-o",
+            f"UserKnownHostsFile={record}",
+            "-o",
+            "GlobalKnownHostsFile=/dev/null",
+            "-i",
+            str(Path("~/k").expanduser()),
+            "-o",
+            "IdentitiesOnly=yes",
         ]
-        assert argv[7] == "-i" and argv[9:12] == ["-o", "IdentitiesOnly=yes", "--"]
-        result = outcomes[argv[12]]
+        assert argv[15] == "--" and argv[17:] == ["python3 -"]
+        assert kwargs["input"] == program and not any("PROGRAM" in arg for arg in argv)
+        result = outcomes[argv[16]]
         if isinstance(result, BaseException):
             raise result
         return result
 
     monkeypatch.setattr(push.subprocess, "run", fake_subprocess)
 
-    def ssh(target: str) -> tuple[int, str]:
-        return push.run_ssh(target=target, script="print(1)", payload="{}", key="~/k", timeout=1.0)
+    def ssh(target: str, known_hosts: Path = record) -> tuple[int, str]:
+        return push.run_ssh(
+            target=target, program=program, key="~/k", known_hosts=str(known_hosts), timeout=1.0
+        )
 
     assert ssh("ok") == (0, "applied 3")
     assert ssh("hostkey") == (255, "failed host-key-verification")
@@ -253,6 +420,7 @@ def test_ssh_runner_hardening_and_failures(*, monkeypatch: pytest.MonkeyPatch) -
     assert ssh("silent") == (0, "failed no-reply")
     assert ssh("slow") == (124, "failed timeout")
     assert ssh("gone") == (255, "failed ssh-unavailable FileNotFoundError")
+    assert ssh("ok", known_hosts=tmp_path / "absent") == (255, "failed no-known-hosts-record")
 
 
 def test_entry_seams_and_main(  # noqa: PLR0915 - one end-to-end scenario per test
@@ -275,7 +443,8 @@ def test_entry_seams_and_main(  # noqa: PLR0915 - one end-to-end scenario per te
         subprocess.TimeoutExpired(cmd="python", timeout=1),
     ]
 
-    def fake_subprocess(argv: list[str], **_: object) -> object:
+    def fake_subprocess(argv: list[str], **kwargs: object) -> object:
+        assert argv == [sys.executable, "-"] and kwargs["input"] == "print(1)"
         result = results.pop(0)
         if isinstance(result, BaseException):
             raise result
@@ -320,7 +489,7 @@ def test_entry_seams_and_main(  # noqa: PLR0915 - one end-to-end scenario per te
     assert loop.last is not None and loop.last.account_id == "acct-3"
     host = push.Host(label="h", target="u@h", platform="linux")
     unavailable = push._reissue(
-        host=host, script=None, run=None, settings=push.load_config(home=tmp_path)
+        host=host, script=None, run=None, settings=push.load_config(home=tmp_path), home=tmp_path
     )
     assert unavailable == "re-issue unavailable"
 
@@ -334,4 +503,5 @@ def test_entry_seams_and_main(  # noqa: PLR0915 - one end-to-end scenario per te
     assert push.load_config(home=tmp_path)["retry_s"] == "soon"
     entry_state = {"last_attempt": 1.0, "attempt_sequence": 1}
     settings = push.load_config(home=tmp_path)
-    assert push._due(entry=entry_state, sequence=1, now=40.0, settings=settings)
+    assert not push._due(entry=entry_state, sequence=1, now=40.0, settings=settings)
+    assert push._due(entry=entry_state, sequence=1, now=61.0, settings=settings)

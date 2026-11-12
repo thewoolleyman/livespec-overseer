@@ -71,10 +71,11 @@ def confirm_live_account(*, access_token: str) -> str | None:
 
 
 def run_local(*, script: str, timeout: float = 15.0) -> str:
-    """Run the re-issue script against this host's own panes; return its last line."""
+    """Run the re-issue script on this host's own panes, fed on stdin; return its last line."""
     try:
         done = subprocess.run(  # noqa: S603 - fixed interpreter, repo-shipped script
-            [sys.executable, "-c", script],
+            [sys.executable, "-"],
+            input=script,
             capture_output=True,
             text=True,
             timeout=timeout,
