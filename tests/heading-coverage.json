@@ -1038,48 +1038,48 @@
     "spec_file": "spec.md",
     "heading": "## LLM provider credential management",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "Owned by the operator-surface implementation slice; the final evidence must exercise the user-observable manager boundary at integration tier."
+    "work_item": "overseer-sqaect",
+    "reason": "overseer-sqaect owes the integration-tier test; the final evidence must exercise the user-observable manager boundary at integration tier. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## The LLM credential-provider operation",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "Owned by the operator-surface implementation slice; the final evidence must cover the shared contract and thin bindings at integration tier."
+    "work_item": "overseer-xpwssp",
+    "reason": "overseer-xpwssp owes the integration-tier test; the final evidence must cover the shared contract and thin bindings at integration tier. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Provisioning writes a credential directly with no manager in the inference path",
     "test": "TODO",
-    "work_item": "overseer-wm7wf4",
-    "reason": "The local cross-repository anchor owns replacement with an integration-tier consumer test after the Dispatcher mirror lands."
+    "work_item": "overseer-cct6gv",
+    "reason": "overseer-cct6gv owes an integration-tier consumer test. Successor test owner to closed overseer-wm7wf4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The spread strategy assigns distinct accounts to simultaneous runs",
     "test": "TODO",
-    "work_item": "overseer-wm7wf4",
-    "reason": "The local cross-repository anchor owns replacement with an integration-tier two-run provisioning test after the Dispatcher mirror lands."
+    "work_item": "overseer-cct6gv",
+    "reason": "overseer-cct6gv owes an integration-tier two-run provisioning test. Successor test owner to closed overseer-wm7wf4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A reported authentication, rate-limit or provider-outage failure prevents reselection",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier test covering report, suspect transition and blocked reselection."
+    "work_item": "overseer-cct6gv",
+    "reason": "overseer-cct6gv owes an integration-tier test covering report, suspect transition and blocked reselection. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An exhausted credential pool fails closed without changing the target",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier refusal test covering the typed result and unchanged target."
+    "work_item": "overseer-cct6gv",
+    "reason": "overseer-cct6gv owes an integration-tier refusal test covering the typed result and unchanged target. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -1094,104 +1094,104 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An incomplete proof record keeps the caam loop available",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns a deterministic integration-tier test over injected clocks and proof evidence; the human-only coexistence item separately collects the real production evidence."
+    "work_item": "overseer-cct6gv",
+    "reason": "overseer-cct6gv owes a deterministic integration-tier test over injected clocks and proof evidence; the human-only coexistence item separately collects the real production evidence. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Proof status before rollout is uniformly false",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier initial-state proof-status test; the human-only coexistence item separately collects the later real production evidence."
+    "work_item": "overseer-cct6gv",
+    "reason": "overseer-cct6gv owes an integration-tier initial-state proof-status test; the human-only coexistence item separately collects the later real production evidence. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Successful provisioning returns a secret-free receipt",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier success test spanning atomic target write and secret-free receipt."
+    "work_item": "overseer-cct6gv",
+    "reason": "overseer-cct6gv owes an integration-tier success test spanning atomic target write and secret-free receipt. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Failed provisioning leaves an existing target byte-identical",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier failure test spanning typed failure and target preservation."
+    "work_item": "overseer-cct6gv",
+    "reason": "overseer-cct6gv owes an integration-tier failure test spanning typed failure and target preservation. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An invalid provisioning request takes no lease and leaves the target unchanged",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier invalid-request test spanning validation, lease avoidance and target preservation."
+    "work_item": "overseer-cct6gv",
+    "reason": "overseer-cct6gv owes an integration-tier invalid-request test spanning validation, lease avoidance and target preservation. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The selection brain reads metadata but no secret value",
     "test": "TODO",
-    "work_item": "overseer-osb7as",
-    "reason": "The SecretStore boundary slice owns an integration-tier privilege test for the two-store split."
+    "work_item": "overseer-cct6gv",
+    "reason": "overseer-cct6gv owes an integration-tier privilege test for the two-store split. Successor test owner to closed overseer-osb7as."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Lifecycle metadata writes use a field-limited capability",
     "test": "TODO",
-    "work_item": "overseer-osb7as",
-    "reason": "The SecretStore boundary slice owns an integration-tier capability test for lifecycle metadata writes, immutable secret references and audit emission."
+    "work_item": "overseer-cct6gv",
+    "reason": "overseer-cct6gv owes an integration-tier capability test for lifecycle metadata writes, immutable secret references and audit emission. Successor test owner to closed overseer-osb7as."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A malformed consumer failure report changes no credential state",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier malformed-report test proving typed refusal and unchanged state."
+    "work_item": "overseer-cct6gv",
+    "reason": "overseer-cct6gv owes an integration-tier malformed-report test proving typed refusal and unchanged state. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An age-stale valid credential is revalidated before exhaustion",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier request-time revalidation test covering success, failure and fail-closed provisioning."
+    "work_item": "overseer-cct6gv",
+    "reason": "overseer-cct6gv owes an integration-tier request-time revalidation test covering success, failure and fail-closed provisioning. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A token-store write invalidates cache and appends a secret-free audit entry",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The cache and lifecycle slice owns an integration-tier test spanning invalidation and secret-free audit behavior."
+    "work_item": "overseer-eg3iex",
+    "reason": "overseer-eg3iex owes an integration-tier test spanning invalidation and secret-free audit behavior. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Account rotation publishes identity while credential management provisions separately",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier boundary test proving identity publication and credential provisioning remain separate."
+    "work_item": "overseer-eg3iex",
+    "reason": "overseer-eg3iex owes an integration-tier boundary test proving identity publication and credential provisioning remain separate. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Consume-first selection preserves capacity reserved for another purpose",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier test of consume-first ordering and cross-purpose capacity preservation."
+    "work_item": "overseer-eg3iex",
+    "reason": "overseer-eg3iex owes an integration-tier test of consume-first ordering and cross-purpose capacity preservation. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Concurrent acquisition for one provider account is serialized",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The acquisition and provisioning slice owns an integration-tier concurrency test proving account-scoped serialization and atomic complete records."
+    "work_item": "overseer-eg3iex",
+    "reason": "overseer-eg3iex owes an integration-tier concurrency test proving account-scoped serialization and atomic complete records. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -1206,264 +1206,264 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A live lease makes its account ineligible",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier live-lease eligibility test proving assignments are neither shared nor prematurely released."
+    "work_item": "overseer-eg3iex",
+    "reason": "overseer-eg3iex owes an integration-tier live-lease eligibility test proving assignments are neither shared nor prematurely released. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Lease-record transaction contention retries selection without blocking",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier LOCK_NB contention test proving lease transaction serialization retries without waiting or sharing."
+    "work_item": "overseer-eg3iex",
+    "reason": "overseer-eg3iex owes an integration-tier LOCK_NB contention test proving lease transaction serialization retries without waiting or sharing. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A changed authoritative record is abandoned before provisioning",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier race test proving the cache-bypassing authoritative re-read prevents stale provisioning."
+    "work_item": "overseer-eg3iex",
+    "reason": "overseer-eg3iex owes an integration-tier race test proving the cache-bypassing authoritative re-read prevents stale provisioning. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unavailable provisionable-token store returns a typed failure without changing the target",
     "test": "TODO",
-    "work_item": "overseer-osb7as",
-    "reason": "The SecretStore boundary slice owns an integration-tier availability test covering the typed failure and unchanged target."
+    "work_item": "overseer-eg3iex",
+    "reason": "overseer-eg3iex owes an integration-tier availability test covering the typed failure and unchanged target. Successor test owner to closed overseer-osb7as."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Repeating one consumer failure report is idempotent",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier duplicate-report test proving the exact idempotency key causes no second transition."
+    "work_item": "overseer-gjiflf",
+    "reason": "overseer-gjiflf owes an integration-tier duplicate-report test proving the exact idempotency key causes no second transition. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An authentication report invalidates its generation-safe process cache",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle and cache slice owns an integration-tier multi-instance invalidation test ordered before report acknowledgement."
+    "work_item": "overseer-gjiflf",
+    "reason": "overseer-gjiflf owes an integration-tier multi-instance invalidation test ordered before report acknowledgement. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A cache failure falls back to the store without admitting an unvalidated credential",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The cache and selection slice owns an integration-tier fallback test proving store degradation remains fail-closed for validation."
+    "work_item": "overseer-gjiflf",
+    "reason": "overseer-gjiflf owes an integration-tier fallback test proving store degradation remains fail-closed for validation. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The lifecycle table determines every credential state transition",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier table test proving every declared event and the no-unlisted-transition control."
+    "work_item": "overseer-gjiflf",
+    "reason": "overseer-gjiflf owes an integration-tier table test proving every declared event and the no-unlisted-transition control. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unknown consumer report releases the lease without changing lifecycle state",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier unknown-report test covering status preservation, lease release and proof that the report neither synthesizes nor modifies a provider health observation."
+    "work_item": "overseer-gjiflf",
+    "reason": "overseer-gjiflf owes an integration-tier unknown-report test covering status preservation, lease release and proof that the report neither synthesizes nor modifies a provider health observation. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The consumer wire protocol emits one typed secret-free result",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier executable test spanning JSON framing, exact result shape, exit mapping and secret exclusion."
+    "work_item": "overseer-gjiflf",
+    "reason": "overseer-gjiflf owes an integration-tier executable test spanning JSON framing, exact result shape, exit mapping and secret exclusion. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Manager state and provisioned targets enforce private permissions",
     "test": "TODO",
-    "work_item": "overseer-osb7as",
-    "reason": "The SecretStore boundary slice owns an integration-tier filesystem-permission test across local manager state and an isolated target."
+    "work_item": "overseer-gjiflf",
+    "reason": "overseer-gjiflf owes an integration-tier filesystem-permission test across local manager state and an isolated target. Successor test owner to closed overseer-osb7as."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Repeating one live provisioning request is idempotent",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier retry test proving same-request replay and conflicting consumer identity refusal."
+    "work_item": "overseer-gjiflf",
+    "reason": "overseer-gjiflf owes an integration-tier retry test proving same-request replay and conflicting consumer identity refusal. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Unreadable or below-floor shared usage excludes an account",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier provider-health test proving unreadable and below-floor observations exclude an account."
+    "work_item": "overseer-gjiflf",
+    "reason": "overseer-gjiflf owes an integration-tier provider-health test proving unreadable and below-floor observations exclude an account. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Consume-first selects and replaces its incumbent deterministically",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier ordering test spanning incumbent retention, lexical initialization and the ineligibility transition."
+    "work_item": "overseer-gjiflf",
+    "reason": "overseer-gjiflf owes an integration-tier ordering test spanning incumbent retention, lexical initialization and the ineligibility transition. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Spread selects the least recently assigned record deterministically",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier ordering test for least-recent assignment and the lexical tie-break."
+    "work_item": "overseer-gjiflf",
+    "reason": "overseer-gjiflf owes an integration-tier ordering test for least-recent assignment and the lexical tie-break. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Failed provisioning releases its account lease immediately",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier failure test proving lease release is ordered before the typed failure returns."
+    "work_item": "overseer-gjiflf",
+    "reason": "overseer-gjiflf owes an integration-tier failure test proving lease release is ordered before the typed failure returns. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Explicit lease release is idempotent",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier release test proving eligibility restoration, idempotency and isolation from other leases."
+    "work_item": "overseer-fzkotk",
+    "reason": "overseer-fzkotk owes an integration-tier release test proving eligibility restoration, idempotency and isolation from other leases. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Secret-free completion evidence updates the coexistence proof",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier completion-wire test covering proof updates, lease release and idempotent replay."
+    "work_item": "overseer-fzkotk",
+    "reason": "overseer-fzkotk owes an integration-tier completion-wire test covering proof updates, lease release and idempotent replay. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A classified report against a non-valid record has a defined effect",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier state-matrix test for classified reports across every non-valid state and lease effect."
+    "work_item": "overseer-fzkotk",
+    "reason": "overseer-fzkotk owes an integration-tier state-matrix test for classified reports across every non-valid state and lease effect. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An internal bug before a known target commit follows commit fencing",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier injected-bug test proving pre-commit target preservation and lease release."
+    "work_item": "overseer-fzkotk",
+    "reason": "overseer-fzkotk owes an integration-tier injected-bug test proving pre-commit target preservation and lease release. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An internal bug after provisioning commit preserves retry recovery",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier injected-bug test proving a committed assignment is recoverable by idempotent request replay."
+    "work_item": "overseer-fzkotk",
+    "reason": "overseer-fzkotk owes an integration-tier injected-bug test proving a committed assignment is recoverable by idempotent request replay. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Overlapping spread receipts record the simultaneous proof",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier proof-record test over two successful overlapping spread provisions."
+    "work_item": "overseer-fzkotk",
+    "reason": "overseer-fzkotk owes an integration-tier proof-record test over two successful overlapping spread provisions. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The default empty reservation map reserves no account",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier configuration-default test proving omitted purpose reservations exclude no account."
+    "work_item": "overseer-eg3iex",
+    "reason": "overseer-eg3iex owes an integration-tier configuration-default test proving omitted purpose reservations exclude no account. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Expired credential material becomes dead without revalidation",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier expiry test across every value-bearing non-dead state."
+    "work_item": "overseer-eg3iex",
+    "reason": "overseer-eg3iex owes an integration-tier expiry test across every value-bearing non-dead state. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A record invariant violation is refused or excluded",
     "test": "TODO",
-    "work_item": "overseer-osb7as",
-    "reason": "The SecretStore boundary slice owns an integration-tier invariant test covering write refusal, read exclusion and a valid-record control."
+    "work_item": "overseer-eg3iex",
+    "reason": "overseer-eg3iex owes an integration-tier invariant test covering write refusal, read exclusion and a valid-record control. Successor test owner to closed overseer-osb7as."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Out-of-range validation worker and cache configuration fails before access",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle and cache slice owns an integration-tier validation-age, probe, acquisition-worker and cache-boundary test proving fail-closed ordering before external access."
+    "work_item": "overseer-eg3iex",
+    "reason": "overseer-eg3iex owes an integration-tier validation-age, probe, acquisition-worker and cache-boundary test proving fail-closed ordering before external access. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Lease expiry restores account eligibility",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier injected-clock test proving crashed-consumer lease recovery."
+    "work_item": "overseer-eg3iex",
+    "reason": "overseer-eg3iex owes an integration-tier injected-clock test proving crashed-consumer lease recovery. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An out-of-range lease bound acquires no lease",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier request-boundary test ordered before target, selection and lease effects."
+    "work_item": "overseer-eg3iex",
+    "reason": "overseer-eg3iex owes an integration-tier request-boundary test ordered before target, selection and lease effects. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Conflicting completion evidence preserves proof and lease state",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier completion-conflict test proving both durable records remain unchanged."
+    "work_item": "overseer-eg3iex",
+    "reason": "overseer-eg3iex owes an integration-tier completion-conflict test proving both durable records remain unchanged. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A dash JSON path reads exactly one object from standard input",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier stdin framing test for every consumer command."
+    "work_item": "overseer-fzkotk",
+    "reason": "overseer-fzkotk owes an integration-tier stdin framing test for every consumer command. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Malformed consumer JSON maps to its command-specific error",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier strict-parser matrix covering trailing input, unknown fields, malformed JSON and error mapping."
+    "work_item": "overseer-fzkotk",
+    "reason": "overseer-fzkotk owes an integration-tier strict-parser matrix covering trailing input, unknown fields, malformed JSON and error mapping. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Omitted manager bounds use their contract defaults",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle and cache slice owns an integration-tier omitted-configuration test pinning every observable request and manager default."
+    "work_item": "overseer-fzkotk",
+    "reason": "overseer-fzkotk owes an integration-tier omitted-configuration test pinning every observable request and manager default. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Every supported harness exposes one lockstep manager operation",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier harness-and-manifest test proving availability and version lockstep."
+    "work_item": "overseer-fzkotk",
+    "reason": "overseer-fzkotk owes an integration-tier harness-and-manifest test proving availability and version lockstep. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -1478,368 +1478,368 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Manager backends and browser control run in the isolated interpreter",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier isolated-interpreter exercise spanning the executable, backend and CDP path."
+    "work_item": "overseer-fzkotk",
+    "reason": "overseer-fzkotk owes an integration-tier isolated-interpreter exercise spanning the executable, backend and CDP path. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An issued target reference cannot be reassigned",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier immutable-binding refusal with unchanged-state controls."
+    "work_item": "overseer-fzkotk",
+    "reason": "overseer-fzkotk owes an integration-tier immutable-binding refusal with unchanged-state controls. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Concurrent writes to one target reference serialize",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier concurrency test proving per-reference serialization and complete durable output."
+    "work_item": "overseer-l4mtlv",
+    "reason": "overseer-l4mtlv owes an integration-tier concurrency test proving per-reference serialization and complete durable output. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Process interruption preserves prior target bytes",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier kill test proving interrupted atomic replacement preserves prior bytes."
+    "work_item": "overseer-l4mtlv",
+    "reason": "overseer-l4mtlv owes an integration-tier kill test proving interrupted atomic replacement preserves prior bytes. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A provisioning request drives suspect and dead credential recovery",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier recovery test spanning synchronous suspect revalidation, serialized dead replacement and fail-closed exhaustion."
+    "work_item": "overseer-l4mtlv",
+    "reason": "overseer-l4mtlv owes an integration-tier recovery test spanning synchronous suspect revalidation, serialized dead replacement and fail-closed exhaustion. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Non-qualifying completion evidence cannot advance coexistence proof",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier negative-evidence matrix proving the coexistence gate advances only on qualifying production completion."
+    "work_item": "overseer-l4mtlv",
+    "reason": "overseer-l4mtlv owes an integration-tier negative-evidence matrix proving the coexistence gate advances only on qualifying production completion. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Invalid purpose reservations fail before external access",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier configuration-shape test proving empty or malformed reservations fail before external effects."
+    "work_item": "overseer-l4mtlv",
+    "reason": "overseer-l4mtlv owes an integration-tier configuration-shape test proving empty or malformed reservations fail before external effects. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Unassigned consumer messages cannot mutate another assignment",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier assignment-ownership matrix across report, complete and release."
+    "work_item": "overseer-l4mtlv",
+    "reason": "overseer-l4mtlv owes an integration-tier assignment-ownership matrix across report, complete and release. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A closed consumer run identity cannot be reused",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier one-use identity test across the 30-day tombstone retention and its bounded cleanup."
+    "work_item": "overseer-l4mtlv",
+    "reason": "overseer-l4mtlv owes an integration-tier one-use identity test across the 30-day tombstone retention and its bounded cleanup. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A same-day success starts a new soak after authentication failure",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier injected-clock proof-record test that distinguishes two events on one UTC date by their exact timestamps."
+    "work_item": "overseer-cct6gv",
+    "reason": "overseer-cct6gv owes an integration-tier injected-clock proof-record test that distinguishes two events on one UTC date by their exact timestamps. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An inconclusive validation probe does not kill a credential",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier provider-probe outcome matrix proving transient infrastructure outcomes cannot become definitive credential rejection."
+    "work_item": "overseer-gjiflf",
+    "reason": "overseer-gjiflf owes an integration-tier provider-probe outcome matrix proving transient infrastructure outcomes cannot become definitive credential rejection. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The default health strategy performs no usage observation",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier default-strategy test with a health-adapter spy proving no observation or health exclusion occurs."
+    "work_item": "overseer-gjiflf",
+    "reason": "overseer-gjiflf owes an integration-tier default-strategy test with a health-adapter spy proving no observation or health exclusion occurs. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A domain provisioning failure leaves its run identity reusable",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier failure-matrix test proving only a committed assignment consumes the logical run identity."
+    "work_item": "overseer-gjiflf",
+    "reason": "overseer-gjiflf owes an integration-tier failure-matrix test proving only a committed assignment consumes the logical run identity. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Manager configuration and state use one invoker-independent home",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle and cache slice owns an integration-tier environment-matrix test pinning invoker-independent account-database-home path resolution."
+    "work_item": "overseer-fzkotk",
+    "reason": "overseer-fzkotk owes an integration-tier environment-matrix test pinning invoker-independent account-database-home path resolution. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A consumer obtains a run-bound target reference before provisioning",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier target-issuance test covering adapter selection, run binding, expiry and secret-free output."
+    "work_item": "overseer-fzkotk",
+    "reason": "overseer-fzkotk owes an integration-tier target-issuance test covering adapter selection, run binding, expiry and secret-free output. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Concurrent target issuance refuses one shared destination",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier cross-run destination-lock race proving exactly one issuance can bind a canonical target path."
+    "work_item": "overseer-fzkotk",
+    "reason": "overseer-fzkotk owes an integration-tier cross-run destination-lock race proving exactly one issuance can bind a canonical target path. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Invalid manager configuration fails before every external access",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle and cache slice owns an integration-tier configuration-validation matrix with spies for every forbidden external access."
+    "work_item": "overseer-l4mtlv",
+    "reason": "overseer-l4mtlv owes an integration-tier configuration-validation matrix with spies for every forbidden external access. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A health remainder equal to the configured floor stays eligible",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier inclusive-boundary test for remaining-percent eligibility."
+    "work_item": "overseer-l4mtlv",
+    "reason": "overseer-l4mtlv owes an integration-tier inclusive-boundary test for remaining-percent eligibility. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Provider-observer access failure excludes only its candidate",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier provider-observer failure matrix proving unavailable health excludes only one candidate without leaking backend detail."
+    "work_item": "overseer-l4mtlv",
+    "reason": "overseer-l4mtlv owes an integration-tier provider-observer failure matrix proving unavailable health excludes only one candidate without leaking backend detail. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A disabled target adapter cannot issue a reference",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier target-command refusal test with an adapter spy and issuance-record control."
+    "work_item": "overseer-l4mtlv",
+    "reason": "overseer-l4mtlv owes an integration-tier target-command refusal test with an adapter spy and issuance-record control. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Disabling a target adapter refuses fresh provision but preserves recovery",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier configuration-change test separating fresh provision refusal from durable recovery and replay."
+    "work_item": "overseer-l4mtlv",
+    "reason": "overseer-l4mtlv owes an integration-tier configuration-change test separating fresh provision refusal from durable recovery and replay. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An absent or expired target reference is refused before selection",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier injected-clock target-reference matrix proving refusal precedes selection, lease and write effects."
+    "work_item": "overseer-l4mtlv",
+    "reason": "overseer-l4mtlv owes an integration-tier injected-clock target-reference matrix proving refusal precedes selection, lease and write effects. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An out-of-order completion cannot rewrite the current soak",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier injected-clock proof writer test for out-of-order completion evidence."
+    "work_item": "overseer-l4mtlv",
+    "reason": "overseer-l4mtlv owes an integration-tier injected-clock proof writer test for out-of-order completion evidence. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A late authentication report before the soak does not clear it",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier injected-clock proof writer test spanning event-time clearing and monotonic failure time."
+    "work_item": "overseer-l4mtlv",
+    "reason": "overseer-l4mtlv owes an integration-tier injected-clock proof writer test spanning event-time clearing and monotonic failure time. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Seven consecutive dates complete a soak with no authentication failure",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier proof-reader test for the null-failure seven-day completion boundary."
+    "work_item": "overseer-fkgrsf",
+    "reason": "overseer-fkgrsf owes an integration-tier proof-reader test for the null-failure seven-day completion boundary. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A well-formed purpose reservation filters only its account",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier nested-configuration test proving exact provider, account and purpose interpretation with an unreserved control."
+    "work_item": "overseer-fkgrsf",
+    "reason": "overseer-fkgrsf owes an integration-tier nested-configuration test proving exact provider, account and purpose interpretation with an unreserved control. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Purpose names do not restrict a registered credential kind",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier purpose-validation matrix proving the conventional and reserved names carry no hidden registry restriction."
+    "work_item": "overseer-fkgrsf",
+    "reason": "overseer-fkgrsf owes an integration-tier purpose-validation matrix proving the conventional and reserved names carry no hidden registry restriction. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A completion before the latest authentication failure cannot start a soak",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier event-time proof-writer test for late pre-failure evidence."
+    "work_item": "overseer-fkgrsf",
+    "reason": "overseer-fkgrsf owes an integration-tier event-time proof-writer test for late pre-failure evidence. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A completion on the next UTC date extends the soak",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier injected-calendar test for consecutive-date append."
+    "work_item": "overseer-fkgrsf",
+    "reason": "overseer-fkgrsf owes an integration-tier injected-calendar test for consecutive-date append. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Another completion on the latest soak date is a dated no-op",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier proof-writer idempotency test for a repeated UTC date."
+    "work_item": "overseer-fkgrsf",
+    "reason": "overseer-fkgrsf owes an integration-tier proof-writer idempotency test for a repeated UTC date. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A nonconsecutive completion starts a new dated soak",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier injected-calendar test proving a date gap resets both dated fields."
+    "work_item": "overseer-fkgrsf",
+    "reason": "overseer-fkgrsf owes an integration-tier injected-calendar test proving a date gap resets both dated fields. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A required persistence failure is not acknowledged as success",
     "test": "TODO",
-    "work_item": "overseer-osb7as",
-    "reason": "The SecretStore boundary slice owns an integration-tier failure-injection matrix across audit, provisionable-token and manager-local persistence with prior-state controls."
+    "work_item": "overseer-fkgrsf",
+    "reason": "overseer-fkgrsf owes an integration-tier failure-injection matrix across audit, provisionable-token and manager-local persistence with prior-state controls. Successor test owner to closed overseer-osb7as."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An ambiguous conditional metadata write is authoritatively reconciled",
     "test": "TODO",
-    "work_item": "overseer-osb7as",
-    "reason": "The SecretStore boundary slice owns an integration-tier deadline-after-commit matrix with adapter termination and authoritative reread controls."
+    "work_item": "overseer-fkgrsf",
+    "reason": "overseer-fkgrsf owes an integration-tier deadline-after-commit matrix with adapter termination and authoritative reread controls. Successor test owner to closed overseer-osb7as."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A committed effect survives a missing completion marker without duplication",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle and state slice owns an integration-tier crash-after-effect replay matrix across audit, issuance and local postconditions."
+    "work_item": "overseer-fkgrsf",
+    "reason": "overseer-fkgrsf owes an integration-tier crash-after-effect replay matrix across audit, issuance and local postconditions. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unsafe isolated-run registration cannot issue a target",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier registration-validation matrix with issuance-record and target-byte controls."
+    "work_item": "overseer-fkgrsf",
+    "reason": "overseer-fkgrsf owes an integration-tier registration-validation matrix with issuance-record and target-byte controls. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Retry discards an uncommitted prepared assignment",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier crash-boundary test between prepared persistence and target commit."
+    "work_item": "overseer-fkgrsf",
+    "reason": "overseer-fkgrsf owes an integration-tier crash-boundary test between prepared persistence and target commit. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Target commit evidence closes the atomic-replace crash window",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier crash-boundary matrix proving durable target evidence distinguishes committed and uncommitted recovery outcomes."
+    "work_item": "overseer-fkgrsf",
+    "reason": "overseer-fkgrsf owes an integration-tier crash-boundary matrix proving durable target evidence distinguishes committed and uncommitted recovery outcomes. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An interrupted report resumes before duplicate acknowledgement",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier write-ahead recovery test across token and manager-local state."
+    "work_item": "overseer-fkgrsf",
+    "reason": "overseer-fkgrsf owes an integration-tier write-ahead recovery test across token and manager-local state. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Failed provisioning cleanup can hold only through recovery or expiry",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier cleanup-failure test with injected persistence and clock boundaries."
+    "work_item": "overseer-fkgrsf",
+    "reason": "overseer-fkgrsf owes an integration-tier cleanup-failure test with injected persistence and clock boundaries. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed store mutation leaves its attempted audit evidence",
     "test": "TODO",
-    "work_item": "overseer-osb7as",
-    "reason": "The SecretStore boundary slice owns an integration-tier audit/store failure test proving attempt semantics and append-only preservation."
+    "work_item": "overseer-ih2egh",
+    "reason": "overseer-ih2egh owes an integration-tier audit/store failure test proving attempt semantics and append-only preservation. Successor test owner to closed overseer-osb7as."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Post-commit retry completes simultaneous-spread proof",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier post-commit interruption test for idempotent proof-effect replay."
+    "work_item": "overseer-ih2egh",
+    "reason": "overseer-ih2egh owes an integration-tier post-commit interruption test for idempotent proof-effect replay. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A late report for a replaced value does not suspect the replacement",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier generation-mismatch report test with lifecycle, cache, lease and proof controls."
+    "work_item": "overseer-ih2egh",
+    "reason": "overseer-ih2egh owes an integration-tier generation-mismatch report test with lifecycle, cache, lease and proof controls. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A concurrent retry cannot discard an in-flight target write",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier concurrency test across the adapter write lock, tri-state status and prepared record."
+    "work_item": "overseer-ih2egh",
+    "reason": "overseer-ih2egh owes an integration-tier concurrency test across the adapter write lock, tri-state status and prepared record. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An uncommitted or nonoverlapping peer cannot satisfy spread proof",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier negative proof-candidate matrix over committed status and retained lease intervals."
+    "work_item": "overseer-ih2egh",
+    "reason": "overseer-ih2egh owes an integration-tier negative proof-candidate matrix over committed status and retained lease intervals. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Report retry compares against a replaced value again",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier interrupted-report compare-and-set test with replacement, lease and proof controls."
+    "work_item": "overseer-ih2egh",
+    "reason": "overseer-ih2egh owes an integration-tier interrupted-report compare-and-set test with replacement, lease and proof controls. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A crashed revalidation returns the record to suspect",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier worker-liveness recovery test for revalidation."
+    "work_item": "overseer-ih2egh",
+    "reason": "overseer-ih2egh owes an integration-tier worker-liveness recovery test for revalidation. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -1854,24 +1854,24 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Revalidation skips leased or reserved-away accounts",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier lease, reservation and health-filter matrix before provider validation."
+    "work_item": "overseer-ih2egh",
+    "reason": "overseer-ih2egh owes an integration-tier lease, reservation and health-filter matrix before provider validation. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Concurrent requests serialize revalidation of one record",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier concurrent request test with a provider-validation spy."
+    "work_item": "overseer-ih2egh",
+    "reason": "overseer-ih2egh owes an integration-tier concurrent request test with a provider-validation spy. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A concurrent report defeats a revalidation success",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier interleaving test for the authoritative post-validation status guard."
+    "work_item": "overseer-ih2egh",
+    "reason": "overseer-ih2egh owes an integration-tier interleaving test for the authoritative post-validation status guard. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -1886,56 +1886,56 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Spread orders a never-assigned record before assigned records",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier missing-timestamp ordering test with the lexical tie-break."
+    "work_item": "overseer-ih2egh",
+    "reason": "overseer-ih2egh owes an integration-tier missing-timestamp ordering test with the lexical tie-break. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Target commit persists selection ordering state",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier atomic selection-state persistence test across assignment time and incumbent."
+    "work_item": "overseer-ih2egh",
+    "reason": "overseer-ih2egh owes an integration-tier atomic selection-state persistence test across assignment time and incumbent. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A corrected request cannot overwrite pending provisioning state",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier pending-state conflict test before target, selection and lease effects."
+    "work_item": "overseer-ih2egh",
+    "reason": "overseer-ih2egh owes an integration-tier pending-state conflict test before target, selection and lease effects. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Expired post-commit recovery preserves effects without returning a receipt",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier injected-expiry post-commit replay test covering effects, tombstone and typed refusal."
+    "work_item": "overseer-ih2egh",
+    "reason": "overseer-ih2egh owes an integration-tier injected-expiry post-commit replay test covering effects, tombstone and typed refusal. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A target write cannot commit after its account lease expires",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier commit-boundary clock test with prior-target and account-eligibility controls."
+    "work_item": "overseer-ih2egh",
+    "reason": "overseer-ih2egh owes an integration-tier commit-boundary clock test with prior-target and account-eligibility controls. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Syntactically rejected input does not trigger unrelated worker recovery",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier command-ordering test across validation, recovery and unchanged-state controls."
+    "work_item": "overseer-5g5uzg",
+    "reason": "overseer-5g5uzg owes an integration-tier command-ordering test across validation, recovery and unchanged-state controls. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Process identifier reuse cannot impersonate a stopped worker",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier proc-liveness test distinguishing PID identity by start ticks."
+    "work_item": "overseer-5g5uzg",
+    "reason": "overseer-5g5uzg owes an integration-tier proc-liveness test distinguishing PID identity by start ticks. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -1990,8 +1990,8 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Recovery cleans a worker record left after lifecycle completion",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier crash-between-ordered-effects test that preserves the committed value and state."
+    "work_item": "overseer-5g5uzg",
+    "reason": "overseer-5g5uzg owes an integration-tier crash-between-ordered-effects test that preserves the committed value and state. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -2022,40 +2022,40 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Corrected target input proceeds after validation refusal",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier refusal-then-correction test proving validation precedes write-ahead state."
+    "work_item": "overseer-5g5uzg",
+    "reason": "overseer-5g5uzg owes an integration-tier refusal-then-correction test proving validation precedes write-ahead state. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Missing manager-local records have exact initial state",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection and lifecycle slice owns an integration-tier first-use test for exact selection and proof initial objects."
+    "work_item": "overseer-5g5uzg",
+    "reason": "overseer-5g5uzg owes an integration-tier first-use test for exact selection and proof initial objects. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Unsafe manager-local records fail closed without reset",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection and lifecycle slice owns an integration-tier malformed-path and permission matrix with unchanged-file controls."
+    "work_item": "overseer-5g5uzg",
+    "reason": "overseer-5g5uzg owes an integration-tier malformed-path and permission matrix with unchanged-file controls. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Attention output is exact and path-sorted",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier multi-artifact wire-shape and deterministic-order test."
+    "work_item": "overseer-5g5uzg",
+    "reason": "overseer-5g5uzg owes an integration-tier multi-artifact wire-shape and deterministic-order test. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Unreadable attention state returns a typed failure",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier attention read-failure test over the common error object and exit code."
+    "work_item": "overseer-5g5uzg",
+    "reason": "overseer-5g5uzg owes an integration-tier attention read-failure test over the common error object and exit code. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -2070,16 +2070,16 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Manager invocation failures use the closed error mapping",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier CLI parser matrix across all seven commands, typed failures and exits."
+    "work_item": "overseer-5g5uzg",
+    "reason": "overseer-5g5uzg owes an integration-tier CLI parser matrix across all seven commands, typed failures and exits. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The coexistence proof schema retains its first qualifying evidence",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier exact-schema and first-writer proof-record test; the human-only item separately collects real evidence."
+    "work_item": "overseer-5g5uzg",
+    "reason": "overseer-5g5uzg owes an integration-tier exact-schema and first-writer proof-record test; the human-only item separately collects real evidence. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -2102,8 +2102,8 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Account-lock acquisition rescans a worker lost after global recovery",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier barrier-controlled worker-death race test across global recovery, account-lock acquisition and replacement launch."
+    "work_item": "overseer-5g5uzg",
+    "reason": "overseer-5g5uzg owes an integration-tier barrier-controlled worker-death race test across global recovery, account-lock acquisition and replacement launch. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -2118,64 +2118,64 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Unconfirmed worker termination stops command recovery",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier injected-termination-failure test over fencing, typed refusal and operation suppression."
+    "work_item": "overseer-5g5uzg",
+    "reason": "overseer-5g5uzg owes an integration-tier injected-termination-failure test over fencing, typed refusal and operation suppression. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Explicit provisioning defaults are identical on retry",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier normalized-request equality test across omitted and explicit defaults."
+    "work_item": "overseer-5g5uzg",
+    "reason": "overseer-5g5uzg owes an integration-tier normalized-request equality test across omitted and explicit defaults. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Manager-local transaction records use exact versioned shapes",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier round-trip schema matrix across every identity-derived manager-local transaction file."
+    "work_item": "overseer-5g5uzg",
+    "reason": "overseer-5g5uzg owes an integration-tier round-trip schema matrix across every identity-derived manager-local transaction file. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A report after lease expiry uses retained assignment evidence",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier late-report test across tombstone value generation, proof effects and duplicate replay."
+    "work_item": "overseer-5g5uzg",
+    "reason": "overseer-5g5uzg owes an integration-tier late-report test across tombstone value generation, proof effects and duplicate replay. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Lease release deletes the live lease record",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier lease-end matrix proving atomic deletion and retained interval evidence."
+    "work_item": "overseer-3vslbr",
+    "reason": "overseer-3vslbr owes an integration-tier lease-end matrix proving atomic deletion and retained interval evidence. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A conflicting completion cannot pass pending completion state",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier completion crash-and-conflict test under per-run serialization."
+    "work_item": "overseer-3vslbr",
+    "reason": "overseer-3vslbr owes an integration-tier completion crash-and-conflict test under per-run serialization. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A live mismatched revalidation worker does not block later candidates",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier concurrent-report and candidate-loop progress test."
+    "work_item": "overseer-3vslbr",
+    "reason": "overseer-3vslbr owes an integration-tier concurrent-report and candidate-loop progress test. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Provider probe timeout bounds synchronous revalidation",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier injected-clock probe timeout and worker-deadline recovery test."
+    "work_item": "overseer-3vslbr",
+    "reason": "overseer-3vslbr owes an integration-tier injected-clock probe timeout and worker-deadline recovery test. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -2190,16 +2190,16 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Target retry returns its existing issuance",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier lost-response retry test after issuance creation and registration consumption."
+    "work_item": "overseer-3vslbr",
+    "reason": "overseer-3vslbr owes an integration-tier lost-response retry test after issuance creation and registration consumption. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An expired unbound target issuance is retained and never reissued",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier expired unbound issuance refusal and non-reissuance test."
+    "work_item": "overseer-3vslbr",
+    "reason": "overseer-3vslbr owes an integration-tier expired unbound issuance refusal and non-reissuance test. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -2214,80 +2214,80 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Tombstone-first close survives an assignment-removal crash",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier close-order crash test preventing run identity reuse."
+    "work_item": "overseer-3vslbr",
+    "reason": "overseer-3vslbr owes an integration-tier close-order crash test preventing run identity reuse. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Out-of-interval consumer evidence is refused without proof mutation",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier event-time boundary matrix over report and completion state preservation."
+    "work_item": "overseer-3vslbr",
+    "reason": "overseer-3vslbr owes an integration-tier event-time boundary matrix over report and completion state preservation. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A matching live revalidation worker is awaited only to its deadline",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier shared-worker wait and authoritative-reread test with an injected deadline."
+    "work_item": "overseer-3vslbr",
+    "reason": "overseer-3vslbr owes an integration-tier shared-worker wait and authoritative-reread test with an injected deadline. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Completion after lease end uses the retained tombstone",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier post-expiry completion test over proof, duplicate and conflict behavior."
+    "work_item": "overseer-3vslbr",
+    "reason": "overseer-3vslbr owes an integration-tier post-expiry completion test over proof, duplicate and conflict behavior. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A pending close is resumed before another run command",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier cross-command close recovery and corrupt-multiplicity test."
+    "work_item": "overseer-3vslbr",
+    "reason": "overseer-3vslbr owes an integration-tier cross-command close recovery and corrupt-multiplicity test. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Retried close keeps its original acceptance time",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier delayed-retry clock test proving interval times do not drift."
+    "work_item": "overseer-3vslbr",
+    "reason": "overseer-3vslbr owes an integration-tier delayed-retry clock test proving interval times do not drift. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Selection history and tombstones remain retained",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier indefinite-retention test preserving the tombstone, target binding and assignment ordering."
+    "work_item": "overseer-3vslbr",
+    "reason": "overseer-3vslbr owes an integration-tier indefinite-retention test preserving the tombstone, target binding and assignment ordering. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Dead credential records and values remain retained",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier retention test proving that dead credential metadata and every referenced or unreferenced values-vault generation are never deleted or pruned by a manager command."
+    "work_item": "overseer-3vslbr",
+    "reason": "overseer-3vslbr owes an integration-tier retention test proving that dead credential metadata and every referenced or unreferenced values-vault generation are never deleted or pruned by a manager command. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Shared selection and proof updates cannot lose concurrent evidence",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier concurrent read-modify-write test across both global state files."
+    "work_item": "overseer-3vslbr",
+    "reason": "overseer-3vslbr owes an integration-tier concurrent read-modify-write test across both global state files. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Expired assignment closure is resumable and identity-safe",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier expiration crash and lease-identity test under per-run serialization."
+    "work_item": "overseer-fkpevs",
+    "reason": "overseer-fkpevs owes an integration-tier expiration crash and lease-identity test under per-run serialization. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -2310,56 +2310,56 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Prepared-only assignments reject consumer lifecycle commands",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier report, complete and release refusal matrix with byte-identical prepared controls."
+    "work_item": "overseer-fkpevs",
+    "reason": "overseer-fkpevs owes an integration-tier report, complete and release refusal matrix with byte-identical prepared controls. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Authoritative reread abandonment restarts provision durably",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier changed-record cleanup and fresh-operation retry test."
+    "work_item": "overseer-fkpevs",
+    "reason": "overseer-fkpevs owes an integration-tier changed-record cleanup and fresh-operation retry test. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A crashed provision with a lost pre-assignment lease restarts selection",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier crash test covering an expired or replaced lease between lease-create and prepared-assignment-create."
+    "work_item": "overseer-fkpevs",
+    "reason": "overseer-fkpevs owes an integration-tier crash test covering an expired or replaced lease between lease-create and prepared-assignment-create. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Target-committed prepared expiry completes both recovery phases",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier postcommit-then-expire crash recovery test with typed no-receipt refusal."
+    "work_item": "overseer-fkpevs",
+    "reason": "overseer-fkpevs owes an integration-tier postcommit-then-expire crash recovery test with typed no-receipt refusal. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Lease timestamps derive once from lease creation",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier deterministic lease-clock, retry preservation and assignment-time test."
+    "work_item": "overseer-fkpevs",
+    "reason": "overseer-fkpevs owes an integration-tier deterministic lease-clock, retry preservation and assignment-time test. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Consume-first revalidates its stale incumbent first",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier stale-incumbent ordering test for consume-first recovery."
+    "work_item": "overseer-fkpevs",
+    "reason": "overseer-fkpevs owes an integration-tier stale-incumbent ordering test for consume-first recovery. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Spread revalidation preserves least-recently-assigned order",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier stale-candidate ordering test for spread recovery."
+    "work_item": "overseer-fkpevs",
+    "reason": "overseer-fkpevs owes an integration-tier stale-candidate ordering test for spread recovery. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -2382,80 +2382,80 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Bound target retry survives issuance expiry",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier bound-reference expiry and idempotent retry test."
+    "work_item": "overseer-fkpevs",
+    "reason": "overseer-fkpevs owes an integration-tier bound-reference expiry and idempotent retry test. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Simultaneous-spread peer choice is deterministic",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The proof slice owns an integration-tier multi-peer eligibility, tie-break and postcommit interval test."
+    "work_item": "overseer-fkpevs",
+    "reason": "overseer-fkpevs owes an integration-tier multi-peer eligibility, tie-break and postcommit interval test. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Credential freshness boundaries are exclusive",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns integration-tier equality-boundary tests for validation age and credential expiry."
+    "work_item": "overseer-fkpevs",
+    "reason": "overseer-fkpevs owes integration-tier equality-boundary tests for validation age and credential expiry. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Pre-lease exhaustion removes its empty provision plan",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier pre-effect exhaustion and operation-removal test."
+    "work_item": "overseer-fkpevs",
+    "reason": "overseer-fkpevs owes an integration-tier pre-effect exhaustion and operation-removal test. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Concurrent prepared spread runs still prove overlap",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The proof slice owns an integration-tier concurrent preparation and serialized proof derivation test."
+    "work_item": "overseer-fkpevs",
+    "reason": "overseer-fkpevs owes an integration-tier concurrent preparation and serialized proof derivation test. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Isolated-run provisioning preserves exact credential bytes",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier byte-exact target-format test."
+    "work_item": "overseer-fkpevs",
+    "reason": "overseer-fkpevs owes an integration-tier byte-exact target-format test. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Spread assignment cannot replace a consume-first incumbent",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier cross-strategy incumbent mutation test."
+    "work_item": "overseer-sjnfr2",
+    "reason": "overseer-sjnfr2 owes an integration-tier cross-strategy incumbent mutation test. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Anthropic setup-token refuses unsupported remaining-percent selection",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The selection slice owns an integration-tier capability-validation test proving setup-token health observation is refused before access."
+    "work_item": "overseer-sjnfr2",
+    "reason": "overseer-sjnfr2 owes an integration-tier capability-validation test proving setup-token health observation is refused before access. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Anthropic validation maps every probe response",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier exhaustive Anthropic probe classification table test."
+    "work_item": "overseer-sjnfr2",
+    "reason": "overseer-sjnfr2 owes an integration-tier exhaustive Anthropic probe classification table test. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: OnePassword stores separate acquisition and provisionable secrets",
     "test": "TODO",
-    "work_item": "overseer-osb7as",
-    "reason": "The SecretStore slice owns an integration-tier vault schema, canonical reference and least-privilege credential projection test."
+    "work_item": "overseer-sjnfr2",
+    "reason": "overseer-sjnfr2 owes an integration-tier vault schema, canonical reference and least-privilege credential projection test. Successor test owner to closed overseer-osb7as."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -2518,8 +2518,8 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Missing acquisition prerequisites start no worker",
     "test": "TODO",
-    "work_item": "overseer-osb7as",
-    "reason": "The SecretStore slice owns an integration-tier acquisition-vault prerequisite-schema and no-launch test."
+    "work_item": "overseer-sjnfr2",
+    "reason": "overseer-sjnfr2 owes an integration-tier acquisition-vault prerequisite-schema and no-launch test. Successor test owner to closed overseer-osb7as."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -2550,112 +2550,112 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Unregistered provider identities fail before external access",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier provider-registry validation test."
+    "work_item": "overseer-sjnfr2",
+    "reason": "overseer-sjnfr2 owes an integration-tier provider-registry validation test. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: External adapter deadlines have typed fail-closed outcomes",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier bounded external-adapter and prepared-state recovery test."
+    "work_item": "overseer-sjnfr2",
+    "reason": "overseer-sjnfr2 owes an integration-tier bounded external-adapter and prepared-state recovery test. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Credential generations publish without stale-reference ambiguity",
     "test": "TODO",
-    "work_item": "overseer-osb7as",
-    "reason": "The SecretStore slice owns an integration-tier generation-bearing value publication and fencing test."
+    "work_item": "overseer-sjnfr2",
+    "reason": "overseer-sjnfr2 owes an integration-tier generation-bearing value publication and fencing test. Successor test owner to closed overseer-osb7as."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Worker operation phases retain every terminal effect",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier worker-journal phase transition and recovery test."
+    "work_item": "overseer-sjnfr2",
+    "reason": "overseer-sjnfr2 owes an integration-tier worker-journal phase transition and recovery test. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Credential expiry is audited and retained without a journal",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier audited single-store expiry and retention test."
+    "work_item": "overseer-sjnfr2",
+    "reason": "overseer-sjnfr2 owes an integration-tier audited single-store expiry and retention test. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Deterministic local paths use length-prefixed identities",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The state slice owns an integration-tier unambiguous deterministic-path derivation test."
+    "work_item": "overseer-sjnfr2",
+    "reason": "overseer-sjnfr2 owes an integration-tier unambiguous deterministic-path derivation test. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Successful replacement refreshes acquisition time and declared expiry",
     "test": "TODO",
-    "work_item": "overseer-osb7as",
-    "reason": "The SecretStore slice owns an integration-tier generation publication timestamp and expiry extraction test."
+    "work_item": "overseer-sjnfr2",
+    "reason": "overseer-sjnfr2 owes an integration-tier generation publication timestamp and expiry extraction test. Successor test owner to closed overseer-osb7as."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An extracted expiry that elapsed before publication fails acquisition",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier delayed-publication expiry check proving terminal failure without value creation."
+    "work_item": "overseer-sjnfr2",
+    "reason": "overseer-sjnfr2 owes an integration-tier delayed-publication expiry check proving terminal failure without value creation. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Backward time between validation and publication is clamped",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an injected-clock integration test proving publication timestamp normalization after a backward wall-clock step."
+    "work_item": "overseer-yyq6eh",
+    "reason": "overseer-yyq6eh owes an injected-clock integration test proving publication timestamp normalization after a backward wall-clock step. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Report diagnostics do not change idempotent identity",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier diagnostic-insensitive report idempotency test."
+    "work_item": "overseer-yyq6eh",
+    "reason": "overseer-yyq6eh owes an integration-tier diagnostic-insensitive report idempotency test. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Manager runtime prerequisites fail without fallback",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier host-prerequisite and no-fallback test."
+    "work_item": "overseer-yyq6eh",
+    "reason": "overseer-yyq6eh owes an integration-tier host-prerequisite and no-fallback test. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Recovery candidates bypass health until final selection",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier suspect/dead recovery and final-health-filter test."
+    "work_item": "overseer-yyq6eh",
+    "reason": "overseer-yyq6eh owes an integration-tier suspect/dead recovery and final-health-filter test. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Kernel lock files release when their holder ends",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The state slice owns an integration-tier flock identity, inheritance and release-on-death test."
+    "work_item": "overseer-yyq6eh",
+    "reason": "overseer-yyq6eh owes an integration-tier flock identity, inheritance and release-on-death test. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A bounded blocking lock wait times out without mutation",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The state slice owns an integration-tier bounded blocking-lock timeout test with typed error and unchanged-state assertions."
+    "work_item": "overseer-yyq6eh",
+    "reason": "overseer-yyq6eh owes an integration-tier bounded blocking-lock timeout test with typed error and unchanged-state assertions. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -2670,56 +2670,56 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Run closure records assignment end before tombstone creation",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The run-lifecycle slice owns an integration-tier assignment-end and exact-effect-array recovery test."
+    "work_item": "overseer-yyq6eh",
+    "reason": "overseer-yyq6eh owes an integration-tier assignment-end and exact-effect-array recovery test. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Run closure clamps a lease that expires during global recovery",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The run-lifecycle slice owns an injected-clock integration test proving actual lease end and overlap evidence cannot extend past expiry."
+    "work_item": "overseer-yyq6eh",
+    "reason": "overseer-yyq6eh owes an injected-clock integration test proving actual lease end and overlap evidence cannot extend past expiry. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Lease mutations serialize on one account identity lock",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier lease create/release/expiry lock-serialization test."
+    "work_item": "overseer-yyq6eh",
+    "reason": "overseer-yyq6eh owes an integration-tier lease create/release/expiry lock-serialization test. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Target commands serialize every local effect for one run",
     "test": "TODO",
-    "work_item": "overseer-dykjx4",
-    "reason": "The provisioning slice owns an integration-tier per-run target and operation-resumption serialization test."
+    "work_item": "overseer-yyq6eh",
+    "reason": "overseer-yyq6eh owes an integration-tier per-run target and operation-resumption serialization test. Successor test owner to closed overseer-dykjx4."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Manager time truncates toward the earlier UTC second",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier shared manager-time capture and truncation-boundary test."
+    "work_item": "overseer-yyq6eh",
+    "reason": "overseer-yyq6eh owes an integration-tier shared manager-time capture and truncation-boundary test. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Duplicate JSON member names are never silently collapsed",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier duplicate-member rejection test across every JSON boundary."
+    "work_item": "overseer-yyq6eh",
+    "reason": "overseer-yyq6eh owes an integration-tier duplicate-member rejection test across every JSON boundary. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Canonical stored JSON has one byte representation",
     "test": "TODO",
-    "work_item": "overseer-osb7as",
-    "reason": "The SecretStore slice owns an integration-tier canonical metadata and audit serialization test."
+    "work_item": "overseer-yyq6eh",
+    "reason": "overseer-yyq6eh owes an integration-tier canonical metadata and audit serialization test. Successor test owner to closed overseer-osb7as."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -2734,16 +2734,16 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Every supported harness exposes one lockstep caam operation",
     "test": "TODO",
-    "work_item": "overseer-5tpc72",
-    "reason": "The operator-surface slice owns an integration-tier assertion that caam remains visible through Claude, Codex and namespaced Pi while the two declaring plugin manifests remain in lockstep and the repository package version remains outside that lockstep."
+    "work_item": "overseer-cct6gv",
+    "reason": "overseer-cct6gv owes an integration-tier assertion that caam remains visible through Claude, Codex and namespaced Pi while the two declaring plugin manifests remain in lockstep and the repository package version remains outside that lockstep. Successor test owner to closed overseer-5tpc72."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unknown operation-less expiry write remains recoverable",
     "test": "TODO",
-    "work_item": "overseer-fb7usz",
-    "reason": "The lifecycle slice owns an integration-tier unknown conditional-write test proving an operation-less expiry fence remains discoverable, byte-identical and record-excluding until recovery completes it through recovery-writer."
+    "work_item": "overseer-sjnfr2",
+    "reason": "overseer-sjnfr2 owes an integration-tier unknown conditional-write test proving an operation-less expiry fence remains discoverable, byte-identical and record-excluding until recovery completes it through recovery-writer. Successor test owner to closed overseer-fb7usz."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -3855,40 +3855,40 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A switch to a never-onboarded profile keeps the host's onboarding and trust",
     "test": "TODO",
-    "work_item": "overseer-znzi47",
-    "reason": "Owed integration-tier test (tests/integration) over the shipped rotation pass, to be written by overseer-znzi47 (a slice of the regroomed overseer-hc7j) with the implementation; ratified 2026-10-26 under the caam-identity-only-switch-write revise (spec-first)."
+    "work_item": "overseer-a3ymdg",
+    "reason": "overseer-a3ymdg owes an integration-tier test for this heading through the shipped surface. Successor test owner to closed overseer-znzi47."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A global state file that fails validation prevents the install",
     "test": "TODO",
-    "work_item": "overseer-ks3ydu",
-    "reason": "Owed integration-tier test (tests/integration) over the shipped rotation pass, to be written by overseer-ks3ydu (a slice of the regroomed overseer-hc7j) with the implementation; ratified 2026-10-26 under the caam-identity-only-switch-write revise (spec-first)."
+    "work_item": "overseer-a3ymdg",
+    "reason": "overseer-a3ymdg owes an integration-tier test for this heading through the shipped surface. Successor test owner to closed overseer-ks3ydu."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed post-install write restores the pre-switch account",
     "test": "TODO",
-    "work_item": "overseer-5o3ebm",
-    "reason": "Owed integration-tier test (tests/integration) over the shipped rotation pass, to be written by overseer-5o3ebm (a slice of the regroomed overseer-hc7j) with the implementation; ratified 2026-10-26 under the caam-identity-only-switch-write revise (spec-first)."
+    "work_item": "overseer-a3ymdg",
+    "reason": "overseer-a3ymdg owes an integration-tier test for this heading through the shipped surface. Successor test owner to closed overseer-5o3ebm."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed restore names every file left unrestored",
     "test": "TODO",
-    "work_item": "overseer-5o3ebm",
-    "reason": "Owed integration-tier test (tests/integration) over the shipped rotation pass, to be written by overseer-5o3ebm (a slice of the regroomed overseer-hc7j) with the implementation; ratified 2026-10-26 under the caam-identity-only-switch-write revise (spec-first)."
+    "work_item": "overseer-a3ymdg",
+    "reason": "overseer-a3ymdg owes an integration-tier test for this heading through the shipped surface. Successor test owner to closed overseer-5o3ebm."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A session that reinstates the previous identity reads as a switch that did not take effect",
     "test": "TODO",
-    "work_item": "overseer-ux7ryt",
-    "reason": "Owed integration-tier test (tests/integration) over the shipped rotation pass, to be written by overseer-ux7ryt (a slice of the regroomed overseer-hc7j) with the implementation; ratified 2026-10-26 under the caam-identity-only-switch-write revise (spec-first)."
+    "work_item": "overseer-a3ymdg",
+    "reason": "overseer-a3ymdg owes an integration-tier test for this heading through the shipped surface. Successor test owner to closed overseer-ux7ryt."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -3916,16 +3916,16 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A live Codex carrier with no exact session evidence reads unidentified, never gone",
     "test": "TODO",
-    "work_item": "overseer-5eqavc",
-    "reason": "Owed integration-tier test over the shipped supervision round, to be written by overseer-5eqavc with the implementation; ratified 2026-10-26 under the codex-unidentified-session revise (spec-first)."
+    "work_item": "overseer-a3ymdg",
+    "reason": "overseer-a3ymdg owes an integration-tier test for this heading through the shipped surface. Successor test owner to closed overseer-5eqavc."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A backend-reported session named for the track identifies the carrier and re-records the row",
     "test": "TODO",
-    "work_item": "overseer-5eqavc",
-    "reason": "Owed integration-tier test over the shipped supervision round, to be written by overseer-5eqavc with the implementation; ratified 2026-10-26 under the codex-unidentified-session revise (spec-first)."
+    "work_item": "overseer-a3ymdg",
+    "reason": "overseer-a3ymdg owes an integration-tier test for this heading through the shipped surface. Successor test owner to closed overseer-5eqavc."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -3939,8 +3939,8 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A live recorded session keeps its identity beside a second carrier",
     "test": "TODO",
-    "work_item": "overseer-5eqavc",
-    "reason": "Owed integration-tier test over the shipped supervision round, to be written by overseer-5eqavc with the implementation; ratified 2026-10-26 under the codex-unidentified-session revise (spec-first)."
+    "work_item": "overseer-a3ymdg",
+    "reason": "overseer-a3ymdg owes an integration-tier test for this heading through the shipped surface. Successor test owner to closed overseer-5eqavc."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4316,56 +4316,56 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A sanctioned relaunch of a Codex seat binds its topic, pane and profile",
     "test": "TODO",
-    "work_item": "overseer-uzvcbn.7",
-    "reason": "Ratified in v083 (sanctioned-out-of-band-seat) ahead of its implementation child; a test at integration tier is owed, and overseer-uzvcbn.7 MUST replace this TODO with a test at integration tier."
+    "work_item": "overseer-a3ymdg",
+    "reason": "overseer-a3ymdg owes an integration-tier test for this heading through the shipped surface. Successor test owner to closed overseer-uzvcbn.7."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A sanctioned relaunch of a non-Codex seat submits no rename",
     "test": "TODO",
-    "work_item": "overseer-uzvcbn.7",
-    "reason": "Ratified in v083 (sanctioned-out-of-band-seat) ahead of its implementation child; a test at integration tier is owed, and overseer-uzvcbn.7 MUST replace this TODO with a test at integration tier."
+    "work_item": "overseer-a3ymdg",
+    "reason": "overseer-a3ymdg owes an integration-tier test for this heading through the shipped surface. Successor test owner to closed overseer-uzvcbn.7."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unconfirmed rename leaves the relaunched seat's row unchanged",
     "test": "TODO",
-    "work_item": "overseer-uzvcbn.7",
-    "reason": "Ratified in v083 (sanctioned-out-of-band-seat) ahead of its implementation child; a test at integration tier is owed, and overseer-uzvcbn.7 MUST replace this TODO with a test at integration tier."
+    "work_item": "overseer-a3ymdg",
+    "reason": "overseer-a3ymdg owes an integration-tier test for this heading through the shipped surface. Successor test owner to closed overseer-uzvcbn.7."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The sanctioned relaunch refuses before launching into an unsafe or unknown target",
     "test": "TODO",
-    "work_item": "overseer-uzvcbn.7",
-    "reason": "Ratified in v083 (sanctioned-out-of-band-seat) ahead of its implementation child; a test at integration tier is owed, and overseer-uzvcbn.7 MUST replace this TODO with a test at integration tier."
+    "work_item": "overseer-a3ymdg",
+    "reason": "overseer-a3ymdg owes an integration-tier test for this heading through the shipped surface. Successor test owner to closed overseer-uzvcbn.7."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A confirmed fresh Codex successor is reported for its launch pane and proven without a rollout file",
     "test": "TODO",
-    "work_item": "overseer-rthizs",
-    "reason": "Ratified in v084 (daemon-reports-codex-session-to-backend) ahead of its implementation child; a test at integration tier is owed, and overseer-rthizs MUST replace this TODO with a test at integration tier."
+    "work_item": "overseer-yyq6eh",
+    "reason": "overseer-yyq6eh owes an integration-tier test for this heading through the shipped surface. Successor test owner to closed overseer-rthizs."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A rejected backend report is surfaced and does not void a fresh Codex successor's proof",
     "test": "TODO",
-    "work_item": "overseer-rthizs",
-    "reason": "Ratified in v084 (daemon-reports-codex-session-to-backend) ahead of its implementation child; a test at integration tier is owed, and overseer-rthizs MUST replace this TODO with a test at integration tier."
+    "work_item": "overseer-a3ymdg",
+    "reason": "overseer-a3ymdg owes an integration-tier test for this heading through the shipped surface. Successor test owner to closed overseer-rthizs."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unconfirmed rename leaves a fresh Codex successor unreported and unproven",
     "test": "TODO",
-    "work_item": "overseer-rthizs",
-    "reason": "Ratified in v084 (daemon-reports-codex-session-to-backend) ahead of its implementation child; a test at integration tier is owed, and overseer-rthizs MUST replace this TODO with a test at integration tier."
+    "work_item": "overseer-a3ymdg",
+    "reason": "overseer-a3ymdg owes an integration-tier test for this heading through the shipped surface. Successor test owner to closed overseer-rthizs."
   },
   {
     "spec_root": "SPECIFICATION",
