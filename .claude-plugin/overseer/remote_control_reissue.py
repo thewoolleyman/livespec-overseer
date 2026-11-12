@@ -24,7 +24,9 @@ A pane qualifies only when ALL of these hold:
   submitted `/remote-control` line follows it; OR a footer line below the box
   begins, behind indentation only, with `Remote Control failed · ` + NOTICE.
   Lines Ink hard-wrapped on a narrow pane are rejoined when indented to the
-  column the text began at. The form quoted anywhere else never matches.
+  column the text began at, and the comparison runs on the rejoined text. Only a
+  `❯` prompt line AFTER the whole notice block counts as a submitted
+  `/remote-control`. The form quoted anywhere else never matches.
 """
 
 from __future__ import annotations
@@ -53,7 +55,6 @@ _PROMPT = "❯"
 _TRANSCRIPT_MARK = "⎿"
 _RULE = "─"
 _TIMEOUT_S = 10
-_WRAP_LINES = 6
 
 Tmux = Callable[..., str | None]
 
@@ -71,14 +72,6 @@ def _run_tmux(*args: str) -> str | None:
     except (OSError, subprocess.TimeoutExpired):
         return None
     return done.stdout if done.returncode == 0 else None
-
-
-def _bare(*, line: str) -> str:
-    """The line without leading box/glyph characters or surrounding whitespace."""
-    start = 0
-    while start < len(line) and not (line[start].isalnum() or line[start] == "/"):
-        start += 1
-    return line[start:].rstrip()
 
 
 def _collapsed(*, text: str) -> str:
@@ -107,28 +100,38 @@ def _empty_box(*, lines: list[str]) -> tuple[int, int] | None:
     return None
 
 
-def _starts_notice(*, lines: list[str], index: int, mark: str, form: str) -> bool:
-    """`form` + NOTICE begins this line right behind `mark` and indentation only.
+def _notice_block_end(*, lines: list[str], index: int, mark: str, form: str) -> int | None:
+    """The index past the notice block starting here, or None when none starts here.
 
-    Ink hard-wraps a long line at spaces on a narrow pane, indenting each
-    continuation to the column where the text began; `capture-pane -J` joins
-    only tmux's own soft wraps. So only following lines indented to exactly
-    that column are rejoined, with whitespace collapsed, before comparing.
+    A block begins with a line holding `mark` behind indentation only, and
+    continues through the following lines indented to exactly the column where
+    its text began: Ink hard-wraps a long line at spaces on a narrow pane and
+    indents each continuation that way, while `capture-pane -J` joins only tmux's
+    own soft wraps. The block is a notice when its rejoined text, whitespace
+    collapsed, begins with `form` + NOTICE, so a wrap anywhere inside the form or
+    the notice still matches.
     """
     line = lines[index]
     body = line.lstrip(" ")
     if not body.startswith(mark):
-        return False
+        return None
     text = body[len(mark) :].lstrip(" ")
-    if not text.startswith(form):
-        return False
     column = len(line) - len(text)
     parts = [text]
-    for following in lines[index + 1 : index + _WRAP_LINES]:
+    stop = index + 1
+    while stop < len(lines):
+        following = lines[stop]
         if not following.strip() or len(following) - len(following.lstrip(" ")) != column:
             break
         parts.append(following.strip())
-    return _collapsed(text=" ".join(parts)).startswith(_collapsed(text=form + NOTICE))
+        stop += 1
+    joined = _collapsed(text=" ".join(parts))
+    return stop if joined.startswith(_collapsed(text=form + NOTICE)) else None
+
+
+def _submitted(*, line: str) -> bool:
+    """A transcript prompt line showing `/remote-control` as submitted."""
+    return line.startswith(_PROMPT) and line[len(_PROMPT) :].strip() == _COMMAND
 
 
 def _needs_reissue(*, screen: str) -> bool:
@@ -137,16 +140,18 @@ def _needs_reissue(*, screen: str) -> bool:
     if box is None:
         return False
     top, bottom = box
-    transcript = [
-        index
+    ends = [
+        end
         for index in range(top)
-        if _starts_notice(lines=lines, index=index, mark=_TRANSCRIPT_MARK, form=FORMS[0])
+        if (
+            end := _notice_block_end(lines=lines, index=index, mark=_TRANSCRIPT_MARK, form=FORMS[0])
+        )
+        is not None
     ]
-    if transcript:
-        later = [_bare(line=line) for line in lines[transcript[-1] + 1 : top]]
-        return _COMMAND not in later
+    if ends:
+        return not any(_submitted(line=line) for line in lines[ends[-1] : top])
     return any(
-        _starts_notice(lines=lines, index=index, mark="", form=FORMS[1])
+        _notice_block_end(lines=lines, index=index, mark="", form=FORMS[1]) is not None
         for index in range(bottom + 1, len(lines))
     )
 

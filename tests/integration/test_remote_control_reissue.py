@@ -15,6 +15,7 @@ import os
 import subprocess
 import sys
 import textwrap
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
 
@@ -353,6 +354,37 @@ def test_no_tmux_server_touches_nothing(
 ) -> None:
     state = {"no_server": True, "panes": []}
     assert _run(tmp_path=tmp_path, monkeypatch=monkeypatch, mode=mode, state=state) == ([], [])
+
+
+def _fake_tmux(*, screen: str, sent: list[tuple[str, ...]]) -> Callable[..., str | None]:
+    def tmux(*args: str) -> str | None:
+        if args[0] == "list-panes":
+            return "%1 claude 0"
+        if args[0] == "capture-pane":
+            return screen
+        sent.append(args)
+        return ""
+
+    return tmux
+
+
+def test_every_pane_width_from_20_to_199_reissues_exactly_once() -> None:
+    rc = _rc()
+    missed: list[int] = []
+    for width in range(20, 200):
+        lines = textwrap.wrap(
+            f"{FIXTURE['transcript_prefix']}{FULL}",
+            width=width,
+            initial_indent="  ⎿  ",
+            subsequent_indent="     ",
+            # Ink's wrap-ansi breaks only at spaces, never after a hyphen.
+            break_on_hyphens=False,
+        )
+        sent: list[tuple[str, ...]] = []
+        screen = _above_input(capture=EMPTY, lines=lines)
+        if rc.reissue(tmux=_fake_tmux(screen=screen, sent=sent)) != ["%1"] or len(sent) != 2:
+            missed.append(width)
+    assert missed == []
 
 
 def test_failed_send_is_not_reported() -> None:
