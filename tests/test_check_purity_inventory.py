@@ -37,3 +37,7 @@ def _inventory_targets() -> tuple[str, ...]:
 def test_check_target_inventory_matches_check_aggregate() -> None:
     assert _INVENTORY.is_file()
     assert _inventory_targets() == _aggregate_targets()
+
+
+def test_check_aggregate_refuses_undeclared_purity() -> None:
+    assert 'green_token undeclared "${targets[@]}"' in _JUSTFILE.read_text(encoding="utf-8")
