@@ -16,13 +16,15 @@ is installed. It prints one JSON line naming the panes it re-issued.
 A pane qualifies only when ALL of these hold:
 - its foreground command is Claude Code (`claude`);
 - it is not in a tmux mode such as copy mode;
-- a line of its joined screen (`capture-pane -p -J`) STARTS, once transcript
-  decoration is stripped, with the notice in one of FORMS, rejoining lines Ink
-  hard-wrapped on a narrow pane; a form quoted mid-line in prose never matches;
-- no submitted `/remote-control` prompt line follows the latest such notice;
-- its input box is visible and EMPTY: the last `❯` prompt line holds no text,
-  and nothing but blank lines sits between it and the box's closing rule. A
-  pane holding unsubmitted text is never typed into.
+- its input box is visible and EMPTY: the last `❯` prompt line, between two
+  `─` rules, holds no text and only blank lines precede the closing rule. A
+  pane holding unsubmitted text is never typed into;
+- EITHER a transcript line above the box begins, right behind `⎿` and
+  indentation only, with `Remote Control disconnected — ` + NOTICE, and no
+  submitted `/remote-control` line follows it; OR a footer line below the box
+  begins, behind indentation only, with `Remote Control failed · ` + NOTICE.
+  Lines Ink hard-wrapped on a narrow pane are rejoined when indented to the
+  column the text began at. The form quoted anywhere else never matches.
 """
 
 from __future__ import annotations
@@ -48,6 +50,7 @@ FORMS = ("Remote Control disconnected — ", "Remote Control failed · ")
 _COMMAND = "/remote-control"
 _CLAUDE_COMMANDS = frozenset({"claude"})
 _PROMPT = "❯"
+_TRANSCRIPT_MARK = "⎿"
 _RULE = "─"
 _TIMEOUT_S = 10
 _WRAP_LINES = 6
@@ -82,43 +85,70 @@ def _collapsed(*, text: str) -> str:
     return " ".join(text.split())
 
 
-def _notice_at(*, lines: list[str], index: int) -> bool:
-    """A rendered notice STARTS this line, after transcript decoration is stripped.
+def _empty_box(*, lines: list[str]) -> tuple[int, int] | None:
+    """The input box's (top rule, closing rule) indexes, only when the box is EMPTY.
 
-    Ink hard-wraps a long line at spaces on a narrow pane, and `capture-pane -J`
-    joins only tmux's own soft wraps, so the next few lines are rejoined, with
-    whitespace collapsed, before comparing. A form quoted mid-line in prose does
-    not start its line and is never a match.
+    The box is the last `❯` prompt line between two `─` rules. It is empty when
+    the prompt line holds no text and only blank lines sit before the closing
+    rule; anything else, including no box on screen, is None.
     """
-    head = _bare(line=lines[index])
-    if not head.startswith(FORMS):
-        return False
-    tail = [line.strip() for line in lines[index + 1 : index + _WRAP_LINES]]
-    joined = _collapsed(text=" ".join([head, *tail]))
-    return any(joined.startswith(_collapsed(text=form + NOTICE)) for form in FORMS)
-
-
-def _input_is_empty(*, lines: list[str]) -> bool:
-    """True only when the input box is on screen and holds no text."""
     prompts = [index for index, line in enumerate(lines) if line.startswith(_PROMPT)]
-    if not prompts:
+    if not prompts or lines[prompts[-1]][len(_PROMPT) :].strip():
+        return None
+    prompt = prompts[-1]
+    tops = [index for index in range(prompt) if lines[index].startswith(_RULE)]
+    if not tops:
+        return None
+    for index in range(prompt + 1, len(lines)):
+        if lines[index].startswith(_RULE):
+            return tops[-1], index
+        if lines[index].strip():
+            return None
+    return None
+
+
+def _starts_notice(*, lines: list[str], index: int, mark: str, form: str) -> bool:
+    """`form` + NOTICE begins this line right behind `mark` and indentation only.
+
+    Ink hard-wraps a long line at spaces on a narrow pane, indenting each
+    continuation to the column where the text began; `capture-pane -J` joins
+    only tmux's own soft wraps. So only following lines indented to exactly
+    that column are rejoined, with whitespace collapsed, before comparing.
+    """
+    line = lines[index]
+    body = line.lstrip(" ")
+    if not body.startswith(mark):
         return False
-    if lines[prompts[-1]][len(_PROMPT) :].strip():
+    text = body[len(mark) :].lstrip(" ")
+    if not text.startswith(form):
         return False
-    for line in lines[prompts[-1] + 1 :]:
-        if line.startswith(_RULE):
-            return True
-        if line.strip():
-            return False
-    return False
+    column = len(line) - len(text)
+    parts = [text]
+    for following in lines[index + 1 : index + _WRAP_LINES]:
+        if not following.strip() or len(following) - len(following.lstrip(" ")) != column:
+            break
+        parts.append(following.strip())
+    return _collapsed(text=" ".join(parts)).startswith(_collapsed(text=form + NOTICE))
 
 
 def _needs_reissue(*, screen: str) -> bool:
     lines = screen.splitlines()
-    notices = [index for index in range(len(lines)) if _notice_at(lines=lines, index=index)]
-    if not notices or not _input_is_empty(lines=lines):
+    box = _empty_box(lines=lines)
+    if box is None:
         return False
-    return _COMMAND not in [_bare(line=line) for line in lines[notices[-1] + 1 :]]
+    top, bottom = box
+    transcript = [
+        index
+        for index in range(top)
+        if _starts_notice(lines=lines, index=index, mark=_TRANSCRIPT_MARK, form=FORMS[0])
+    ]
+    if transcript:
+        later = [_bare(line=line) for line in lines[transcript[-1] + 1 : top]]
+        return _COMMAND not in later
+    return any(
+        _starts_notice(lines=lines, index=index, mark="", form=FORMS[1])
+        for index in range(bottom + 1, len(lines))
+    )
 
 
 def panes_needing_reissue(*, tmux: Tmux = _run_tmux) -> list[str]:

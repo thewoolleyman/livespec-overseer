@@ -211,6 +211,95 @@ SCENARIOS = {
         ],
         [],
     ),
+    "prose wrap where the quoted form starts a continuation line": (
+        [
+            _pane(
+                pane="%16",
+                screen=_above_input(
+                    capture=EMPTY,
+                    lines=[
+                        "⏺ After a switch the pane shows",
+                        f"  {FIXTURE['transcript_prefix']}{FULL}",
+                    ],
+                ),
+            )
+        ],
+        [],
+    ),
+    "the form in a blockquote": (
+        [
+            _pane(
+                pane="%17",
+                screen=_above_input(
+                    capture=EMPTY, lines=[f"> {FIXTURE['transcript_prefix']}{FULL}"]
+                ),
+            )
+        ],
+        [],
+    ),
+    "the form in a bullet": (
+        [
+            _pane(
+                pane="%18",
+                screen=_above_input(
+                    capture=EMPTY, lines=[f"  - {FIXTURE['transcript_prefix']}{FULL}"]
+                ),
+            )
+        ],
+        [],
+    ),
+    "the form inside quotation marks": (
+        [
+            _pane(
+                pane="%19",
+                screen=_above_input(
+                    capture=EMPTY,
+                    lines=[f'"{TRANSCRIPT.strip()[3:]}" is what you will see'],
+                ),
+            )
+        ],
+        [],
+    ),
+    "a submitted prompt pasting the form": (
+        [
+            _pane(
+                pane="%20",
+                screen=_above_input(
+                    capture=EMPTY, lines=[f"❯ {FIXTURE['transcript_prefix']}{FULL}"]
+                ),
+            )
+        ],
+        [],
+    ),
+    "unrelated following lines that would finish the notice": (
+        [
+            _pane(
+                pane="%21",
+                screen=_above_input(
+                    capture=EMPTY,
+                    lines=[
+                        f"  ⎿  {FIXTURE['transcript_prefix']}signed-in",
+                        "⏺ claude.ai account or organization changed on this machine"
+                        " — run /remote-control",
+                    ],
+                ),
+            )
+        ],
+        [],
+    ),
+    "the footer form quoted in the transcript": (
+        [
+            _pane(
+                pane="%22",
+                screen=_above_input(capture=EMPTY, lines=[f"  {FIXTURE['footer_prefix']}{FULL}"]),
+            )
+        ],
+        [],
+    ),
+    "input box with no top rule": (
+        [_pane(pane="%23", screen=f"{TRANSCRIPT}\n❯\u00a0\n─────\n")],
+        [],
+    ),
     "no input box on screen": ([_pane(pane="%10", screen=f"{TRANSCRIPT}\nsome dialog\n")], []),
     "input box with no closing rule": (
         [_pane(pane="%11", screen=f"{TRANSCRIPT}\n─────\n❯\u00a0\n   \n")],
