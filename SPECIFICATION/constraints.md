@@ -43,11 +43,11 @@ NOT fall back to another operating system, plaintext secret storage, another
 agent credential source, a bundled or cloud browser, or network-exposed browser
 control.
 
-Enrolled-host delivery is Linux-only on both ends in this revision.
-- The delivery service depends on: the role holder's account manager and live credential; the operation's host state directory; a per-user service manager; a listener reachable at the role name over the private network; and that network's device-identity lookup.
-- The client depends on: a per-user service manager; owner-only storage or the OS keyring for its enrolment credential; and the host's interactive credential file and global state file.
+Enrolled-host delivery runs on a Linux role holder and pushes to Linux and macOS listed hosts.
+- The delivery service depends on: the role holder's account manager and live credential; the operation's host state directory; a per-user service manager; an ssh client, the role key and a known-hosts record; and the host list.
+- A listed host depends on: an ssh server that authorizes the role key for the listed user; `python3`; its interactive credential and global state file; and, on macOS, the once-installed per-user launch agent and the login Keychain.
 
-Each part MUST validate its prerequisites before the dependent action. Each part MUST NOT fall back to an unauthenticated request, an address other than the role name, a credential carrying a refresh token, or a refresh of its own.
+Each part MUST validate its prerequisites before the dependent action. Each part MUST NOT fall back to an unverified host key, a credential carrying a refresh token, or a refresh of its own.
 
 ## Language and dependencies
 
@@ -143,10 +143,10 @@ for the daemon's whole lifetime. Storage failures on the overseer's own
 files degrade with a warning; they never crash the supervision loop.
 
 The second and third exceptions within the caam operation are:
-- the enrolled-host client's writes of an enrolled host's interactive credential file and global state file, and of its record of acted enforcement-instruction identifiers;
-- on the role holder, the delivery service's writes of its delivery-sequence counter and report store, the issuance and revocation commands' writes of the enrolment registry, which the registry lock serializes, and each rotation pass's writes of its own enforcement-instruction records.
+- the apply step's writes of a listed host's interactive credential, global state file and applied-sequence record, and, on a macOS host, the push's write of the inbox file and the launch agent's write of the result file;
+- on the role holder, the delivery service's writes of its delivery-sequence counter, its push state and the host list.
 
-Both MUST meet the whole-file atomic-replacement guarantee of the paragraph beginning "Writes to the overseer's own stores". Neither inherits the warning-only fallback. A failed client write of the interactive credential file or the global state file restores the previous bytes of those two files and is reported, as contracts.md §"Enrolled-host delivery" defines. That restore MUST NOT rewrite the record of acted enforcement-instruction identifiers, because restoring an earlier copy of it could drop a recorded identifier and let the client act on that instruction again. A failed write of that record leaves the client not acting on the instruction, because the same section requires the client to record an identifier before it acts on it.
+Both MUST meet the whole-file atomic-replacement guarantee of the paragraph beginning "Writes to the overseer's own stores". Neither inherits the warning-only fallback. A failed apply-step write of the interactive credential or the global state file restores the previous contents of both and is reported, as contracts.md §"Enrolled-host delivery" defines.
 
 ## Acting safety
 

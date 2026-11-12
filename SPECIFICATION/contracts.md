@@ -1229,115 +1229,56 @@ The operation MUST NOT require that any consumer exist: an unread record MUST be
 
 ## Enrolled-host delivery
 
-**Transport.**
-- The client MUST reach the delivery service over HTTPS at the role name, and only at the role name.
-- The role name's DNS record MUST resolve to an address on the private network the enrolled hosts share.
-- The service MUST accept requests only over that network.
+**Host list.** The host list is a file in the operation's host state directory on the role holder, created owner-only and written atomically. Each entry names:
+- a LABEL, unique in the list;
+- an SSH DESTINATION of the form `user@host`;
+- a PLATFORM, `linux` or `macos`.
 
-**Authentication in both directions.**
-- The service MUST present a SERVICE CREDENTIAL bound to the role name rather than to the machine. That credential moves with the role.
-- The client MUST verify the service credential before it sends its enrolment credential or accepts any delivery, and MUST stop if verification fails.
-- The service MUST authenticate every request by BOTH of the following, and MUST refuse the request when either is missing, unknown or revoked:
-  - the client's ENROLMENT CREDENTIAL;
-  - the NETWORK IDENTITY of the requesting device, which is the device identity that the private network's coordination service reports for the request's source address.
+The host list MUST NOT hold credential material. Removing an entry stops delivery to that host on the next push.
+
+**Transport.** The service MUST push over ssh to each entry's ssh destination, authenticating with the ROLE KEY: an ssh key pair held owner-only on the role holder that moves with the role. Each listed host MUST authorize the role key for its listed user. The service MUST verify each host's ssh host key against the role holder's known-hosts record and MUST NOT push to a host whose host key it cannot verify. The delivery MUST travel on the ssh session's standard input, never in a command-line argument, an environment variable or any file on the role holder; the service holds the delivery only in memory.
 
 **The account-confirmation request.** For the Anthropic provider, the request that spec.md **A delivery names the account its token belongs to** requires is the `GET https://api.anthropic.com/api/oauth/profile` read defined under **Capacity class source** in §"The account-rotation operation". It MUST be sent with the live access token, and the service MUST compare the account identifier in the response with the stable account identifier the identity keys carry. It is read-only, and it is the only provider request the service sends.
 
-**Operations.** The service MUST expose exactly three operations to an enrolled host:
-1. `delivery` returns the host's own current delivery and its current ENFORCEMENT INSTRUCTIONS.
-   - The delivery carries the delivery sequence, the selected account's stable account identifier, the account-identity key values, and the interactive OAuth object with no refresh token.
-   - An enforcement instruction carries a unique INSTRUCTION IDENTIFIER, names one of that host's sessions, and names the model that spec.md **Model enforcement** decided for it.
-   - Instructions are NOT gated by the delivery sequence. The client MUST act on each instruction AT MOST ONCE, whether or not the response carries a new delivery, and MUST report its outcome under its instruction identifier.
-   - The service MUST stop serving an instruction as **Enforcement instructions** defines.
-   - A request MAY name the delivery sequence the client last applied, and MAY wait up to a bounded interval for a later one.
-2. `report` accepts the host's report.
-3. `enrolment-check` confirms that the host's enrolment is current, and returns no credential material.
+**The delivery.** A delivery carries the delivery sequence, the selected account's stable account identifier, the account-identity key values `oauthAccount` and `userID`, and the interactive OAuth object with no `refreshToken` field.
 
-The service MUST NOT return, through any operation, another host's delivery, the enrolment registry, the audit log, the report store, or any refresh token. The service MUST NOT open a connection to a host, so an unreachable host costs it nothing.
+**The apply step.** The push sends the apply step to the host as a program on the ssh session's standard input, followed by the delivery, and the host runs it with its own `python3`. Nothing for delivery is installed on a Linux host. On a `macos` host, where Claude Code keeps the interactive credential in the login Keychain and an ssh session cannot write that Keychain, the push MUST instead write the delivery to an owner-only INBOX file in the listed user's home directory, as a mode-0600 temporary file in the same directory that is then renamed into place. A per-user launch agent installed once on that Mac MUST apply it from there under the same rules, delete the inbox, and write its result line to an owner-only RESULT file beside it, atomically in the same way. The service MUST read that result file on its next push or retry to that host and record it as the host's last result; for a `macos` host, every clause below that depends on the apply step's result uses that recorded result.
+- The apply step MUST hold an exclusive lock from its sequence check until its writes and verification are complete.
+- It MUST compare the delivery's sequence with the APPLIED SEQUENCE recorded on the host in an owner-only file beside the credential file, and MUST change nothing and report `stale-sequence` when the delivery's sequence is not greater.
+- It MUST change nothing and report `not-converted` when the host's interactive credential holds a refresh token.
+- In the credential, it MUST set `claudeAiOauth` to the delivered object, which MUST NOT contain a `refreshToken` field, and MUST preserve every other top-level key. On Linux the credential is the file `~/.claude/.credentials.json`; on macOS it is the login-Keychain item Claude Code reads.
+- In the global state file `~/.claude.json`, it MUST change only `oauthAccount` and `userID`.
+- Each file write MUST go to a temporary file in the same directory, with mode 0600, which is then renamed into place. It MUST record the applied sequence the same way, last.
+- If either write fails, it MUST restore the captured previous contents of BOTH the credential and the global state file, the credential first, attempting every restore whatever the outcome of an earlier one, and MUST report the delivery as `failed`. A restore that fails MUST be reported as a further, distinct failure naming what was left unrestored.
+- It MUST print exactly one result line, containing no credential material, naming one of `applied`, `stale-sequence`, `not-converted` or `failed`, the sequence it applied or refused, and, for `failed`, the reason.
 
-**Client schedule and single instance.**
-- The client MUST request a delivery at least once per `delivery.poll_interval`, whose default MUST be 60 seconds. It MUST send a report after every request, and MAY wait on a delivery request between polls.
-- A host user MUST NOT run more than one client.
-- The client MUST hold an exclusive lock from its sequence check until its writes and verification are complete.
-- Before it acts on an enforcement instruction, the client MUST record the instruction's identifier in owner-only storage that survives a restart, and it MUST NOT act on an identifier it has recorded. On starting, the client MUST report each recorded identifier whose outcome it has not reported with the outcome `unknown`. The client MAY discard a recorded identifier once the service no longer serves it.
+Accepted and unfixed: the host's own agent sessions write the global state file without the apply step's lock, so they can replace the identity keys after its rename. The verification reports that case.
 
-**Client writes.**
-- In the credential file, the client MUST set `claudeAiOauth` to the delivered object, which MUST NOT contain a `refreshToken` field, and MUST preserve every other top-level key.
-- In the global state file, it MUST change only the account-identity keys `oauthAccount` and `userID`.
-- Each write MUST go to a temporary file in the same directory, with mode 0600, which is then renamed into place.
+**Retry and timeouts.** A push attempt that has not finished within `delivery.push_timeout`, default 30 seconds, MUST be abandoned and counted as failed. The service MUST retry a host whose last push failed or did not reach it at least once per `delivery.retry_interval`, default 60 seconds.
 
-If either write fails, the client MUST restore the captured previous bytes of BOTH files, the credential file first and then the global state file, each atomically in the same way. It MUST attempt every restore whatever the outcome of an earlier one, and MUST report the delivery as not applied. A restore that fails MUST be reported as a further, distinct failure naming the file left unrestored.
-
-Accepted and unfixed: the host's own agent sessions write the global state file without the client's lock, so they can replace the identity keys after the client's rename. The client's verification reports that case.
-
-**Host report.** Each report MUST carry:
-- the delivery sequence and stable account identifier the host last applied, and when it applied them;
-- whether its credential file holds a refresh token, which is the NOT CONVERTED condition;
-- the time of each authentication failure its sessions recorded since the previous report;
-- the outcome of each enforcement instruction it acted on, under that instruction's identifier;
-- each refusal record that the host's sessions recorded since the previous report, unaltered, with the identifier of the session that recorded it, whether that session's agent configuration directory is the host's default directory, the provider that session authenticates with, and the delivery sequence and stable account identifier that the host had applied when the refusal was recorded;
-- for each running session, its identifier, whether its agent configuration directory is the host's default directory, and its observed model, or `unknown`.
-
-The client MUST forward each refusal record unaltered. It MUST read from a record only what it needs to recognise the record as a refusal and to know when it was recorded. It MUST NOT summarize a record or derive its window or reset time: the operation on the role holder parses it, as spec.md **Forwarded refusals** requires. A report that omits the recording session's directory or provider leaves the refusal unattributed, because the attribution conjuncts of spec.md §"Account rotation and quota supervision" then cannot be established.
-
-A report MUST NOT carry credential material. Times in a report come from the enrolled host's clock. Any offset between that clock and the role holder's is accepted and unfixed.
+**Remote Control re-issue.** After a push whose result is `applied` and whose account differs from the one that host last applied, the service MUST, over the same ssh destination, read the visible text, with wrapped lines joined, of every tmux pane on the host whose current command is Claude Code and which is not in a tmux mode such as copy mode. In each such pane where a whole line, after leading border, glyph and whitespace characters are stripped, equals Claude Code's notice `Remote Control stopped — the app running this session is now signed in to a different Claude account` (the on-screen text in Claude Code 2.1.322), and no submitted `/remote-control` prompt line follows that notice, it MUST send `/remote-control` followed by Enter, once for that delivery. It MUST send nothing to any other pane, including a pane that merely displays the notice text in a shell, a pager or another program. After it issues a delivery naming a different account from the previous delivery, the service MUST apply the same re-issue, locally, to the role holder's own tmux panes. A session that does not run in tmux is outside what the service can reach, which is accepted and unfixed.
 
 **Service stores.** The service MUST keep these stores in the operation's host state directory, each created owner-only and written atomically:
-- the ENROLMENT REGISTRY;
-- the DELIVERY-SEQUENCE COUNTER, written before the delivery that consumes the sequence is served;
-- the REPORT STORE, holding each host's latest report together with every forwarded refusal record, every enforcement-instruction outcome and every authentication-failure time that any report carried. A rotation pass MUST read the report store without consuming or deleting anything, as **Concurrency** requires of observation. The service MUST keep each of those records for at least seven days, the longest window a refusal can name, so that a pass on the normal schedule reads each before it is discarded. It MUST keep an enforcement-instruction outcome for longer where **Enforcement instructions** requires it. Enforcement-instruction outcomes are recorded only here.
+- the DELIVERY-SEQUENCE COUNTER, written before the delivery that consumes the sequence is pushed;
+- the PUSH STATE, holding for each listed host the last result its apply step reported, the sequence and stable account identifier it last applied and when, the time of its last successful push, and its last push error, which contains no credential material, with its time.
 
-The status view takes account limits from the operation's own cache.
 
-**Enforcement instructions.** A rotation pass MUST write each enforcement instruction it decides for a remote session as a record of its own, in the operation's host state directory and separate from the cache, atomically and with owner-only permissions, as a reset claim's record is written. The pass MUST mint each instruction identifier from at least 128 random bits, and MUST record in the instruction the time it was decided. Only a rotation pass writes these records; the service MUST only read them. An instruction's outcome is exactly one of `applied`, `skipped-busy`, `failed` or `unknown`.
-- The service MUST serve, for each remote session, only the newest instruction a pass has written for it, ordered by decision time with ties broken by identifier. A newer instruction for the same session supersedes an older one.
-- The service MUST NOT serve an instruction decided before the host's latest return from silence. A host RETURNS FROM SILENCE when an authenticated request from it, of any operation, arrives and no authenticated request from it arrived within the preceding `delivery.stale_after`; the time of the return is that request's arrival time. The service MUST make this judgement before it answers that request, so that the first `delivery` request after a silence is already filtered. It MUST judge by arrival times on the role holder's clock, which is the clock a pass records an instruction's decision time on, and MUST NOT judge by any time a report states. The report store MUST record, for each host, the arrival time of its latest authenticated request and of its latest return from silence, and MUST keep both while any instruction record for that host's sessions remains.
-- The service MUST stop serving an instruction once the report store holds its outcome or a newer instruction supersedes it, and once it has stopped it MUST NOT serve that instruction again. The client MAY discard an identifier the service no longer serves, so serving that instruction again would let the client act on it a second time. The two rules below keep both conditions true for as long as the instruction's record remains.
-- A rotation pass MAY delete an instruction record once the report store holds its outcome or it is superseded. It MUST NOT delete an instruction record while an older instruction record for the same session remains, so deleting a newer record never makes an older one the newest.
-- The service MUST NOT discard an instruction's outcome from the report store while that instruction's record remains.
-
-Accepted and unfixed: rotation passes do not hold the decision lock while deciding enforcement, so two concurrent passes MAY each write an instruction for one session, and a client MAY act on both.
-
-**Enrolment registry.** Each entry records:
-- the host's operator-given label;
-- its network identity;
-- a one-way digest of its enrolment credential;
-- when the enrolment was issued;
-- whether it is revoked.
-
-Labels and network identities MUST each be unique among the registry's unrevoked entries. A label that a revoked entry holds MAY be reused only for that entry's network identity, so a label never names two devices. The service MUST NOT store an enrolment credential in recoverable form. The client MUST store its enrolment credential readable only by the user that runs it, or in that user's OS keyring.
-
-**Issuance.** Issuing an enrolment MUST be an operator command run on the role holder that names the host's label and its network identity. Under the REGISTRY LOCK, which **Revocation** also holds for its write, the command MUST refuse an entry that the label and network-identity rules of **Enrolment registry** forbid, including a label that a revoked entry holds for a different network identity, and MUST otherwise write the new entry. It MUST store only the one-way digest of the enrolment credential it generates, MUST show that credential once so the operator can install it on the client, and MUST be recorded in the audit log. A revoked entry stays in the registry as a record, and a device whose enrolment was revoked MAY be enrolled again under a new entry.
-
-**Revocation.** Revoking a host's enrolment MUST be an operator command run on the role holder, which writes the registry under the registry lock defined in **Issuance**. Revocation MUST take effect on that host's next request, MUST NOT affect any other host's enrolment, and MUST be recorded in the audit log.
-
-Accepted and unfixed: revocation does not invalidate an access token already delivered. That token stays usable until the next refresh on the role holder revokes it, or until it expires, whichever comes first. The service MUST NOT force a refresh to shorten that window.
-
-**Audit log.** The service MUST append one record to an append-only, owner-only log in the operation's host state directory for each of these events:
-- a delivery served;
-- a report received;
-- a refused request;
-- an enrolment issued or revoked.
-
-Each record names the host label and the time. Where they apply, it also names the stable account identifier and the delivery sequence. A record MUST NOT contain credential material.
-
-**Status view.** The status view MUST be readable on the role holder. It MUST NOT be served to an enrolment credential, and it MUST contain no credential material. It MUST show whether the live credential has expired without replacement. For each enrolled host, it MUST show:
+**Status command.** The status command MUST be readable only on the role holder and MUST contain no credential material. It MUST show whether the live credential has expired without replacement. It MUST show the stable account identifier of the account the live credential holds and of the account the operation's published selection record names, each with its profile name, and MUST mark the pair `diverged` when they differ; the service delivers the live account in that case, as spec.md **The one source** requires. For each listed host, it MUST show:
 - its label;
 - the stable account identifier its last-applied delivery named, with the profile name the operation's account table gives that identifier;
 - that delivery's sequence and when the host applied it;
-- the time of the host's last report;
-- the authentication failures the host's sessions recorded between each delivery's issue and its application;
+- the time of its last successful push;
+- its last push error and when it occurred;
 - its STATE.
 
 STATE MUST be exactly one of the values below. Where more than one applies, the one listed first MUST be shown:
-- `revoked`: the host's enrolment is revoked;
-- `not-converted`: the host's last report says its credential file holds a refresh token;
+- `not-converted`: the host's last result was `not-converted`;
 - `expired`: the host's last-applied delivery's access token has reached its expiry;
-- `stale`: no report has arrived within `delivery.stale_after`, whose default MUST be 15 minutes;
+- `stale`: the host has had no successful push within `delivery.stale_after`, whose default MUST be 15 minutes;
 - `lagging`: the service has issued a later delivery sequence than the one the host last applied;
 - `current`: none of the above applies.
 
-**Configuration.** The role name, `delivery.poll_interval` and `delivery.stale_after` MUST be configurable on the role holder. The role name MUST be configurable on each client, and MUST NOT default to any machine's hostname.
+**Configuration.** The host list, `delivery.push_timeout`, `delivery.retry_interval` and `delivery.stale_after` MUST be configurable on the role holder. A listed host carries no delivery configuration beyond authorizing the role key, and, on macOS, the launch agent.
 
 **Moving the role.** Moving the role MUST proceed in this order:
 1. On the old holder, stop the delivery service, every agent session using the live credential, the rotation operation's schedule, and its refresh maintenance. From this step on, the old holder MUST NOT use the managed accounts' refresh tokens.
@@ -1346,15 +1287,15 @@ STATE MUST be exactly one of the values below. Where more than one applies, the 
    - the live credential;
    - the account-identity keys of the old holder's global state file, and nothing else from that file;
    - the operation's durable store;
-   - the service stores;
-   - the audit log;
-   - the service credential.
-3. Repoint the role name. From this step, the new machine is the role holder.
-4. Remove every managed account's refresh token from the old machine.
-5. Start the new holder.
-6. Confirm in the status view that every enrolled host reports in.
+   - the service stores and the host list;
+   - the role key and the known-hosts record.
+3. Remove every managed account's refresh token from the old machine.
+4. Start the new holder. From this step, the new machine is the role holder.
+5. Confirm with the status command that every listed host receives a delivery.
 
-Step 4 MUST complete before step 5, so no two machines ever use the role holder's refresh tokens. Step 4 does not breach **Coexistence on the role holder**: by then the old machine is no longer the role holder. Enrolments remain valid across the move. Clients keep their last-applied delivery until the new holder issues a later one.
+Step 3 MUST complete before step 4, so no two machines ever use the role holder's refresh tokens. Step 3 does not breach **Coexistence on the role holder**: by then the old machine is no longer the role holder. No listed host changes during a move. Hosts keep their last-applied delivery until the new holder pushes a later one.
+
+Accepted and unfixed: a pushed access token stays usable until the next refresh on the role holder revokes it, or until it expires, whichever comes first. Removing a host from the host list does not invalidate a token already pushed to it. The service MUST NOT force a refresh to shorten that window.
 
 ## The LLM credential-provider operation
 

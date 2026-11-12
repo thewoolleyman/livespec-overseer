@@ -10,7 +10,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## Enrolled-host delivery",
-    "work_item": "overseer-4uafx2",
+    "work_item": "overseer-aj577z",
     "first_seen": "2026-11-08"
   },
   {
@@ -96,13 +96,6 @@
     "heading": "## Scenario: A classified report against a non-valid record has a defined effect",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A client restarted after recording an instruction does not act on it again",
-    "work_item": "overseer-c6gjgl",
-    "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -206,7 +199,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A credential that cannot be read from its location is unusable",
-    "work_item": "overseer-hydiph",
+    "work_item": "overseer-w5h24j",
     "first_seen": "2026-11-10"
   },
   {
@@ -220,21 +213,21 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A dark active login is left on the next pass",
-    "work_item": "overseer-iusknl",
+    "work_item": "overseer-w5h24j",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A dark active login with no surviving candidate holds and reports",
-    "work_item": "overseer-iusknl",
+    "work_item": "overseer-w5h24j",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A dark login raises one push alert at onset",
-    "work_item": "overseer-hydiph",
+    "work_item": "overseer-w5h24j",
     "first_seen": "2026-11-10"
   },
   {
@@ -262,8 +255,15 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed alert delivery is reported and does not block rotation",
-    "work_item": "overseer-hydiph",
+    "work_item": "overseer-w5h24j",
     "first_seen": "2026-11-10"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A failed apply leaves the host on its previous delivery",
+    "work_item": "overseer-aj577z",
+    "first_seen": "2026-11-12"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -278,13 +278,6 @@
     "heading": "## Scenario: A failed channel delivery with no fallback paste un-opens its round",
     "work_item": "overseer-uepcr6",
     "first_seen": "2026-10-15"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A failed client write leaves the host on its previous delivery",
-    "work_item": "overseer-lfyj7e",
-    "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -318,28 +311,14 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A first-seen login age is shown as a lower bound and still warns",
-    "work_item": "overseer-oomnmk",
+    "work_item": "overseer-w5h24j",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A following host receives an access token and never a refresh token",
-    "work_item": "overseer-4uafx2",
-    "first_seen": "2026-11-08"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A forwarded refusal from outside the host's default directory is not attributed",
-    "work_item": "overseer-xoishu",
-    "first_seen": "2026-11-08"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A forwarded refusal under another account's delivery is not attributed",
-    "work_item": "overseer-xoishu",
+    "work_item": "overseer-aj577z",
     "first_seen": "2026-11-08"
   },
   {
@@ -390,6 +369,13 @@
     "heading": "## Scenario: A hold's age is surfaced so an unreviewed hold cannot hide",
     "work_item": "overseer-zidpiu.5",
     "first_seen": "2026-10-30"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A host that was unreachable receives the current delivery when it returns",
+    "work_item": "overseer-aj577z",
+    "first_seen": "2026-11-12"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -493,15 +479,22 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A login approaching the measured cap is warned",
-    "work_item": "overseer-oomnmk",
+    "work_item": "overseer-w5h24j",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A login hold survives a restart",
-    "work_item": "overseer-iusknl",
+    "work_item": "overseer-w5h24j",
     "first_seen": "2026-11-10"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A macOS host applies a delivery from its inbox and its result is recorded",
+    "work_item": "overseer-7m6wu6",
+    "first_seen": "2026-11-12"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -549,7 +542,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A persisting condition is not re-alerted before the repeat interval",
-    "work_item": "overseer-hydiph",
+    "work_item": "overseer-w5h24j",
     "first_seen": "2026-11-10"
   },
   {
@@ -590,8 +583,15 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A push refuses to overwrite a host's own login",
+    "work_item": "overseer-aj577z",
+    "first_seen": "2026-11-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A rate-limited probe is inconclusive and not alerted",
-    "work_item": "overseer-hydiph",
+    "work_item": "overseer-w5h24j",
     "first_seen": "2026-11-10"
   },
   {
@@ -654,14 +654,14 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A recorded login shows its age in the report",
-    "work_item": "overseer-oomnmk",
+    "work_item": "overseer-w5h24j",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A recovered condition sends one recovery alert",
-    "work_item": "overseer-hydiph",
+    "work_item": "overseer-w5h24j",
     "first_seen": "2026-11-10"
   },
   {
@@ -675,28 +675,14 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A refresh does not start a new login record",
-    "work_item": "overseer-oomnmk",
+    "work_item": "overseer-w5h24j",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A refresh on the role holder is delivered and its exposure is measured",
-    "work_item": "overseer-7ezzch",
-    "first_seen": "2026-11-08"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A refusal forwarded before a host falls silent is still attributed",
-    "work_item": "overseer-xoishu",
-    "first_seen": "2026-11-08"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A refusal on a following host rotates the active account",
-    "work_item": "overseer-xoishu",
+    "work_item": "overseer-aj577z",
     "first_seen": "2026-11-08"
   },
   {
@@ -726,20 +712,6 @@
     "heading": "## Scenario: A rejected backend report is surfaced and does not void a fresh Codex successor's proof",
     "work_item": "overseer-rthizs",
     "first_seen": "2026-11-02"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A remote enforcement is recorded only once the client applies it",
-    "work_item": "overseer-c6gjgl",
-    "first_seen": "2026-11-08"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A remote session on the scoped model arms the scoped-model trigger",
-    "work_item": "overseer-xoishu",
-    "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -815,7 +787,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A rotation on the role holder reaches every following host",
-    "work_item": "overseer-lfyj7e",
+    "work_item": "overseer-aj577z",
     "first_seen": "2026-11-08"
   },
   {
@@ -857,14 +829,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A silent enrolled host is reported as stale",
-    "work_item": "overseer-7ezzch",
-    "first_seen": "2026-11-08"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A silent host whose token has expired arms no trigger",
-    "work_item": "overseer-xoishu",
+    "work_item": "overseer-ky6u2l",
     "first_seen": "2026-11-08"
   },
   {
@@ -885,21 +850,14 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A stale delivery cannot move a host back",
-    "work_item": "overseer-lfyj7e",
+    "work_item": "overseer-ky6u2l",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A stopped delivery service does not affect a rotation pass",
-    "work_item": "overseer-vfmz5w",
-    "first_seen": "2026-11-08"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A superseded enforcement instruction is never served",
-    "work_item": "overseer-c6gjgl",
+    "work_item": "overseer-aj577z",
     "first_seen": "2026-11-08"
   },
   {
@@ -922,13 +880,6 @@
     "heading": "## Scenario: A token-store write invalidates cache and appends a secret-free audit entry",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A valid enrolment presented from the wrong device is refused",
-    "work_item": "overseer-4uafx2",
-    "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -1031,6 +982,20 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: An account switch re-issues Remote Control on the role holder's own sessions",
+    "work_item": "overseer-fdwat6",
+    "first_seen": "2026-11-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An account switch re-issues Remote Control only where it stopped",
+    "work_item": "overseer-fdwat6",
+    "first_seen": "2026-11-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: An age-stale valid credential is revalidated before exhaustion",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
@@ -1052,20 +1017,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: An enforcement instruction is applied at most once",
-    "work_item": "overseer-c6gjgl",
-    "first_seen": "2026-11-08"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: An enrolled host cannot read another host's delivery",
-    "work_item": "overseer-4uafx2",
-    "first_seen": "2026-11-08"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: An exhausted active account with no candidate claims a reset instead of holding",
     "work_item": "overseer-33kyxp",
     "first_seen": "2026-10-15"
@@ -1081,21 +1032,21 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An exhausted factory credential raises a push alert",
-    "work_item": "overseer-hydiph",
+    "work_item": "overseer-w5h24j",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An expired access token alone does not trigger a dark-login rotation",
-    "work_item": "overseer-iusknl",
+    "work_item": "overseer-w5h24j",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An expired live credential is reported, not refreshed",
-    "work_item": "overseer-7ezzch",
+    "work_item": "overseer-ky6u2l",
     "first_seen": "2026-11-08"
   },
   {
@@ -1125,20 +1076,6 @@
     "heading": "## Scenario: An inconclusive validation probe does not kill a credential",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: An instruction decided before a host returns from silence is not served",
-    "work_item": "overseer-c6gjgl",
-    "first_seen": "2026-11-08"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: An instruction whose outcome was reported is never served again",
-    "work_item": "overseer-c6gjgl",
-    "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -1263,7 +1200,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unreachable enrolled host does not affect a rotation pass",
-    "work_item": "overseer-vfmz5w",
+    "work_item": "overseer-aj577z",
     "first_seen": "2026-11-08"
   },
   {
@@ -1823,21 +1760,21 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Moving the credential-rotation role changes nothing on an enrolled host",
-    "work_item": "overseer-lfyj7e",
+    "work_item": "overseer-aj577z",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: No lifetime-cap warning before the cap is measured",
-    "work_item": "overseer-oomnmk",
+    "work_item": "overseer-w5h24j",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: No push channel configured is reported",
-    "work_item": "overseer-hydiph",
+    "work_item": "overseer-w5h24j",
     "first_seen": "2026-11-10"
   },
   {
@@ -1858,7 +1795,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: One refused reading does not judge a login dark",
-    "work_item": "overseer-iusknl",
+    "work_item": "overseer-w5h24j",
     "first_seen": "2026-11-10"
   },
   {
@@ -1970,7 +1907,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Recording a new login replaces the old one and releases a login hold",
-    "work_item": "overseer-oomnmk",
+    "work_item": "overseer-w5h24j",
     "first_seen": "2026-11-10"
   },
   {
@@ -2049,13 +1986,6 @@
     "heading": "## Scenario: Revalidation skips leased or reserved-away accounts",
     "work_item": "overseer-fb7usz",
     "first_seen": "2026-09-12"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: Revoking one host's enrolment leaves every other host served",
-    "work_item": "overseer-4uafx2",
-    "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -2228,20 +2158,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: The client refuses a service it cannot authenticate",
-    "work_item": "overseer-lfyj7e",
-    "first_seen": "2026-11-08"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The client refuses to overwrite a host's own login",
-    "work_item": "overseer-lfyj7e",
-    "first_seen": "2026-11-08"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: The coexistence proof schema retains its first qualifying evidence",
     "work_item": "overseer-5tpc72",
     "first_seen": "2026-09-12"
@@ -2298,6 +2214,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: The live login is delivered when it diverges from the selected account",
+    "work_item": "overseer-aj577z",
+    "first_seen": "2026-11-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: The narrowest qualifying reset is claimed",
     "work_item": "overseer-33kyxp",
     "first_seen": "2026-10-15"
@@ -2327,7 +2250,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The rotation pass runs while every agent session's login is dark",
-    "work_item": "overseer-iusknl",
+    "work_item": "overseer-w5h24j",
     "first_seen": "2026-11-10"
   },
   {
@@ -2343,6 +2266,13 @@
     "heading": "## Scenario: The selection brain reads metadata but no secret value",
     "work_item": "overseer-osb7as",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The service refuses to push to a host whose host key it cannot verify",
+    "work_item": "overseer-aj577z",
+    "first_seen": "2026-11-12"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -2418,7 +2348,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Enrolled-host credential delivery",
-    "work_item": "overseer-vfmz5w",
+    "work_item": "overseer-aj577z",
     "first_seen": "2026-11-08"
   },
   {

@@ -5721,13 +5721,13 @@ And the unrecognised limit does not fire a rotation trigger
 
 ## Scenario: A rotation on the role holder reaches every following host
 
-Given the role holder runs the rotation operation
+Given the role holder runs the rotation operation and the delivery service
 
-And two other hosts are enrolled and converted, and their clients are running
+And two other hosts are listed and converted
 
 When the operation rotates the active account from one account to another
 
-Then each of those hosts' interactive credential file holds the newly selected account's access token
+Then within two minutes each of those hosts' interactive credential holds the newly selected account's access token
 
 And each of those hosts' global state file's account-identity keys name the newly selected account
 
@@ -5735,23 +5735,23 @@ And neither of those hosts made a rotation decision of its own
 
 ## Scenario: Moving the credential-rotation role changes nothing on an enrolled host
 
-Given an enrolled host whose client reaches the delivery service through the role name
+Given a listed host that has applied a delivery from the role holder
 
-When the role is moved to another machine and the role name is repointed to it
+When the role is moved to another machine as contracts.md §"Enrolled-host delivery" **Moving the role** defines
 
-Then the enrolled host's client reaches the new role holder with no change to that host's configuration
+Then the new holder's first push is applied by that host with no change to that host's configuration
 
 And that host's configuration names neither role holder's hostname nor its address
 
 ## Scenario: A following host receives an access token and never a refresh token
 
-Given an enrolled host whose interactive credential file holds no refresh token
+Given a listed host whose interactive credential holds no refresh token
 
-When its client applies a delivery
+When the delivery service pushes a delivery to it
 
-Then the credential file's interactive OAuth object is the delivered object and holds no refresh token
+Then the host's interactive OAuth object is the delivered object and holds no refresh token
 
-And every other top-level key the credential file held before the delivery is unchanged
+And every other top-level key the credential held before the delivery is unchanged
 
 And the host's global state file's account-identity keys name the delivered account, with every other key unchanged
 
@@ -5761,13 +5761,21 @@ Given every following host is `current`
 
 When an agent session on the role holder refreshes the live credential
 
-Then the delivery service issues a delivery with a greater delivery sequence carrying the new access token
+Then the delivery service issues a delivery with a greater delivery sequence carrying the new access token and pushes it to every listed host
 
 And the service did not invoke the token endpoint
 
-And the status view shows each following host as `lagging` until its client applies the new delivery
+And the status command shows each following host as `lagging` until its push is applied, and then shows when it was applied
 
-And each authentication failure a following host's sessions record before it applies that delivery appears in the status view against that delivery
+## Scenario: The service refuses to push to a host whose host key it cannot verify
+
+Given a listed host whose ssh host key does not match the role holder's known-hosts record
+
+When the delivery service issues a delivery
+
+Then it pushes nothing to that host and records a push error naming the host-key failure
+
+And every other listed host receives the delivery
 
 ## Scenario: A token and identity that disagree produce no delivery
 
@@ -5781,67 +5789,87 @@ And it issues one once the access token and the identity keys name the same acco
 
 ## Scenario: A stale delivery cannot move a host back
 
-Given an enrolled host has applied delivery sequence 7
+Given a listed host has applied delivery sequence 7
 
-When a delivery carrying sequence 6 reaches its client
+When a push carrying delivery sequence 6 reaches it
 
-Then the host's credential file and global state file are unchanged
+Then the host's credential and global state file are unchanged
 
-## Scenario: A failed client write leaves the host on its previous delivery
+And the apply step reports `stale-sequence`
 
-Given an enrolled host has applied a delivery naming one account
+## Scenario: A failed apply leaves the host on its previous delivery
 
-When its client applies a delivery naming another account and the global state file write fails
+Given a listed host has applied a delivery naming one account
 
-Then the credential file and the global state file both hold their previous bytes
+When a push of a delivery naming another account reaches it and the global state file write fails
 
-And the client reports the delivery as not applied
+Then the credential and the global state file both hold their previous contents
 
-## Scenario: The client refuses to overwrite a host's own login
+And the apply step reports the delivery as `failed`
 
-Given an enrolled host whose interactive credential file holds a refresh token
+## Scenario: A push refuses to overwrite a host's own login
 
-When its client runs
+Given a listed host whose interactive credential holds a refresh token
 
-Then the client requests no delivery and the credential file is unchanged
+When the delivery service pushes a delivery to it
 
-And the status view shows that host as `not-converted`
+Then the host's credential is unchanged
+
+And the status command shows that host as `not-converted`
 
 ## Scenario: An unreachable enrolled host does not affect a rotation pass
 
-Given an enrolled host that is powered off
+Given a listed host that is powered off
 
 When the rotation operation runs a pass that switches accounts
 
-Then the pass completes and reports exactly as it would with no enrolled host
+Then the pass completes and reports exactly as it would with no listed host
 
-And the delivery service opens no connection to the powered-off host
+And every other listed host receives the new delivery without waiting for the powered-off host
 
-And the status view shows that host as `stale` once `delivery.stale_after` has passed since its last report
+And the status command shows the powered-off host as `stale` once `delivery.stale_after` has passed since its last successful push
+
+## Scenario: A host that was unreachable receives the current delivery when it returns
+
+Given a listed host that was powered off while the service issued deliveries 8 and 9
+
+When the host becomes reachable again
+
+Then within two minutes it holds delivery 9
+
+And it never applies delivery 8
 
 ## Scenario: A stopped delivery service does not affect a rotation pass
 
 Given the delivery service on the role holder is stopped
 
-And no enrolled host has reported within `delivery.stale_after`
-
-And the report store holds no forwarded refusal that is still eligible for attribution
-
 When the rotation operation runs a pass that switches accounts
 
-Then the pass completes and reports exactly as it would with no enrolled host
+Then the pass completes and reports exactly as it would with no listed host
 
 ## Scenario: An expired live credential is reported, not refreshed
 
 Given the live credential's access token reaches its expiry and no agent session on the role holder refreshes it
 
-When the operator reads the status view
+When the operator runs the status command
 
-Then the view reports that the live credential has expired without replacement
+Then it reports that the live credential has expired without replacement
 
 And every following host whose last-applied delivery carried that token is shown as `expired`
 
 And the delivery service has not invoked the token endpoint
+
+## Scenario: The live login is delivered when it diverges from the selected account
+
+Given the role holder's live credential and global state file both name account A
+
+And the operation's published selection record names account B
+
+When the delivery service issues a delivery
+
+Then the delivery names account A and carries account A's access token
+
+And the status command shows account A as live and account B as selected, marked `diverged`
 
 ## Scenario: The delivery sequence continues across a move of the role
 
@@ -5853,221 +5881,49 @@ Then that delivery carries a sequence greater than 40
 
 And every following host applies it
 
-## Scenario: An enrolled host cannot read another host's delivery
+## Scenario: An account switch re-issues Remote Control only where it stopped
 
-Given two enrolled hosts A and B
+Given a following host runs two agent sessions in tmux panes, one using Remote Control and one not
 
-When host A presents its own enrolment credential and asks for host B's delivery, the service stores, the audit log or any refresh token
+When a pushed delivery naming a different account is applied and the first pane shows that Remote Control stopped because the signed-in account changed
 
-Then the delivery service refuses the request
+Then the service sends `/remote-control` to the first pane once
 
-And the audit log records the refusal and no delivery to host A for that request
+And it sends nothing to the second pane
 
-## Scenario: A valid enrolment presented from the wrong device is refused
+## Scenario: An account switch re-issues Remote Control on the role holder's own sessions
 
-Given host A's enrolment credential
+Given the role holder runs an agent session in a tmux pane that was using Remote Control
 
-When it is presented from a device whose network identity is not the one host A's enrolment names
+When the rotation operation switches the role holder's live login to a different account and that pane shows that Remote Control stopped because the signed-in account changed
 
-Then the delivery service refuses the request and serves no delivery
+Then the service sends `/remote-control` to that pane once
 
-## Scenario: Revoking one host's enrolment leaves every other host served
+And it sends nothing to a role-holder pane that does not show that notice
 
-Given two enrolled hosts A and B
+## Scenario: A macOS host applies a delivery from its inbox and its result is recorded
 
-When the operator revokes host A's enrolment on the role holder
+Given a listed `macos` host whose launch agent is installed
 
-Then host A's next request is refused and the status view shows host A as `revoked`
+When the service pushes a delivery to that host
 
-And host B's next request is served
+Then the delivery is written to the host's owner-only inbox file as a mode-0600 temporary file in the same directory that is then renamed into place
 
-## Scenario: Enrolling a host under a label already in use is refused
+And the launch agent applies it to the login Keychain, deletes the inbox file and writes a result line to its owner-only result file
 
-Given the enrolment registry holds an unrevoked host labelled `laptop`
+And on its next push or retry to that host the service records that result as the host's last result
 
-When the operator issues an enrolment for another device under the label `laptop`
-
-Then the command refuses and the registry is unchanged
-
-And no enrolment credential is shown
-
-## Scenario: A revoked device can be enrolled again
-
-Given host A's enrolment has been revoked
-
-When the operator issues a new enrolment for the same device under the same label
-
-Then the command writes a new entry and shows its credential once
-
-And the revoked entry is still recorded as revoked
-
-And a request presenting the old enrolment credential is still refused
-
-## Scenario: A revoked host's label cannot be reused for another device
-
-Given host A's enrolment under the label `laptop` has been revoked
-
-When the operator issues an enrolment for a different device under the label `laptop`
-
-Then the command refuses and the registry is unchanged
-
-And no enrolment credential is shown
-
-## Scenario: The client refuses a service it cannot authenticate
-
-Given an enrolled host whose role name resolves to a server that cannot present the service credential
-
-When the client contacts it
-
-Then the client sends no enrolment credential and applies no delivery
+And neither the result file nor the status command's output contains credential material
 
 ## Scenario: A silent enrolled host is reported as stale
 
-Given a converted, unrevoked enrolled host whose last-applied delivery has not expired and which has not reported within `delivery.stale_after`
+Given a converted listed host whose last-applied delivery has not expired and which has had no successful push within `delivery.stale_after`
 
-When the operator reads the central status view
+When the operator runs the status command
 
-Then that host is shown as `stale` with the time of its last report
+Then that host is shown as `stale` with the time of its last successful push and its last push error
 
-And the view contains no credential material
-
-## Scenario: A refusal on a following host rotates the active account
-
-Given a following host has applied a delivery naming the active account
-
-And a candidate survives every selection rule
-
-When a session on that host, configured in that host's default directory, records a usage-limit refusal after the active account became active, and the client reports it
-
-Then the operation attributes the refusal to the active account and treats it as the refusal trigger
-
-And the switch line names the refusal as the reason and the time it was recorded
-
-## Scenario: A forwarded refusal under another account's delivery is not attributed
-
-Given an enrolled host whose last-applied delivery named an account other than the active account
-
-When the client forwards a refusal that its session recorded under that delivery
-
-Then the operation does not attribute the refusal to the active account
-
-## Scenario: A forwarded refusal from outside the host's default directory is not attributed
-
-Given a following host has applied a delivery naming the active account
-
-When the client forwards a usage-limit refusal that a session recorded under a separately provisioned configuration directory, and the report states that directory is not the host's default directory
-
-Then the operation does not attribute the refusal to the active account
-
-## Scenario: A remote enforcement is recorded only once the client applies it
-
-Given an enrolled host reports a session with an operator-set per-session pin it is not running
-
-When the operation decides enforcement for that session and the host's next report has not yet stated that the instruction was applied
-
-Then the operation does not treat that session as operator-set
-
-And it records the enforcement once the host's report states that the instruction was applied
-
-## Scenario: A remote session on the scoped model arms the scoped-model trigger
-
-Given an enrolled host reports a running session observed on the scoped model
-
-And the active account is at or below the scoped-model reserve
-
-When the operation runs a scheduled pass
-
-Then the scoped-model trigger fires exactly as it would for a local session on the scoped model
-
-## Scenario: A silent host whose token has expired arms no trigger
-
-Given a following host whose last report listed a running session observed on the scoped model
-
-And the host has not reported within `delivery.stale_after` and its last-applied delivery's access token has expired
-
-And no other tracked session and no per-session pin names the scoped model
-
-And the active account is at or below the scoped-model reserve
-
-When the operation runs a scheduled pass
-
-Then the status view shows the host as `expired`
-
-And the scoped-model trigger does not fire
-
-## Scenario: A refusal forwarded before a host falls silent is still attributed
-
-Given a following host has applied a delivery naming the active account
-
-And its client reported a usage-limit refusal from a session in that host's default directory, recorded after the active account became active
-
-And the host has since not reported within `delivery.stale_after`
-
-When the operation runs a scheduled pass
-
-Then the operation attributes the refusal to the active account
-
-## Scenario: An enforcement instruction is applied at most once
-
-Given the client applied an enforcement instruction to a remote session and reported its outcome
-
-When the operator changes that session's model before the next rotation pass
-
-Then the client does not apply that instruction again
-
-And the next rotation pass, seeing the session's known model differ from the model enforcement last set, treats the session as operator-set
-
-## Scenario: A client restarted after recording an instruction does not act on it again
-
-Given the client recorded an enforcement instruction's identifier and stopped before reporting its outcome
-
-When the client restarts and the service serves that instruction again
-
-Then the client does not act on it
-
-And the client reports that instruction's outcome as `unknown`
-
-## Scenario: An instruction whose outcome was reported is never served again
-
-Given the client applied an enforcement instruction to a remote session and reported its outcome
-
-And the client has discarded that instruction's identifier
-
-And more than seven days have passed since the report store recorded that outcome
-
-And no rotation pass has deleted that instruction's record
-
-When the client requests a delivery
-
-Then the service does not serve that instruction
-
-And the client does not act on it again
-
-## Scenario: A superseded enforcement instruction is never served
-
-Given a rotation pass wrote an enforcement instruction for a remote session and the host has reported no outcome for it
-
-And a later pass wrote a newer instruction for the same session
-
-And the host has reported within `delivery.stale_after` throughout
-
-When the client requests a delivery
-
-Then the service serves only the newer instruction
-
-And after the host reports the newer instruction's outcome and a pass deletes every instruction record it may delete, the service serves neither instruction
-
-## Scenario: An instruction decided before a host returns from silence is not served
-
-Given a rotation pass wrote an enforcement instruction for a session on a following host and the host has reported no outcome for it
-
-And no authenticated request from that host then arrived for longer than `delivery.stale_after`
-
-When the client next requests a delivery, before any report from it arrives
-
-Then the service does not serve that instruction
-
-And the client does not act on it
+And the output contains no credential material
 
 ## Scenario: A context rise under an unchanged session identity latches a restart obligation
 
@@ -6923,7 +6779,7 @@ Given no push channel is configured
 
 When the operation produces its report
 
-Then the report and the central status view MUST state that alerts cannot be delivered
+Then the report MUST state that alerts cannot be delivered
 
 ## Scenario: a hand commit's passing delegated pre-commit verdict stands in at the pre-push gate
 
