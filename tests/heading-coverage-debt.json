@@ -891,13 +891,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A stopped delivery service does not affect a rotation pass",
-    "work_item": "overseer-vfmz5w",
-    "first_seen": "2026-11-08"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: A superseded enforcement instruction is never served",
     "work_item": "overseer-c6gjgl",
     "first_seen": "2026-11-08"
@@ -1258,13 +1251,6 @@
     "heading": "## Scenario: An unlatched track's wrap-up keeps its bare live context figure",
     "work_item": "overseer-qz7ez7",
     "first_seen": "2026-11-05"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: An unreachable enrolled host does not affect a rotation pass",
-    "work_item": "overseer-vfmz5w",
-    "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -2413,13 +2399,6 @@
     "heading": "## Scenario: a hand commit's passing delegated pre-commit verdict stands in at the pre-push gate",
     "work_item": "overseer-z2j3vn",
     "first_seen": "2026-11-11"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "spec.md",
-    "heading": "## Enrolled-host credential delivery",
-    "work_item": "overseer-vfmz5w",
-    "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
