@@ -5885,7 +5885,7 @@ And every following host applies it
 
 Given a following host runs two agent sessions in tmux panes, one using Remote Control and one not
 
-When a pushed delivery naming a different account is applied and the first pane shows that Remote Control stopped because the signed-in account changed
+When a pushed delivery naming a different account is applied and the first pane shows Claude Code's notice `Remote Control stopped — the app running this session is now signed in to a different Claude account`
 
 Then the service sends `/remote-control` to the first pane once
 
@@ -5895,7 +5895,7 @@ And it sends nothing to the second pane
 
 Given the role holder runs an agent session in a tmux pane that was using Remote Control
 
-When the rotation operation switches the role holder's live login to a different account and that pane shows that Remote Control stopped because the signed-in account changed
+When the rotation operation switches the role holder's live login to a different account and that pane shows Claude Code's notice `Remote Control stopped — the app running this session is now signed in to a different Claude account`
 
 Then the service sends `/remote-control` to that pane once
 
