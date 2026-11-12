@@ -1,7 +1,10 @@
 """Remote Control re-issue after a pushed account switch (overseer-fdwat6).
 
 Each scenario runs the script the way the push loop does, `python3 - < file`,
-against a stub `tmux` on PATH, and again in-process for coverage.
+against a stub `tmux` on PATH, and again in-process for coverage. Screens are
+built from REAL `tmux capture-pane -p -J` captures of Claude Code 2.1.322's
+input box (tests/fixtures/claude_2.1.322_input_*.txt) with the account-changed
+notice placed in the forms the 2.1.322 binary renders it in.
 """
 
 from __future__ import annotations
@@ -20,7 +23,14 @@ __all__: list[str] = []
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "overseer" / "remote_control_reissue.py"
-NOTICE = json.loads((ROOT / "tests/fixtures/remote_control_notice.json").read_text())["notice"]
+FIXTURES = ROOT / "tests" / "fixtures"
+FIXTURE = json.loads((FIXTURES / "remote_control_notice.json").read_text(encoding="utf-8"))
+NOTICE = FIXTURE["notice"]
+FULL = NOTICE + FIXTURE["notice_rest"]
+EMPTY = (FIXTURES / FIXTURE["input_captures"]["empty"]).read_text(encoding="utf-8")
+DRAFT = (FIXTURES / FIXTURE["input_captures"]["draft"]).read_text(encoding="utf-8")
+TRANSCRIPT = f"  ⎿  {FIXTURE['transcript_prefix']}{FULL}"
+FOOTER = f"  {FIXTURE['footer_prefix']}{FULL}"
 
 STUB = """#!/usr/bin/env python3
 import json, os, sys
@@ -35,11 +45,30 @@ elif args[0] == "capture-pane":
     pane = next(p for p in state["panes"] if p["id"] == args[-1])
     if pane["screen"] is None:
         sys.exit(1)
-    print(pane["screen"])
+    sys.stdout.write(pane["screen"])
 else:
     with open(os.environ["STUB_TMUX_LOG"], "a") as log:
         log.write(json.dumps(args) + "\\n")
 """
+
+
+def _above_input(*, capture: str, lines: list[str]) -> str:
+    """`capture` with `lines` added to the transcript, just above the input box's top rule."""
+    rows = capture.splitlines()
+    top = next(index for index, row in enumerate(rows) if row.startswith("─"))
+    return "\n".join([*rows[:top], *lines, *rows[top:]]) + "\n"
+
+
+def _below_input(*, capture: str, lines: list[str]) -> str:
+    """`capture` with `lines` added to the footer, below the input box."""
+    return capture.rstrip("\n") + "\n" + "\n".join(lines) + "\n"
+
+
+def _after_prompt(*, capture: str, line: str) -> str:
+    """`capture` with a second input-box line under the prompt line."""
+    rows = capture.splitlines()
+    prompt = next(index for index, row in enumerate(rows) if row.startswith("❯"))
+    return "\n".join([*rows[: prompt + 1], line, *rows[prompt + 1 :]]) + "\n"
 
 
 def _scrubbed_environ() -> dict[str, str]:
@@ -95,28 +124,83 @@ def _run(
 
 
 SCENARIOS = {
-    "stopped claude pane": ([_pane(pane="%1", screen=f"output\n  ⎿ {NOTICE}\n> ")], ["%1"]),
-    "notice in a shell pane": ([_pane(pane="%2", screen=NOTICE, cmd="zsh")], []),
-    "notice in less": ([_pane(pane="%3", screen=NOTICE, cmd="less")], []),
-    "older notice already re-issued": (
-        [_pane(pane="%4", screen=f"{NOTICE}\n> /remote-control\nRemote Control connected")],
+    "transcript notice inside a longer line, empty input": (
+        [_pane(pane="%1", screen=_above_input(capture=EMPTY, lines=[TRANSCRIPT]))],
+        ["%1"],
+    ),
+    "footer notice, empty input": (
+        [_pane(pane="%2", screen=_below_input(capture=EMPTY, lines=[FOOTER]))],
+        ["%2"],
+    ),
+    "notice with an unsubmitted draft in the input box": (
+        [_pane(pane="%3", screen=_above_input(capture=DRAFT, lines=[TRANSCRIPT]))],
         [],
     ),
-    "notice inside a wrapped longer line": (
-        [_pane(pane="%5", screen=f"user pasted: {NOTICE} and more text")],
+    "notice with a draft on the input box's second line": (
+        [
+            _pane(
+                pane="%4",
+                screen=_after_prompt(
+                    capture=_above_input(capture=EMPTY, lines=[TRANSCRIPT]),
+                    line="  second line of a draft",
+                ),
+            )
+        ],
         [],
     ),
-    "copy mode": ([_pane(pane="%6", screen=NOTICE, mode="1")], []),
-    "unsubmitted /remote-control in the input box": (
-        [_pane(pane="%7", screen=f"{NOTICE}\n│ > /remote-control          │")],
-        ["%7"],
+    "notice in a shell pane": (
+        [_pane(pane="%5", screen=_above_input(capture=EMPTY, lines=[TRANSCRIPT]), cmd="zsh")],
+        [],
     ),
-    "capture fails": ([_pane(pane="%8", screen=None)], []),
+    "notice in less": (
+        [_pane(pane="%6", screen=_above_input(capture=EMPTY, lines=[TRANSCRIPT]), cmd="less")],
+        [],
+    ),
+    "copy mode": (
+        [_pane(pane="%7", screen=_above_input(capture=EMPTY, lines=[TRANSCRIPT]), mode="1")],
+        [],
+    ),
+    "notice already re-issued": (
+        [
+            _pane(
+                pane="%8",
+                screen=_above_input(
+                    capture=EMPTY,
+                    lines=[TRANSCRIPT, "❯ /remote-control", "  ⎿  Remote Control connected"],
+                ),
+            )
+        ],
+        [],
+    ),
+    "notice text quoted without either rendered form": (
+        [_pane(pane="%9", screen=_above_input(capture=EMPTY, lines=[f"user pasted: {NOTICE}"]))],
+        [],
+    ),
+    "no input box on screen": ([_pane(pane="%10", screen=f"{TRANSCRIPT}\nsome dialog\n")], []),
+    "input box with no closing rule": (
+        [_pane(pane="%11", screen=f"{TRANSCRIPT}\n─────\n❯\u00a0\n   \n")],
+        [],
+    ),
+    "capture fails": ([_pane(pane="%12", screen=None)], []),
 }
 
 
-def test_module_notice_is_the_binary_string() -> None:
-    assert _rc().NOTICE == NOTICE
+def test_the_module_pins_the_version_notice_and_forms() -> None:
+    rc = _rc()
+    pinned = (rc.CLAUDE_CODE_VERSION, rc.NOTICE, rc.FORMS)
+    expected = (
+        FIXTURE["claude_code_version"],
+        NOTICE,
+        (FIXTURE["transcript_prefix"], FIXTURE["footer_prefix"]),
+    )
+    assert pinned == expected
+
+
+def test_the_real_input_captures_show_an_empty_and_a_drafted_prompt() -> None:
+    prompts = [
+        [row for row in capture.splitlines() if row.startswith("❯")] for capture in (EMPTY, DRAFT)
+    ]
+    assert prompts == [["❯\u00a0"], ["❯\u00a0half written draft about deploys"]]
 
 
 @pytest.mark.parametrize("mode", ["subprocess", "inprocess"])
@@ -148,8 +232,10 @@ def test_no_tmux_server_touches_nothing(
 
 
 def test_failed_send_is_not_reported() -> None:
+    screen = _above_input(capture=EMPTY, lines=[TRANSCRIPT])
+
     def tmux(*args: str) -> str | None:
-        return {"list-panes": "%1 claude 0", "capture-pane": NOTICE}.get(args[0])
+        return {"list-panes": "%1 claude 0", "capture-pane": screen}.get(args[0])
 
     assert _rc().reissue(tmux=tmux) == []
 

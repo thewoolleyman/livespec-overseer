@@ -1,5 +1,13 @@
 {
-  "source": "Claude Code 2.1.322 (binary string)",
-  "binary": "/home/ubuntu/.local/share/claude/versions/2.1.322",
-  "notice": "Remote Control stopped — the app running this session is now signed in to a different Claude account"
+  "claude_code_version": "2.1.322",
+  "source": "Claude Code 2.1.322 binary strings: the notice rendered when the signed-in account changes under a running session on a pushed credential, and the two forms it appears in",
+  "notice": "signed-in claude.ai account or organization changed on this machine — run /remote-control",
+  "notice_rest": " to start a session for the current account, or /login to switch back, then /remote-control",
+  "transcript_prefix": "Remote Control disconnected — ",
+  "footer_prefix": "Remote Control failed · ",
+  "input_captures": {
+    "empty": "claude_2.1.322_input_empty.txt",
+    "draft": "claude_2.1.322_input_draft.txt",
+    "how": "tmux capture-pane -p -J of a throwaway Claude Code 2.1.322 session, 2026-11-12T21:30Z; draft = text typed and not submitted"
+  }
 }

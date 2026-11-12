@@ -1,21 +1,27 @@
-"""Re-issue Remote Control in tmux panes that lost it to an account switch.
+"""Re-issue Remote Control in tmux panes that lost it to a pushed account switch.
 
-When the signed-in account changes, Claude Code stops Remote Control, keeps the
-local session running, and shows NOTICE (the string in the Claude Code 2.1.322
-binary). After a pushed account switch, this sends `/remote-control` to exactly
-the Claude Code panes showing that notice, so Remote Control resumes under the
-new account.
+When the signed-in account changes under a running session on a pushed
+credential, Claude Code drops Remote Control and renders the ACCOUNT-CHANGED
+NOTICE (NOTICE, taken from Claude Code CLAUDE_CODE_VERSION) inside a longer
+line, in one of FORMS: `Remote Control disconnected — <notice>…` in the
+transcript, or `Remote Control failed · <notice>…` in the footer. After a pushed
+account switch, this sends `/remote-control` to exactly the Claude Code panes
+showing it, so Remote Control resumes under the new account. A later Claude Code
+that changes the text is a recorded drift from CLAUDE_CODE_VERSION.
 
 Self-contained and stdlib-only on purpose: the push loop runs it on a listed
-host over ssh as `python3 - < remote_control_reissue.py`, where no overseer
-package is installed. It prints one JSON line naming the panes it re-issued.
+host over ssh as `python3 -` with this file on stdin, where no overseer package
+is installed. It prints one JSON line naming the panes it re-issued.
 
 A pane qualifies only when ALL of these hold:
 - its foreground command is Claude Code (`claude`);
 - it is not in a tmux mode such as copy mode;
-- the notice is a whole line of its joined screen (`capture-pane -p -J`), after
-  leading box or glyph characters are stripped;
-- no submitted `/remote-control` prompt line follows that notice.
+- a line of its joined screen (`capture-pane -p -J`) carries the notice in one
+  of FORMS, as part of that line;
+- no submitted `/remote-control` prompt line follows the latest such notice;
+- its input box is visible and EMPTY: the last `❯` prompt line holds no text,
+  and nothing but blank lines sits between it and the box's closing rule. A
+  pane holding unsubmitted text is never typed into.
 """
 
 from __future__ import annotations
@@ -24,14 +30,24 @@ import json
 import subprocess
 from collections.abc import Callable
 
-__all__: list[str] = ["NOTICE", "main", "panes_needing_reissue", "reissue"]
+__all__: list[str] = [
+    "CLAUDE_CODE_VERSION",
+    "FORMS",
+    "NOTICE",
+    "main",
+    "panes_needing_reissue",
+    "reissue",
+]
 
+CLAUDE_CODE_VERSION = "2.1.322"
 NOTICE = (
-    "Remote Control stopped — the app running this session is now signed in"
-    " to a different Claude account"
+    "signed-in claude.ai account or organization changed on this machine" " — run /remote-control"
 )
+FORMS = ("Remote Control disconnected — ", "Remote Control failed · ")
 _COMMAND = "/remote-control"
 _CLAUDE_COMMANDS = frozenset({"claude"})
+_PROMPT = "❯"
+_RULE = "─"
 _TIMEOUT_S = 10
 
 Tmux = Callable[..., str | None]
@@ -60,16 +76,35 @@ def _bare(*, line: str) -> str:
     return line[start:].rstrip()
 
 
-def _needs_reissue(*, screen: str) -> bool:
-    lines = [_bare(line=line) for line in screen.splitlines()]
-    notices = [index for index, line in enumerate(lines) if line == NOTICE]
-    if not notices:
+def _shows_notice(*, line: str) -> bool:
+    return any(form + NOTICE in line for form in FORMS)
+
+
+def _input_is_empty(*, lines: list[str]) -> bool:
+    """True only when the input box is on screen and holds no text."""
+    prompts = [index for index, line in enumerate(lines) if line.startswith(_PROMPT)]
+    if not prompts:
         return False
-    return _COMMAND not in lines[notices[-1] + 1 :]
+    if lines[prompts[-1]][len(_PROMPT) :].strip():
+        return False
+    for line in lines[prompts[-1] + 1 :]:
+        if line.startswith(_RULE):
+            return True
+        if line.strip():
+            return False
+    return False
+
+
+def _needs_reissue(*, screen: str) -> bool:
+    lines = screen.splitlines()
+    notices = [index for index, line in enumerate(lines) if _shows_notice(line=line)]
+    if not notices or not _input_is_empty(lines=lines):
+        return False
+    return _COMMAND not in [_bare(line=line) for line in lines[notices[-1] + 1 :]]
 
 
 def panes_needing_reissue(*, tmux: Tmux = _run_tmux) -> list[str]:
-    """Claude Code pane ids showing the account-change notice, not yet re-issued."""
+    """Claude Code pane ids showing the account-changed notice with an empty input box."""
     listing = tmux("list-panes", "-a", "-F", "#{pane_id} #{pane_current_command} #{pane_in_mode}")
     if listing is None:
         return []
