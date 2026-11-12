@@ -291,6 +291,13 @@ check:
         # a shipped durable-artifact reader must have a non-test producer.
         check-report-only-artifact-producers
     )
+    # A matching green token may stand in only for members whose declarations
+    # prove their verdict is decided by the committed tree. Refuse to run an
+    # aggregate with a missing declaration: treating it as world-reading is
+    # safe for a push, but silently erodes the token's intended saving.
+    if ! uv run python -m livespec_dev_tooling.green_token undeclared "${targets[@]}"; then
+        exit 1
+    fi
     failed=()
     ran=0
     for t in "${targets[@]}"; do
