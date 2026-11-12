@@ -1,18 +1,22 @@
-"""Role-holder core for safe enrolled-host credential deliveries."""
+"""Role-holder core for safe enrolled-host credential deliveries.
+
+A delivery is held IN MEMORY by its caller; only the sequence counter is
+persisted, so no access token is written to disk by delivery.
+"""
 
 from __future__ import annotations
 
 import json
 import os
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 
 import caam_delivery_registry
 import jsonio
 from caam_profile_state import live_creds_path
 
-__all__: list[str] = ["Delivery", "issue_delivery", "load_current_delivery", "write_private_json"]
+__all__: list[str] = ["Delivery", "issue_delivery", "write_private_json"]
 
 _STATE = ".local/state/caam-usage-rotate"
 
@@ -26,9 +30,14 @@ class Delivery:
 
 
 def issue_delivery(
-    *, home: Path, now: float, confirm_account: Callable[..., str | None]
+    *,
+    home: Path,
+    now: float,
+    confirm_account: Callable[..., str | None],
+    last: Delivery | None = None,
 ) -> Delivery | None:
-    """Persist a greater sequence before making a refresh-token-free delivery current."""
+    """Persist a greater sequence, then return a refresh-token-free delivery held in memory."""
+    _path(home=home, name="current-delivery.json").unlink(missing_ok=True)
     credential = _object(path=live_creds_path(home=home))
     state = _object(path=home / ".claude.json")
     if credential is None or state is None:
@@ -45,10 +54,9 @@ def issue_delivery(
     ):
         return None
     token = oauth["accessToken"]
-    if not isinstance(token, str) or confirm_account(access_token=token) != account_id:
+    if last is not None and last.oauth.get("accessToken") == token:
         return None
-    current = load_current_delivery(home=home)
-    if current is not None and current.oauth.get("accessToken") == token:
+    if not isinstance(token, str) or confirm_account(access_token=token) != account_id:
         return None
     with caam_delivery_registry.registry_lock(home=home):
         sequence = _sequence(home=home) + 1
@@ -61,25 +69,7 @@ def issue_delivery(
         write_private_json(
             path=_path(home=home, name="delivery-sequence.json"), value={"sequence": sequence}
         )
-        write_private_json(
-            path=_path(home=home, name="current-delivery.json"), value=asdict(delivery)
-        )
     return delivery
-
-
-def load_current_delivery(*, home: Path) -> Delivery | None:
-    body = _object(path=_path(home=home, name="current-delivery.json"))
-    if body is None:
-        return None
-    sequence = body.get("sequence")
-    account_id = body.get("account_id")
-    identity = jsonio.as_object(value=body.get("identity"))
-    oauth = jsonio.as_object(value=body.get("oauth"))
-    if not isinstance(sequence, int) or isinstance(sequence, bool):
-        return None
-    if not isinstance(account_id, str) or identity is None or oauth is None:
-        return None
-    return Delivery(sequence=sequence, account_id=account_id, identity=identity, oauth=oauth)
 
 
 def _identity(*, state: dict[str, object]) -> dict[str, object] | None:

@@ -50,6 +50,8 @@ def test_issues_a_sanitized_delivery_for_the_confirmed_live_account(*, tmp_path:
     counter = tmp_path / ".local/state/caam-usage-rotate/delivery-sequence.json"
     assert json.loads(counter.read_text(encoding="utf-8")) == {"sequence": delivery.sequence}
     assert counter.stat().st_mode & 0o777 == 0o600
+    state_dir = tmp_path / ".local/state/caam-usage-rotate"
+    assert all(access_token not in path.read_text(encoding="utf-8") for path in state_dir.iterdir())
 
 
 def test_refuses_mismatched_or_expired_live_credentials(*, tmp_path: Path) -> None:
@@ -93,18 +95,20 @@ def test_live_token_change_gets_a_later_sequence_and_malformed_current_is_ignore
     def confirm(*, access_token: str) -> str:
         return "account-a"
 
+    legacy = tmp_path / ".local/state/caam-usage-rotate/current-delivery.json"
+    legacy.parent.mkdir(parents=True)
+    _ = legacy.write_text("{}", encoding="utf-8")
     first = service.issue_delivery(home=tmp_path, now=1_000.0, confirm_account=confirm)
 
     assert first is not None
-    assert service.issue_delivery(home=tmp_path, now=1_000.0, confirm_account=confirm) is None
+    assert not legacy.exists()
+    same = service.issue_delivery(home=tmp_path, now=1_000.0, confirm_account=confirm, last=first)
+    assert same is None
     second_token = "access-" + "b"
     _write_live_files(home=tmp_path, token=second_token, account="account-a", user="user-a")
-    second = service.issue_delivery(home=tmp_path, now=1_000.0, confirm_account=confirm)
+    second = service.issue_delivery(home=tmp_path, now=1_000.0, confirm_account=confirm, last=first)
     assert second is not None
     assert second.sequence > first.sequence
-    current = tmp_path / ".local/state/caam-usage-rotate/current-delivery.json"
-    _ = current.write_text("{}", encoding="utf-8")
-    assert service.load_current_delivery(home=tmp_path) is None
 
 
 def test_counter_copied_to_a_new_holder_starts_above_its_previous_delivery(
@@ -151,11 +155,4 @@ def test_defensive_file_and_identity_failures_leave_no_delivery(*, tmp_path: Pat
         )
         is None
     )
-    current = tmp_path / ".local/state/caam-usage-rotate/current-delivery.json"
-    current.parent.mkdir(parents=True)
-    _ = current.write_text(
-        json.dumps({"sequence": 1, "account_id": 1, "identity": {}, "oauth": {}}),
-        encoding="utf-8",
-    )
-
-    assert service.load_current_delivery(home=tmp_path) is None
+    assert not (tmp_path / ".local/state/caam-usage-rotate/current-delivery.json").exists()
