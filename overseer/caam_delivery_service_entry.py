@@ -14,6 +14,10 @@ from caam_oauth_get import OAuthRequest, get_json
 __all__: list[str] = ["POLL_INTERVAL_S", "confirm_live_account", "main", "run_forever"]
 
 POLL_INTERVAL_S = 1.0
+# Named types, not `except Exception`: the broad-catch gate grants a program exactly one
+# boundary catch, in `main()`. These are the failures a poll over the two live stores can
+# raise (unreadable or malformed credential or state file, a failed provider read).
+_POLL_ERRORS = (OSError, RuntimeError, ValueError, TypeError, KeyError)
 
 
 def confirm_live_account(*, access_token: str) -> str | None:
@@ -40,9 +44,16 @@ def confirm_live_account(*, access_token: str) -> str | None:
 def run_forever(
     *, service: caam_delivery_runner.DeliveryService, wait: Callable[[float], None]
 ) -> None:
-    """Poll the two live stores; systemd restarts this process if it stops."""
+    """Poll the two live stores; a failed poll is reported and the next one still runs.
+
+    The failure line names the exception type only: the message of a store or provider
+    failure can quote a credential value, and no such value is ever written out.
+    """
     while True:
-        _ = service.refresh()
+        try:
+            _ = service.refresh()
+        except _POLL_ERRORS as error:
+            streams.write_stderr(text=f"FAIL delivery poll failed: {type(error).__name__}\n")
         wait(POLL_INTERVAL_S)
 
 
