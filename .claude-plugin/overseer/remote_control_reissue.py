@@ -16,8 +16,9 @@ is installed. It prints one JSON line naming the panes it re-issued.
 A pane qualifies only when ALL of these hold:
 - its foreground command is Claude Code (`claude`);
 - it is not in a tmux mode such as copy mode;
-- a line of its joined screen (`capture-pane -p -J`) carries the notice in one
-  of FORMS, as part of that line;
+- a line of its joined screen (`capture-pane -p -J`) STARTS, once transcript
+  decoration is stripped, with the notice in one of FORMS, rejoining lines Ink
+  hard-wrapped on a narrow pane; a form quoted mid-line in prose never matches;
 - no submitted `/remote-control` prompt line follows the latest such notice;
 - its input box is visible and EMPTY: the last `❯` prompt line holds no text,
   and nothing but blank lines sits between it and the box's closing rule. A
@@ -49,6 +50,7 @@ _CLAUDE_COMMANDS = frozenset({"claude"})
 _PROMPT = "❯"
 _RULE = "─"
 _TIMEOUT_S = 10
+_WRAP_LINES = 6
 
 Tmux = Callable[..., str | None]
 
@@ -76,8 +78,24 @@ def _bare(*, line: str) -> str:
     return line[start:].rstrip()
 
 
-def _shows_notice(*, line: str) -> bool:
-    return any(form + NOTICE in line for form in FORMS)
+def _collapsed(*, text: str) -> str:
+    return " ".join(text.split())
+
+
+def _notice_at(*, lines: list[str], index: int) -> bool:
+    """A rendered notice STARTS this line, after transcript decoration is stripped.
+
+    Ink hard-wraps a long line at spaces on a narrow pane, and `capture-pane -J`
+    joins only tmux's own soft wraps, so the next few lines are rejoined, with
+    whitespace collapsed, before comparing. A form quoted mid-line in prose does
+    not start its line and is never a match.
+    """
+    head = _bare(line=lines[index])
+    if not head.startswith(FORMS):
+        return False
+    tail = [line.strip() for line in lines[index + 1 : index + _WRAP_LINES]]
+    joined = _collapsed(text=" ".join([head, *tail]))
+    return any(joined.startswith(_collapsed(text=form + NOTICE)) for form in FORMS)
 
 
 def _input_is_empty(*, lines: list[str]) -> bool:
@@ -97,7 +115,7 @@ def _input_is_empty(*, lines: list[str]) -> bool:
 
 def _needs_reissue(*, screen: str) -> bool:
     lines = screen.splitlines()
-    notices = [index for index, line in enumerate(lines) if _shows_notice(line=line)]
+    notices = [index for index in range(len(lines)) if _notice_at(lines=lines, index=index)]
     if not notices or not _input_is_empty(lines=lines):
         return False
     return _COMMAND not in [_bare(line=line) for line in lines[notices[-1] + 1 :]]
