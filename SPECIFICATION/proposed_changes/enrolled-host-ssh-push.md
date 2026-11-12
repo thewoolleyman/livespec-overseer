@@ -1,7 +1,7 @@
 ---
 topic: enrolled-host-ssh-push
 author: claude-opus-5-5
-created_at: 2026-11-12T18:29:04Z
+created_at: 2026-11-12T18:48:31Z
 ---
 
 ## Proposal: Enrolled-host delivery by ssh push
@@ -12,11 +12,11 @@ created_at: 2026-11-12T18:29:04Z
 
 ### Summary
 
-Replace the pull design (HTTPS delivery service, enrolment credentials, a client on every host, report store, audit log) with a delivery service that pushes each delivery over ssh to every host in a role-holder-held host list; add Remote Control re-issue after an account switch, on listed hosts and on the role holder; reduce the central status view to a status command; defer its login-age, factory-probe and alert rows, forwarded refusals and remote sessions.
+Replace the pull design (HTTPS delivery service, enrolment credentials, a client on every host, report store, audit log) with a delivery service that pushes each delivery over ssh to every host in a role-holder-held host list; add Remote Control re-issue after an account switch, on listed hosts and on the role holder; reduce the central status view to a status command; defer its login-age, factory-probe and alert rows, forwarded refusals and remote sessions. The service delivers only the role holder's live login, never the published selection, and the status command shows and flags a divergence between them.
 
 ### Motivation
 
-Maintainer ruling 2026-11-12 on plan central-credential-service (epic overseer-iyfjbo): topology B (one central custodian of each account's login, hosts receive access tokens only), delivered by ssh push for speed, with no host-installed client and no enrolment. The pull design's transport, enrolment and client work (P1-B2..D) failed twice in the factory and is superseded. Claude Code since v2.1.234 stops Remote Control on an account change, so the maintainer chose automatic re-issue.
+Maintainer ruling 2026-11-12 on plan central-credential-service (epic overseer-iyfjbo): topology B (one central custodian of each account's login, hosts receive access tokens only), delivered by ssh push for speed, with no host-installed client and no enrolment. The pull design's transport, enrolment and client work (P1-B2..D) failed twice in the factory and is superseded. Claude Code since v2.1.234 stops Remote Control on an account change, so the maintainer chose automatic re-issue. The coordinator measured caam's live login diverging from its published selection three times on 2026-11-11 and 2026-11-12, so the delivery source is pinned to the live credential.
 
 ### Proposed Changes
 
@@ -41,6 +41,7 @@ Delivery never makes a rotation decision. A failure of the delivery service MUST
 - It MUST NOT transmit any refresh token.
 - It MUST NOT read the account manager's stored snapshots or the refresh-maintenance sandbox.
 - It MUST NOT write any file the rotation operation writes.
+- It MUST deliver only the account of the login the role holder is itself using, as the live credential holds it, and MUST NOT take the account to deliver from the operation's published selection record. Where the published selection names a different account from the live credential, the service MUST still deliver the live credential's account, and the status command MUST show the divergence.
 
 **A delivery names the account its token belongs to.** Before it issues a delivery, the service MUST confirm, with the ONE read-only request contracts.md §"Enrolled-host delivery" names, that the access token it read belongs to the account whose stable identifier the identity keys carry. Where the two differ, the service MUST NOT issue a delivery, and MUST read again on the next change to either the live credential or the global state file. This covers two cases:
 - a switch in progress, in which the account manager has installed the new credential before the identity keys are rewritten;
@@ -82,7 +83,7 @@ Atomicity, serialization and rollback are defined in contracts.md §"Enrolled-ho
 
 **Least privilege.** A listed host MUST NOT be able to read anything on the role holder, including the account manager's stored snapshots, any refresh token, or the service stores. The host list and the service stores MUST contain no credential material. The role key MUST be readable only by the role holder's operating user.
 
-**Status command.** The delivery service MUST provide one operator command on the role holder that shows delivery state and contains no credential material. This command is the CENTRAL STATUS VIEW that other clauses of this specification name. It MUST show whether the live credential has expired without replacement, and, for each listed host, the fields and STATE that contracts.md §"Enrolled-host delivery" defines. A host that has had no successful push within `delivery.stale_after` MUST NOT be shown as `current`. It MUST be shown as `stale` unless a state listed before `stale` applies.
+**Status command.** The delivery service MUST provide one operator command on the role holder that shows delivery state and contains no credential material. This command is the CENTRAL STATUS VIEW that other clauses of this specification name. It MUST show whether the live credential has expired without replacement; the account the live credential holds and the account the operation's published selection record names, flagging when they differ; and, for each listed host, the fields and STATE that contracts.md §"Enrolled-host delivery" defines. A host that has had no successful push within `delivery.stale_after` MUST NOT be shown as `current`. It MUST be shown as `stale` unless a state listed before `stale` applies.
 
 **Deferred to a later revision.** This revision does not define rows in the status command for account limits, login age and lifetime-cap warnings, factory credential probes or undelivered push alerts; the rotation operation's clauses on these are unchanged. Refusals forwarded from listed hosts, and tracking and model enforcement of sessions on listed hosts, are deferred as §"Account rotation and quota supervision" **Forwarded refusals** and **Remote sessions** state, until the follow-up plan opened once push runs on every reachable Linux host.
 
@@ -165,7 +166,7 @@ Accepted and unfixed: the host's own agent sessions write the global state file 
 - the PUSH STATE, holding for each listed host the last result its apply step reported, the sequence and stable account identifier it last applied and when, the time of its last successful push, and its last push error, which contains no credential material, with its time.
 
 
-**Status command.** The status command MUST be readable only on the role holder and MUST contain no credential material. It MUST show whether the live credential has expired without replacement. For each listed host, it MUST show:
+**Status command.** The status command MUST be readable only on the role holder and MUST contain no credential material. It MUST show whether the live credential has expired without replacement. It MUST show the stable account identifier of the account the live credential holds and of the account the operation's published selection record names, each with its profile name, and MUST mark the pair `diverged` when they differ; the service delivers the live account in that case, as spec.md **The one source** requires. For each listed host, it MUST show:
 - its label;
 - the stable account identifier its last-applied delivery named, with the profile name the operation's account table gives that identifier;
 - that delivery's sequence and when the host applied it;
@@ -209,7 +210,7 @@ Accepted and unfixed: a pushed access token stays usable until the next refresh 
 
 ### Summary
 
-Rewrite the enrolled-host scenario block for push (32 headings to 16: 19 removed, 2 renamed, 3 added). Remove the enrolment, client-authentication, forwarded-refusal, remote-session and enforcement-instruction scenarios. Add scenarios for an unverifiable host key, a returning host and Remote Control re-issue. Drop the central status view from the no-push-channel scenario. Update the platform dependencies and atomic-write exceptions in constraints.md.
+Rewrite the enrolled-host scenario block for push (32 headings to 17: 19 removed, 2 renamed, 4 added). Remove the enrolment, client-authentication, forwarded-refusal, remote-session and enforcement-instruction scenarios. Add scenarios for an unverifiable host key, a returning host, Remote Control re-issue and a live login diverging from the selected account. Drop the central status view from the no-push-channel scenario. Update the platform dependencies and atomic-write exceptions in constraints.md.
 
 ### Motivation
 
@@ -358,6 +359,18 @@ Then it reports that the live credential has expired without replacement
 And every following host whose last-applied delivery carried that token is shown as `expired`
 
 And the delivery service has not invoked the token endpoint
+
+## Scenario: The live login is delivered when it diverges from the selected account
+
+Given the role holder's live credential and global state file both name account A
+
+And the operation's published selection record names account B
+
+When the delivery service issues a delivery
+
+Then the delivery names account A and carries account A's access token
+
+And the status command shows account A as live and account B as selected, marked `diverged`
 
 ## Scenario: The delivery sequence continues across a move of the role
 
