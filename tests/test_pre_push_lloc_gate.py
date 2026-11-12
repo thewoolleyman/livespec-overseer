@@ -145,6 +145,9 @@ fi
 if [[ "$*" == "run python -m livespec_dev_tooling.green_token write" ]]; then
   exit 0
 fi
+if [[ "$*" == "run python -m livespec_dev_tooling.green_token undeclared "* ]]; then
+  exit 0
+fi
 if [[ "$*" == "run python -m livespec_dev_tooling.green_token check" ]]; then
   exit 1
 fi
