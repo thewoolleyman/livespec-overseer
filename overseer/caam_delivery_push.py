@@ -21,6 +21,7 @@ from pathlib import Path
 import caam_delivery_service
 import jsonio
 from caam_profile_state import live_creds_path
+from caam_selection_record import selection_record_path
 
 __all__: list[str] = [
     "APPLY_SCRIPT",
@@ -29,6 +30,7 @@ __all__: list[str] = [
     "live_pair",
     "load_hosts",
     "push_due",
+    "reissue_script",
     "run_ssh",
     "status_lines",
 ]
@@ -139,6 +141,7 @@ def push_due(
     now: float,
     run: Runner = run_ssh,
     retry_s: float = 30.0,
+    reissue: str | None = None,
 ) -> dict[str, str]:
     """Push `delivery` to every listed host still behind it; return host -> outcome."""
     state = _load_state(home=home)
@@ -156,8 +159,10 @@ def push_due(
         }
         results = {host: future.result() for host, future in futures.items()}
     outcomes: dict[str, str] = {}
-    for host, (rc, line) in results.items():
+    for host, (rc, reply) in results.items():
+        line = reply
         entry = state.setdefault(host, {})
+        previous = entry.get("account_id")
         entry["last_attempt"] = now
         entry["attempt_sequence"] = delivery.sequence
         if rc == 0:
@@ -167,6 +172,8 @@ def push_due(
                 last_success=now,
                 last_error="",
             )
+            if reissue is not None and previous != delivery.account_id:
+                line = line + "; remote-control " + run(target=host, script=reissue, payload="")[1]
         else:
             entry["last_error"] = line
         outcomes[host] = line
@@ -191,7 +198,25 @@ def status_lines(*, home: Path, now: float, stale_after: float = 900.0) -> list[
             f"{host}  {entry.get('account_id', '-')}  {when}  "
             f"{'current' if fresh else 'stale'}  {entry.get('last_error', '') or '-'}"
         )
+    live = _account(body=_object(path=home / ".claude.json"))
+    selected = _object(path=selection_record_path(home=home)) or {}
+    chosen = selected.get("account_uuid")
+    lines.append(f"role holder live account: {live or '-'}")
+    lines.append(f"caam selected account: {selected.get('profile', '-')} ({chosen or '-'})")
+    if live != chosen:
+        lines.append("MISMATCH: hosts receive the live login, which is not caam's selected account")
     return lines
+
+
+def reissue_script(*, path: Path) -> str | None:
+    """The Remote Control re-issue script, when this checkout carries it."""
+    return path.read_text(encoding="utf-8") if path.is_file() else None
+
+
+def _account(*, body: dict[str, object] | None) -> str | None:
+    account = None if body is None else jsonio.as_object(value=body.get("oauthAccount"))
+    value = None if account is None else account.get("accountUuid")
+    return value if isinstance(value, str) else None
 
 
 def _due(*, entry: dict[str, object], sequence: int, now: float, retry_s: float) -> bool:
