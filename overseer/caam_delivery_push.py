@@ -2,136 +2,128 @@
 
 The role holder reaches each host; no host learns where the role holder is, so
 moving the role changes nothing on the hosts. A host receives only the access
-token and the account identity, never a refresh token, and the apply script
-refuses to overwrite a host credential file that still holds its own login.
+token and the account identity, never a refresh token. The delivery itself is
+held in memory only: this module persists per-host push state, never a token.
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
 import shlex
 import subprocess
-import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import caam_delivery_service
 import jsonio
-from caam_profile_state import live_creds_path
-from caam_selection_record import selection_record_path
+import streams
+from caam_delivery_apply_script import APPLY_SCRIPT
 
 __all__: list[str] = [
     "APPLY_SCRIPT",
+    "CONFIG_FILE",
     "HOSTS_FILE",
     "PUSH_STATE",
-    "live_pair",
+    "Host",
+    "load_config",
     "load_hosts",
+    "load_state",
     "push_due",
     "reissue_script",
     "run_ssh",
-    "status_lines",
 ]
 
 HOSTS_FILE = ".config/caam-delivery/hosts"
+CONFIG_FILE = ".config/caam-delivery/config.json"
 PUSH_STATE = ".local/state/caam-usage-rotate/delivery-push.json"
+_HOST_FIELDS = 3
+UNSUPPORTED_MACOS = "failed unsupported-platform: macos inbox lands with overseer-7m6wu6"
 
 Runner = Callable[..., tuple[int, str]]
 
-# Runs on the host under `python3 -c`; the delivery arrives on stdin.
-APPLY_SCRIPT = r"""
-import json, os, sys, tempfile
-d = json.load(sys.stdin)
-home = os.path.expanduser("~")
-cp = os.path.join(home, ".claude", ".credentials.json")
-sp = os.path.join(home, ".claude.json")
-qp = os.path.join(home, ".claude", ".caam-delivery-sequence")
-def rd(p):
-    try:
-        with open(p) as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {}
-def wr(p, v, mode):
-    os.makedirs(os.path.dirname(p), exist_ok=True)
-    fd, t = tempfile.mkstemp(dir=os.path.dirname(p))
-    with os.fdopen(fd, "w") as f:
-        json.dump(v, f)
-        f.flush()
-        os.fsync(f.fileno())
-    os.chmod(t, mode)
-    os.replace(t, p)
-cred = rd(cp)
-if (cred.get("claudeAiOauth") or {}).get("refreshToken"):
-    print("not-converted")
-    sys.exit(3)
-try:
-    with open(qp) as f:
-        last = int(f.read().strip() or 0)
-except (FileNotFoundError, ValueError):
-    last = 0
-if d["sequence"] <= last:
-    print("current")
-    sys.exit(0)
-cred["claudeAiOauth"] = d["oauth"]
-state = rd(sp)
-state.update(d["identity"])
-wr(cp, cred, 0o600)
-wr(sp, state, os.stat(sp).st_mode & 0o777 if os.path.exists(sp) else 0o600)
-with open(qp, "w") as f:
-    f.write(str(d["sequence"]))
-print("applied")
-"""
+_DEFAULTS: dict[str, object] = {
+    "ssh_key": "~/.ssh/id_ed25519",
+    "push_timeout_s": 30.0,
+    "retry_s": 30.0,
+    "stale_after_s": 900.0,
+    "reissue_timeout_s": 15.0,
+}
 
 
-def run_ssh(*, target: str, script: str, payload: str) -> tuple[int, str]:
-    """Run `script` on `target` with `payload` on stdin; return (rc, last output line)."""
-    try:
-        done = subprocess.run(  # noqa: S603 - fixed argv, script shell-quoted
-            [
-                "/usr/bin/ssh",
-                "-o",
-                "BatchMode=yes",
-                "-o",
-                "ConnectTimeout=8",
-                target,
-                "python3 -c " + shlex.quote(script),
-            ],
-            input=payload,
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=False,
-        )
-    except subprocess.TimeoutExpired:
-        return 124, "timeout"
-    lines = (done.stdout.strip() or done.stderr.strip() or "no output").splitlines()
-    return done.returncode, lines[-1][:200]
+@dataclass(frozen=True, kw_only=True)
+class Host:
+    label: str
+    target: str
+    platform: str
 
 
-def load_hosts(*, home: Path) -> list[str]:
+def load_config(*, home: Path) -> dict[str, object]:
+    """Defaults overlaid by `~/.config/caam-delivery/config.json` when present."""
+    body = _object(path=home / CONFIG_FILE) or {}
+    return {key: body.get(key, value) for key, value in _DEFAULTS.items()}
+
+
+def load_hosts(*, home: Path) -> list[Host]:
+    """`<label> <ssh-target> <platform>` per line; a malformed line is reported and skipped."""
     path = home / HOSTS_FILE
     if not path.exists():
         return []
-    lines = (
-        line.split("#", 1)[0].strip() for line in path.read_text(encoding="utf-8").splitlines()
-    )
-    return [line for line in lines if line]
+    hosts: list[Host] = []
+    for number, text in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        fields = text.split("#", 1)[0].split()
+        if not fields:
+            continue
+        valid = (
+            len(fields) == _HOST_FIELDS
+            and not any(field.startswith("-") for field in fields)
+            and fields[2] in ("linux", "macos")
+        )
+        if not valid:
+            streams.write_stderr(text=f"FAIL host list line {number} rejected\n")
+            continue
+        hosts.append(Host(label=fields[0], target=fields[1], platform=fields[2]))
+    return hosts
 
 
-def live_pair(*, home: Path) -> tuple[str, str] | None:
-    """A fingerprint of the live access token plus the account id, read locally."""
-    cred = _object(path=live_creds_path(home=home))
-    state = _object(path=home / ".claude.json")
-    oauth = None if cred is None else jsonio.as_object(value=cred.get("claudeAiOauth"))
-    account = None if state is None else jsonio.as_object(value=state.get("oauthAccount"))
-    token = None if oauth is None else oauth.get("accessToken")
-    account_id = None if account is None else account.get("accountUuid")
-    if not isinstance(token, str) or not isinstance(account_id, str):
-        return None
-    return hashlib.sha256(token.encode()).hexdigest()[:12], account_id
+def run_ssh(*, target: str, script: str, payload: str, key: str, timeout: float) -> tuple[int, str]:
+    """Run `script` on `target` with `payload` on stdin; return (rc, one result line)."""
+    argv = [
+        "/usr/bin/ssh",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=8",
+        "-o",
+        "StrictHostKeyChecking=yes",
+        "-i",
+        str(Path(key).expanduser()),
+        "-o",
+        "IdentitiesOnly=yes",
+        "--",
+        target,
+        "python3 -c " + shlex.quote(script),
+    ]
+    try:
+        done = subprocess.run(  # noqa: S603 - fixed argv, target after --, script shell-quoted
+            argv, input=payload, capture_output=True, text=True, timeout=timeout, check=False
+        )
+    except subprocess.TimeoutExpired:
+        return 124, "failed timeout"
+    except OSError as error:
+        return 255, f"failed ssh-unavailable {type(error).__name__}"
+    if "Host key verification failed" in done.stderr:
+        return 255, "failed host-key-verification"
+    lines = done.stdout.strip().splitlines()
+    if done.returncode != 0 and not lines:
+        return done.returncode, f"failed ssh-exit {done.returncode}"
+    return done.returncode, (lines[-1] if lines else "failed no-reply")[:200]
+
+
+def load_state(*, home: Path) -> dict[str, dict[str, object]]:
+    body = _object(path=home / PUSH_STATE) or {}
+    return {key: value for key, value in body.items() if isinstance(value, dict)}
 
 
 def push_due(
@@ -140,72 +132,48 @@ def push_due(
     delivery: caam_delivery_service.Delivery,
     now: float,
     run: Runner = run_ssh,
-    retry_s: float = 30.0,
+    config: dict[str, object] | None = None,
     reissue: str | None = None,
 ) -> dict[str, str]:
-    """Push `delivery` to every listed host still behind it; return host -> outcome."""
-    state = _load_state(home=home)
+    """Push `delivery` to every listed host still behind it; return label -> outcome."""
+    settings = config or load_config(home=home)
+    state = load_state(home=home)
+    hosts = load_hosts(home=home)
     due = [
         host
-        for host in load_hosts(home=home)
-        if _due(entry=state.get(host, {}), sequence=delivery.sequence, now=now, retry_s=retry_s)
+        for host in hosts
+        if _due(
+            entry=state.get(host.label, {}), sequence=delivery.sequence, now=now, settings=settings
+        )
     ]
-    payload = json.dumps(asdict(delivery))
+    oauth = {key: value for key, value in delivery.oauth.items() if key != "refreshToken"}
+    payload = json.dumps({**asdict(delivery), "oauth": oauth})
+    token = str(oauth.get("accessToken", "")) or "\0"
+
+    def push_one(*, host: Host) -> str:
+        if host.platform == "macos":
+            return UNSUPPORTED_MACOS
+        reply = run(
+            target=host.target,
+            script=APPLY_SCRIPT,
+            payload=payload,
+            key=str(settings["ssh_key"]),
+            timeout=_seconds(value=settings["push_timeout_s"]),
+        )[1]
+        changed = state.get(host.label, {}).get("account_id") != delivery.account_id
+        if reply.startswith("applied") and changed:
+            reply += "; remote-control " + _reissue(
+                host=host, script=reissue, run=run, settings=settings
+            )
+        return reply.replace(token, "[redacted]")
 
     with ThreadPoolExecutor(max_workers=max(1, len(due))) as pool:
-        futures = {
-            host: pool.submit(run, target=host, script=APPLY_SCRIPT, payload=payload)
-            for host in due
-        }
-        results = {host: future.result() for host, future in futures.items()}
-    outcomes: dict[str, str] = {}
-    for host, (rc, reply) in results.items():
-        line = reply
-        entry = state.setdefault(host, {})
-        previous = entry.get("account_id")
-        entry["last_attempt"] = now
-        entry["attempt_sequence"] = delivery.sequence
-        if rc == 0:
-            entry.update(
-                sequence=delivery.sequence,
-                account_id=delivery.account_id,
-                last_success=now,
-                last_error="",
-            )
-            if reissue is not None and previous != delivery.account_id:
-                line = line + "; remote-control " + run(target=host, script=reissue, payload="")[1]
-        else:
-            entry["last_error"] = line
-        outcomes[host] = line
-    _save_state(home=home, state=state)
+        futures = {host.label: pool.submit(push_one, host=host) for host in due}
+        outcomes = {label: future.result() for label, future in futures.items()}
+    for label, line in outcomes.items():
+        _record(entry=state.setdefault(label, {}), line=line, delivery=delivery, now=now)
+    caam_delivery_service.write_private_json(path=home / PUSH_STATE, value=dict(state))
     return outcomes
-
-
-def status_lines(*, home: Path, now: float, stale_after: float = 900.0) -> list[str]:
-    """One secret-free line per listed host."""
-    state = _load_state(home=home)
-    lines = ["host  account  last-push  state  last-error"]
-    for host in load_hosts(home=home):
-        entry = state.get(host, {})
-        success = entry.get("last_success")
-        when = (
-            time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(success))
-            if isinstance(success, float)
-            else "never"
-        )
-        fresh = isinstance(success, float) and now - success <= stale_after
-        lines.append(
-            f"{host}  {entry.get('account_id', '-')}  {when}  "
-            f"{'current' if fresh else 'stale'}  {entry.get('last_error', '') or '-'}"
-        )
-    live = _account(body=_object(path=home / ".claude.json"))
-    selected = _object(path=selection_record_path(home=home)) or {}
-    chosen = selected.get("account_uuid")
-    lines.append(f"role holder live account: {live or '-'}")
-    lines.append(f"caam selected account: {selected.get('profile', '-')} ({chosen or '-'})")
-    if live != chosen:
-        lines.append("MISMATCH: hosts receive the live login, which is not caam's selected account")
-    return lines
 
 
 def reissue_script(*, path: Path) -> str | None:
@@ -213,29 +181,61 @@ def reissue_script(*, path: Path) -> str | None:
     return path.read_text(encoding="utf-8") if path.is_file() else None
 
 
-def _account(*, body: dict[str, object] | None) -> str | None:
-    account = None if body is None else jsonio.as_object(value=body.get("oauthAccount"))
-    value = None if account is None else account.get("accountUuid")
-    return value if isinstance(value, str) else None
+def _reissue(*, host: Host, script: str | None, run: Runner, settings: dict[str, object]) -> str:
+    if script is None:
+        return "re-issue unavailable"
+    return run(
+        target=host.target,
+        script=script,
+        payload="",
+        key=str(settings["ssh_key"]),
+        timeout=_seconds(value=settings["reissue_timeout_s"]),
+    )[1]
 
 
-def _due(*, entry: dict[str, object], sequence: int, now: float, retry_s: float) -> bool:
+def _record(
+    *, entry: dict[str, object], line: str, delivery: caam_delivery_service.Delivery, now: float
+) -> None:
+    entry["last_attempt"] = now
+    entry["attempt_sequence"] = delivery.sequence
+    word = line.split(" ", 1)[0]
+    if word in ("applied", "current"):
+        entry.update(
+            state="ok",
+            sequence=delivery.sequence,
+            account_id=delivery.account_id,
+            expires_at=delivery.oauth.get("expiresAt"),
+            last_success=now,
+            last_error="",
+        )
+    elif word == "not-converted":
+        entry.update(state="not-converted", last_error="not-converted")
+    else:
+        marked = line if line.startswith("failed") else "failed " + line
+        entry.update(state="failed", last_error=marked)
+
+
+def _due(
+    *, entry: dict[str, object], sequence: int, now: float, settings: dict[str, object]
+) -> bool:
     applied = entry.get("sequence")
+    attempted = entry.get("last_attempt")
+    if not isinstance(attempted, float):
+        return True
+    waited = now - attempted
+    if entry.get("state") == "not-converted" or str(entry.get("last_error", "")).startswith(
+        UNSUPPORTED_MACOS
+    ):
+        return waited >= _seconds(value=settings["stale_after_s"])
     if isinstance(applied, int) and applied >= sequence:
         return False
-    attempted = entry.get("last_attempt")
-    if entry.get("attempt_sequence") != sequence or not isinstance(attempted, float):
-        return True
-    return now - attempted >= retry_s
+    return entry.get("attempt_sequence") != sequence or waited >= _seconds(
+        value=settings["retry_s"]
+    )
 
 
-def _load_state(*, home: Path) -> dict[str, dict[str, object]]:
-    body = _object(path=home / PUSH_STATE) or {}
-    return {key: value for key, value in body.items() if isinstance(value, dict)}
-
-
-def _save_state(*, home: Path, state: dict[str, dict[str, object]]) -> None:
-    caam_delivery_service.write_private_json(path=home / PUSH_STATE, value=dict(state))
+def _seconds(*, value: object) -> float:
+    return float(value) if isinstance(value, int | float) else 30.0
 
 
 def _object(*, path: Path) -> dict[str, object] | None:

@@ -1,26 +1,34 @@
 """`caam-delivery-push`: the role holder's push service and its status command.
 
 `caam-delivery-push run` follows the live credential and pushes each new
-delivery to every listed host; `caam-delivery-push status` prints one
-secret-free line per listed host.
+delivery to every listed host; the delivery lives only in this process's
+memory. `caam-delivery-push status` prints one secret-free line per host.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import subprocess
 import sys
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 import caam_delivery_push
+import caam_delivery_push_status
 import caam_delivery_service
+import jsonio
 import streams
 from caam_capacity_source import OAUTH_BETA_HEADER, PROFILE_URL
 from caam_oauth_get import OAuthRequest, get_json
+from caam_profile_state import live_creds_path
+from caam_profiles import account_uuid
 
 __all__: list[str] = [
     "POLL_INTERVAL_S",
+    "PushLoop",
     "confirm_live_account",
     "main",
     "run_local",
@@ -31,13 +39,12 @@ POLL_INTERVAL_S = 5.0
 _REISSUE_PATH = Path(__file__).with_name("remote_control_reissue.py")
 
 
-def run_local(*, script: str) -> str:
-    """Run the re-issue script against this host's own panes; return its last line."""
-    done = subprocess.run(  # noqa: S603 - fixed interpreter, repo-shipped script
-        [sys.executable, "-c", script], capture_output=True, text=True, timeout=60, check=False
-    )
-    lines = (done.stdout.strip() or done.stderr.strip() or "no output").splitlines()
-    return lines[-1][:200]
+@dataclass(kw_only=True)
+class PushLoop:
+    """What one run of the service remembers between passes, in memory only."""
+
+    seen: tuple[str, str] | None = None
+    last: caam_delivery_service.Delivery | None = None
 
 
 def confirm_live_account(*, access_token: str) -> str | None:
@@ -56,45 +63,71 @@ def confirm_live_account(*, access_token: str) -> str | None:
         return account_id
     detail = reason if reason is not None else "no account identifier in the profile"
     streams.write_stderr(
-        text=f"FAIL delivery account confirmation failed: {detail.replace(access_token, '')}\n"
+        text="FAIL delivery account confirmation failed: "
+        + detail.replace(access_token, "[redacted]")
+        + "\n"
     )
     return None
+
+
+def run_local(*, script: str, timeout: float = 15.0) -> str:
+    """Run the re-issue script against this host's own panes; return its last line."""
+    try:
+        done = subprocess.run(  # noqa: S603 - fixed interpreter, repo-shipped script
+            [sys.executable, "-c", script],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, OSError) as error:
+        return f"failed {type(error).__name__}"
+    lines = done.stdout.strip().splitlines()
+    return lines[-1][:200] if lines else f"failed exit {done.returncode}"
 
 
 def run_once(  # noqa: PLR0913 - each argument is an independent seam
     *,
     home: Path,
     now: float,
-    seen: tuple[str, str] | None,
+    loop: PushLoop,
     confirm: Callable[..., str | None] = confirm_live_account,
     run: caam_delivery_push.Runner = caam_delivery_push.run_ssh,
     reissue: str | None = None,
-    local: Callable[..., str] | None = None,
-) -> tuple[str, str] | None:
-    """One pass: issue a delivery when the live pair changed, then push to hosts behind it.
+    local: Callable[..., str] = run_local,
+) -> None:
+    """One pass: issue a delivery when the live file changed, then push to hosts behind it."""
+    marker = _live_pair(home=home)
+    if marker is not None and marker != loop.seen:
+        loop.seen = marker
+        issued = caam_delivery_service.issue_delivery(
+            home=home, now=now, confirm_account=confirm, last=loop.last
+        )
+        if issued is not None:
+            if loop.last is not None and loop.last.account_id != issued.account_id:
+                line = "re-issue unavailable" if reissue is None else local(script=reissue)
+                streams.write_stdout(text=f"remote-control role holder: {line}\n")
+            loop.last = issued
+    if loop.last is not None:
+        outcomes = caam_delivery_push.push_due(
+            home=home, delivery=loop.last, now=now, run=run, reissue=reissue
+        )
+        for label, outcome in outcomes.items():
+            streams.write_stdout(text=f"push {label} sequence {loop.last.sequence}: {outcome}\n")
 
-    When the live account changed and the Remote Control re-issue script is
-    present, the role holder's own panes get it too, in-process via `local`.
-    """
-    pair = caam_delivery_push.live_pair(home=home)
-    before = caam_delivery_service.load_current_delivery(home=home)
-    if pair is not None and pair != seen:
-        _ = caam_delivery_service.issue_delivery(home=home, now=now, confirm_account=confirm)
-    delivery = caam_delivery_service.load_current_delivery(home=home)
-    if (
-        reissue is not None
-        and before is not None
-        and delivery is not None
-        and before.account_id != delivery.account_id
-    ):
-        line = (local or run_local)(script=reissue)
-        streams.write_stdout(text=f"remote-control role holder: {line}\n")
-    if delivery is not None:
-        for host, outcome in caam_delivery_push.push_due(
-            home=home, delivery=delivery, now=now, run=run, reissue=reissue
-        ).items():
-            streams.write_stdout(text=f"push {host} sequence {delivery.sequence}: {outcome}\n")
-    return pair
+
+def _live_pair(*, home: Path) -> tuple[str, str] | None:
+    """A fingerprint of the live access token plus the live account id, read locally."""
+    try:
+        cred = json.loads(live_creds_path(home=home).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    oauth = jsonio.as_object(value=jsonio.as_object(value=cred) and cred.get("claudeAiOauth"))
+    token = None if oauth is None else oauth.get("accessToken")
+    account = account_uuid(claude_json_path=home / ".claude.json")
+    if not isinstance(token, str) or account is None:
+        return None
+    return hashlib.sha256(token.encode()).hexdigest()[:12], account
 
 
 def main(
@@ -107,14 +140,17 @@ def main(
     home = Path.home()
     args = sys.argv[1:] if argv is None else argv
     if args[:1] == ["status"]:
-        for line in caam_delivery_push.status_lines(home=home, now=time.time()):
+        lines = caam_delivery_push_status.status_lines(
+            home=home, now=time.time(), reissue_available=_REISSUE_PATH.is_file()
+        )
+        for line in lines:
             streams.write_stdout(text=line + "\n")
         return 0
-    seen: tuple[str, str] | None = None
+    loop = PushLoop()
     done = 0
     while passes is None or done < passes:
         script = caam_delivery_push.reissue_script(path=_REISSUE_PATH)
-        seen = run_once(home=home, now=time.time(), seen=seen, reissue=script)
+        run_once(home=home, now=time.time(), loop=loop, reissue=script)
         done += 1
         sleep(POLL_INTERVAL_S)
     return 0
