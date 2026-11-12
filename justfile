@@ -95,6 +95,14 @@ install-commit-refuse-hooks:
 install-worktree-pack:
     uv run python -m livespec_dev_tooling.install_worktree_pack
 
+# Role holder's caam-delivery-push user unit (plan central-credential-service).
+# Idempotent install and its documented revert; see overseer/caam-delivery-push.service.
+install-caam-delivery-push:
+    scripts/caam-delivery-push-install.sh install
+
+uninstall-caam-delivery-push:
+    scripts/caam-delivery-push-install.sh uninstall
+
 # The standard shared derive-from-settings wrapper: reads the committed
 # `.claude/settings.json` (`extraKnownMarketplaces` incl. `ref`, `enabledPlugins`)
 # at runtime and issues the marketplace add / install / update commands for
