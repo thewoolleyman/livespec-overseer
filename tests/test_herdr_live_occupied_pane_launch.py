@@ -161,6 +161,7 @@ import herdr_write
 import pytest
 from test_herdr_live_observations import (
     POLL_SECONDS,
+    READY_TIMEOUT,
     TRANSIENT_NAME,
     TRANSIENT_SECONDS,
     BoundedPoll,
@@ -179,6 +180,7 @@ from test_herdr_live_observations import (
     raw_request,
     read_foreground,
     registered_login_shells,
+    rendezvous_transient,
     run_in_pane,
     split_pane,
     start_owned_server,
@@ -219,6 +221,7 @@ class LiveTab:
     original: str
     unrelated: str
     transient: str
+    release: Path
 
 
 def _reading(*, socket_path: str, pane_id: str) -> ForegroundReading:
@@ -301,12 +304,16 @@ def _live(*, tmp_path: Path) -> Iterator[LiveTab]:
             direction="right",
             cwd=PANE_CWD,
         )
+        release = tmp_path / "release-occupied-pane-startup-transient"
         yield LiveTab(
             socket_path=owned.socket_path,
             server_pid=owned.server_pid,
             original=owned.root,
             unrelated=unrelated,
-            transient=startup_transient(scratch=tmp_path),
+            transient=rendezvous_transient(
+                scratch=tmp_path, release=release, guard_seconds=READY_TIMEOUT
+            ),
+            release=release,
         )
     finally:
         stop_owned_server(session=session)
@@ -353,6 +360,7 @@ def _split_top(*, live: LiveTab) -> tuple[Any, PaneReadiness]:
     readiness = PaneReadiness(
         socket_path=live.socket_path,
         transient=live.transient,
+        release=live.release,
         registered=registered_login_shells(),
         occupy_after=OCCUPY_AFTER,
         occupant=_occupy_late(socket_path=live.socket_path),

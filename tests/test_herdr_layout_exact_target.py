@@ -59,9 +59,9 @@ from test_herdr_live_observations import (
     process_info_reply,
     read_foreground,
     registered_login_shells,
+    rendezvous_transient,
     split_pane,
     start_owned_server,
-    startup_transient,
     stop_owned_server,
 )
 
@@ -191,6 +191,7 @@ class UnfocusedTab:
     supervised: str
     focused: str
     transient: str
+    release: Path
 
 
 def _rects(*, tab: UnfocusedTab) -> tuple[dict[str, tuple[int, int, int, int]], str]:
@@ -240,12 +241,16 @@ def _start_unfocused_tab(*, session: str, scratch: Path) -> UnfocusedTab:
     except BaseException:
         stop_owned_server(session=session)
         raise
+    release = scratch / "release-layout-exact-target"
     return UnfocusedTab(
         socket_path=owned.socket_path,
         server_pid=owned.server_pid,
         supervised=owned.root,
         focused=other,
-        transient=startup_transient(scratch=scratch),
+        transient=rendezvous_transient(
+            scratch=scratch, release=release, guard_seconds=READY_TIMEOUT
+        ),
+        release=release,
     )
 
 
@@ -354,6 +359,7 @@ def test_the_split_lands_on_the_supervised_pane_not_the_focused_one(*, tab: Unfo
     readiness = PaneReadiness(
         socket_path=tab.socket_path,
         transient=tab.transient,
+        release=tab.release,
         registered=registered_login_shells(),
     )
 
