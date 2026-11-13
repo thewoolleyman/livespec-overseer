@@ -302,10 +302,16 @@ def test_scenario_a_staged_transient_ended_by_its_hang_guard_fails_loudly(
     pane.first_reading_delay = 1.5
     guarded = _stage(scratch=tmp_path, guard_seconds=0.5, seconds=4.0, monkeypatch=monkeypatch)
 
+    started = time.monotonic()
     guarded.establish()
+    elapsed = time.monotonic() - started
 
     assert guarded.expired_marker().exists(), "the transient did not report its hang guard ended it"
     refusal = guarded.gate.refusal()
     assert "hang-guard expiry" in refusal, refusal
     assert guarded.gate.transient is not None
     assert guarded.gate.transient.pid is None, "an expired transient must not read as observed"
+    # The guard had already ended the transient when the delayed first reading came back,
+    # so the gate stops at that reading: no quiet retry of a known-expired observation.
+    assert pane.reads == 1, f"the gate kept polling after the guard expired: {pane.reads} reads"
+    assert elapsed < 4.0, f"the gate waited out its bound after the guard expired: {elapsed:.1f}s"
