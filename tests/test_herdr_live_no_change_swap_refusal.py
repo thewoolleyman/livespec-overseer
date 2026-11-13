@@ -92,6 +92,7 @@ import herdr_identity
 import herdr_write
 import pytest
 from test_herdr_live_observations import (
+    READY_TIMEOUT,
     BoundedPoll,
     ForegroundReading,
     OwnedServer,
@@ -103,9 +104,9 @@ from test_herdr_live_observations import (
     process_info_reply,
     read_foreground,
     registered_login_shells,
+    rendezvous_transient,
     split_pane,
     start_owned_server,
-    startup_transient,
     stop_owned_server,
 )
 
@@ -166,6 +167,7 @@ class LiveProxiedTab:
     original: str
     unrelated: str
     transient: str
+    release: Path
     state: ProxyState
 
 
@@ -355,12 +357,16 @@ def _build(
     owned.listeners.append(listener)
     owned.threads.append(relay)
     relay.start()
+    release = scratch / f"release-no-change-swap-{decline}"
     return LiveProxiedTab(
         real_socket=real_socket,
         proxy_socket=str(proxy_socket),
         original=original,
         unrelated=unrelated,
-        transient=startup_transient(scratch=scratch),
+        transient=rendezvous_transient(
+            scratch=scratch, release=release, guard_seconds=READY_TIMEOUT
+        ),
+        release=release,
         state=state,
     )
 
@@ -426,6 +432,7 @@ def _split_top(*, live: LiveProxiedTab) -> tuple[Any, PaneReadiness]:
     readiness = PaneReadiness(
         socket_path=live.real_socket,
         transient=live.transient,
+        release=live.release,
         registered=registered_login_shells(),
     )
     outcome = ReadyWriter(readiness=readiness, timeout_seconds=10.0).split_window_top(
