@@ -223,5 +223,6 @@ class Observation:
     blocked: str | None
     acked: bool
     ready: bool
+    claude_status_read_at: float | None = None
     rejected_value: str | None = None
     rejected_from_malformed: str | None = None

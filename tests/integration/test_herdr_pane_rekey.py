@@ -19,6 +19,7 @@ import pytest
 import registry
 import supervisor
 from test_supervisor_builders import declare, idle_capture
+from test_supervisor_claude_status_inject import inject_claude_status
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
@@ -189,7 +190,7 @@ def make_scenario(
     registry.append_mapping(track=track, store_path=sup.store_path)
     for coordinate in (old_coordinate, current_coordinate):
         sup.claude_names_by_session[coordinate] = {track.topic}
-        sup.claude_status_by_session[coordinate] = "idle"
+        inject_claude_status(sup=sup, statuses={coordinate: "idle"}, merge=True)
         sup.claude_identity_by_session[(coordinate, track.topic)] = actual_identity
     return Scenario(
         sup=sup,

@@ -24,6 +24,7 @@ from test_supervisor_builders import (
     nudge_count,
     wrapup_count,
 )
+from test_supervisor_claude_status_inject import inject_claude_status
 from test_supervisor_fakes import (
     FakeTmux,
 )
@@ -128,7 +129,7 @@ def test_idle_above_threshold_nudges_to_keep_going_only_after_an_hour(*, tmp_pat
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))  # well above threshold
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     track = mapped_track(repo=repo, topic=topic, session=session)
 
     # First idle tick: descriptive status, but NOT yet nudged (idle < 1 hour).
@@ -163,7 +164,7 @@ def test_nudge_re_arms_after_the_session_takes_a_turn(*, tmp_path):
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     track = mapped_track(repo=repo, topic=topic, session=session)
 
     sup.evaluate(track=track, act=True)  # idle_since stamped
@@ -172,13 +173,13 @@ def test_nudge_re_arms_after_the_session_takes_a_turn(*, tmp_path):
     assert nudge_count(fake=fake) == 1
 
     # The session takes a turn (Claude busy) → marker cleared AND the idle clock reset.
-    sup.claude_status_by_session = {session: "busy"}
+    inject_claude_status(sup=sup, statuses={session: "busy"})
     assert sup.evaluate(track=track, act=True).status == "working"
     state = signals.read_state(repo=str(repo), topic=topic)
     assert state is not None and state.token == signals.STATE_IDLE_NUDGE_CLEARED
 
     # Idle again with context left but only BRIEFLY → not yet re-nudged (fresh 1h clock).
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     assert sup.evaluate(track=track, act=True).status == "idle-with-context-left"
     assert nudge_count(fake=fake) == 1  # the new episode has not reached the floor
 
@@ -196,7 +197,7 @@ def test_claude_waiting_is_not_nudged(*, tmp_path):
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {session: "waiting"}
+    inject_claude_status(sup=sup, statuses={session: "waiting"})
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "idle"
     assert nudge_count(fake=fake) == 0
@@ -211,7 +212,7 @@ def test_nudge_never_overwrites_a_session_declaration(*, tmp_path):
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     declare(repo=repo, topic=topic, value="blocked: waiting on a human decision (asked in prose)")
     with contextlib.redirect_stderr(_io.StringIO()):
         view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)

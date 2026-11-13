@@ -21,6 +21,7 @@ import os
 from typing import TYPE_CHECKING
 
 import _supervisor_archived_live
+import _supervisor_claude_registry_freshness
 import _supervisor_codex_adoption
 import claude_sessions
 import pane_router
@@ -137,6 +138,7 @@ def refresh_claude_status(*, sup: Supervisor) -> None:
         ppid_of=sup.ppid_of,
         starttime_of=sup.starttime_of,
     )
+    _supervisor_claude_registry_freshness.drop_unjoined_status(sup=sup)
     sup.claude_names_by_session = claude_sessions.names_by_tmux_session(
         sessions_dir=sessions_dir(sup=sup),
         pane_pid_to_session=pane_pids,

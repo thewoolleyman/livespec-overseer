@@ -32,6 +32,7 @@ from overseer.test_supervisor_builders import (
     make_supervisor,
     mapped_track,
 )
+from overseer.test_supervisor_claude_status_inject import inject_claude_status
 from overseer.test_supervisor_fakes import FakeTmux
 
 MAX_AGE = _supervisor_config.READY_ARM_MAX_AGE
@@ -48,7 +49,7 @@ def _track_with_status(*, tmp_path, clock, status, ctx=40):
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=ctx))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"], out=_io.StringIO())
     track = mapped_track(repo=repo, topic=topic, session=session)
-    sup.claude_status_by_session = {session: status}
+    inject_claude_status(sup=sup, statuses={session: status})
     return repo, topic, session, fake, sup, track
 
 

@@ -4,6 +4,7 @@ import io as _io
 
 import signals
 import supervisor
+from test_supervisor_claude_status_inject import INJECTED_NAME, inject_claude_status
 
 __all__: list[str] = []
 
@@ -40,20 +41,26 @@ def make_supervisor(*, tmp_path, fake, **kwargs):
         stamp_path=str(tmp_path / "stamps.json"),
         **kwargs,
     )
-    sup.claude_status_by_session = {
-        session: "idle"
-        for session in fake.sessions
-        if isinstance(command := fake.cmds.get(session), str)
-        and signals.pane_is_claude(pane_current_command=command)
-    }
+    inject_claude_status(
+        sup=sup,
+        statuses={
+            session: "idle"
+            for session in fake.sessions
+            if isinstance(command := fake.cmds.get(session), str)
+            and signals.pane_is_claude(pane_current_command=command)
+        },
+    )
 
     def refresh_claude_status() -> None:
+        injected = {
+            k: v for k, v in sup.claude_identity_by_session.items() if k[1] == INJECTED_NAME
+        }
         sup.claude_identity_by_session = {
             (session, session): f"claude:{session}:{session}"
             for session in fake.sessions
             if isinstance(command := fake.cmds.get(session), str)
             and signals.pane_is_claude(pane_current_command=command)
-        }
+        } | injected
 
     refresh_claude_status()
     sup.refresh_claude_status = refresh_claude_status

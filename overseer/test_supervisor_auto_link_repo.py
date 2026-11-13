@@ -23,6 +23,7 @@ from test_supervisor_builders import (
     row_line,
     write_session,
 )
+from test_supervisor_claude_status_inject import inject_claude_status
 from test_supervisor_fakes import (
     FakeTmux,
     TtyOut,
@@ -164,10 +165,10 @@ def test_registry_busy_marks_working_despite_idle_pane(*, tmp_path):
         session=session, repo=repo, capture=idle_capture(ctx=73)
     )  # pane looks idle, high ctx
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {session: "busy"}  # Claude's own live self-report
+    inject_claude_status(sup=sup, statuses={session: "busy"})  # Claude's own live self-report
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "working"
-    assert view.note == "sub-agent (Claude busy)"
+    assert view.note == "sub-agent (Claude busy; registry read at 1000.000)"
 
 
 def test_registry_shell_marks_working_with_background_shell_note(*, tmp_path):
@@ -179,7 +180,7 @@ def test_registry_shell_marks_working_with_background_shell_note(*, tmp_path):
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))  # pane at the prompt
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    sup.claude_status_by_session = {session: "shell"}  # Claude: a live background command
+    inject_claude_status(sup=sup, statuses={session: "shell"})  # Claude: a live background command
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "working"
     assert view.note == "background shell"
@@ -203,7 +204,9 @@ def test_adopted_claude_ignores_the_process_tree_shell_walk(*, tmp_path):
         children_of=lambda *, pid: children.get(pid, []),
         comm_of=lambda *, pid: comms.get(pid),
     )
-    sup.claude_status_by_session = {session: "waiting"}  # Claude: at a user prompt, not working
+    inject_claude_status(
+        sup=sup, statuses={session: "waiting"}
+    )  # Claude: at a user prompt, not working
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "idle"  # NOT "working" — the process-walk is ignored for Claude
     assert view.note is None
@@ -225,7 +228,7 @@ def test_claude_registry_miss_does_not_fall_back_to_process_shell_walk(*, tmp_pa
         children_of=lambda *, pid: children.get(pid, []),
         comm_of=lambda *, pid: comms.get(pid),
     )
-    sup.claude_status_by_session = {}
+    inject_claude_status(sup=sup, statuses={})
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "idle-with-context-left"
     assert view.note is None
@@ -245,7 +248,7 @@ def test_registry_idle_is_idle_even_with_a_stray_descendant_shell(*, tmp_path):
         children_of=lambda *, pid: {100: [200]}.get(pid, []),
         comm_of=lambda *, pid: {200: "bash"}.get(pid),
     )
-    sup.claude_status_by_session = {session: "idle"}
+    inject_claude_status(sup=sup, statuses={session: "idle"})
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     # Not "working" — the process-walk is ignored for Claude. (Idle above threshold with
     # no declaration is now nudged to keep going: `idle-with-context-left`, still not busy.)
