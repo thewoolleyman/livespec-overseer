@@ -10,6 +10,7 @@ again. gitops-fleet-capacity-monitoring followed the same sequence on 2026-10-14
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import importlib
 import io as _io
 from typing import Any, cast
@@ -326,6 +327,47 @@ def test_a_retained_wrapup_never_retries_after_pane_identity_changes(*, tmp_path
         is None
     )
     fake.cmds[session] = "zsh"
+    assert (
+        pending.retry_decision(
+            sup=sup, track=track, obs=obs, session=session, target=session, act=True
+        )
+        is None
+    )
+
+
+def test_a_retained_wrapup_keeps_busy_or_vanished_payload_out_of_enter_retry(
+    *, tmp_path, monkeypatch
+):
+    """Busy evidence or a payload that disappeared revokes this tick's Enter authority."""
+    _repo, _topic, session, sup, track, _clock, _fake = _retained_wrapup(
+        tmp_path=tmp_path, monkeypatch=monkeypatch
+    )
+    pending = importlib.import_module("_supervisor_pending_wrapup")
+    observe = importlib.import_module("_supervisor_observe")
+    launch = importlib.import_module("_supervisor_launch")
+    obs = observe.observe(
+        sup=sup,
+        track=track,
+        session=session,
+        target=session,
+        key=(track.repo, track.topic),
+    )
+
+    assert (
+        pending.retry_decision(
+            sup=sup,
+            track=track,
+            obs=dataclasses.replace(obs, busy=True),
+            session=session,
+            target=session,
+            act=True,
+        ).status
+        is None
+    )
+
+    visible = iter((True, False))
+    monkeypatch.setattr(launch, "retained_prompt_visible", lambda **_kwargs: next(visible))
+    monkeypatch.setattr(launch, "retry_prompt_enter_once", lambda **_kwargs: (False, False))
     assert (
         pending.retry_decision(
             sup=sup, track=track, obs=obs, session=session, target=session, act=True
