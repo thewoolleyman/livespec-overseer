@@ -47,6 +47,7 @@ class PushLoop:
     seen: tuple[str, str] | None = None
     last: caam_delivery_service.Delivery | None = None
     retry_at: float | None = None
+    reissued_for: str | None = None
 
 
 def confirm_live_account(*, access_token: str) -> str | None:
@@ -102,6 +103,8 @@ def run_once(  # noqa: PLR0913 - each argument is an independent seam
 ) -> None:
     """One pass: issue a delivery when the live file changed, then push to hosts behind it."""
     marker = _live_pair(home=home)
+    if marker is not None:
+        _reissue_on_switch(loop=loop, account=marker[1], reissue=reissue, local=local)
     retry_due = loop.retry_at is not None and now >= loop.retry_at
     if marker is not None and (marker != loop.seen or retry_due):
         loop.seen = marker
@@ -121,9 +124,7 @@ def run_once(  # noqa: PLR0913 - each argument is an independent seam
             settings = caam_delivery_push.load_config(home=home)
             loop.retry_at = now + caam_delivery_push_state.seconds(settings=settings, key="retry_s")
         if issued is not None:
-            if loop.last is not None and loop.last.account_id != issued.account_id:
-                line = "re-issue unavailable" if reissue is None else local(script=reissue)
-                streams.write_stdout(text=f"remote-control role holder: {line}\n")
+            _reissue_on_switch(loop=loop, account=issued.account_id, reissue=reissue, local=local)
             loop.last = issued
     if loop.last is not None:
         outcomes = caam_delivery_push.push_due(
@@ -131,6 +132,24 @@ def run_once(  # noqa: PLR0913 - each argument is an independent seam
         )
         for label, outcome in outcomes.items():
             streams.write_stdout(text=f"push {label} sequence {loop.last.sequence}: {outcome}\n")
+
+
+def _reissue_on_switch(
+    *, loop: PushLoop, account: str, reissue: str | None, local: Callable[..., str]
+) -> None:
+    """Re-issue Remote Control on the role holder once per switch of its account.
+
+    Spec v099 fires it after the rotation switches the live login AND after a
+    delivery names a different account; the coordinator's grade of #2990 has it
+    fire on whichever is seen first, once. A switch whose confirmation fails
+    issues no delivery, so waiting for the delivery alone missed it. The first
+    account seen in a run is only recorded: what preceded it is unknown.
+    """
+    previous, loop.reissued_for = loop.reissued_for, account
+    if previous is None or previous == account:
+        return
+    line = "re-issue unavailable" if reissue is None else local(script=reissue)
+    streams.write_stdout(text=f"remote-control role holder: {line}\n")
 
 
 def _live_pair(*, home: Path) -> tuple[str, str] | None:
