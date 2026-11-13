@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.55.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.55.2...v5.55.3) (2026-11-13)
+
+
+### Reverts
+
+* restore the livespec-dev-tooling v1.202.0 pin that release 5.55.2 (65dce2d8) rolled back ([e687d1c](https://github.com/thewoolleyman/livespec-overseer/commit/e687d1cae0ba87f4ae5a79c7440f4e4db9ec38a2))
+
 ## [5.55.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.55.1...v5.55.2) (2026-11-13)
 
 
