@@ -2448,5 +2448,12 @@
     "heading": "## Scenario: A ready seat is held, not replaced, while the host is below its memory floor",
     "work_item": "overseer-uzvcbn.23",
     "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The account table's columns align on every kind of row",
+    "work_item": "overseer-fr3hnj",
+    "first_seen": "2026-11-13"
   }
 ]
