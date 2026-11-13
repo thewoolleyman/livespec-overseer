@@ -74,6 +74,8 @@ def test_reset_selection_prefers_the_narrowest_usable_claim_and_tracks_retries(*
 
 def test_anthropic_reset_reading_keeps_limit_only_grants_and_client_refusals_distinct():
     """A declined reset surface is unreadable, rather than an empty grant list."""
+    module_path = Path(__file__).resolve().parents[1] / "overseer" / "caam_resets.py"
+    assert module_path.is_file()
     module = importlib.import_module("caam_resets")
 
     readable = module.parse_anthropic_resets(
@@ -107,3 +109,49 @@ def test_anthropic_reset_reading_keeps_limit_only_grants_and_client_refusals_dis
     )
     assert unreadable.resets == ()
     assert unreadable.unreadable_reason == "client surface is not entitled"
+
+
+def test_anthropic_blocks_render_each_grant_and_build_an_idempotent_claim():
+    """The provider blocks retain their real fields through display and claim."""
+    module_path = Path(__file__).resolve().parents[1] / "overseer" / "caam_resets.py"
+    assert module_path.is_file()
+    module = importlib.import_module("caam_resets")
+    reading = module.parse_anthropic_resets(
+        body={
+            "cedar_ember": {
+                "eligible": True,
+                "grants": [
+                    {
+                        "id": "grant-1",
+                        "clears": ["five_hour", "seven_day"],
+                        "resets_left": 1,
+                        "resets_total": 2,
+                        "ends_at": "2026-11-14T00:00:00Z",
+                        "usable_now": True,
+                        "use_requires_limit": False,
+                    }
+                ],
+            },
+            "juniper_tide": {
+                "eligible": True,
+                "available": True,
+                "resets_per_week": 1,
+                "weekly_resets_at": "2026-11-15T00:00:00Z",
+            },
+        }
+    )
+
+    assert module.reset_cell(resets=reading.resets, now=1_794_528_000.0) == (
+        "five_hour+seven_day (1/2, 1d 0h 0m); five_hour (1/1, 2d 0h 0m)"
+    )
+    claim = module.claim_request(
+        organization_uuid="org-1",
+        reset=reading.resets[0],
+        request_id="request-1",
+    )
+    assert claim.url.endswith("/api/organizations/org-1/reset_rate_limits")
+    assert claim.body == {
+        "program": "cedar_ember",
+        "grant_id": "grant-1",
+        "request_id": "request-1",
+    }
