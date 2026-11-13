@@ -1567,6 +1567,7 @@ class PaneReadiness:
 
     socket_path: str
     transient: str
+    release: Path | None = None
     registered: tuple[RegisteredShell, ...] = field(default_factory=registered_login_shells)
     seconds: float = READY_TIMEOUT
     coherence_seconds: float = READY_TIMEOUT
@@ -1624,6 +1625,7 @@ class PaneReadiness:
             socket_path=self.socket_path,
             startup_transient=self.transient,
             transient_name=TRANSIENT_NAME,
+            release=self.release,
             seconds=self.seconds,
         )
         self.gate = gate
@@ -2712,11 +2714,16 @@ def test_the_shared_readiness_establishes_the_exact_raw_split_pane(*, tmp_path: 
     """
     session = unique_session(label="raw-split")
     server = start_owned_server(session=session, scratch=tmp_path, log_name="rawsplit.log")
+    release = tmp_path / "release-raw-split-transient"
     try:
         pane_id = split_pane(socket_path=server.socket_path, pane_id=server.root, direction="down")
         before = pane_ids(socket_path=server.socket_path)
         readiness = PaneReadiness(
-            socket_path=server.socket_path, transient=startup_transient(scratch=tmp_path)
+            socket_path=server.socket_path,
+            transient=rendezvous_transient(
+                scratch=tmp_path, release=release, guard_seconds=READY_TIMEOUT
+            ),
+            release=release,
         )
         readiness.establish(pane_id=pane_id)
         gate = readiness.gate
@@ -2769,11 +2776,13 @@ def test_a_closed_exact_pane_is_a_bounded_fixture_refusal_with_its_server_cleane
     """
     session = unique_session(label="closed-pane")
     server = start_owned_server(session=session, scratch=tmp_path, log_name="closed.log")
+    release = tmp_path / "release-closed-pane-transient"
     try:
         pane_id = split_pane(socket_path=server.socket_path, pane_id=server.root, direction="down")
         readiness = PaneReadiness(
             socket_path=server.socket_path,
-            transient=startup_transient(scratch=tmp_path),
+            transient=rendezvous_transient(scratch=tmp_path, release=release, guard_seconds=1.0),
+            release=release,
             seconds=1.0,
             coherence_seconds=1.0,
             close_before_establishing=True,
