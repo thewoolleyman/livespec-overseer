@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.55.6](https://github.com/thewoolleyman/livespec-overseer/compare/v5.55.5...v5.55.6) (2026-11-13)
+
+
+### Bug Fixes
+
+* prevent buffered Herdr relaunch replay ([5da41b9](https://github.com/thewoolleyman/livespec-overseer/commit/5da41b91e9272ca02737571d9c0355510265d9ec))
+
 ## [5.55.5](https://github.com/thewoolleyman/livespec-overseer/compare/v5.55.4...v5.55.5) (2026-11-13)
 
 
