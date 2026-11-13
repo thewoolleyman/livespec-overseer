@@ -619,3 +619,99 @@ def test_a_reachable_host_holding_the_current_delivery_stays_current_between_del
         status.host_state(entry=entry, current_sequence=3, now=later, stale_after=stale_after)
         == "stale"
     )
+
+
+def test_refresh_durations_are_validated_and_success_types_agree(*, tmp_path: Path) -> None:
+    """A non-positive duration falls back to its default; only a float success counts.
+
+    Grade of #3008, 2026-11-13: a zero or negative `stale_after_s` would make
+    every host due on every pass, and `due` must read `last_success` exactly
+    as the status command does.
+    """
+    push = importlib.import_module("caam_delivery_push")
+    defaults = push.load_config(home=tmp_path)
+    for bad in (0, -5, 0.0):
+        assert push.seconds(settings={"stale_after_s": bad}, key="stale_after_s") == float(
+            defaults["stale_after_s"]
+        )
+    held_int = {"sequence": 3, "attempt_sequence": 3, "last_attempt": 0.0, "last_success": 1}
+    assert push._due(entry=held_int, sequence=3, now=10.0, settings=defaults)
+
+
+def test_refresh_pushes_are_capped_per_pass_and_a_new_delivery_is_not(*, tmp_path: Path) -> None:
+    """At most two refreshes of a held delivery per pass, oldest success first."""
+    push = importlib.import_module("caam_delivery_push")
+    service = importlib.import_module("caam_delivery_service")
+    stale_after = float(push.load_config(home=tmp_path)["stale_after_s"])
+    delivery = service.Delivery(
+        sequence=3,
+        account_id="acct-a",
+        identity={},
+        oauth={"accessToken": TOKEN, "expiresAt": 9_999_999_999_000},
+    )
+    labels = ["a", "b", "c", "d", "e"]
+    (tmp_path / push.HOSTS_FILE).parent.mkdir(parents=True)
+    _ = (tmp_path / push.HOSTS_FILE).write_text(
+        "".join(f"{label} u@{label} linux\n" for label in labels), encoding="utf-8"
+    )
+    _write(
+        path=tmp_path / push.PUSH_STATE,
+        body={
+            label: {
+                "state": "ok",
+                "sequence": 3,
+                "attempt_sequence": 3,
+                "account_id": "acct-a",
+                "last_attempt": float(index),
+                "last_success": float(index),
+            }
+            for index, label in enumerate(labels)
+        },
+    )
+    sent: list[str] = []
+
+    def held(*, target: str, **_: object) -> tuple[int, str]:
+        sent.append(target)
+        return 0, "stale-sequence 3 host-applied 3"
+
+    _ = push.push_due(home=tmp_path, delivery=delivery, now=stale_after, run=held)
+    assert sent == ["u@a", "u@b"]
+
+    newer = service.Delivery(**{**delivery.__dict__, "sequence": 4})
+    sent.clear()
+    _ = push.push_due(
+        home=tmp_path, delivery=newer, now=stale_after + 1, run=lambda **kw: held(**kw)
+    )
+    assert sorted(sent) == [f"u@{label}" for label in labels]
+
+
+def test_a_host_whose_refreshes_keep_failing_turns_stale(*, tmp_path: Path) -> None:
+    """A failing refresh never advances last_success, so the host reads stale."""
+    push = importlib.import_module("caam_delivery_push")
+    service = importlib.import_module("caam_delivery_service")
+    status = importlib.import_module("caam_delivery_push_status")
+    stale_after = float(push.load_config(home=tmp_path)["stale_after_s"])
+    delivery = service.Delivery(
+        sequence=3,
+        account_id="acct-a",
+        identity={},
+        oauth={"accessToken": TOKEN, "expiresAt": 9_999_999_999_000},
+    )
+    (tmp_path / push.HOSTS_FILE).parent.mkdir(parents=True)
+    now = 100.0
+
+    def answer(*, target: str, **_: object) -> tuple[int, str]:
+        return 0, "applied 3" if now == 100.0 else "failed ssh-exit 255"
+
+    _ = (tmp_path / push.HOSTS_FILE).write_text("a u@a linux\n", encoding="utf-8")
+    while now <= 100.0 + stale_after + 60.0:
+        _ = push.push_due(home=tmp_path, delivery=delivery, now=now, run=answer)
+        now += 60.0
+    entry = push.load_state(home=tmp_path)["a"]
+    assert entry["state"] == "failed" and entry["last_success"] == 100.0
+    assert (
+        status.host_state(
+            entry=entry, current_sequence=3, now=100.0 + stale_after + 1, stale_after=stale_after
+        )
+        == "stale"
+    )
