@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.55.4](https://github.com/thewoolleyman/livespec-overseer/compare/v5.55.3...v5.55.4) (2026-11-13)
+
+
+### Bug Fixes
+
+* **caam:** read a chunked keep-alive provider body without waiting for close ([7c8e8b4](https://github.com/thewoolleyman/livespec-overseer/commit/7c8e8b4364ff986059a033d091d3761306da554a))
+* **delivery:** confirm the account from the profile body's nested account.uuid ([dc7a23f](https://github.com/thewoolleyman/livespec-overseer/commit/dc7a23f5a5824559c1345f764738706e06e0bb3e))
+* **delivery:** retry a failed account confirmation each retry interval ([0171225](https://github.com/thewoolleyman/livespec-overseer/commit/0171225c5e5328da43df166edcc416b8d2f7910a))
+
 ## [5.55.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.55.2...v5.55.3) (2026-11-13)
 
 
