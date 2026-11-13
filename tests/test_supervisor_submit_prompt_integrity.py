@@ -1,6 +1,7 @@
 """Repo-level tests for submit_prompt confirmation integrity."""
 
 import _supervisor_launch
+import herdr_identity
 import pytest
 from _supervisor_config import SUBMIT_MAX_ENTERS
 from test_supervisor_builders import codex_busy_capture, idle_capture, make_supervisor
@@ -50,6 +51,41 @@ def test_resend_enter_legacy_wrapper_uses_the_full_submit_budget(*, tmp_path):
 
     enters = [c for c in fake.calls if c[0] == "keys" and c[2] == "Enter"]
     assert len(enters) == SUBMIT_MAX_ENTERS
+
+
+def test_enter_only_retry_requires_the_exact_pending_payload(*, tmp_path, monkeypatch):
+    """A retry may press Enter, but never supplies text or accepts another payload."""
+    assert hasattr(_supervisor_launch, "retry_prompt_enter_once")
+    fake = FakeTmux()
+    session = "s"
+    text = "read handoff.md"
+    fake.serve(session=session, repo=tmp_path, capture=claude_composer_capture(text=text))
+    fake.pasted_inputs[session] = text
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+
+    assert _supervisor_launch.retry_prompt_enter_once(sup=sup, target=session, text=text) == (
+        True,
+        False,
+    )
+    assert fake.paste_texts() == []
+    assert _supervisor_launch.retry_prompt_enter_once(sup=sup, target=session, text=text) == (
+        False,
+        False,
+    )
+
+    fake.panes[session] = claude_composer_capture(text=text)
+    monkeypatch.setattr(fake, "send_keys", lambda **_kwargs: False)
+    assert _supervisor_launch.retry_prompt_enter_once(sup=sup, target=session, text=text) == (
+        False,
+        False,
+    )
+
+    fake.retry_prompt_enter_once = lambda **_kwargs: (True, False)
+    assert _supervisor_launch.retry_prompt_enter_once(
+        sup=sup,
+        target=f"{herdr_identity.HERDR_SCHEME}mock",
+        text=text,
+    ) == (True, False)
 
 
 def test_claude_submit_confirms_after_visible_paste_clears(*, tmp_path):
