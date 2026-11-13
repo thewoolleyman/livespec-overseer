@@ -7070,3 +7070,55 @@ And when that command exits 0 it MUST submit no gate Job and MUST NOT run the lo
 And when that command exits 3 it MUST gate the push exactly as it does with no such evidence
 
 And when that command exits with any other status it MUST refuse the push
+
+## Scenario: A live herdr test releases its staged startup transient only after the shell pin, and always releases it
+
+Given a live herdr observation test whose gate stages a controlled startup transient in a created pane for an observer to see
+
+And the test releases the transient by rendezvous rather than after a fixed lifetime
+
+When the observer sees the transient occupying the pane
+
+Then the transient stays alive until the test writes the release
+
+And the test writes the release only after the observer has taken its pin, by identity, on the shell the transient runs under
+
+And the test writes the release before it waits for the transient to exit
+
+And the gate then observes the transient gone and that same shell idle, and establishes the pane
+
+When the observer never sees the transient before its own bound expires
+
+Then the test still writes the release
+
+And the transient exits on that release, without waiting out its hang guard
+
+And the gate refuses, naming the transient it never observed, and does not establish the pane
+
+## Scenario: A live herdr test's staged startup transient outlives a slow first reading
+
+Given a live herdr observation test whose gate stages a controlled startup transient in a created pane, released by rendezvous
+
+And the transient's hang guard is no shorter than the gate's establishment bound, the liveness floor within which the gate must establish the pane
+
+When the observer's first usable reading of the pane arrives later than a fixed-lifetime transient would have lived, and within the gate's establishment bound
+
+Then the observer still sees the transient occupying the pane
+
+And the gate establishes the pane exactly as it does when the first reading is prompt
+
+## Scenario: A staged startup transient ended by its hang guard fails the exercise loudly
+
+Given a live herdr observation test whose gate stages a controlled startup transient in a created pane, released by rendezvous under a hang guard
+
+And the test has not written the release when the hang guard expires
+
+When the hang guard, not a release, ends the transient
+
+Then the transient reports that its hang guard ended it
+
+And the exercise fails with a message naming the hang-guard expiry
+
+And the exercise does not pass
+
+And the exercise does not retry the observation quietly

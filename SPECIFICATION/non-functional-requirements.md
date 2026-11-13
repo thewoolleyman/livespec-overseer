@@ -228,3 +228,33 @@ would otherwise live in.
 - Outside unblocking a session at a picker, a session SHOULD NOT type into
   another session's input field, because keystrokes there collide with the
   operator's own typing; it uses a cross-session message instead.
+- **A staged startup transient is released by rendezvous, not by a timer.** A
+  live herdr observation test's gate MAY stage a controlled startup transient:
+  a real, distinctly named child process started in a created pane so that an
+  observer can see the pane occupied and then see it clear. The rule has three
+  parts.
+  - *Rendezvous release after the shell pin.* The transient's lifetime MUST
+    NOT be a fixed wall-clock duration. A control MAY stage a fixed-lifetime
+    transient to show that the rendezvous is what holds the window open. The
+    transient MUST stay alive until the test releases it by rendezvous. Where
+    the observer sees the transient and pins its shell, by identity, the test
+    MUST write the release only after that pin and before it waits for the
+    transient to exit; on every other path, including when the observer never
+    sees the transient or cannot pin its shell, it MUST still write the
+    release once the observation has ended, so that an unreleased transient
+    never waits out its hang guard.
+  - *Hang guard.* The transient's hang guard MUST be no shorter than the
+    gate's own establishment bound, which is the bound of the gate's wait to
+    observe the transient (`ReadyShellGate.seconds`), the liveness floor
+    within which the gate must establish the pane. The gate's verdict MUST
+    depend on what the observer saw, never on how quickly the host answered
+    the observer's first reading, provided that reading arrives within the
+    gate's establishment bound. A slow first reading on a loaded host MUST
+    therefore still observe the transient.
+  - *A guard-ended transient fails loudly.* When the hang guard ends the
+    transient instead of a release, the transient MUST report that its hang
+    guard ended it, and the exercise MUST fail with a message naming the
+    hang-guard expiry. Such an exercise MUST NOT pass, and it MUST NOT retry
+    the observation quietly.
+
+  The rule applies to this repository's tests.
