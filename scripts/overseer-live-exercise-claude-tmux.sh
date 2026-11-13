@@ -116,6 +116,18 @@ for session in claude_sessions.read_live_sessions(sessions_dir=sessions_dir):
 ' "$claude_home/sessions" "$topic"
 }
 
+identity_pid() {
+  local _kind pid _start _topic
+  IFS=: read -r _kind pid _start _topic <<<"$1"
+  printf '%s\n' "$pid"
+}
+
+identity_starttime() {
+  local _kind _pid start _topic
+  IFS=: read -r _kind _pid start _topic <<<"$1"
+  printf '%s\n' "$start"
+}
+
 snapshot_row() {
   shipped -c '
 import json
@@ -268,7 +280,7 @@ stage_replacement() {
   wait_until "$REPLACEMENT_TIMEOUT" successor_is_bound || fail_stage replacement \
     "no different live Claude identity appeared within ${REPLACEMENT_TIMEOUT}s; predecessor was $predecessor"
   pass_stage replacement \
-    "atomic respawn retained pane $agent_target and replaced predecessor $predecessor with successor $successor"
+    "atomic respawn retained pane $agent_target and replaced predecessor pid=$(identity_pid "$predecessor") starttime=$(identity_starttime "$predecessor") with successor pid=$(identity_pid "$successor") starttime=$(identity_starttime "$successor")"
 }
 
 resume_line_delivered() {
