@@ -2,7 +2,7 @@
 
 When the signed-in account changes under a running session on a pushed
 credential, Claude Code drops Remote Control and shows it in one of FORMS, as a
-real account switch under CLAUDE_CODE_VERSION showed (spec v099, contracts.md
+real account switch under CLAUDE_CODE_VERSION showed (spec v103, contracts.md
 "Remote Control re-issue"): a transcript line `Remote Control disconnected — `
 + NOTICE + `…` behind the transcript's status mark, or the footer status
 `/rc failed` below the input box. After a pushed account switch, this sends
@@ -15,7 +15,7 @@ host over ssh as `python3 -` with this file on stdin, where no overseer package
 is installed. It prints one JSON line naming the panes it re-issued: a tmux pane
 by its id (`%3`), a herdr pane as `herdr:<session>:<pane id>`.
 
-The panes are those of the host's terminal multiplexer (spec v102): every pane of
+The panes are those of the host's terminal multiplexer (spec v103): every pane of
 every RUNNING herdr session, plus every tmux pane. The fleet runs herdr; tmux
 stays because it costs one listing. herdr is driven through its own CLI, the
 same client an operator types, because this file cannot import the overseer's
@@ -45,7 +45,16 @@ A pane qualifies only when ALL of these hold:
   column the text began at, and the comparison runs on the rejoined text. Only a
   `❯` prompt line AFTER the whole notice block counts as a submitted
   `/remote-control`. The form quoted anywhere else never matches.
+
+Every pane is re-read and re-checked immediately before its own send, so a box
+a human started typing into during the scan of the other panes is left alone.
+The panes are re-scanned every _RESCAN_S seconds over a window of _WINDOW_S
+(the script's one optional argument; 0 makes one scan), because a host is
+scanned as soon as it applies the delivery and Claude Code may not have drawn
+the notice yet. A pane is sent to at most once per run.
 """
+
+# livespec-lloc-soft-band-owner: overseer-9l63
 
 from __future__ import annotations
 
@@ -54,6 +63,8 @@ import json
 import re
 import shutil
 import subprocess
+import sys
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import cast
@@ -62,7 +73,6 @@ __all__: list[str] = [
     "CLAUDE_CODE_VERSION",
     "FORMS",
     "NOTICE",
-    "herdr_panes_needing_reissue",
     "main",
     "panes_needing_reissue",
     "reissue",
@@ -85,6 +95,8 @@ _HERDR = "herdr"
 _HERDR_FALLBACK = Path(".local", "bin", _HERDR)
 _HERDR_SOURCE = "recent-unwrapped"
 _ENTER = "Enter"
+_WINDOW_S = 90.0
+_RESCAN_S = 10.0
 
 Tmux = Callable[..., str | None]
 Ps = Callable[..., str | None]
@@ -289,40 +301,87 @@ def _herdr_foreground_is_claude(*, herdr: Herdr, session: str, pane: str) -> boo
     return any(isinstance(head, str) and _is_claude(executable=head) for head in heads)
 
 
-def herdr_panes_needing_reissue(*, herdr: Herdr = _run_herdr) -> list[tuple[str, str]]:
-    """(session, pane id) of each herdr Claude Code pane showing the notice, input box empty."""
-    found: list[tuple[str, str]] = []
-    for session in _herdr_sessions(herdr=herdr):
-        for pane, rows in _herdr_viewports(herdr=herdr, session=session):
-            read = ("pane", "read", pane, "--source", _HERDR_SOURCE, "--lines", str(rows))
-            if _herdr_foreground_is_claude(herdr=herdr, session=session, pane=pane) and (
-                _needs_reissue(screen=herdr("--session", session, *read) or "")
-            ):
-                found.append((session, pane))
-    return found
+def _herdr_qualifies(*, herdr: Herdr, session: str, pane: str, rows: int) -> bool:
+    """Whether this herdr pane, read now, shows the notice with its input box empty."""
+    read = ("pane", "read", pane, "--source", _HERDR_SOURCE, "--lines", str(rows))
+    return _needs_reissue(screen=herdr("--session", session, *read) or "")
 
 
-def reissue(*, tmux: Tmux = _run_tmux, ps: Ps = _run_ps, herdr: Herdr = _run_herdr) -> list[str]:
-    """Send `/remote-control` and Enter to every qualifying pane; return those panes."""
-    sent: list[str] = []
+def _herdr_candidates(*, herdr: Herdr) -> list[tuple[str, str, int]]:
+    """(session, pane id, viewport rows) of each herdr Claude Code pane that qualifies."""
+    return [
+        (session, pane, rows)
+        for session in _herdr_sessions(herdr=herdr)
+        for pane, rows in _herdr_viewports(herdr=herdr, session=session)
+        if _herdr_foreground_is_claude(herdr=herdr, session=session, pane=pane)
+        and _herdr_qualifies(herdr=herdr, session=session, pane=pane, rows=rows)
+    ]
+
+
+def _send_tmux(*, tmux: Tmux, pane: str) -> bool:
+    """Re-check the pane right before typing, then send; a box gaining text is left alone."""
+    screen = tmux("capture-pane", "-p", "-J", "-t", pane)
+    return (
+        screen is not None
+        and _needs_reissue(screen=screen)
+        and tmux("send-keys", "-t", pane, "-l", _COMMAND) is not None
+        and tmux("send-keys", "-t", pane, "Enter") is not None
+    )
+
+
+def _send_herdr(*, herdr: Herdr, session: str, pane: str, rows: int) -> bool:
+    """Re-check the herdr pane right before typing, then send."""
+    target = ("--session", session, "pane")
+    return (
+        _herdr_qualifies(herdr=herdr, session=session, pane=pane, rows=rows)
+        and herdr(*target, "send-text", pane, _COMMAND) is not None
+        and herdr(*target, "send-keys", pane, _ENTER) is not None
+    )
+
+
+def _sweep(*, tmux: Tmux, ps: Ps, herdr: Herdr, done: list[str]) -> None:
+    """One scan of every pane, sending to each qualifying pane not already in `done`."""
     for pane in panes_needing_reissue(tmux=tmux, ps=ps):
-        if tmux("send-keys", "-t", pane, "-l", _COMMAND) is not None and (
-            tmux("send-keys", "-t", pane, "Enter") is not None
-        ):
-            sent.append(pane)
-    for session, pane in herdr_panes_needing_reissue(herdr=herdr):
-        target = ("--session", session, "pane")
-        if herdr(*target, "send-text", pane, _COMMAND) is not None and (
-            herdr(*target, "send-keys", pane, _ENTER) is not None
-        ):
-            sent.append(f"herdr:{session}:{pane}")
+        if pane not in done and _send_tmux(tmux=tmux, pane=pane):
+            done.append(pane)
+    for session, pane, rows in _herdr_candidates(herdr=herdr):
+        label = f"herdr:{session}:{pane}"
+        if label not in done and _send_herdr(herdr=herdr, session=session, pane=pane, rows=rows):
+            done.append(label)
+
+
+def reissue(
+    *,
+    tmux: Tmux = _run_tmux,
+    ps: Ps = _run_ps,
+    herdr: Herdr = _run_herdr,
+    window_s: float = 0.0,
+    sleep: Callable[[float], None] = time.sleep,
+    clock: Callable[[], float] = time.monotonic,
+) -> list[str]:
+    """Send `/remote-control` and Enter to every qualifying pane over the window; return them."""
+    deadline = clock() + window_s
+    sent: list[str] = []
+    _sweep(tmux=tmux, ps=ps, herdr=herdr, done=sent)
+    while clock() + _RESCAN_S <= deadline:
+        sleep(_RESCAN_S)
+        _sweep(tmux=tmux, ps=ps, herdr=herdr, done=sent)
     return sent
 
 
-def main(*, tmux: Tmux = _run_tmux, ps: Ps = _run_ps, herdr: Herdr = _run_herdr) -> int:
-    print(json.dumps({"reissued": reissue(tmux=tmux, ps=ps, herdr=herdr)}))  # noqa: T201 -- the script's one output line
+def main(
+    *,
+    argv: list[str] | None = None,
+    tmux: Tmux = _run_tmux,
+    ps: Ps = _run_ps,
+    herdr: Herdr = _run_herdr,
+) -> int:
+    """Re-issue over the window named by the one optional argument, default _WINDOW_S."""
+    window_s = float(argv[0]) if argv else _WINDOW_S
+    sent = reissue(tmux=tmux, ps=ps, herdr=herdr, window_s=window_s)
+    print(json.dumps({"reissued": sent}))  # noqa: T201 -- the script's one output line
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(argv=sys.argv[1:]))

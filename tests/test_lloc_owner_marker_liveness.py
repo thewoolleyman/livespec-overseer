@@ -15,7 +15,7 @@ __all__: list[str] = []
 
 # The standing owners remain open while their refactors are owed. Each case
 # supplies a tracker outcome; the installed gate grades the actual source.
-DEBT_OWNERS = frozenset(("overseer-4z97.2", "overseer-o9fn"))
+DEBT_OWNERS = frozenset(("overseer-4z97.2", "overseer-o9fn", "overseer-9l63"))
 
 
 @pytest.mark.parametrize(("status", "expected"), [("backlog", 0), ("closed", 1), (None, 1)])
