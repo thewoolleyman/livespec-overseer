@@ -1165,6 +1165,7 @@ class ReadyShellGate:
     socket_path: str
     startup_transient: str = ""
     transient_name: str = ""
+    release: Path | None = None
     seconds: float = READY_TIMEOUT
     methods: list[str] = field(default_factory=list)
     gated: list[str] = field(default_factory=list)
@@ -1301,12 +1302,18 @@ class ReadyShellGate:
         the pane's `shell_pid` — re-reading it would only introduce a second
         answer that could disagree.
         """
+        try:
+            if child is None:
+                return
+            shell = parent_pid_of(pid=child)
+            shell_starttime = None if shell is None else starttime_of(pid=shell)
+            if shell is not None and shell_starttime is not None:
+                self.retained = ShellIdentityPin(pid=shell, starttime=shell_starttime)
+        finally:
+            if self.release is not None:
+                _ = self.release.write_text("", encoding="utf-8")
         if child is None:
             return
-        shell = parent_pid_of(pid=child)
-        shell_starttime = None if shell is None else starttime_of(pid=shell)
-        if shell is not None and shell_starttime is not None:
-            self.retained = ShellIdentityPin(pid=shell, starttime=shell_starttime)
         self.departed = await_child_gone(
             pid=child, starttime=starttime_of(pid=child), poll=BoundedPoll(seconds=self.seconds)
         )
@@ -2386,6 +2393,45 @@ def test_an_unreleased_rendezvous_transient_ends_by_its_hang_guard(*, tmp_path: 
     assert len(run.observed) == 1, f"no single {TRANSIENT_NAME!r} ran: {run.output!r}"
     assert run.status != 0, "a guard expiry must not read as an ordinary release"
     assert "hang guard" in run.output, run.output
+
+
+def test_a_gate_releases_its_rendezvous_only_after_pinning_the_retained_shell(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The release rendezvous is ordered after the pin and survives no observation.
+
+    This is deliberately a no-herdr control.  The injected readers make the
+    gate's ordering observable without claiming a server reply was available,
+    including the branch where the staged child was never seen.
+    """
+    assert (
+        "release" in ReadyShellGate.__dataclass_fields__
+    ), "a staged startup transient has no release rendezvous for the gate to own"
+    release = tmp_path / "release-after-pin"
+    events: list[str] = []
+    shell_starttime = 24680
+    module = sys.modules[__name__]
+    monkeypatch.setattr(module, "parent_pid_of", lambda *, pid: HOST_SHELL_PID)
+    monkeypatch.setattr(module, "starttime_of", lambda *, pid: shell_starttime)
+
+    def child_gone(*, pid: int, starttime: int | None, poll: BoundedPoll) -> str:
+        assert gate.retained == ShellIdentityPin(pid=HOST_SHELL_PID, starttime=shell_starttime)
+        assert release.exists(), "the rendezvous must release before waiting for child exit"
+        events.append("child-gone")
+        return ""
+
+    monkeypatch.setattr(module, "await_child_gone", child_gone)
+    gate = ReadyShellGate(inner=None, socket_path="unused", release=release)
+    gate._clear_transient(child=HOST_SLEEP_PID)
+
+    assert events == ["child-gone"]
+    assert release.exists(), "the observed transient was never released"
+
+    unobserved_release = tmp_path / "release-without-observation"
+    unobserved = ReadyShellGate(inner=None, socket_path="unused", release=unobserved_release)
+    unobserved._clear_transient(child=None)
+
+    assert unobserved_release.exists(), "an unobserved transient must not wait for its hang guard"
 
 
 # ------------------------- the exact created pane's INITIAL setup, as a premise
