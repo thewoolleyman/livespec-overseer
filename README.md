@@ -130,3 +130,5 @@ be interpreted: an assignment-time anchor lookup falls back to it when a topic h
 no `epic.md`, and a stored resume override still naming that retired path is
 rewritten to the ledger-epic resume. A third party can run the tool with no
 livespec install at all.
+
+<!-- k5nzpk plan-read probe (livespec-dev-tooling-k5nzpk): this PR is closed unmerged after its incident-ci plan is read. -->
