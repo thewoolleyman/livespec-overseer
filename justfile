@@ -103,6 +103,16 @@ install-caam-delivery-push:
 uninstall-caam-delivery-push:
     scripts/caam-delivery-push-install.sh uninstall
 
+# The caam-delivery launch agent on one listed macOS host (plan central-credential-service).
+# Idempotent install and its documented revert; see overseer/caam_delivery_macos.py.
+[positional-arguments]
+install-caam-delivery-macos-agent target:
+    scripts/caam-delivery-macos-agent-install.sh install "$1"
+
+[positional-arguments]
+uninstall-caam-delivery-macos-agent target:
+    scripts/caam-delivery-macos-agent-install.sh uninstall "$1"
+
 # The standard shared derive-from-settings wrapper: reads the committed
 # `.claude/settings.json` (`extraKnownMarketplaces` incl. `ref`, `enabledPlugins`)
 # at runtime and issues the marketplace add / install / update commands for
