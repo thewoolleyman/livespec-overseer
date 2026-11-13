@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.55.5](https://github.com/thewoolleyman/livespec-overseer/compare/v5.55.4...v5.55.5) (2026-11-13)
+
+
+### Bug Fixes
+
+* discover helpers spawned by worker threads ([036c973](https://github.com/thewoolleyman/livespec-overseer/commit/036c9734b498ba9dd6e6e2f8ac2da0349f2cd84d))
+
 ## [5.55.4](https://github.com/thewoolleyman/livespec-overseer/compare/v5.55.3...v5.55.4) (2026-11-13)
 
 
