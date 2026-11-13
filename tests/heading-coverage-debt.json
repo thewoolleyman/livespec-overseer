@@ -2431,20 +2431,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: An account switch re-issues Remote Control on the role holder's own sessions",
-    "work_item": "overseer-fdwat6",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: An account switch re-issues Remote Control only where it stopped",
-    "work_item": "overseer-fdwat6",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: The live login is delivered when it diverges from the selected account",
     "work_item": "overseer-aj577z",
     "first_seen": "2026-11-13"
