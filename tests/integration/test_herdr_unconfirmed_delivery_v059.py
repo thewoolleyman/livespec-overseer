@@ -291,6 +291,55 @@ def test_a_retained_wrapup_alert_rearms_after_the_payload_leaves(*, tmp_path, mo
     assert "its own wrap-up is pending in the composer" in rearmed.getvalue()
 
 
+def test_a_retained_wrapup_is_not_entered_while_its_pane_is_still_changing(
+    *, tmp_path, monkeypatch
+):
+    """The retained-payload Enter keeps the two-capture settle every guarded paste has."""
+    _repo, _topic, session, sup, track, _clock, fake = _retained_wrapup(
+        tmp_path=tmp_path, monkeypatch=monkeypatch
+    )
+    launch = importlib.import_module("_supervisor_launch")
+    retries: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        launch,
+        "retry_prompt_enter_once",
+        lambda **kwargs: retries.append(kwargs) or (True, False),
+    )
+    frames = {"n": 0}
+
+    def _changing(*, session: str) -> str:
+        frames["n"] += 1
+        return f"● streaming frame {frames['n']}\n{_PASTED}"
+
+    monkeypatch.setattr(fake, "capture_pane", _changing)
+
+    assert sup.evaluate(track=track, act=True).status != "restarting"
+    assert retries == []
+    assert fake.paste_texts() == []
+
+
+def test_a_retained_wrapup_alert_fires_while_the_pane_is_busy(*, tmp_path, monkeypatch):
+    """The over-ten-minutes event is not conditional on the pane reaching the idle branch."""
+    _repo, _topic, session, sup, track, clock, fake = _retained_wrapup(
+        tmp_path=tmp_path, monkeypatch=monkeypatch
+    )
+    launch = importlib.import_module("_supervisor_launch")
+    retries: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        launch,
+        "retry_prompt_enter_once",
+        lambda **kwargs: retries.append(kwargs) or (True, False),
+    )
+    fake.panes[session] = f"{_BUSY}{_RULE}\n❯ [Pasted text #1 +41 lines]\n{_RULE}\n{_STATUS}"
+    clock["t"] += 601
+    with contextlib.redirect_stderr(_io.StringIO()) as err:
+        assert sup.evaluate(track=track, act=True).status == "working"
+        assert sup.evaluate(track=track, act=True).status == "working"
+
+    assert retries == []
+    assert err.getvalue().count("its own wrap-up is pending in the composer") == 1
+
+
 def test_a_retained_wrapup_never_retries_after_its_round_closes(*, tmp_path, monkeypatch):
     repo, topic, session, sup, track, clock, _fake = _retained_wrapup(
         tmp_path=tmp_path, monkeypatch=monkeypatch
