@@ -5041,6 +5041,8 @@ And at least the claim horizon remains before its weekly window resets on its ow
 
 And an eligible candidate exists
 
+And no candidate is a drain candidate
+
 When a scheduled pass runs
 
 Then the operation claims that reset
