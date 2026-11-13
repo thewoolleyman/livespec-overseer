@@ -4701,5 +4701,37 @@
     "test": "TODO",
     "work_item": "overseer-z2j3vn",
     "reason": "Integration-tier: a real test at the integration tier or above is owed for this heading, exercising this repository's scripts/check-pre-push.sh calling `python -m livespec_dev_tooling.green_token pre-push-reuse` with its gate recipe's member names: exit 0 submits no gate Job and runs no local gate recipe, exit 3 gates the push as before, any other status refuses it. overseer-z2j3vn owns it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A Codex session held by a helper a worker thread spawned is adopted like any other",
+    "test": "TODO",
+    "work_item": "overseer-uzvcbn.21",
+    "reason": "Ratified in v096 (codex-helper-spawned-from-a) ahead of its implementation child; a test at integration tier is owed, and overseer-uzvcbn.21 MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A sanctioned relaunch pastes the resume once when the fresh composer reads empty after the paste",
+    "test": "TODO",
+    "work_item": "overseer-f2t7cg",
+    "reason": "Ratified in v096 (sanctioned-relaunch-on-herdr-re) ahead of its implementation child; a test at integration tier is owed, and overseer-f2t7cg MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A daemon wrap-up left unsubmitted in an idle composer is submitted with Enter only",
+    "test": "TODO",
+    "work_item": "overseer-llrj5k",
+    "reason": "Ratified in v096 (a-daemon-wrap-up-whose) ahead of its implementation child; a test at integration tier is owed, and overseer-llrj5k MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A daemon wrap-up pending in the composer past its window is surfaced",
+    "test": "TODO",
+    "work_item": "overseer-llrj5k",
+    "reason": "Ratified in v096 (a-daemon-wrap-up-whose) ahead of its implementation child; a test at integration tier is owed, and overseer-llrj5k MUST replace this TODO with a test at integration tier."
   }
 ]
