@@ -4610,7 +4610,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A live herdr test releases its staged startup transient only after the shell pin, and always releases it",
-    "test": "TODO",
+    "test": "tests.integration.test_herdr_startup_transient_rendezvous.test_scenario_live_herdr_fixture_owns_a_startup_transient_release",
     "work_item": "overseer-wbrvxm",
     "reason": "Ratified in v098 (readyshellgate-stages-its-startup-transient) ahead of its implementation child; a test at integration tier is owed, and overseer-wbrvxm MUST replace this TODO with a test at integration tier."
   },
@@ -4618,7 +4618,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A live herdr test's staged startup transient outlives a slow first reading",
-    "test": "TODO",
+    "test": "tests.integration.test_herdr_startup_transient_rendezvous.test_scenario_live_herdr_fixture_owns_a_startup_transient_release",
     "work_item": "overseer-wbrvxm",
     "reason": "Ratified in v098 (readyshellgate-stages-its-startup-transient) ahead of its implementation child; a test at integration tier is owed, and overseer-wbrvxm MUST replace this TODO with a test at integration tier."
   },
@@ -4626,7 +4626,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A staged startup transient ended by its hang guard fails the exercise loudly",
-    "test": "TODO",
+    "test": "tests.integration.test_herdr_startup_transient_rendezvous.test_scenario_live_herdr_fixture_owns_a_startup_transient_release",
     "work_item": "overseer-wbrvxm",
     "reason": "Ratified in v098 (readyshellgate-stages-its-startup-transient) ahead of its implementation child; a test at integration tier is owed, and overseer-wbrvxm MUST replace this TODO with a test at integration tier."
   },
