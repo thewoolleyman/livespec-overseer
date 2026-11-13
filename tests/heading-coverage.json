@@ -4067,22 +4067,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A failed client write leaves the host on its previous delivery",
-    "test": "TODO",
-    "work_item": "overseer-cpngcd",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-lfyj7e.)"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The client refuses to overwrite a host's own login",
-    "test": "TODO",
-    "work_item": "overseer-cpngcd",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-lfyj7e.)"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: An unreachable enrolled host does not affect a rotation pass",
     "test": "TODO",
     "work_item": "overseer-cpngcd",
@@ -4106,162 +4090,10 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: An enrolled host cannot read another host's delivery",
-    "test": "TODO",
-    "work_item": "overseer-cpngcd",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-4uafx2.)"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A valid enrolment presented from the wrong device is refused",
-    "test": "TODO",
-    "work_item": "overseer-cpngcd",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-4uafx2.)"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: Revoking one host's enrolment leaves every other host served",
-    "test": "TODO",
-    "work_item": "overseer-cpngcd",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-4uafx2.)"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The client refuses a service it cannot authenticate",
-    "test": "TODO",
-    "work_item": "overseer-cpngcd",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-lfyj7e.)"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: A silent enrolled host is reported as stale",
     "test": "TODO",
     "work_item": "overseer-cpngcd",
     "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-7ezzch.)"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A refusal on a following host rotates the active account",
-    "test": "TODO",
-    "work_item": "overseer-cpngcd",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-xoishu.)"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A forwarded refusal under another account's delivery is not attributed",
-    "test": "TODO",
-    "work_item": "overseer-tzi4y6",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-xoishu.)"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A remote enforcement is recorded only once the client applies it",
-    "test": "TODO",
-    "work_item": "overseer-tzi4y6",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-c6gjgl.)"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A remote session on the scoped model arms the scoped-model trigger",
-    "test": "TODO",
-    "work_item": "overseer-tzi4y6",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-xoishu.)"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: An enforcement instruction is applied at most once",
-    "test": "TODO",
-    "work_item": "overseer-tzi4y6",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-c6gjgl.)"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A silent host whose token has expired arms no trigger",
-    "test": "TODO",
-    "work_item": "overseer-tzi4y6",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-xoishu.)"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A refusal forwarded before a host falls silent is still attributed",
-    "test": "TODO",
-    "work_item": "overseer-tzi4y6",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-xoishu.)"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A forwarded refusal from outside the host's default directory is not attributed",
-    "test": "TODO",
-    "work_item": "overseer-tzi4y6",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-xoishu.)"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A client restarted after recording an instruction does not act on it again",
-    "test": "TODO",
-    "work_item": "overseer-tzi4y6",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-c6gjgl.)"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: An instruction whose outcome was reported is never served again",
-    "test": "TODO",
-    "work_item": "overseer-tzi4y6",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-c6gjgl.)"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A superseded enforcement instruction is never served",
-    "test": "TODO",
-    "work_item": "overseer-tzi4y6",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-c6gjgl.)"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: An instruction decided before a host returns from silence is not served",
-    "test": "TODO",
-    "work_item": "overseer-tzi4y6",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-c6gjgl.)"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: Enrolling a host under a label already in use is refused",
-    "test": "tests.integration.test_enrolment_registry.test_enrolling_under_a_label_or_identity_already_in_use_is_refused",
-    "work_item": "overseer-heok6f",
-    "reason": "Integration-tier: drives the caam-delivery-enrol command against a scratch HOME. An unrevoked entry holds the label `laptop` and `device-a`; issuing `laptop` for another device, and another label for `device-a`, are each refused with exit 1, no credential on stdout, and the registry bytes and audit log unchanged. A control issuance under a fresh label and identity still succeeds and stores the digest of the credential it showed."
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A revoked device can be enrolled again",
-    "test": "tests.integration.test_enrolment_registry.test_a_revoked_device_can_be_enrolled_again",
-    "work_item": "overseer-heok6f",
-    "reason": "Integration-tier: issues, revokes, then issues the same label for the same device. The command writes a second entry and shows a different credential once, the first entry stays recorded as revoked and keeps the digest of the OLD credential, and neither credential appears in the registry in recoverable form. Revoking an unknown label is refused and leaves the registry unchanged."
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A revoked host's label cannot be reused for another device",
-    "test": "tests.integration.test_enrolment_registry.test_a_revoked_hosts_label_cannot_be_reused_for_another_device",
-    "work_item": "overseer-heok6f",
-    "reason": "Integration-tier: after revoking `laptop` for `device-a`, issuing `laptop` for `device-b` is refused with exit 1, no credential on stdout and the registry bytes unchanged. The control arm enrols `device-b` under a different label and succeeds, so the refusal is the label rule and not a blanket refusal of the device."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4797,5 +4629,69 @@
     "test": "TODO",
     "work_item": "overseer-wbrvxm",
     "reason": "Ratified in v098 (readyshellgate-stages-its-startup-transient) ahead of its implementation child; a test at integration tier is owed, and overseer-wbrvxm MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A failed apply leaves the host on its previous delivery",
+    "test": "TODO",
+    "work_item": "overseer-aj577z",
+    "reason": "An integration-tier test is owed for this heading, re-ratified for topology B with ssh push (proposal enrolled-host-ssh-push, plan central-credential-service, epic overseer-iyfjbo); work item overseer-aj577z owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A push refuses to overwrite a host's own login",
+    "test": "TODO",
+    "work_item": "overseer-aj577z",
+    "reason": "An integration-tier test is owed for this heading, re-ratified for topology B with ssh push (proposal enrolled-host-ssh-push, plan central-credential-service, epic overseer-iyfjbo); work item overseer-aj577z owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The service refuses to push to a host whose host key it cannot verify",
+    "test": "TODO",
+    "work_item": "overseer-aj577z",
+    "reason": "An integration-tier test is owed for this heading, re-ratified for topology B with ssh push (proposal enrolled-host-ssh-push, plan central-credential-service, epic overseer-iyfjbo); work item overseer-aj577z owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A host that was unreachable receives the current delivery when it returns",
+    "test": "TODO",
+    "work_item": "overseer-aj577z",
+    "reason": "An integration-tier test is owed for this heading, re-ratified for topology B with ssh push (proposal enrolled-host-ssh-push, plan central-credential-service, epic overseer-iyfjbo); work item overseer-aj577z owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The live login is delivered when it diverges from the selected account",
+    "test": "TODO",
+    "work_item": "overseer-aj577z",
+    "reason": "An integration-tier test is owed for this heading, re-ratified for topology B with ssh push (proposal enrolled-host-ssh-push, plan central-credential-service, epic overseer-iyfjbo); work item overseer-aj577z owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An account switch re-issues Remote Control only where it stopped",
+    "test": "TODO",
+    "work_item": "overseer-fdwat6",
+    "reason": "An integration-tier test is owed for this heading, re-ratified for topology B with ssh push (proposal enrolled-host-ssh-push, plan central-credential-service, epic overseer-iyfjbo); work item overseer-fdwat6 owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An account switch re-issues Remote Control on the role holder's own sessions",
+    "test": "TODO",
+    "work_item": "overseer-fdwat6",
+    "reason": "An integration-tier test is owed for this heading, re-ratified for topology B with ssh push (proposal enrolled-host-ssh-push, plan central-credential-service, epic overseer-iyfjbo); work item overseer-fdwat6 owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A macOS host applies a delivery from its inbox and its result is recorded",
+    "test": "TODO",
+    "work_item": "overseer-7m6wu6",
+    "reason": "An integration-tier test is owed for this heading, re-ratified for topology B with ssh push (proposal enrolled-host-ssh-push, plan central-credential-service, epic overseer-iyfjbo); work item overseer-7m6wu6 owns landing it."
   }
 ]
