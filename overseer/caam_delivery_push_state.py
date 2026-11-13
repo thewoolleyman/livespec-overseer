@@ -22,7 +22,6 @@ __all__: list[str] = [
     "KNOWN_HOSTS",
     "PUSH_STATE",
     "STATE_DIR",
-    "UNSUPPORTED_MACOS",
     "Host",
     "due",
     "load_config",
@@ -37,7 +36,6 @@ HOSTS_FILE = f"{STATE_DIR}/delivery-hosts"
 KNOWN_HOSTS = f"{STATE_DIR}/delivery-known_hosts"
 PUSH_STATE = f"{STATE_DIR}/delivery-push.json"
 CONFIG_FILE = ".config/caam-delivery/config.json"
-UNSUPPORTED_MACOS = "failed unsupported-platform: macos inbox lands with overseer-7m6wu6"
 _HOST_FIELDS = 3
 
 _DEFAULTS: dict[str, object] = {
@@ -91,7 +89,7 @@ def record_result(
     entry["last_attempt"] = now
     entry["attempt_sequence"] = delivery.sequence
     entry["last_result"] = line
-    words = line.split()
+    words = line.split(";", 1)[0].split()
     word = words[0] if words else ""
     if _reached(words=words, sequence=delivery.sequence):
         entry.update(
@@ -102,6 +100,9 @@ def record_result(
             expires_at=delivery.oauth.get("expiresAt"),
             last_success=now,
         )
+        return
+    if word == "queued":
+        entry["state"] = "queued"
         return
     if word == "not-converted":
         entry.update(state="not-converted", last_error="not-converted", last_error_at=now)
@@ -119,9 +120,7 @@ def due(
     if not isinstance(attempted, float):
         return True
     waited = now - attempted
-    if entry.get("state") == "not-converted" or str(entry.get("last_error", "")).startswith(
-        UNSUPPORTED_MACOS
-    ):
+    if entry.get("state") == "not-converted":
         return waited >= seconds(settings=settings, key="stale_after_s")
     if isinstance(applied, int) and applied >= sequence:
         return False
@@ -147,8 +146,8 @@ def _valid_host(*, fields: list[str]) -> bool:
 
 
 def _reached(*, words: list[str], sequence: int) -> bool:
-    """`applied`, or a `stale-sequence` refusal from a host already holding `sequence`."""
-    return words[:1] == ["applied"] or (
+    """`applied <sequence>`, or a `stale-sequence` refusal from a host already holding it."""
+    return words[:2] == ["applied", str(sequence)] or (
         words[:1] == ["stale-sequence"] and words[2:] == ["host-applied", str(sequence)]
     )
 

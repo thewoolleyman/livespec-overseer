@@ -204,7 +204,9 @@ def test_push_records_each_host_and_status_shows_spec_states(  # noqa: PLR0915 -
         "u@good": "applied 1",
         "u@key": "failed host-key-verification",
         "u@nc": "not-converted 1",
+        "u@mac": "queued 1",
     }
+    macos = importlib.import_module("caam_delivery_macos")
 
     def fake_run(
         *, target: str, program: str, key: str, known_hosts: str, timeout: float
@@ -212,15 +214,17 @@ def test_push_records_each_host_and_status_shows_spec_states(  # noqa: PLR0915 -
         assert key.endswith("id_ed25519") and timeout > 0
         assert known_hosts == str(tmp_path / push.KNOWN_HOSTS)
         is_apply = program.startswith(push.APPLY_SCRIPT)
+        is_inbox = program.startswith(macos.INBOX_PROGRAM)
         delivered = program[len(push.APPLY_SCRIPT) :] if is_apply else ""
         assert "refreshToken" not in delivered
-        sent.append(target if is_apply else "rc:" + target)
+        assert not is_inbox or "refreshToken" not in program
+        sent.append(target if is_apply else ("inbox:" + target if is_inbox else "rc:" + target))
         return 0, replies.get(target, '{"reissued": []}')
 
     loop = entry.PushLoop()
     run = {"confirm": lambda **_: "acct-a", "run": fake_run, "reissue": "RC"}
     entry.run_once(home=tmp_path, now=100.0, loop=loop, **run)
-    assert sorted(sent) == ["rc:u@good", "u@good", "u@key", "u@nc"]
+    assert sorted(sent) == ["inbox:u@mac", "rc:u@good", "u@good", "u@key", "u@nc"]
     err = capsys.readouterr().err
     assert "host list line 5 rejected" in err and "host list line 6 rejected" in err
 
@@ -229,13 +233,13 @@ def test_push_records_each_host_and_status_shows_spec_states(  # noqa: PLR0915 -
     entry.run_once(home=tmp_path, now=150.0, loop=loop, **run)
     assert sent == []
     entry.run_once(home=tmp_path, now=161.0, loop=loop, **run)
-    assert sent == ["u@key"]
+    assert sorted(sent) == ["inbox:u@mac", "u@key"]
 
     sent.clear()
     replies["u@good"] = "failed 2 weird " + "tok-" + "secret-b"
     _live(home=tmp_path, token="tok-" + "secret-b", account="acct-a")
     entry.run_once(home=tmp_path, now=170.0, loop=loop, **run)
-    assert sorted(sent) == ["u@good", "u@key"]
+    assert sorted(sent) == ["inbox:u@mac", "u@good", "u@key"]
     saved = (tmp_path / push.PUSH_STATE).read_text(encoding="utf-8")
     assert "secret" not in saved and "[redacted]" in saved
 
@@ -252,7 +256,7 @@ def test_push_records_each_host_and_status_shows_spec_states(  # noqa: PLR0915 -
         "  last-success never  last-error failed host-key-verification at 1970-01-01T00:02:50Z"
     ) in text
     assert "nc  u@nc  linux  not-converted  " in text
-    assert "mac  u@mac  macos  stale  " in text and "failed unsupported-platform" in text
+    assert "mac  u@mac  macos  stale  " in text and "unsupported-platform" not in text
     assert "remote-control: re-issue unavailable" in text
     assert entry.run_once(home=tmp_path, now=1_100.0, loop=loop, **run) is None
     assert "u@nc" in sent
@@ -558,3 +562,95 @@ def test_a_failed_confirmation_is_retried_each_retry_interval_and_a_mismatch_wai
     entry.run_once(home=tmp_path, now=400.0, loop=loop, confirm=confirm)
     assert asked == [None, "acct-1", "someone-else"]
     assert loop.last.account_id == "acct-1"
+
+
+def _inbox(
+    *, home: Path, payload: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> tuple[int, str]:
+    """Run the exact inbox program the push sends a macOS host, as its python3 would."""
+    macos = importlib.import_module("caam_delivery_macos")
+    monkeypatch.setenv("HOME", str(home))
+    code = 0
+    try:
+        program = macos.inbox_program(payload=payload)
+        exec(compile(program, "<inbox>", "exec"), {"__name__": "__main__"})  # noqa: S102
+    except SystemExit as stop:
+        code = int(stop.code or 0)
+    return code, capsys.readouterr().out.strip()
+
+
+def test_scenario_a_macos_host_applies_a_delivery_from_its_inbox_and_its_result_is_recorded(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    inbox = tmp_path / ".claude/.caam-delivery-inbox.json"
+    result = tmp_path / ".claude/.caam-delivery-result"
+    run = {"home": tmp_path, "monkeypatch": monkeypatch, "capsys": capsys}
+
+    assert _inbox(payload=_delivery(sequence=3), **run) == (0, "queued 3")
+    assert inbox.stat().st_mode & 0o777 == 0o600
+    assert json.loads(inbox.read_text(encoding="utf-8"))["sequence"] == 3
+    assert [path.name for path in inbox.parent.iterdir()] == [inbox.name]
+
+    _ = result.write_text("applied 2\n", encoding="utf-8")
+    assert _inbox(payload=_delivery(sequence=3), **run) == (0, "queued 3; last-result applied 2")
+
+    inbox.unlink()
+    _ = result.write_text("applied 2\napplied 3\n", encoding="utf-8")
+    assert _inbox(payload=_delivery(sequence=3), **run) == (0, "applied 3")
+    assert not inbox.exists()
+    _ = result.write_text("not-converted 3\n", encoding="utf-8")
+    assert _inbox(payload=_delivery(sequence=3), **run) == (0, "not-converted 3")
+    assert not inbox.exists()
+
+    assert _inbox(payload="{}", **run) == (5, "failed - bad-delivery")
+    assert TOKEN not in result.read_text(encoding="utf-8")
+
+
+def test_a_macos_host_is_recorded_from_the_agent_result_for_this_sequence(
+    *, tmp_path: Path
+) -> None:
+    push = importlib.import_module("caam_delivery_push")
+    service = importlib.import_module("caam_delivery_service")
+    settings = {**push.load_config(home=tmp_path), "retry_s": 60.0}
+    delivery = service.Delivery(
+        sequence=4, account_id="acct-a", identity={}, oauth={"accessToken": TOKEN, "expiresAt": 9}
+    )
+    (tmp_path / push.HOSTS_FILE).parent.mkdir(parents=True)
+    _ = (tmp_path / push.HOSTS_FILE).write_text("mac u@mac macos\n", encoding="utf-8")
+    replies = ["queued 4; last-result applied 3"]
+
+    def fake_run(*, program: str, **_: object) -> tuple[int, str]:
+        assert program.endswith("\n") and "main(" in program and "refreshToken" not in program
+        return 0, replies[-1]
+
+    def push_at(now: float) -> dict[str, str]:
+        return push.push_due(
+            home=tmp_path, delivery=delivery, now=now, run=fake_run, config=settings
+        )
+
+    assert push_at(10.0) == {"mac": "queued 4; last-result applied 3"}
+    queued = push.load_state(home=tmp_path)["mac"]
+    assert queued["state"] == "queued" and "last_success" not in queued
+    assert "last_error" not in queued
+    assert push_at(30.0) == {}
+
+    replies.append("applied 4")
+    assert push_at(71.0) == {"mac": "applied 4"}
+    applied = push.load_state(home=tmp_path)["mac"]
+    assert applied["state"] == "ok" and applied["sequence"] == 4
+    assert applied["last_success"] == 71.0
+    assert push_at(200.0) == {}
+
+
+def test_only_a_result_naming_this_sequence_counts_as_reached(*, tmp_path: Path) -> None:
+    push = importlib.import_module("caam_delivery_push")
+    service = importlib.import_module("caam_delivery_service")
+    delivery = service.Delivery(sequence=5, account_id="a", identity={}, oauth={})
+    (tmp_path / push.HOSTS_FILE).parent.mkdir(parents=True)
+    _ = (tmp_path / push.HOSTS_FILE).write_text("h u@h linux\n", encoding="utf-8")
+    outcomes = push.push_due(
+        home=tmp_path, delivery=delivery, now=1.0, run=lambda **_: (0, "applied 4")
+    )
+    assert outcomes == {"h": "applied 4"}
+    entry = push.load_state(home=tmp_path)["h"]
+    assert "last_success" not in entry and entry["last_error"] == "failed applied 4"

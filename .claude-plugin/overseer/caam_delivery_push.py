@@ -21,13 +21,13 @@ from pathlib import Path
 import caam_delivery_service
 import streams
 from caam_delivery_apply_script import APPLY_SCRIPT, apply_program
+from caam_delivery_macos import inbox_program
 from caam_delivery_push_state import (
     CONFIG_FILE,
     HOSTS_FILE,
     KNOWN_HOSTS,
     PUSH_STATE,
     STATE_DIR,
-    UNSUPPORTED_MACOS,
     Host,
     due,
     load_config,
@@ -121,16 +121,15 @@ def push_due(
         )
     ]
     oauth = {key: value for key, value in delivery.oauth.items() if key != "refreshToken"}
-    program = apply_program(payload=json.dumps({**asdict(delivery), "oauth": oauth}))
+    payload = json.dumps({**asdict(delivery), "oauth": oauth})
+    programs = {"linux": apply_program(payload=payload), "macos": inbox_program(payload=payload)}
     token = str(oauth.get("accessToken", "")) or "\0"
     known_hosts = str(home / KNOWN_HOSTS)
 
     def push_one(*, host: Host) -> str:
-        if host.platform == "macos":
-            return UNSUPPORTED_MACOS
         reply = run(
             target=host.target,
-            program=program,
+            program=programs[host.platform],
             key=str(settings["ssh_key"]),
             known_hosts=known_hosts,
             timeout=seconds(settings=settings, key="push_timeout_s"),
