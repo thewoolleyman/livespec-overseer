@@ -58,7 +58,8 @@ def confirm_live_account(*, access_token: str) -> str | None:
             },
         )
     )
-    account_id = None if body is None else body.get("account_uuid")
+    account = None if body is None else jsonio.as_object(value=body.get("account"))
+    account_id = None if account is None else account.get("uuid")
     if isinstance(account_id, str):
         return account_id
     detail = reason if reason is not None else "no account identifier in the profile"
