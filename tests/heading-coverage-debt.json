@@ -2455,5 +2455,40 @@
     "heading": "## Scenario: A daemon wrap-up pending in the composer past its window is surfaced",
     "work_item": "overseer-llrj5k",
     "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reset is claimed at the weekly reserve while days remain, instead of rotating",
+    "work_item": "overseer-sozqxs",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reset is not claimed at the weekly reserve when the window resets within the claim horizon",
+    "work_item": "overseer-sozqxs",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The protected account keeps its last reset in reserve",
+    "work_item": "overseer-sozqxs",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The protected account's last reset is claimed when it is about to lapse",
+    "work_item": "overseer-sozqxs",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reset is not claimed at the best-value moment on a spend-capped account",
+    "work_item": "overseer-sozqxs",
+    "first_seen": "2026-11-13"
   }
 ]

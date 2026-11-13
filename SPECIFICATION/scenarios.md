@@ -5023,11 +5023,85 @@ And an eligible candidate exists
 
 And the active account holds a usable reset that clears its short window
 
+And the active account's weekly reserve is not the trigger that fired
+
 When a scheduled pass runs
 
 Then the operation rotates to the candidate
 
 And it claims no reset
+
+## Scenario: A reset is claimed at the weekly reserve while days remain, instead of rotating
+
+Given the active account's weekly remaining has fallen below the weekly reserve
+
+And the active account holds a usable reset that clears its weekly window
+
+And at least the claim horizon remains before its weekly window resets on its own
+
+And an eligible candidate exists
+
+When a scheduled pass runs
+
+Then the operation claims that reset
+
+And it stays on the active account
+
+And it reports the claim on its own line naming the days remaining before the weekly window resets
+
+## Scenario: A reset is not claimed at the weekly reserve when the window resets within the claim horizon
+
+Given the active account's weekly remaining has fallen below the weekly reserve
+
+And the active account holds a usable reset that clears its weekly window
+
+And its weekly window resets on its own within the claim horizon
+
+And an eligible candidate exists
+
+When a scheduled pass runs
+
+Then the operation rotates to the candidate
+
+And it claims no reset under the best-value clause
+
+## Scenario: The protected account keeps its last reset in reserve
+
+Given the protected account is the active account
+
+And its weekly remaining has fallen to its own protection floor
+
+And it holds exactly one usable reset that clears its weekly window and lapses beyond the expiry horizon
+
+And at least the claim horizon remains before its weekly window resets
+
+When a scheduled pass runs
+
+Then the operation does not claim that reset under the best-value clause
+
+## Scenario: The protected account's last reset is claimed when it is about to lapse
+
+Given the protected account holds exactly one usable reset lapsing within the expiry horizon
+
+And a window the reset clears is spent by more than the eligibility margin
+
+When a scheduled pass runs
+
+Then the operation claims that reset under the lapse clause
+
+## Scenario: A reset is not claimed at the best-value moment on a spend-capped account
+
+Given the active account's weekly remaining has fallen below the weekly reserve
+
+And the active account holds a usable reset and at least the claim horizon remains before its weekly window resets
+
+And the account has reached its monthly extra-usage spend cap
+
+When a scheduled pass runs
+
+Then the operation claims no reset
+
+And it rotates or holds under the existing rules
 
 ## Scenario: A reset is not spent on a window about to replenish on its own
 

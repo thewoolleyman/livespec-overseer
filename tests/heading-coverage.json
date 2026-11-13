@@ -4733,5 +4733,45 @@
     "test": "TODO",
     "work_item": "overseer-llrj5k",
     "reason": "Ratified in v096 (a-daemon-wrap-up-whose) ahead of its implementation child; a test at integration tier is owed, and overseer-llrj5k MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reset is claimed at the weekly reserve while days remain, instead of rotating",
+    "test": "TODO",
+    "work_item": "overseer-sozqxs",
+    "reason": "Ratified in v097 (caam-reset-best-value) ahead of its implementation child; a test at integration tier is owed, and overseer-sozqxs MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reset is not claimed at the weekly reserve when the window resets within the claim horizon",
+    "test": "TODO",
+    "work_item": "overseer-sozqxs",
+    "reason": "Ratified in v097 (caam-reset-best-value) ahead of its implementation child; a test at integration tier is owed, and overseer-sozqxs MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The protected account keeps its last reset in reserve",
+    "test": "TODO",
+    "work_item": "overseer-sozqxs",
+    "reason": "Ratified in v097 (caam-reset-best-value) ahead of its implementation child; a test at integration tier is owed, and overseer-sozqxs MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The protected account's last reset is claimed when it is about to lapse",
+    "test": "TODO",
+    "work_item": "overseer-sozqxs",
+    "reason": "Ratified in v097 (caam-reset-best-value) ahead of its implementation child; a test at integration tier is owed, and overseer-sozqxs MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reset is not claimed at the best-value moment on a spend-capped account",
+    "test": "TODO",
+    "work_item": "overseer-sozqxs",
+    "reason": "Ratified in v097 (caam-reset-best-value) ahead of its implementation child; a test at integration tier is owed, and overseer-sozqxs MUST replace this TODO with a test at integration tier."
   }
 ]
