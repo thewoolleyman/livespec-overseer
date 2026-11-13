@@ -2455,5 +2455,12 @@
     "heading": "## Scenario: The service refuses to push to a host whose host key it cannot verify",
     "work_item": "overseer-aj577z",
     "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready seat is held, not replaced, while the host is below its memory floor",
+    "work_item": "overseer-uzvcbn.23",
+    "first_seen": "2026-11-13"
   }
 ]

@@ -4566,6 +4566,19 @@ And the successor opens at its input composer, not at the update picker
 And the daemon names and resumes the successor without sending a key to any picker
 And the track's recorded launch profile does not record the override
 
+## Scenario: A ready seat is held, not replaced, while the host is below its memory floor
+
+Given a host whose own `/etc/livespec/host-load-floor.json`, rendered from that host's committed load-floor entry, sets a minimum available memory of 24 GiB and a maximum memory pressure `some avg10` of 5
+And a supervised track whose session has declared a certifiable `ready`
+When the daemon's reading immediately before the replacement shows 20 GiB available
+Then the daemon does not terminate, respawn or keystroke the session
+And the `ready` declaration and the open round are preserved
+And the daemon journals one `restart-held-by-memory-floor` event naming the track, the 20 GiB reading and the 24 GiB floor
+And the track's row names the memory-floor hold
+And no further hold event is journaled while the reading stays below the floor
+When a later reading shows 30 GiB available and pressure 0.4
+Then the daemon journals the release and performs the replacement through the ordinary restart interlock
+
 ## Scenario: A confirmed fresh Codex successor is reported for its launch pane and proven without a rollout file
 
 Given a Codex track on a terminal backend that accepts agent-session reports, whose fresh ready declaration authorized a guarded replacement

@@ -4715,6 +4715,14 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A Codex successor launch disables Codex's startup update check",
     "test": "tests.integration.test_codex_startup_update_check.test_scenario_codex_launches_disable_the_startup_update_check",
-    "reason": "Integration-tier: checks each Codex launch shape the specification names — a fresh successor, an existing-rollout resume, and a row with no recorded profile — for the fixed per-invocation update-check override, while proving that the recorded profile remains only harness, model and wrapper rather than accumulating the transient configuration."
+    "reason": "Integration-tier: checks each Codex launch shape the specification names \u2014 a fresh successor, an existing-rollout resume, and a row with no recorded profile \u2014 for the fixed per-invocation update-check override, while proving that the recorded profile remains only harness, model and wrapper rather than accumulating the transient configuration."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready seat is held, not replaced, while the host is below its memory floor",
+    "test": "TODO",
+    "work_item": "overseer-uzvcbn.23",
+    "reason": "An integration-tier test is owed for this heading, ratified for spec.md 'The restart' (its host memory floor paragraph) under proposal a-seat-replacement-holds-below-the-host-memory-floor, plan herdr-overseer, epic overseer-uzvcbn; work item overseer-uzvcbn.23 owns landing it."
   }
 ]
