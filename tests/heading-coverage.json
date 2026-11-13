@@ -879,7 +879,7 @@
     "heading": "## Enrolled-host credential delivery",
     "test": "TODO",
     "work_item": "overseer-xnpfsc",
-    "reason": "overseer-xnpfsc owes the integration-tier test. Successor test owner to closed overseer-vfmz5w."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-xnpfsc owns it. (Successor test owner to closed overseer-vfmz5w.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -887,7 +887,7 @@
     "heading": "## Enrolled-host delivery",
     "test": "TODO",
     "work_item": "overseer-enci5g",
-    "reason": "overseer-enci5g owes the integration-tier test. Successor test owner to closed overseer-4uafx2."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-enci5g owns it. (Successor test owner to closed overseer-4uafx2.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4023,7 +4023,7 @@
     "heading": "## Scenario: A rotation on the role holder reaches every following host",
     "test": "TODO",
     "work_item": "overseer-cpngcd",
-    "reason": "overseer-cpngcd owes the integration-tier test. Successor test owner to closed overseer-lfyj7e."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-lfyj7e.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4031,7 +4031,7 @@
     "heading": "## Scenario: Moving the credential-rotation role changes nothing on an enrolled host",
     "test": "TODO",
     "work_item": "overseer-cpngcd",
-    "reason": "overseer-cpngcd owes the integration-tier test. Successor test owner to closed overseer-lfyj7e."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-lfyj7e.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4039,7 +4039,7 @@
     "heading": "## Scenario: A following host receives an access token and never a refresh token",
     "test": "TODO",
     "work_item": "overseer-cpngcd",
-    "reason": "overseer-cpngcd owes the integration-tier test. Successor test owner to closed overseer-4uafx2."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-4uafx2.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4047,7 +4047,7 @@
     "heading": "## Scenario: A refresh on the role holder is delivered and its exposure is measured",
     "test": "TODO",
     "work_item": "overseer-cpngcd",
-    "reason": "overseer-cpngcd owes the integration-tier test. Successor test owner to closed overseer-7ezzch."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-7ezzch.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4062,7 +4062,7 @@
     "heading": "## Scenario: A stale delivery cannot move a host back",
     "test": "TODO",
     "work_item": "overseer-cpngcd",
-    "reason": "overseer-cpngcd owes the integration-tier test. Successor test owner to closed overseer-lfyj7e."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-lfyj7e.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4070,7 +4070,7 @@
     "heading": "## Scenario: A failed client write leaves the host on its previous delivery",
     "test": "TODO",
     "work_item": "overseer-cpngcd",
-    "reason": "overseer-cpngcd owes the integration-tier test. Successor test owner to closed overseer-lfyj7e."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-lfyj7e.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4078,7 +4078,7 @@
     "heading": "## Scenario: The client refuses to overwrite a host's own login",
     "test": "TODO",
     "work_item": "overseer-cpngcd",
-    "reason": "overseer-cpngcd owes the integration-tier test. Successor test owner to closed overseer-lfyj7e."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-lfyj7e.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4086,7 +4086,7 @@
     "heading": "## Scenario: An unreachable enrolled host does not affect a rotation pass",
     "test": "TODO",
     "work_item": "overseer-cpngcd",
-    "reason": "overseer-cpngcd owes the integration-tier test. Successor test owner to closed overseer-vfmz5w."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-vfmz5w.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4094,7 +4094,7 @@
     "heading": "## Scenario: An expired live credential is reported, not refreshed",
     "test": "TODO",
     "work_item": "overseer-cpngcd",
-    "reason": "overseer-cpngcd owes the integration-tier test. Successor test owner to closed overseer-7ezzch."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-7ezzch.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4109,7 +4109,7 @@
     "heading": "## Scenario: An enrolled host cannot read another host's delivery",
     "test": "TODO",
     "work_item": "overseer-cpngcd",
-    "reason": "overseer-cpngcd owes the integration-tier test. Successor test owner to closed overseer-4uafx2."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-4uafx2.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4117,7 +4117,7 @@
     "heading": "## Scenario: A valid enrolment presented from the wrong device is refused",
     "test": "TODO",
     "work_item": "overseer-cpngcd",
-    "reason": "overseer-cpngcd owes the integration-tier test. Successor test owner to closed overseer-4uafx2."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-4uafx2.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4125,7 +4125,7 @@
     "heading": "## Scenario: Revoking one host's enrolment leaves every other host served",
     "test": "TODO",
     "work_item": "overseer-cpngcd",
-    "reason": "overseer-cpngcd owes the integration-tier test. Successor test owner to closed overseer-4uafx2."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-4uafx2.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4133,7 +4133,7 @@
     "heading": "## Scenario: The client refuses a service it cannot authenticate",
     "test": "TODO",
     "work_item": "overseer-cpngcd",
-    "reason": "overseer-cpngcd owes the integration-tier test. Successor test owner to closed overseer-lfyj7e."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-lfyj7e.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4141,7 +4141,7 @@
     "heading": "## Scenario: A silent enrolled host is reported as stale",
     "test": "TODO",
     "work_item": "overseer-cpngcd",
-    "reason": "overseer-cpngcd owes the integration-tier test. Successor test owner to closed overseer-7ezzch."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-7ezzch.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4149,7 +4149,7 @@
     "heading": "## Scenario: A refusal on a following host rotates the active account",
     "test": "TODO",
     "work_item": "overseer-cpngcd",
-    "reason": "overseer-cpngcd owes the integration-tier test. Successor test owner to closed overseer-xoishu."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-cpngcd owns it. (Successor test owner to closed overseer-xoishu.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4157,7 +4157,7 @@
     "heading": "## Scenario: A forwarded refusal under another account's delivery is not attributed",
     "test": "TODO",
     "work_item": "overseer-tzi4y6",
-    "reason": "overseer-tzi4y6 owes the integration-tier test. Successor test owner to closed overseer-xoishu."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-xoishu.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4165,7 +4165,7 @@
     "heading": "## Scenario: A remote enforcement is recorded only once the client applies it",
     "test": "TODO",
     "work_item": "overseer-tzi4y6",
-    "reason": "overseer-tzi4y6 owes the integration-tier test. Successor test owner to closed overseer-c6gjgl."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-c6gjgl.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4173,7 +4173,7 @@
     "heading": "## Scenario: A remote session on the scoped model arms the scoped-model trigger",
     "test": "TODO",
     "work_item": "overseer-tzi4y6",
-    "reason": "overseer-tzi4y6 owes the integration-tier test. Successor test owner to closed overseer-xoishu."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-xoishu.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4181,7 +4181,7 @@
     "heading": "## Scenario: An enforcement instruction is applied at most once",
     "test": "TODO",
     "work_item": "overseer-tzi4y6",
-    "reason": "overseer-tzi4y6 owes the integration-tier test. Successor test owner to closed overseer-c6gjgl."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-c6gjgl.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4189,7 +4189,7 @@
     "heading": "## Scenario: A silent host whose token has expired arms no trigger",
     "test": "TODO",
     "work_item": "overseer-tzi4y6",
-    "reason": "overseer-tzi4y6 owes the integration-tier test. Successor test owner to closed overseer-xoishu."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-xoishu.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4197,7 +4197,7 @@
     "heading": "## Scenario: A refusal forwarded before a host falls silent is still attributed",
     "test": "TODO",
     "work_item": "overseer-tzi4y6",
-    "reason": "overseer-tzi4y6 owes the integration-tier test. Successor test owner to closed overseer-xoishu."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-xoishu.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4205,7 +4205,7 @@
     "heading": "## Scenario: A forwarded refusal from outside the host's default directory is not attributed",
     "test": "TODO",
     "work_item": "overseer-tzi4y6",
-    "reason": "overseer-tzi4y6 owes the integration-tier test. Successor test owner to closed overseer-xoishu."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-xoishu.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4213,7 +4213,7 @@
     "heading": "## Scenario: A client restarted after recording an instruction does not act on it again",
     "test": "TODO",
     "work_item": "overseer-tzi4y6",
-    "reason": "overseer-tzi4y6 owes the integration-tier test. Successor test owner to closed overseer-c6gjgl."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-c6gjgl.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4221,7 +4221,7 @@
     "heading": "## Scenario: An instruction whose outcome was reported is never served again",
     "test": "TODO",
     "work_item": "overseer-tzi4y6",
-    "reason": "overseer-tzi4y6 owes the integration-tier test. Successor test owner to closed overseer-c6gjgl."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-c6gjgl.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4229,7 +4229,7 @@
     "heading": "## Scenario: A superseded enforcement instruction is never served",
     "test": "TODO",
     "work_item": "overseer-tzi4y6",
-    "reason": "overseer-tzi4y6 owes the integration-tier test. Successor test owner to closed overseer-c6gjgl."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-c6gjgl.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4237,7 +4237,7 @@
     "heading": "## Scenario: An instruction decided before a host returns from silence is not served",
     "test": "TODO",
     "work_item": "overseer-tzi4y6",
-    "reason": "overseer-tzi4y6 owes the integration-tier test. Successor test owner to closed overseer-c6gjgl."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-c6gjgl.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4269,7 +4269,7 @@
     "heading": "## Scenario: A stopped delivery service does not affect a rotation pass",
     "test": "TODO",
     "work_item": "overseer-tzi4y6",
-    "reason": "overseer-tzi4y6 owes the integration-tier test. Successor test owner to closed overseer-vfmz5w."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-vfmz5w.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4389,7 +4389,7 @@
     "heading": "## Scenario: A ready track held from replacement past the hold window logs a hold event",
     "test": "TODO",
     "work_item": "overseer-tzi4y6",
-    "reason": "overseer-tzi4y6 owes the integration-tier test. Successor test owner to closed overseer-qz7ez7."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-qz7ez7.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4397,7 +4397,7 @@
     "heading": "## Scenario: A ready hold is not re-reported within the same hold window",
     "test": "TODO",
     "work_item": "overseer-tzi4y6",
-    "reason": "overseer-tzi4y6 owes the integration-tier test. Successor test owner to closed overseer-qz7ez7."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-qz7ez7.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4405,7 +4405,7 @@
     "heading": "## Scenario: A persisting ready hold is re-reported at the next window boundary",
     "test": "TODO",
     "work_item": "overseer-tzi4y6",
-    "reason": "overseer-tzi4y6 owes the integration-tier test. Successor test owner to closed overseer-qz7ez7."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-tzi4y6 owns it. (Successor test owner to closed overseer-qz7ez7.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4413,7 +4413,7 @@
     "heading": "## Scenario: A ready hold that ends measures a later hold afresh",
     "test": "TODO",
     "work_item": "overseer-5fibo3",
-    "reason": "overseer-5fibo3 owes the integration-tier test. Successor test owner to closed overseer-qz7ez7."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-5fibo3 owns it. (Successor test owner to closed overseer-qz7ez7.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4421,7 +4421,7 @@
     "heading": "## Scenario: A busy hold names the source of its busy evidence",
     "test": "TODO",
     "work_item": "overseer-5fibo3",
-    "reason": "overseer-5fibo3 owes the integration-tier test. Successor test owner to closed overseer-qz7ez7."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-5fibo3 owns it. (Successor test owner to closed overseer-qz7ez7.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4429,7 +4429,7 @@
     "heading": "## Scenario: A failed pre-act identity re-check is a pane-identity hold",
     "test": "TODO",
     "work_item": "overseer-5fibo3",
-    "reason": "overseer-5fibo3 owes the integration-tier test. Successor test owner to closed overseer-qz7ez7."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-5fibo3 owns it. (Successor test owner to closed overseer-qz7ez7.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4437,7 +4437,7 @@
     "heading": "## Scenario: An uncertifiable ready on a busy pane is never a ready hold",
     "test": "TODO",
     "work_item": "overseer-5fibo3",
-    "reason": "overseer-5fibo3 owes the integration-tier test. Successor test owner to closed overseer-qz7ez7."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-5fibo3 owns it. (Successor test owner to closed overseer-qz7ez7.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4445,7 +4445,7 @@
     "heading": "## Scenario: A read-only listing neither starts nor ends a ready-hold measurement",
     "test": "TODO",
     "work_item": "overseer-5fibo3",
-    "reason": "overseer-5fibo3 owes the integration-tier test. Successor test owner to closed overseer-qz7ez7."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-5fibo3 owns it. (Successor test owner to closed overseer-qz7ez7.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4453,7 +4453,7 @@
     "heading": "## Scenario: The ready-hold window is configured at daemon launch",
     "test": "TODO",
     "work_item": "overseer-5fibo3",
-    "reason": "overseer-5fibo3 owes the integration-tier test. Successor test owner to closed overseer-qz7ez7."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-5fibo3 owns it. (Successor test owner to closed overseer-qz7ez7.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4461,7 +4461,7 @@
     "heading": "## Scenario: The ready-hold window defaults to 600 seconds",
     "test": "TODO",
     "work_item": "overseer-5fibo3",
-    "reason": "overseer-5fibo3 owes the integration-tier test. Successor test owner to closed overseer-qz7ez7."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-5fibo3 owns it. (Successor test owner to closed overseer-qz7ez7.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4469,7 +4469,7 @@
     "heading": "## Scenario: The daemon refuses to start with an invalid ready-hold window",
     "test": "TODO",
     "work_item": "overseer-5fibo3",
-    "reason": "overseer-5fibo3 owes the integration-tier test. Successor test owner to closed overseer-qz7ez7."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-5fibo3 owns it. (Successor test owner to closed overseer-qz7ez7.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4477,7 +4477,7 @@
     "heading": "## Scenario: A ready hold resting only on a harness session-status is diagnosed as a possible stuck status",
     "test": "TODO",
     "work_item": "overseer-5fibo3",
-    "reason": "overseer-5fibo3 owes the integration-tier test. Successor test owner to closed overseer-qz7ez7."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-5fibo3 owns it. (Successor test owner to closed overseer-qz7ez7.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4485,7 +4485,7 @@
     "heading": "## Scenario: A ready hold with visible busy evidence is not diagnosed as a stuck status",
     "test": "TODO",
     "work_item": "overseer-5fibo3",
-    "reason": "overseer-5fibo3 owes the integration-tier test. Successor test owner to closed overseer-qz7ez7."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-5fibo3 owns it. (Successor test owner to closed overseer-qz7ez7.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4493,7 +4493,7 @@
     "heading": "## Scenario: A latched track's wrap-up names the latch and the live context reading",
     "test": "TODO",
     "work_item": "overseer-5fibo3",
-    "reason": "overseer-5fibo3 owes the integration-tier test. Successor test owner to closed overseer-qz7ez7."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-5fibo3 owns it. (Successor test owner to closed overseer-qz7ez7.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4501,7 +4501,7 @@
     "heading": "## Scenario: A latched track below its threshold names the threshold and keeps its sharper band",
     "test": "TODO",
     "work_item": "overseer-5fibo3",
-    "reason": "overseer-5fibo3 owes the integration-tier test. Successor test owner to closed overseer-qz7ez7."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-5fibo3 owns it. (Successor test owner to closed overseer-qz7ez7.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4509,7 +4509,7 @@
     "heading": "## Scenario: A latched track with an unreadable statusline names its kept last-known reading",
     "test": "TODO",
     "work_item": "overseer-5fibo3",
-    "reason": "overseer-5fibo3 owes the integration-tier test. Successor test owner to closed overseer-qz7ez7."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-5fibo3 owns it. (Successor test owner to closed overseer-qz7ez7.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4517,7 +4517,7 @@
     "heading": "## Scenario: A latched track with no effective reading says live unknown",
     "test": "TODO",
     "work_item": "overseer-5fibo3",
-    "reason": "overseer-5fibo3 owes the integration-tier test. Successor test owner to closed overseer-qz7ez7."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-5fibo3 owns it. (Successor test owner to closed overseer-qz7ez7.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4525,7 +4525,7 @@
     "heading": "## Scenario: An unlatched track's wrap-up keeps its bare live context figure",
     "test": "TODO",
     "work_item": "overseer-5fibo3",
-    "reason": "overseer-5fibo3 owes the integration-tier test. Successor test owner to closed overseer-qz7ez7."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-5fibo3 owns it. (Successor test owner to closed overseer-qz7ez7.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4540,7 +4540,7 @@
     "heading": "## Scenario: A dark active login is left on the next pass",
     "test": "TODO",
     "work_item": "overseer-meryyx",
-    "reason": "overseer-meryyx owes the integration-tier test. Successor test owner to closed overseer-iusknl."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-meryyx owns it. (Successor test owner to closed overseer-iusknl.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4548,7 +4548,7 @@
     "heading": "## Scenario: An expired access token alone does not trigger a dark-login rotation",
     "test": "TODO",
     "work_item": "overseer-meryyx",
-    "reason": "overseer-meryyx owes the integration-tier test. Successor test owner to closed overseer-iusknl."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-meryyx owns it. (Successor test owner to closed overseer-iusknl.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4556,7 +4556,7 @@
     "heading": "## Scenario: A dark active login with no surviving candidate holds and reports",
     "test": "TODO",
     "work_item": "overseer-meryyx",
-    "reason": "overseer-meryyx owes the integration-tier test. Successor test owner to closed overseer-iusknl."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-meryyx owns it. (Successor test owner to closed overseer-iusknl.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4564,7 +4564,7 @@
     "heading": "## Scenario: One refused reading does not judge a login dark",
     "test": "TODO",
     "work_item": "overseer-meryyx",
-    "reason": "overseer-meryyx owes the integration-tier test. Successor test owner to closed overseer-iusknl."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-meryyx owns it. (Successor test owner to closed overseer-iusknl.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4572,7 +4572,7 @@
     "heading": "## Scenario: A login hold survives a restart",
     "test": "TODO",
     "work_item": "overseer-meryyx",
-    "reason": "overseer-meryyx owes the integration-tier test. Successor test owner to closed overseer-iusknl."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-meryyx owns it. (Successor test owner to closed overseer-iusknl.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4580,7 +4580,7 @@
     "heading": "## Scenario: The rotation pass runs while every agent session's login is dark",
     "test": "TODO",
     "work_item": "overseer-meryyx",
-    "reason": "overseer-meryyx owes the integration-tier test. Successor test owner to closed overseer-iusknl."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-meryyx owns it. (Successor test owner to closed overseer-iusknl.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4588,7 +4588,7 @@
     "heading": "## Scenario: A recorded login shows its age in the report",
     "test": "TODO",
     "work_item": "overseer-meryyx",
-    "reason": "overseer-meryyx owes the integration-tier test. Successor test owner to closed overseer-oomnmk."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-meryyx owns it. (Successor test owner to closed overseer-oomnmk.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4596,7 +4596,7 @@
     "heading": "## Scenario: A refresh does not start a new login record",
     "test": "TODO",
     "work_item": "overseer-meryyx",
-    "reason": "overseer-meryyx owes the integration-tier test. Successor test owner to closed overseer-oomnmk."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-meryyx owns it. (Successor test owner to closed overseer-oomnmk.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4604,7 +4604,7 @@
     "heading": "## Scenario: Recording a new login replaces the old one and releases a login hold",
     "test": "TODO",
     "work_item": "overseer-meryyx",
-    "reason": "overseer-meryyx owes the integration-tier test. Successor test owner to closed overseer-oomnmk."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-meryyx owns it. (Successor test owner to closed overseer-oomnmk.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4612,7 +4612,7 @@
     "heading": "## Scenario: A first-seen login age is shown as a lower bound and still warns",
     "test": "TODO",
     "work_item": "overseer-meryyx",
-    "reason": "overseer-meryyx owes the integration-tier test. Successor test owner to closed overseer-oomnmk."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-meryyx owns it. (Successor test owner to closed overseer-oomnmk.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4620,7 +4620,7 @@
     "heading": "## Scenario: No lifetime-cap warning before the cap is measured",
     "test": "TODO",
     "work_item": "overseer-meryyx",
-    "reason": "overseer-meryyx owes the integration-tier test. Successor test owner to closed overseer-oomnmk."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-meryyx owns it. (Successor test owner to closed overseer-oomnmk.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4628,7 +4628,7 @@
     "heading": "## Scenario: A login approaching the measured cap is warned",
     "test": "TODO",
     "work_item": "overseer-meryyx",
-    "reason": "overseer-meryyx owes the integration-tier test. Successor test owner to closed overseer-oomnmk."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-meryyx owns it. (Successor test owner to closed overseer-oomnmk.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4636,7 +4636,7 @@
     "heading": "## Scenario: A dark login raises one push alert at onset",
     "test": "TODO",
     "work_item": "overseer-meryyx",
-    "reason": "overseer-meryyx owes the integration-tier test. Successor test owner to closed overseer-hydiph."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-meryyx owns it. (Successor test owner to closed overseer-hydiph.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4644,7 +4644,7 @@
     "heading": "## Scenario: An exhausted factory credential raises a push alert",
     "test": "TODO",
     "work_item": "overseer-meryyx",
-    "reason": "overseer-meryyx owes the integration-tier test. Successor test owner to closed overseer-hydiph."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-meryyx owns it. (Successor test owner to closed overseer-hydiph.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4652,7 +4652,7 @@
     "heading": "## Scenario: A failed alert delivery is reported and does not block rotation",
     "test": "TODO",
     "work_item": "overseer-meryyx",
-    "reason": "overseer-meryyx owes the integration-tier test. Successor test owner to closed overseer-hydiph."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-meryyx owns it. (Successor test owner to closed overseer-hydiph.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4660,7 +4660,7 @@
     "heading": "## Scenario: A persisting condition is not re-alerted before the repeat interval",
     "test": "TODO",
     "work_item": "overseer-wh4sh2",
-    "reason": "overseer-wh4sh2 owes the integration-tier test. Successor test owner to closed overseer-hydiph."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-wh4sh2 owns it. (Successor test owner to closed overseer-hydiph.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4668,7 +4668,7 @@
     "heading": "## Scenario: A rate-limited probe is inconclusive and not alerted",
     "test": "TODO",
     "work_item": "overseer-wh4sh2",
-    "reason": "overseer-wh4sh2 owes the integration-tier test. Successor test owner to closed overseer-hydiph."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-wh4sh2 owns it. (Successor test owner to closed overseer-hydiph.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4676,7 +4676,7 @@
     "heading": "## Scenario: A credential that cannot be read from its location is unusable",
     "test": "TODO",
     "work_item": "overseer-wh4sh2",
-    "reason": "overseer-wh4sh2 owes the integration-tier test. Successor test owner to closed overseer-hydiph."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-wh4sh2 owns it. (Successor test owner to closed overseer-hydiph.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4684,7 +4684,7 @@
     "heading": "## Scenario: A recovered condition sends one recovery alert",
     "test": "TODO",
     "work_item": "overseer-wh4sh2",
-    "reason": "overseer-wh4sh2 owes the integration-tier test. Successor test owner to closed overseer-hydiph."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-wh4sh2 owns it. (Successor test owner to closed overseer-hydiph.)"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4692,7 +4692,7 @@
     "heading": "## Scenario: No push channel configured is reported",
     "test": "TODO",
     "work_item": "overseer-wh4sh2",
-    "reason": "overseer-wh4sh2 owes the integration-tier test. Successor test owner to closed overseer-hydiph."
+    "reason": "A real test at the integration tier or above is owed for this heading; overseer-wh4sh2 owns it. (Successor test owner to closed overseer-hydiph.)"
   },
   {
     "spec_root": "SPECIFICATION",
