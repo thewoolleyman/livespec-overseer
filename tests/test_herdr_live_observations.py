@@ -274,6 +274,9 @@ if sys.argv[1] == "{_RENDEZVOUS_FLAG}":
     _guard = time.monotonic() + float(sys.argv[3])
     while not _release.exists():
         if time.monotonic() >= _guard:
+            _release.with_name(f"{{_release.name}}.hang-guard-expired").write_text(
+                "expired", encoding="utf-8"
+            )
             raise SystemExit(f"{{_release}} was never written; ended by the hang guard")
         time.sleep({_RENDEZVOUS_POLL_SECONDS})
 else:
@@ -328,6 +331,7 @@ def rendezvous_transient(*, scratch: Path, release: Path, guard_seconds: float) 
     writes `release`. `guard_seconds` is only a hang guard for a test that dies
     before releasing it; expiring it exits non-zero and says so.
     """
+    release.with_name(f"{release.name}.hang-guard-expired").unlink(missing_ok=True)
     return _transient_command(
         scratch=scratch,
         arguments=(_RENDEZVOUS_FLAG, str(release), str(guard_seconds)),
@@ -1257,6 +1261,11 @@ class ReadyShellGate:
         """
         if not self.startup_transient:
             return ""
+        if (
+            self.release is not None
+            and self.release.with_name(f"{self.release.name}.hang-guard-expired").exists()
+        ):
+            return "the controlled startup transient ended by hang-guard expiry"
         if self.transient is None or self.transient.pid is None:
             observed = "" if self.transient is None else self.transient.reason
             return f"the controlled startup transient was never observed: {observed}"
@@ -2432,6 +2441,23 @@ def test_a_gate_releases_its_rendezvous_only_after_pinning_the_retained_shell(
     unobserved._clear_transient(child=None)
 
     assert unobserved_release.exists(), "an unobserved transient must not wait for its hang guard"
+
+
+def test_a_hang_guard_expiry_is_a_named_gate_refusal(*, tmp_path: Path) -> None:
+    """A rendezvous that reaches its guard cannot look like a quiet observation retry."""
+    release = tmp_path / "release"
+    expired = release.with_name(f"{release.name}.hang-guard-expired")
+    _ = expired.write_text("expired", encoding="utf-8")
+    gate = ReadyShellGate(
+        inner=None,
+        socket_path="unused",
+        startup_transient="controlled transient",
+        release=release,
+    )
+    gate.gated.append(PANE)
+    gate.transient = ChildObservation(pid=None, reason="the process was not observed")
+
+    assert "hang-guard expiry" in gate.refusal()
 
 
 # ------------------------- the exact created pane's INITIAL setup, as a premise
