@@ -42,6 +42,7 @@ __all__: list[str] = [
     "CONFIG_FILE",
     "HOSTS_FILE",
     "KNOWN_HOSTS",
+    "MAX_REFRESHES_PER_PASS",
     "PUSH_STATE",
     "STATE_DIR",
     "Host",
@@ -56,6 +57,9 @@ __all__: list[str] = [
 
 Runner = Callable[..., tuple[int, str]]
 _due = due
+# Refreshes of a delivery a host already holds are spread over passes rather
+# than fanned out to every host at once; a new delivery is never held back.
+MAX_REFRESHES_PER_PASS = 2
 
 
 def run_ssh(
@@ -120,6 +124,7 @@ def push_due(
             entry=state.get(host.label, {}), sequence=delivery.sequence, now=now, settings=settings
         )
     ]
+    behind = _bounded(hosts=behind, state=state, sequence=delivery.sequence)
     oauth = {key: value for key, value in delivery.oauth.items() if key != "refreshToken"}
     program = apply_program(payload=json.dumps({**asdict(delivery), "oauth": oauth}))
     token = str(oauth.get("accessToken", "")) or "\0"
@@ -152,6 +157,30 @@ def push_due(
     except OSError as error:
         streams.write_stderr(text=f"FAIL push state not written: {type(error).__name__}\n")
     return outcomes
+
+
+def _bounded(
+    *, hosts: list[Host], state: dict[str, dict[str, object]], sequence: int
+) -> list[Host]:
+    """Every host behind `sequence`, plus at most MAX_REFRESHES_PER_PASS refreshes, oldest first."""
+    refreshes = sorted(
+        (host for host in hosts if _holds(entry=state.get(host.label, {}), sequence=sequence)),
+        key=lambda host: _last_success(entry=state.get(host.label, {})),
+    )
+    fresh = [
+        host for host in hosts if not _holds(entry=state.get(host.label, {}), sequence=sequence)
+    ]
+    return fresh + refreshes[:MAX_REFRESHES_PER_PASS]
+
+
+def _holds(*, entry: dict[str, object], sequence: int) -> bool:
+    applied = entry.get("sequence")
+    return isinstance(applied, int) and applied >= sequence
+
+
+def _last_success(*, entry: dict[str, object]) -> float:
+    success = entry.get("last_success")
+    return success if isinstance(success, float) else float("-inf")
 
 
 def reissue_script(*, path: Path) -> str | None:

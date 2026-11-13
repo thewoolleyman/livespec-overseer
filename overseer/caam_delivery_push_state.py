@@ -129,7 +129,7 @@ def due(
         # `stale` between deliveries; a failed refresh retries per `retry_s`.
         last = entry.get("last_success")
         half = seconds(settings=settings, key="stale_after_s") / 2
-        if isinstance(last, int | float) and now - last < half:
+        if isinstance(last, float) and now - last < half:
             return False
         return entry.get("state") != "failed" or waited >= seconds(settings=settings, key="retry_s")
     return entry.get("attempt_sequence") != sequence or waited >= seconds(
@@ -138,9 +138,9 @@ def due(
 
 
 def seconds(*, settings: dict[str, object], key: str) -> float:
-    """A duration setting, falling back to its default when it is not a number."""
+    """A duration setting, falling back to its default unless it is a positive number."""
     value = settings.get(key)
-    if isinstance(value, int | float):
+    if isinstance(value, int | float) and value > 0:
         return float(value)
     default = _DEFAULTS[key]
     return float(default) if isinstance(default, int | float) else 0.0
