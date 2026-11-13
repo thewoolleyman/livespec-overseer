@@ -232,14 +232,9 @@ def test_a_retained_wrapup_is_entered_before_its_composer_becomes_settling(
     *, tmp_path, monkeypatch
 ):
     """An unsubmitted daemon paste is retry authority, not non-idle user input."""
-    repo, topic, session, sup, track, _clock = _undelivered_wrapup(
-        tmp_path=tmp_path, monkeypatch=monkeypatch, effect_unknown=False
+    repo, topic, session, sup, track, _clock, fake = _retained_wrapup(
+        tmp_path=tmp_path, monkeypatch=monkeypatch
     )
-    fake = cast(FakeTmux, sup.tmux)
-    fake.panes[session] = _PASTED
-    _inject(sup=sup, track=track, session=session)
-
-    assert _stamp(sup=sup, repo=repo, topic=topic) is not None
 
     retries: list[dict[str, object]] = []
     monkeypatch.setattr(
@@ -257,12 +252,12 @@ def test_a_retained_wrapup_is_entered_before_its_composer_becomes_settling(
 
 def _retained_wrapup(*, tmp_path, monkeypatch):
     repo, topic, session, sup, track, clock = _undelivered_wrapup(
-        tmp_path=tmp_path, monkeypatch=monkeypatch, effect_unknown=False
+        tmp_path=tmp_path, monkeypatch=monkeypatch, effect_unknown=True
     )
     fake = cast(FakeTmux, sup.tmux)
-    fake.panes[session] = _PASTED
     _inject(sup=sup, track=track, session=session)
     assert _stamp(sup=sup, repo=repo, topic=topic) is not None
+    fake.panes[session] = _PASTED
     return repo, topic, session, sup, track, clock, fake
 
 
@@ -287,8 +282,8 @@ def test_a_retained_wrapup_alert_rearms_after_the_payload_leaves(*, tmp_path, mo
     assert sup.evaluate(track=track, act=True).status == "danger"
     assert sup.inject[(str(repo), topic)].pending_wrapup_text is None
 
+    assert sup.evaluate(track=track, act=True).status == "danger"
     fake.panes[session] = _PASTED
-    _inject(sup=sup, track=track, session=session)
     clock["t"] += 601
     with contextlib.redirect_stderr(_io.StringIO()) as rearmed:
         assert sup.evaluate(track=track, act=True).status == "danger"
