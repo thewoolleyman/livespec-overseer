@@ -74,6 +74,7 @@ import herdr_write
 import pytest
 from herdr_live_server import create_workspace, unique_session
 from test_herdr_live_observations import (
+    READY_TIMEOUT,
     TRANSIENT_NAME,
     TRANSIENT_SECONDS,
     BoundedPoll,
@@ -174,6 +175,7 @@ class ServerPair:
     unrelated: str
     decoy: LiveServer
     transient: str
+    release: Path
     # The FIXTURE's own reading of the host login-shell register, used only to
     # establish the created pane's identity premise. It is never handed to the
     # adapter, whose own `shell_aliases` is what these exercises grade.
@@ -281,11 +283,15 @@ def _pair(*, servers: tuple[LiveServer, LiveServer], tmp_path: Path) -> ServerPa
         "fixture precondition: both servers' fresh workspaces must share an id, so the decoy "
         f"holds the target's pane ids; got {target.root!r} and {decoy.root!r}"
     )
+    release = tmp_path / "release-retained-shell-startup-transient"
     return ServerPair(
         target=target,
         unrelated=unrelated,
         decoy=decoy,
-        transient=startup_transient(scratch=tmp_path),
+        transient=rendezvous_transient(
+            scratch=tmp_path, release=release, guard_seconds=READY_TIMEOUT
+        ),
+        release=release,
         registered=registered_login_shells(),
     )
 
@@ -315,7 +321,10 @@ def _split_top(*, pair: ServerPair, command: str) -> tuple[Any, PaneReadiness]:
         ReadyWriter.split_window_top is herdr_write.HerdrWriter.split_window_top
     ), "the exercise must enter the SHIPPED public facade, not a fixture reimplementation"
     readiness = PaneReadiness(
-        socket_path=pair.target.socket_path, transient=pair.transient, registered=pair.registered
+        socket_path=pair.target.socket_path,
+        transient=pair.transient,
+        release=pair.release,
+        registered=pair.registered,
     )
     outcome = ReadyWriter(readiness=readiness).split_window_top(
         target=herdr_identity.HerdrPaneTarget(
@@ -521,7 +530,7 @@ def _await_child_gone(
     return f"the brief child {child} never exited on its own within the bound: {reason}"
 
 
-def test_the_retained_shell_outlives_an_ordinary_child_exit(*, pair: ServerPair):
+def test_the_retained_shell_outlives_an_ordinary_child_exit(*, pair: ServerPair, tmp_path: Path):
     """The child is OBSERVED running, then observed gone, then the shell is back.
 
     A pane whose process exits is closed by herdr, so an `exec`-style launch
@@ -566,7 +575,9 @@ def test_the_retained_shell_outlives_an_ordinary_child_exit(*, pair: ServerPair)
          same start time, so a replacement at a recycled pid cannot pass —
          owning its foreground again, pane still open.
     """
-    outcome, readiness = _split_top(pair=pair, command=_brief_then_busy(transient=pair.transient))
+    outcome, readiness = _split_top(
+        pair=pair, command=_brief_then_busy(transient=startup_transient(scratch=tmp_path))
+    )
 
     assert outcome.ok is True, outcome.error
     _ = _established(readiness=readiness, pane_id=outcome.pane_id)
@@ -746,7 +757,9 @@ def test_a_child_exit_before_shell_idle_is_a_bounded_discriminating_case(
     assert window.recovery.recovered is True, window.recovery.reason
 
 
-def test_a_fixed_lifetime_transient_misses_the_same_delayed_readings(*, pair: ServerPair):
+def test_a_fixed_lifetime_transient_misses_the_same_delayed_readings(
+    *, pair: ServerPair, tmp_path: Path
+):
     """The control that proves the RENDEZVOUS is what keeps the exercise above green.
 
     Same pane, same brief child, same delayed readings — but the transient is the
@@ -758,7 +771,10 @@ def test_a_fixed_lifetime_transient_misses_the_same_delayed_readings(*, pair: Se
     lifetime and the exercise above has stopped proving anything about the race.
     """
     window = _observe_the_post_command_window(
-        pair=pair, transient=pair.transient, delay=DELAYED_READING_SECONDS, release=None
+        pair=pair,
+        transient=startup_transient(scratch=tmp_path),
+        delay=DELAYED_READING_SECONDS,
+        release=None,
     )
 
     discriminated = window.busy.pid is not None and window.impatient.recovered is False
