@@ -2462,12 +2462,5 @@
     "heading": "## Scenario: A ready seat is held, not replaced, while the host is below its memory floor",
     "work_item": "overseer-uzvcbn.23",
     "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A reachable host holding the current delivery stays current between deliveries",
-    "work_item": "overseer-r7pymu",
-    "first_seen": "2026-11-13"
   }
 ]
