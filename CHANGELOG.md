@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.55.8](https://github.com/thewoolleyman/livespec-overseer/compare/v5.55.7...v5.55.8) (2026-11-13)
+
+
+### Bug Fixes
+
+* disable Codex startup update checks ([79d5fe5](https://github.com/thewoolleyman/livespec-overseer/commit/79d5fe5cfe242dfe0a0dbcbf90121a6b643f6ecd))
+
 ## [5.55.7](https://github.com/thewoolleyman/livespec-overseer/compare/v5.55.6...v5.55.7) (2026-11-13)
 
 
