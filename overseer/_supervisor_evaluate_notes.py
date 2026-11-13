@@ -7,8 +7,10 @@ from typing import TYPE_CHECKING
 
 import _supervisor_compaction
 import _supervisor_liveness
+import _supervisor_pending_wrapup
 import registry
 import signals
+from _supervisor_records import Observation
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -36,14 +38,13 @@ class PrepareNotesRequest:
     track: registry.Track
     session: str
     pane: str
+    obs: Observation
     declared: signals.TrackState | None
     malformed: bool
     blocked: str | None
     ctx_stale_age: float | None
     compaction: _supervisor_compaction.CompactionTransition
     act: bool
-    rejected_value: str | None = None
-    rejected_from_malformed: str | None = None
 
 
 def prepare_evaluation_notes(*, request: PrepareNotesRequest) -> EvaluationNotes:
@@ -69,11 +70,21 @@ def prepare_evaluation_notes(*, request: PrepareNotesRequest) -> EvaluationNotes
         if request.ctx_stale_age is not None
         else None
     )
-    active_conditions: set[str] = set()
-    malformed_token = request.rejected_value or (
+    # A retained daemon payload past its ten minutes is owed its event whatever the pane
+    # is doing, so it is raised here, ahead of the busy/gate cascade that would otherwise
+    # decline the track before the idle branch's Enter retry is ever reached.
+    active_conditions = _supervisor_pending_wrapup.pending_alert_conditions(
+        sup=request.sup,
+        track=request.track,
+        obs=request.obs,
+        session=request.session,
+        target=request.pane,
+        act=request.act,
+    )
+    malformed_token = request.obs.rejected_value or (
         request.declared.token
         if request.malformed and request.declared is not None
-        else request.rejected_from_malformed
+        else request.obs.rejected_from_malformed
     )
     if malformed_token is not None:
         active_conditions.add("malformed-state")
