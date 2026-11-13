@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.55.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.55.1...v5.55.2) (2026-11-13)
+
+
+### Bug Fixes
+
+* name latched compaction context ([c31d80c](https://github.com/thewoolleyman/livespec-overseer/commit/c31d80c4fda8657653f52422080b2549fcfac876))
+* report ready replacement holds ([3717a2a](https://github.com/thewoolleyman/livespec-overseer/commit/3717a2ab745680d94de7f1563e69dc43e67c7569))
+
 ## [5.55.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.55.0...v5.55.1) (2026-11-13)
 
 
