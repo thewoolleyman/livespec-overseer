@@ -228,6 +228,117 @@ def test_a_payload_standing_in_the_input_is_submitted_not_pasted_again() -> None
     assert writer.enters == 1
 
 
+def test_a_retained_wrapup_is_entered_before_its_composer_becomes_settling(
+    *, tmp_path, monkeypatch
+):
+    """An unsubmitted daemon paste is retry authority, not non-idle user input."""
+    repo, topic, session, sup, track, _clock = _undelivered_wrapup(
+        tmp_path=tmp_path, monkeypatch=monkeypatch, effect_unknown=False
+    )
+    fake = cast(FakeTmux, sup.tmux)
+    fake.panes[session] = _PASTED
+    _inject(sup=sup, track=track, session=session)
+
+    assert _stamp(sup=sup, repo=repo, topic=topic) is not None
+
+    retries: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        importlib.import_module("_supervisor_launch"),
+        "retry_prompt_enter_once",
+        lambda **kwargs: retries.append(kwargs) or (True, False),
+        raising=False,
+    )
+    row = sup.evaluate(track=track, act=True)
+
+    assert retries and retries[0]["text"].startswith("STOP AND WIND DOWN NOW")
+    assert row.status != "settling"
+    assert fake.paste_texts() == []
+
+
+def _retained_wrapup(*, tmp_path, monkeypatch):
+    repo, topic, session, sup, track, clock = _undelivered_wrapup(
+        tmp_path=tmp_path, monkeypatch=monkeypatch, effect_unknown=False
+    )
+    fake = cast(FakeTmux, sup.tmux)
+    fake.panes[session] = _PASTED
+    _inject(sup=sup, track=track, session=session)
+    assert _stamp(sup=sup, repo=repo, topic=topic) is not None
+    return repo, topic, session, sup, track, clock, fake
+
+
+def test_a_retained_wrapup_alert_rearms_after_the_payload_leaves(*, tmp_path, monkeypatch):
+    repo, topic, session, sup, track, clock, fake = _retained_wrapup(
+        tmp_path=tmp_path, monkeypatch=monkeypatch
+    )
+
+    launch = importlib.import_module("_supervisor_launch")
+    monkeypatch.setattr(
+        launch,
+        "retry_prompt_enter_once",
+        lambda **_kwargs: (False, False),
+    )
+    clock["t"] += 601
+    with contextlib.redirect_stderr(_io.StringIO()) as err:
+        assert sup.evaluate(track=track, act=True).status == "danger"
+        assert sup.evaluate(track=track, act=True).status == "danger"
+    assert err.getvalue().count("its own wrap-up is pending in the composer") == 1
+
+    fake.panes[session] = idle_capture(ctx=10)
+    assert sup.evaluate(track=track, act=True).status == "danger"
+    assert sup.inject[(str(repo), topic)].pending_wrapup_text is None
+
+    fake.panes[session] = _PASTED
+    _inject(sup=sup, track=track, session=session)
+    clock["t"] += 601
+    with contextlib.redirect_stderr(_io.StringIO()) as rearmed:
+        assert sup.evaluate(track=track, act=True).status == "danger"
+    assert "its own wrap-up is pending in the composer" in rearmed.getvalue()
+
+
+def test_a_retained_wrapup_never_retries_after_its_round_closes(*, tmp_path, monkeypatch):
+    repo, topic, session, sup, track, clock, _fake = _retained_wrapup(
+        tmp_path=tmp_path, monkeypatch=monkeypatch
+    )
+    launch = importlib.import_module("_supervisor_launch")
+    retries: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        launch,
+        "retry_prompt_enter_once",
+        lambda **kwargs: retries.append(kwargs) or (False, False),
+    )
+    registry.clear_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+    assert sup.evaluate(track=track, act=True).status == "settling"
+    assert retries == []
+
+
+def test_a_retained_wrapup_never_retries_after_pane_identity_changes(*, tmp_path, monkeypatch):
+    repo, topic, session, sup, track, _clock, fake = _retained_wrapup(
+        tmp_path=tmp_path, monkeypatch=monkeypatch
+    )
+    pending = importlib.import_module("_supervisor_pending_wrapup")
+    observe = importlib.import_module("_supervisor_observe")
+    obs = observe.observe(
+        sup=sup,
+        track=track,
+        session=session,
+        target=session,
+        key=(str(repo), topic),
+    )
+    assert (
+        pending.retry_decision(
+            sup=sup, track=track, obs=obs, session=session, target=session, act=False
+        )
+        is None
+    )
+    fake.cmds[session] = "zsh"
+    assert (
+        pending.retry_decision(
+            sup=sup, track=track, obs=obs, session=session, target=session, act=True
+        )
+        is None
+    )
+
+
 # ## Scenario: An unconfirmed wrap-up delivery keeps its round open
 def test_scenario_an_unconfirmed_delivery_keeps_its_round_open(*, tmp_path, monkeypatch):
     repo, topic, session, sup, track, clock = _undelivered_wrapup(
