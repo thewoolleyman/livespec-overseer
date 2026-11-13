@@ -71,8 +71,38 @@ def _sgr_dim(*, parameters: str, dim: bool) -> bool:
     return dim
 
 
+def _codex_composer_block(*, capture_text: str) -> str | None:
+    """Return the live Codex composer block immediately before its statusline.
+
+    A styled capture includes scrollback as well as the visible composer.  A dim
+    ``›`` quoted in transcript is therefore never evidence about input; only the
+    block anchored at the final Codex statusline can authorize a busy wrap-up.
+    """
+    raw_lines = capture_text.splitlines()
+    plain_lines = [strip_ansi(text=line) for line in raw_lines]
+    statusline = next(
+        (
+            index
+            for index in range(len(plain_lines) - 1, -1, -1)
+            if "Context" in plain_lines[index] or " · " in plain_lines[index]
+        ),
+        None,
+    )
+    if statusline is None:
+        return None
+    last_content = statusline - 1
+    while last_content >= 0 and not plain_lines[last_content].strip():
+        last_content -= 1
+    first_content = last_content
+    while first_content > 0 and plain_lines[first_content].startswith((" ", "\t")):
+        first_content -= 1
+    if first_content < 0 or not plain_lines[first_content].lstrip().startswith("›"):
+        return None
+    return "\n".join(raw_lines[first_content : last_content + 1])
+
+
 def _dim_codex_composer_row(*, raw_line: str) -> bool:
-    """Whether one raw ``›`` row has a non-empty, entirely dim remainder."""
+    """Whether one raw ``›`` composer block has an entirely dim remainder."""
     dim = False
     cursor = raw_line.index("›") + 1
     saw_placeholder_glyph = False
@@ -102,11 +132,8 @@ def codex_composer_placeholder_empty(*, capture_text: str) -> bool:
     distinguishes an empty composer from typed input.  This requires a real dim
     glyph and fails closed for absent, malformed, or undimmed captures.
     """
-    for raw_line in capture_text.splitlines():
-        plain_line = strip_ansi(text=raw_line)
-        if plain_line.lstrip().startswith("›") and _dim_codex_composer_row(raw_line=raw_line):
-            return True
-    return False
+    composer = _codex_composer_block(capture_text=capture_text)
+    return composer is not None and _dim_codex_composer_row(raw_line=composer)
 
 
 # --------------------------------------------------------------------------- #

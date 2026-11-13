@@ -109,7 +109,7 @@ _CODEX_TYPED_COMPOSER = _CODEX_EMPTY_COMPOSER.replace("\x1b[2m", "", 1)
 
 
 def _styled_codex_busy_capture(*, composer):
-    """The measured Codex busy shape, with a dim and an undimmed composer control."""
+    """The ANSI shape both tmux and Herdr provide, with dim and typed controls."""
     return (
         "● response\n"
         "◦ Working (1s • esc to interrupt)\n"
@@ -142,6 +142,15 @@ def test_styled_codex_placeholder_is_empty_only_when_its_glyphs_are_dim():
     )
     assert (
         composer_empty(
+            capture_text=(
+                f"{_CODEX_EMPTY_COMPOSER}\n\n"
+                "  gpt-5.5 high · /x/repo · Context 40% left · topic\n"
+            )
+        )
+        is True
+    )
+    assert (
+        composer_empty(
             capture_text=_styled_codex_busy_capture(
                 composer=_CODEX_EMPTY_COMPOSER.replace(_CODEX_COMPOSER_BACKGROUND, "\x1b[48;5;57m")
             )
@@ -163,7 +172,23 @@ def test_styled_codex_placeholder_is_empty_only_when_its_glyphs_are_dim():
     )
     assert (
         composer_empty(
-            capture_text=f"{_styled_codex_busy_capture(composer=_CODEX_EMPTY_COMPOSER)}\x1bX"
+            capture_text=_styled_codex_busy_capture(composer=f"{_CODEX_EMPTY_COMPOSER}\x1bX")
+        )
+        is False
+    )
+    assert (
+        composer_empty(
+            capture_text=(
+                f"{_CODEX_EMPTY_COMPOSER}\n"
+                "  a wrapped composer row\n"
+                "  gpt-5.5 high · /x/repo · Context 40% left · topic\n"
+            )
+        )
+        is False
+    )
+    assert (
+        composer_empty(
+            capture_text="typed output\n  gpt-5.5 high · /x/repo · Context 40% left · topic\n"
         )
         is False
     )
