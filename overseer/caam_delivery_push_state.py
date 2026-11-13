@@ -124,7 +124,14 @@ def due(
     ):
         return waited >= seconds(settings=settings, key="stale_after_s")
     if isinstance(applied, int) and applied >= sequence:
-        return False
+        # A host already holding `sequence` is re-pushed once its last success is
+        # older than half of `stale_after`, so a reachable host never reads
+        # `stale` between deliveries; a failed refresh retries per `retry_s`.
+        last = entry.get("last_success")
+        half = seconds(settings=settings, key="stale_after_s") / 2
+        if isinstance(last, int | float) and now - last < half:
+            return False
+        return entry.get("state") != "failed" or waited >= seconds(settings=settings, key="retry_s")
     return entry.get("attempt_sequence") != sequence or waited >= seconds(
         settings=settings, key="retry_s"
     )
