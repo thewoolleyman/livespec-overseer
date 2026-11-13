@@ -24,3 +24,10 @@ def test_replacement_evidence_labels_both_process_identity_components() -> None:
     assert "predecessor pid=" in source
     assert "successor pid=" in source
     assert "starttime=" in source
+
+
+def test_controller_gives_a_stub_the_same_bootstrap_ancestry_and_scopes_successor() -> None:
+    """The released bootstrap sees Claude ancestry and the daemon verifies replacement."""
+    source = CONTROLLER.read_text(encoding="utf-8")
+    assert "CLAUDECODE=1" in source
+    assert '"$(snapshot_row session_identity)" == "$successor"' in source
