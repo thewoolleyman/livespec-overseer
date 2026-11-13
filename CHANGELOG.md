@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.55.7](https://github.com/thewoolleyman/livespec-overseer/compare/v5.55.6...v5.55.7) (2026-11-13)
+
+
+### Bug Fixes
+
+* **caam-delivery:** remove the enrolment command and registry v099 left unspecified (overseer-w5h24j) ([71849cb](https://github.com/thewoolleyman/livespec-overseer/commit/71849cb9d4b06445bb50ee28d9a5be0d3d3ab250))
+
 ## [5.55.6](https://github.com/thewoolleyman/livespec-overseer/compare/v5.55.5...v5.55.6) (2026-11-13)
 
 

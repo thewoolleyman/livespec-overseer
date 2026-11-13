@@ -191,7 +191,7 @@ dependencies = [
 
 [[package]]
 name = "livespec-overseer"
-version = "5.55.6"
+version = "5.55.7"
 source = { editable = "." }
 dependencies = [
     { name = "livespec-runtime" },
