@@ -639,12 +639,18 @@ def await_occupying_child(
     poll: BoundedPoll,
     parent_of: PidReader = parent_pid_of,
     group_of: PidReader = process_group_of,
+    abandoned: Callable[[], str] = lambda: "",
 ) -> ChildObservation:
     """Poll real readings until the requested child is observed, or report why not.
 
     The expiry is REPORTED. The predecessor returned silently at its deadline,
     which left the caller unable to tell a setup timeout from an established
     precondition — and the caller stamped the precondition either way.
+
+    `abandoned` names a reason the child can never be observed, so polling STOPS
+    at the first reading after it turns non-empty rather than retrying a known-dead
+    observation for the rest of the bound. It is checked after a reading, so a child
+    the reading does show still wins over it.
     """
     deadline = poll.monotonic() + poll.seconds
     reason = "no process reading was taken before the deadline"
@@ -659,6 +665,9 @@ def await_occupying_child(
             if observed.pid is not None:
                 return observed
             reason = observed.reason
+        gone = abandoned()
+        if gone:
+            return ChildObservation(pid=None, reason=f"no {name!r} child was observed: {gone}")
         poll.sleep(POLL_SECONDS)
     return ChildObservation(
         pid=None,
@@ -1261,10 +1270,7 @@ class ReadyShellGate:
         """
         if not self.startup_transient:
             return ""
-        if (
-            self.release is not None
-            and self.release.with_name(f"{self.release.name}.hang-guard-expired").exists()
-        ):
+        if self._guard_expired():
             return "the controlled startup transient ended by hang-guard expiry"
         if self.transient is None or self.transient.pid is None:
             observed = "" if self.transient is None else self.transient.reason
@@ -1278,9 +1284,19 @@ class ReadyShellGate:
             return f"the controlled startup transient never exited: {self.departed}"
         return ""
 
+    def _guard_expired(self) -> bool:
+        """Whether the staged transient reported that its hang guard, not a release, ended it."""
+        return (
+            self.release is not None
+            and self.release.with_name(f"{self.release.name}.hang-guard-expired").exists()
+        )
+
     def _establish(self, *, pane_id: str) -> None:
         def read() -> Mapping[str, Any]:
             return process_info_reply(socket_path=self.socket_path, pane_id=pane_id)
+
+        def abandoned() -> str:
+            return "the hang guard ended the staged transient" if self._guard_expired() else ""
 
         if self.startup_transient:
             _ = raw_request(
@@ -1293,9 +1309,14 @@ class ReadyShellGate:
                 },
             )
             self.transient = await_occupying_child(
-                read=read, name=self.transient_name, poll=BoundedPoll(seconds=self.seconds)
+                read=read,
+                name=self.transient_name,
+                poll=BoundedPoll(seconds=self.seconds),
+                abandoned=abandoned,
             )
             self._clear_transient(child=self.transient.pid)
+            if self._guard_expired():
+                return
         self.established = await_idle_shell(
             read=read,
             pane_id=pane_id,
@@ -2460,6 +2481,26 @@ def test_a_hang_guard_expiry_is_a_named_gate_refusal(*, tmp_path: Path) -> None:
     gate.transient = ChildObservation(pid=None, reason="the process was not observed")
 
     assert "hang-guard expiry" in gate.refusal()
+
+
+def test_an_abandoned_observation_stops_polling_at_the_first_reading_after_it() -> None:
+    """A known-dead observation is not retried for the rest of the bound."""
+    reads: list[int] = []
+
+    def read() -> Mapping[str, Any]:
+        reads.append(1)
+        return {}
+
+    observed = await_occupying_child(
+        read=read,
+        name="transient",
+        poll=BoundedPoll(seconds=100.0, sleep=lambda _seconds: None),
+        abandoned=lambda: "the hang guard ended the staged transient",
+    )
+
+    assert observed.pid is None
+    assert "hang guard" in observed.reason, observed.reason
+    assert len(reads) == 1, f"polling continued after the observation was abandoned: {len(reads)}"
 
 
 # ------------------------- the exact created pane's INITIAL setup, as a premise
