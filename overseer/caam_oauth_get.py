@@ -111,7 +111,11 @@ class _HttpResponse:
         return False
 
     def read(self, *, size: int = -1) -> bytes:
-        return self.response.read(size)
+        # A negative size means "the whole body", which `HTTPResponse` spells
+        # `None`. Passing -1 through reads a chunked body to SOCKET EOF on
+        # Python 3.10 (the declared floor), and the provider keeps the
+        # connection open, so the read blocked until the request timeout.
+        return self.response.read(None if size < 0 else size)
 
 
 def _open_get(*, request: OAuthRequest, timeout: float) -> OAuthHttpResponse:

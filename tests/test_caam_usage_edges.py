@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import http.client
 import importlib
 import io
 import json
+import socket
 from pathlib import Path
 from types import ModuleType
 from typing import ClassVar
@@ -215,3 +217,61 @@ def test_default_transport_rejects_non_https_usage_url(*, monkeypatch, tmp_path:
 
     assert usage is None
     assert why == "ValueError: "
+
+
+def test_default_transport_reads_a_chunked_keep_alive_body_without_waiting_for_close(
+    *, monkeypatch
+):
+    """The provider answers both GETs chunked on a connection it keeps open.
+
+    Measured 2026-11-13 on the role holder (overseer-4ji2n4): the profile and
+    usage GETs come back `Transfer-Encoding: chunked` and the server does not
+    close. Under the repository's declared Python floor, 3.10.16, reading such
+    a body with `HTTPResponse.read(-1)` reads the socket to EOF and blocks
+    until the request timeout, so every confirmation failed with
+    `TimeoutError`. This drives a REAL `http.client.HTTPResponse` over a
+    socket pair that is never closed, with the real profile body shape.
+    """
+    oauth = caam_oauth_get_module()
+    server, client = socket.socketpair()
+    profile = json.dumps(
+        {
+            "account": {"uuid": "acct-1", "has_claude_max": True},
+            "organization": {"rate_limit_tier": "default_claude_max_20x"},
+        }
+    ).encode()
+    server.sendall(
+        b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+        b"Transfer-Encoding: chunked\r\nConnection: keep-alive\r\n\r\n"
+        + f"{len(profile):x}\r\n".encode()
+        + profile
+        + b"\r\n0\r\n\r\n"
+    )
+    client.settimeout(2.0)
+
+    class KeptAliveConnection:
+        def __init__(self, host: str, timeout: float) -> None:
+            self.host = host
+            self.timeout = timeout
+
+        def request(self, method: str, target: str, headers: dict[str, str]) -> None:
+            assert (method, target) == ("GET", "/api/oauth/profile")
+
+        def getresponse(self) -> http.client.HTTPResponse:
+            response = http.client.HTTPResponse(client)
+            response.begin()
+            return response
+
+    monkeypatch.setattr(oauth.http.client, "HTTPSConnection", KeptAliveConnection)
+    try:
+        body, why = oauth.get_json(
+            request=oauth.OAuthRequest(
+                url="https://api.anthropic.com/api/oauth/profile", headers={}
+            )
+        )
+    finally:
+        server.close()
+        client.close()
+
+    assert why is None
+    assert body == json.loads(profile)
