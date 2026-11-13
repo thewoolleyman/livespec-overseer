@@ -86,13 +86,21 @@ def test_proc_ppid_is_none_when_the_ppid_field_is_not_a_number(*, tmp_path, monk
     assert claude_sessions.proc_starttime(pid=100) == "99887766"
 
 
-def test_proc_children_skips_a_non_numeric_token(*, tmp_path, monkeypatch):
-    # The children file is whitespace-separated pids; a garbled token is dropped and
-    # the readable pids still come back — fail-soft per TOKEN, not per file.
+def test_proc_children_unions_tasks_deduplicates_and_skips_a_missing_children_file(
+    *, tmp_path, monkeypatch
+):
+    # Children belong to threads, not just the process's main thread. A garbled token
+    # is dropped, duplicates across task files are returned once, and a task that
+    # exits between enumeration and its children read does not hide the other tasks.
     root = _fake_proc(tmp_path=tmp_path, monkeypatch=monkeypatch)
-    children = root / "100" / "task" / "100"
-    children.mkdir(parents=True)
-    (children / "children").write_text("200 not-a-pid 300\n", encoding="utf-8")
+    tasks = root / "100" / "task"
+    main = tasks / "100"
+    main.mkdir(parents=True)
+    (main / "children").write_text("200 not-a-pid\n", encoding="utf-8")
+    worker = tasks / "101"
+    worker.mkdir()
+    (worker / "children").write_text("200 300\n", encoding="utf-8")
+    (tasks / "102").mkdir()  # Its children file vanished after task enumeration.
     assert claude_sessions.proc_children(pid=100) == [200, 300]
 
 
