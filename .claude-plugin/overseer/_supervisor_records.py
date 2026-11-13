@@ -175,6 +175,13 @@ class InjectState:
     # operator one row's provenance and nothing else. The durable facts an act turns
     # on — the round, its bands — stay in the sidecar.
     last_delivery: _supervisor_channel.DeliveryRecord | None = None
+    # A wrap-up that the daemon may have pasted but could not confirm submitting. This
+    # is intentionally in-memory: retaining it through a daemon restart would let a
+    # new process press Enter over composer text it did not author.
+    pending_wrapup_text: str | None = None
+    pending_wrapup_since: float | None = None
+    pending_wrapup_bands: tuple[int, ...] = ()
+    pending_wrapup_compaction_latched_at: float | None = None
 
 
 @dataclass(frozen=True, kw_only=True)

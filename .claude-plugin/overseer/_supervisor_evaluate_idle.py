@@ -13,6 +13,7 @@ import _supervisor_evaluate_restart
 import _supervisor_evaluate_threshold
 import _supervisor_idle
 import _supervisor_observe
+import _supervisor_pending_wrapup_idle
 import _supervisor_round_recovery
 import _supervisor_threshold
 import registry
@@ -97,6 +98,14 @@ def idle_decision(*, request: IdleRequest) -> IdleDecision:
     busy_delivery = _supervisor_busy_delivery.deliverable_while_busy(
         obs=request.obs, threshold=request.threshold
     )
+    pending_wrapup = _supervisor_pending_wrapup_idle.retry(request=request)
+    if pending_wrapup is not None:
+        return IdleDecision(
+            status=pending_wrapup.status,
+            note=note,
+            active_conditions=pending_wrapup.active_conditions,
+            settled_streaming_progress=False,
+        )
     if not (request.obs.idle or busy_delivery):
         # Pane present but not a verified idle-input state and not busy —
         # a transient/settling capture. Wait; never act.

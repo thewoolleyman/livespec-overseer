@@ -36,6 +36,11 @@ from _supervisor_config import (
     SUBMIT_POLL,
 )
 from _supervisor_launch_profile import claude_launch_plan, codex_launch_plan
+from _supervisor_prompt_retry import (
+    NativeEnterRetry,
+    retained_prompt_visible,
+    retry_prompt_enter_once,
+)
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -52,6 +57,8 @@ __all__: list[str] = [
     "pane_settled",
     "resend_enter",
     "resend_enter_budgeted",
+    "retained_prompt_visible",
+    "retry_prompt_enter_once",
     "session_of",
     "submit_prompt",
     "submit_prompt_result",
@@ -71,16 +78,6 @@ class NativeSubmit(Protocol):
         session: str,
         text: str,
         expect_codex: bool,
-        sleep: Callable[[float], None],
-    ) -> tuple[bool, bool]: ...
-
-
-class NativeEnterRetry(Protocol):
-    def __call__(
-        self,
-        *,
-        session: str,
-        text: str,
         sleep: Callable[[float], None],
     ) -> tuple[bool, bool]: ...
 
