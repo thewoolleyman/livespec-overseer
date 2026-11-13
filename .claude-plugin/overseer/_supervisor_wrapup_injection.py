@@ -9,6 +9,7 @@ import _supervisor_channel
 import _supervisor_channel_delivery
 import _supervisor_channel_hold
 import _supervisor_launch
+import _supervisor_pending_wrapup
 import _supervisor_ready
 import _supervisor_wrapup_round
 import registry
@@ -202,6 +203,18 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
     submitted, effect_unknown = delivered.submitted, delivered.effect_unknown
     path = _supervisor_channel_delivery.record_delivery(
         sup=sup, track=track, record=delivered.record
+    )
+    _supervisor_pending_wrapup.record_delivery(
+        sup=sup,
+        delivery=_supervisor_pending_wrapup.PendingDelivery(
+            track=track,
+            text=message,
+            submitted=submitted,
+            paste_unconfirmed=delivered.record.paste_outcome
+            == _supervisor_channel.CHANNEL_UNCONFIRMED,
+            bands=due,
+            compaction_latched_at=compaction_latched_at,
+        ),
     )
     if submitted:
         _supervisor_wrapup_round.mark_delivered(
