@@ -6,7 +6,7 @@ Screens are built from REAL captures of Claude Code's input box: `tmux
 capture-pane -p -J` (tests/fixtures/claude_2.1.322_input_*.txt) and herdr's
 `pane read --source recent-unwrapped` (claude_2.1.323_herdr_input_empty.txt),
 with the account-changed notice placed in the two forms a real account switch
-showed under Claude Code 2.1.323 (spec v102, contracts.md "Remote Control
+showed under Claude Code 2.1.323 (spec v103, contracts.md "Remote Control
 re-issue"): the transcript line behind `●`, and the footer status `/rc failed`.
 A pane is Claude Code by the executable its foreground process runs, because the
 multiplexer reports 2.1.323's current command as its version number.
@@ -20,12 +20,14 @@ from __future__ import annotations
 
 import contextlib
 import importlib
+import inspect
 import io
 import json
 import os
 import subprocess
 import sys
 import textwrap
+import threading
 from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
@@ -218,7 +220,7 @@ def _run_all(
     }
     if mode == "subprocess":
         done = subprocess.run(  # noqa: S603 -- the push loop's own invocation
-            [sys.executable, "-"],
+            [sys.executable, "-", "0"],
             stdin=SCRIPT.open(encoding="utf-8"),
             capture_output=True,
             text=True,
@@ -231,7 +233,7 @@ def _run_all(
             monkeypatch.setenv(key, value)
         printed = io.StringIO()
         with contextlib.redirect_stdout(printed):
-            assert _rc().main() == 0
+            assert _rc().main(argv=["0"]) == 0
         out = printed.getvalue()
     return json.loads(out)["reissued"], _read_log(path=log), _read_log(path=herdr_log)
 
@@ -361,7 +363,7 @@ SCENARIOS = {
                 pane="%14",
                 screen=_above_input(
                     capture=EMPTY,
-                    lines=[f"⏺ After a switch the pane shows {FIXTURE['transcript_prefix']}{FULL}"],
+                    lines=[f"● After a switch the pane shows {FIXTURE['transcript_prefix']}{FULL}"],
                 ),
             )
         ],
@@ -386,7 +388,7 @@ SCENARIOS = {
                 screen=_above_input(
                     capture=EMPTY,
                     lines=[
-                        "⏺ After a switch the pane shows",
+                        "● After a switch the pane shows",
                         f"  {FIXTURE['transcript_prefix']}{FULL}",
                     ],
                 ),
@@ -447,7 +449,7 @@ SCENARIOS = {
                     capture=EMPTY,
                     lines=[
                         f"  ⎿  {FIXTURE['transcript_prefix']}signed-in",
-                        "⏺ claude.ai account or organization changed on this machine"
+                        "● claude.ai account or organization changed on this machine"
                         " — run /remote-control",
                     ],
                 ),
@@ -873,7 +875,7 @@ def _live(*, home: Path, token: str, account: str) -> None:
 def test_the_role_holder_reissues_once_per_switch_even_when_no_delivery_is_issued(
     *, tmp_path: Path
 ) -> None:
-    """Spec v099: the role holder re-issues after the rotation switches its live login.
+    """Spec v103: the role holder re-issues after the rotation switches its live login.
 
     The coordinator's grade of #2990 (2026-11-13) has the service fire on EITHER
     event: the switch of the live account, or a delivery naming a different
@@ -905,3 +907,189 @@ def test_the_role_holder_reissues_once_per_switch_even_when_no_delivery_is_issue
     )
     assert loop.last.account_id == "acct-2"
     assert ran == ["RC"]
+
+
+def _scan_then_send_tmux(*, screens: list[str | None], sent: list[tuple[str, ...]]) -> Callable:
+    """One tmux pane whose capture is `screens[0]` at the scan, then `screens[1]` from then on."""
+
+    def tmux(*args: str) -> str | None:
+        if args[0] == "list-panes":
+            return "%1 /dev/pts/1 0"
+        if args[0] == "capture-pane":
+            return screens.pop(0) if len(screens) > 1 else screens[0]
+        sent.append(args)
+        return ""
+
+    return tmux
+
+
+CLAUDE_INFO = json.dumps(
+    {"result": {"process_info": {"foreground_processes": [{"argv": ["claude"]}]}}}
+)
+
+
+def _scan_then_send_herdr(*, reads: list[str | None], sent: list[tuple[str, ...]]) -> Callable:
+    """One herdr Claude pane whose read is `reads[0]` at the scan, then `reads[1]` from then on."""
+    row = _herdr_pane(pane="w1:p1", screen=None)["row"]
+
+    def herdr(*args: str) -> str | None:
+        if args[0] == "session":
+            return SESSIONS
+        op = args[3]
+        if op == "list":
+            return json.dumps({"result": {"panes": [row]}})
+        if op == "process-info":
+            return CLAUDE_INFO
+        if op == "read":
+            return reads.pop(0) if len(reads) > 1 else reads[0]
+        sent.append(args)
+        return ""
+
+    return herdr
+
+
+@pytest.mark.parametrize("later", ["draft", "unreadable", "notice gone"])
+def test_a_tmux_box_that_changes_between_scan_and_send_is_never_typed_into(*, later: str) -> None:
+    """Grade A on #2992: the empty-box check is re-taken on that pane right before its send.
+
+    The scan of every pane took 5.9 s on the role holder; a human who starts typing
+    in that window must not get `/remote-control` + Enter submitted with the draft.
+    """
+    after = {
+        "draft": _above_input(capture=DRAFT, lines=[TRANSCRIPT]),
+        "unreadable": None,
+        "notice gone": EMPTY,
+    }[later]
+    sent: list[tuple[str, ...]] = []
+    tmux = _scan_then_send_tmux(
+        screens=[_above_input(capture=EMPTY, lines=[TRANSCRIPT]), after], sent=sent
+    )
+    assert _rc().reissue(tmux=tmux, ps=_fake_ps, herdr=_no_herdr) == []
+    assert sent == []
+
+
+@pytest.mark.parametrize("later", ["draft", "unreadable", "notice gone"])
+def test_a_herdr_box_that_changes_between_scan_and_send_is_never_typed_into(*, later: str) -> None:
+    after = {
+        "draft": _above_input(capture=HERDR_DRAFT, lines=[TRANSCRIPT]),
+        "unreadable": None,
+        "notice gone": HERDR_EMPTY,
+    }[later]
+    sent: list[tuple[str, ...]] = []
+    herdr = _scan_then_send_herdr(reads=[H_NOTICE, after], sent=sent)
+
+    def no_tmux(*_args: str) -> str | None:
+        return None
+
+    assert _rc().reissue(tmux=no_tmux, ps=_fake_ps, herdr=herdr) == []
+    assert sent == []
+
+
+def test_a_notice_drawn_after_the_first_scan_is_reissued_once_within_the_window() -> None:
+    """Grade B on #2992: the panes are re-scanned over a bounded window, each sent to once.
+
+    A remote host is scanned as soon as it applies the delivery, and Claude Code
+    may not have drawn the notice yet. The tmux pane shows the footer form only
+    from t=30 s; the herdr pane shows the notice throughout. The footer form stays
+    on screen after the send, so only the run's own record keeps it to one send.
+    """
+    rc = _rc()
+    now = [0.0]
+    naps: list[float] = []
+
+    def sleep(seconds: float) -> None:
+        naps.append(seconds)
+        now[0] += seconds
+
+    footer = _below_input(capture=EMPTY, lines=[FOOTER])
+    sent: list[tuple[str, ...]] = []
+    herdr_sent: list[tuple[str, ...]] = []
+
+    def tmux(*args: str) -> str | None:
+        if args[0] == "list-panes":
+            return "%1 /dev/pts/1 0"
+        if args[0] == "capture-pane":
+            return footer if now[0] >= 30.0 else EMPTY
+        sent.append(args)
+        return ""
+
+    herdr = _scan_then_send_herdr(reads=[H_NOTICE], sent=herdr_sent)
+    reissued = rc.reissue(
+        tmux=tmux, ps=_fake_ps, herdr=herdr, window_s=90.0, sleep=sleep, clock=lambda: now[0]
+    )
+    assert reissued == ["herdr:default:w1:p1", "%1"]
+    assert (len(sent), len(herdr_sent)) == (2, 2)
+    assert naps and set(naps) == {rc._RESCAN_S}
+    assert now[0] <= 90.0 < now[0] + rc._RESCAN_S
+
+
+@pytest.mark.parametrize(("argv", "window"), [([], 90.0), (["0"], 0.0), (["2.5"], 2.5)])
+def test_main_rescans_for_ninety_seconds_unless_given_a_window(
+    *, monkeypatch: pytest.MonkeyPatch, argv: list[str], window: float
+) -> None:
+    rc = _rc()
+    seen: list[float] = []
+
+    def reissue(**kwargs: object) -> list[str]:
+        seen.append(_as_float(kwargs["window_s"]))
+        return []
+
+    monkeypatch.setattr(rc, "reissue", reissue)
+    with contextlib.redirect_stdout(io.StringIO()):
+        assert rc.main(argv=argv) == 0
+    assert seen == [window]
+
+
+def _as_float(value: object) -> float:
+    assert isinstance(value, float)
+    return value
+
+
+# The coordinator's measured scan of every pane on the role holder, 2026-11-13.
+MEASURED_SCAN_S = 5.9
+
+
+def test_the_reissue_timeouts_cover_the_window_and_its_last_scan(*, tmp_path: Path) -> None:
+    """Grade E on #2992: a run still scanning is not cut off and misreported as a timeout.
+
+    The last scan starts no later than the window's end, so a run takes the window
+    plus one scan; the remote ssh timeout and the role holder's local one both
+    leave room for that scan twice over.
+    """
+    rc = _rc()
+    state = importlib.import_module("caam_delivery_push_state")
+    entry = importlib.import_module("caam_delivery_push_entry")
+    floor = rc._WINDOW_S + 2 * MEASURED_SCAN_S
+    remote = state.seconds(settings=state.load_config(home=tmp_path), key="reissue_timeout_s")
+    local = inspect.signature(entry.run_local).parameters["timeout"].default
+    assert remote >= floor
+    assert local >= floor
+
+
+def test_the_role_holder_reissue_does_not_hold_the_push_loop(
+    *, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The role holder's re-issue now runs for its whole window, so the loop starts it and moves on.
+
+    It fires before the switch's delivery is issued; waiting ninety seconds for it
+    there would hold every listed host's delivery back by as long.
+    """
+    entry = importlib.import_module("caam_delivery_push_entry")
+    release = threading.Event()
+    finished = threading.Event()
+    ran: list[str] = []
+
+    def run_local(*, script: str) -> str:
+        assert release.wait(timeout=5)
+        ran.append(script)
+        finished.set()
+        return "ok"
+
+    monkeypatch.setattr(entry, "run_local", run_local)
+    with contextlib.redirect_stdout(io.StringIO()):
+        assert entry.start_local(script="RC") == "started"
+        assert ran == []
+        release.set()
+        assert finished.wait(timeout=5)
+    assert ran == ["RC"]
+    assert inspect.signature(entry.run_once).parameters["local"].default is entry.start_local
