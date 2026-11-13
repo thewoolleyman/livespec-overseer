@@ -30,7 +30,6 @@ dependencies = [
 
 [project.scripts]
 caam-anthropic-loop = "overseer.caam_anthropic_loop:main"
-caam-delivery-enrol = "overseer.caam_delivery_enrol:main"
 caam-delivery-push = "overseer.caam_delivery_push_entry:main"
 llm-provider-manager = "overseer.manager_bootstrap:main"
 overseer-declare = "overseer.declare:main"

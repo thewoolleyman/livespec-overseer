@@ -1,24 +1,28 @@
 """Role-holder core for safe enrolled-host credential deliveries.
 
 A delivery is held IN MEMORY by its caller; only the sequence counter is
-persisted, so no access token is written to disk by delivery.
+persisted, so no access token is written to disk by delivery. The sequence's
+read-modify-write is serialised by a lock on a file of its own, which survives
+the atomic replace that swaps the sequence file's inode.
 """
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-import caam_delivery_registry
 import jsonio
 from caam_profile_state import live_creds_path
 
 __all__: list[str] = ["Delivery", "issue_delivery", "write_private_json"]
 
 _STATE = ".local/state/caam-usage-rotate"
+_SEQUENCE_LOCK = "delivery-sequence.lock"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -58,7 +62,7 @@ def issue_delivery(
         return None
     if not isinstance(token, str) or confirm_account(access_token=token) != account_id:
         return None
-    with caam_delivery_registry.registry_lock(home=home):
+    with _sequence_lock(home=home):
         sequence = _sequence(home=home) + 1
         delivery = Delivery(
             sequence=sequence,
@@ -82,6 +86,18 @@ def _live(*, oauth: dict[str, object], now: float) -> bool:
     token = oauth.get("accessToken")
     expiry = jsonio.as_float(value=oauth.get("expiresAt"))
     return isinstance(token, str) and token != "" and (expiry is None or expiry / 1000 > now)
+
+
+@contextmanager
+def _sequence_lock(*, home: Path) -> Iterator[None]:
+    lock_path = _path(home=home, name=_SEQUENCE_LOCK)
+    lock_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    descriptor = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(descriptor)
 
 
 def _sequence(*, home: Path) -> int:
