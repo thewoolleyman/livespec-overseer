@@ -4690,9 +4690,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A macOS host applies a delivery from its inbox and its result is recorded",
-    "test": "TODO",
-    "work_item": "overseer-7m6wu6",
-    "reason": "An integration-tier test is owed for this heading, re-ratified for topology B with ssh push (proposal enrolled-host-ssh-push, plan central-credential-service, epic overseer-iyfjbo); work item overseer-7m6wu6 owns landing it."
+    "test": "tests.integration.test_delivery_push.test_scenario_a_macos_host_applies_a_delivery_from_its_inbox_and_its_result_is_recorded",
+    "reason": "Integration tier: the exact inbox program the push sends a macos host runs as that host's python3 would, writing the owner-only inbox and returning the launch agent's recorded result for this sequence; the agent's Keychain apply is pinned beside it in tests/integration/test_delivery_macos_agent.py (overseer-7m6wu6)."
   },
   {
     "spec_root": "SPECIFICATION",
