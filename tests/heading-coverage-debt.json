@@ -10,7 +10,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## Enrolled-host delivery",
-    "work_item": "overseer-4uafx2",
+    "work_item": "overseer-enci5g",
     "first_seen": "2026-11-08"
   },
   {
@@ -24,21 +24,28 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## The LLM credential-provider operation",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-xpwssp",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A Codex session held by a helper a worker thread spawned is adopted like any other",
+    "work_item": "overseer-uzvcbn.21",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A backend-reported session named for the track identifies the carrier and re-records the row",
-    "work_item": "overseer-5eqavc",
+    "work_item": "overseer-a3ymdg",
     "first_seen": "2026-10-26"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A bounded blocking lock wait times out without mutation",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-yyq6eh",
     "first_seen": "2026-09-12"
   },
   {
@@ -52,21 +59,21 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A busy hold names the source of its busy evidence",
-    "work_item": "overseer-qz7ez7",
+    "work_item": "overseer-5fibo3",
     "first_seen": "2026-11-05"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A cache failure falls back to the store without admitting an unvalidated credential",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-gjiflf",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A changed authoritative record is abandoned before provisioning",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-eg3iex",
     "first_seen": "2026-09-12"
   },
   {
@@ -94,49 +101,49 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A classified report against a non-valid record has a defined effect",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-fzkotk",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A client restarted after recording an instruction does not act on it again",
-    "work_item": "overseer-c6gjgl",
+    "work_item": "overseer-tzi4y6",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A closed consumer run identity cannot be reused",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-l4mtlv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A committed effect survives a missing completion marker without duplication",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-fkgrsf",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A completion before the latest authentication failure cannot start a soak",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-fkgrsf",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A completion on the next UTC date extends the soak",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-fkgrsf",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A concurrent report defeats a revalidation success",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-ih2egh",
     "first_seen": "2026-09-12"
   },
   {
@@ -150,35 +157,35 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A concurrent retry cannot discard an in-flight target write",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-ih2egh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A confirmed fresh Codex successor is reported for its launch pane and proven without a rollout file",
-    "work_item": "overseer-rthizs",
+    "work_item": "overseer-yyq6eh",
     "first_seen": "2026-11-02"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A conflicting completion cannot pass pending completion state",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-3vslbr",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A consumer obtains a run-bound target reference before provisioning",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-fzkotk",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A corrected request cannot overwrite pending provisioning state",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-ih2egh",
     "first_seen": "2026-09-12"
   },
   {
@@ -192,21 +199,21 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A crashed provision with a lost pre-assignment lease restarts selection",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-fkpevs",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A crashed revalidation returns the record to suspect",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-ih2egh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A credential that cannot be read from its location is unusable",
-    "work_item": "overseer-hydiph",
+    "work_item": "overseer-wh4sh2",
     "first_seen": "2026-11-10"
   },
   {
@@ -219,50 +226,64 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A daemon wrap-up left unsubmitted in an idle composer is submitted with Enter only",
+    "work_item": "overseer-llrj5k",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A daemon wrap-up pending in the composer past its window is surfaced",
+    "work_item": "overseer-llrj5k",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A dark active login is left on the next pass",
-    "work_item": "overseer-iusknl",
+    "work_item": "overseer-meryyx",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A dark active login with no surviving candidate holds and reports",
-    "work_item": "overseer-iusknl",
+    "work_item": "overseer-meryyx",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A dark login raises one push alert at onset",
-    "work_item": "overseer-hydiph",
+    "work_item": "overseer-meryyx",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A dash JSON path reads exactly one object from standard input",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-fzkotk",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A disabled target adapter cannot issue a reference",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-l4mtlv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A domain provisioning failure leaves its run identity reusable",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-gjiflf",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed alert delivery is reported and does not block rotation",
-    "work_item": "overseer-hydiph",
+    "work_item": "overseer-meryyx",
     "first_seen": "2026-11-10"
   },
   {
@@ -283,77 +304,77 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed client write leaves the host on its previous delivery",
-    "work_item": "overseer-lfyj7e",
+    "work_item": "overseer-cpngcd",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed post-install write restores the pre-switch account",
-    "work_item": "overseer-5o3ebm",
+    "work_item": "overseer-a3ymdg",
     "first_seen": "2026-10-26"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed pre-act identity re-check is a pane-identity hold",
-    "work_item": "overseer-qz7ez7",
+    "work_item": "overseer-5fibo3",
     "first_seen": "2026-11-05"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed restore names every file left unrestored",
-    "work_item": "overseer-5o3ebm",
+    "work_item": "overseer-a3ymdg",
     "first_seen": "2026-10-26"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed store mutation leaves its attempted audit evidence",
-    "work_item": "overseer-osb7as",
+    "work_item": "overseer-ih2egh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A first-seen login age is shown as a lower bound and still warns",
-    "work_item": "overseer-oomnmk",
+    "work_item": "overseer-meryyx",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A following host receives an access token and never a refresh token",
-    "work_item": "overseer-4uafx2",
+    "work_item": "overseer-cpngcd",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A forwarded refusal from outside the host's default directory is not attributed",
-    "work_item": "overseer-xoishu",
+    "work_item": "overseer-tzi4y6",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A forwarded refusal under another account's delivery is not attributed",
-    "work_item": "overseer-xoishu",
+    "work_item": "overseer-tzi4y6",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A global state file that fails validation prevents the install",
-    "work_item": "overseer-ks3ydu",
+    "work_item": "overseer-a3ymdg",
     "first_seen": "2026-10-26"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A health remainder equal to the configured floor stays eligible",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-l4mtlv",
     "first_seen": "2026-09-12"
   },
   {
@@ -409,28 +430,28 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A latched track below its threshold names the threshold and keeps its sharper band",
-    "work_item": "overseer-qz7ez7",
+    "work_item": "overseer-5fibo3",
     "first_seen": "2026-11-05"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A latched track with an unreadable statusline names its kept last-known reading",
-    "work_item": "overseer-qz7ez7",
+    "work_item": "overseer-5fibo3",
     "first_seen": "2026-11-05"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A latched track with no effective reading says live unknown",
-    "work_item": "overseer-qz7ez7",
+    "work_item": "overseer-5fibo3",
     "first_seen": "2026-11-05"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A latched track's wrap-up names the latch and the live context reading",
-    "work_item": "overseer-qz7ez7",
+    "work_item": "overseer-5fibo3",
     "first_seen": "2026-11-05"
   },
   {
@@ -444,14 +465,14 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A late authentication report before the soak does not clear it",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-l4mtlv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A late report for a replaced value does not suspect the replacement",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-ih2egh",
     "first_seen": "2026-09-12"
   },
   {
@@ -465,49 +486,49 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A live Codex carrier with no exact session evidence reads unidentified, never gone",
-    "work_item": "overseer-5eqavc",
+    "work_item": "overseer-a3ymdg",
     "first_seen": "2026-10-26"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A live lease makes its account ineligible",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-eg3iex",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A live mismatched revalidation worker does not block later candidates",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-3vslbr",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A live recorded session keeps its identity beside a second carrier",
-    "work_item": "overseer-5eqavc",
+    "work_item": "overseer-a3ymdg",
     "first_seen": "2026-10-26"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A login approaching the measured cap is warned",
-    "work_item": "overseer-oomnmk",
+    "work_item": "overseer-meryyx",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A login hold survives a restart",
-    "work_item": "overseer-iusknl",
+    "work_item": "overseer-meryyx",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A malformed consumer failure report changes no credential state",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-cct6gv",
     "first_seen": "2026-09-12"
   },
   {
@@ -521,14 +542,14 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A matching live revalidation worker is awaited only to its deadline",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-3vslbr",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A nonconsecutive completion starts a new dated soak",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-fkgrsf",
     "first_seen": "2026-09-12"
   },
   {
@@ -542,21 +563,21 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A pending close is resumed before another run command",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-3vslbr",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A persisting condition is not re-alerted before the repeat interval",
-    "work_item": "overseer-hydiph",
+    "work_item": "overseer-wh4sh2",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A persisting ready hold is re-reported at the next window boundary",
-    "work_item": "overseer-qz7ez7",
+    "work_item": "overseer-tzi4y6",
     "first_seen": "2026-11-05"
   },
   {
@@ -584,56 +605,56 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A provisioning request drives suspect and dead credential recovery",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-l4mtlv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A rate-limited probe is inconclusive and not alerted",
-    "work_item": "overseer-hydiph",
+    "work_item": "overseer-wh4sh2",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A read-only listing neither starts nor ends a ready-hold measurement",
-    "work_item": "overseer-qz7ez7",
+    "work_item": "overseer-5fibo3",
     "first_seen": "2026-11-05"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A ready hold is not re-reported within the same hold window",
-    "work_item": "overseer-qz7ez7",
+    "work_item": "overseer-tzi4y6",
     "first_seen": "2026-11-05"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A ready hold resting only on a harness session-status is diagnosed as a possible stuck status",
-    "work_item": "overseer-qz7ez7",
+    "work_item": "overseer-5fibo3",
     "first_seen": "2026-11-05"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A ready hold that ends measures a later hold afresh",
-    "work_item": "overseer-qz7ez7",
+    "work_item": "overseer-5fibo3",
     "first_seen": "2026-11-05"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A ready hold with visible busy evidence is not diagnosed as a stuck status",
-    "work_item": "overseer-qz7ez7",
+    "work_item": "overseer-5fibo3",
     "first_seen": "2026-11-05"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A ready track held from replacement past the hold window logs a hold event",
-    "work_item": "overseer-qz7ez7",
+    "work_item": "overseer-tzi4y6",
     "first_seen": "2026-11-05"
   },
   {
@@ -647,21 +668,21 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A record invariant violation is refused or excluded",
-    "work_item": "overseer-osb7as",
+    "work_item": "overseer-eg3iex",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A recorded login shows its age in the report",
-    "work_item": "overseer-oomnmk",
+    "work_item": "overseer-meryyx",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A recovered condition sends one recovery alert",
-    "work_item": "overseer-hydiph",
+    "work_item": "overseer-wh4sh2",
     "first_seen": "2026-11-10"
   },
   {
@@ -675,28 +696,28 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A refresh does not start a new login record",
-    "work_item": "overseer-oomnmk",
+    "work_item": "overseer-meryyx",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A refresh on the role holder is delivered and its exposure is measured",
-    "work_item": "overseer-7ezzch",
+    "work_item": "overseer-cpngcd",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A refusal forwarded before a host falls silent is still attributed",
-    "work_item": "overseer-xoishu",
+    "work_item": "overseer-tzi4y6",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A refusal on a following host rotates the active account",
-    "work_item": "overseer-xoishu",
+    "work_item": "overseer-cpngcd",
     "first_seen": "2026-11-08"
   },
   {
@@ -724,35 +745,35 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A rejected backend report is surfaced and does not void a fresh Codex successor's proof",
-    "work_item": "overseer-rthizs",
+    "work_item": "overseer-a3ymdg",
     "first_seen": "2026-11-02"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A remote enforcement is recorded only once the client applies it",
-    "work_item": "overseer-c6gjgl",
+    "work_item": "overseer-tzi4y6",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A remote session on the scoped model arms the scoped-model trigger",
-    "work_item": "overseer-xoishu",
+    "work_item": "overseer-tzi4y6",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A report after lease expiry uses retained assignment evidence",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-5g5uzg",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A reported authentication, rate-limit or provider-outage failure prevents reselection",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-cct6gv",
     "first_seen": "2026-09-12"
   },
   {
@@ -766,7 +787,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A required persistence failure is not acknowledged as success",
-    "work_item": "overseer-osb7as",
+    "work_item": "overseer-fkgrsf",
     "first_seen": "2026-09-12"
   },
   {
@@ -775,6 +796,27 @@
     "heading": "## Scenario: A reset about to lapse is claimed",
     "work_item": "overseer-33kyxp",
     "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reset is claimed at the weekly reserve while days remain, instead of rotating",
+    "work_item": "overseer-sozqxs",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reset is not claimed at the best-value moment on a spend-capped account",
+    "work_item": "overseer-sozqxs",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reset is not claimed at the weekly reserve when the window resets within the claim horizon",
+    "work_item": "overseer-sozqxs",
+    "first_seen": "2026-11-13"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -815,7 +857,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A rotation on the role holder reaches every following host",
-    "work_item": "overseer-lfyj7e",
+    "work_item": "overseer-cpngcd",
     "first_seen": "2026-11-08"
   },
   {
@@ -829,42 +871,49 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A same-day success starts a new soak after authentication failure",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-cct6gv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A sanctioned relaunch of a Codex seat binds its topic, pane and profile",
-    "work_item": "overseer-uzvcbn.7",
+    "work_item": "overseer-a3ymdg",
     "first_seen": "2026-11-02"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A sanctioned relaunch of a non-Codex seat submits no rename",
-    "work_item": "overseer-uzvcbn.7",
+    "work_item": "overseer-a3ymdg",
     "first_seen": "2026-11-02"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A sanctioned relaunch pastes the resume once when the fresh composer reads empty after the paste",
+    "work_item": "overseer-f2t7cg",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A session that reinstates the previous identity reads as a switch that did not take effect",
-    "work_item": "overseer-ux7ryt",
+    "work_item": "overseer-a3ymdg",
     "first_seen": "2026-10-26"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A silent enrolled host is reported as stale",
-    "work_item": "overseer-7ezzch",
+    "work_item": "overseer-cpngcd",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A silent host whose token has expired arms no trigger",
-    "work_item": "overseer-xoishu",
+    "work_item": "overseer-tzi4y6",
     "first_seen": "2026-11-08"
   },
   {
@@ -885,49 +934,49 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A stale delivery cannot move a host back",
-    "work_item": "overseer-lfyj7e",
+    "work_item": "overseer-cpngcd",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A stopped delivery service does not affect a rotation pass",
-    "work_item": "overseer-vfmz5w",
+    "work_item": "overseer-tzi4y6",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A superseded enforcement instruction is never served",
-    "work_item": "overseer-c6gjgl",
+    "work_item": "overseer-tzi4y6",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A switch to a never-onboarded profile keeps the host's onboarding and trust",
-    "work_item": "overseer-znzi47",
+    "work_item": "overseer-a3ymdg",
     "first_seen": "2026-10-26"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A target write cannot commit after its account lease expires",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-ih2egh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A token-store write invalidates cache and appends a secret-free audit entry",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-eg3iex",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A valid enrolment presented from the wrong device is refused",
-    "work_item": "overseer-4uafx2",
+    "work_item": "overseer-cpngcd",
     "first_seen": "2026-11-08"
   },
   {
@@ -941,7 +990,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A well-formed purpose reservation filters only its account",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-fkgrsf",
     "first_seen": "2026-09-12"
   },
   {
@@ -962,14 +1011,14 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Account rotation publishes identity while credential management provisions separately",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-eg3iex",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Account-lock acquisition rescans a worker lost after global recovery",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-5g5uzg",
     "first_seen": "2026-09-12"
   },
   {
@@ -1025,42 +1074,42 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An absent or expired target reference is refused before selection",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-l4mtlv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An age-stale valid credential is revalidated before exhaustion",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-cct6gv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An ambiguous conditional metadata write is authoritatively reconciled",
-    "work_item": "overseer-osb7as",
+    "work_item": "overseer-fkgrsf",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An authentication report invalidates its generation-safe process cache",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-gjiflf",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An enforcement instruction is applied at most once",
-    "work_item": "overseer-c6gjgl",
+    "work_item": "overseer-tzi4y6",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An enrolled host cannot read another host's delivery",
-    "work_item": "overseer-4uafx2",
+    "work_item": "overseer-cpngcd",
     "first_seen": "2026-11-08"
   },
   {
@@ -1074,105 +1123,105 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An exhausted credential pool fails closed without changing the target",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-cct6gv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An exhausted factory credential raises a push alert",
-    "work_item": "overseer-hydiph",
+    "work_item": "overseer-meryyx",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An expired access token alone does not trigger a dark-login rotation",
-    "work_item": "overseer-iusknl",
+    "work_item": "overseer-meryyx",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An expired live credential is reported, not refreshed",
-    "work_item": "overseer-7ezzch",
+    "work_item": "overseer-cpngcd",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An expired unbound target issuance is retained and never reissued",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-3vslbr",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An extracted expiry that elapsed before publication fails acquisition",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-sjnfr2",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An incomplete proof record keeps the caam loop available",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-cct6gv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An inconclusive validation probe does not kill a credential",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-gjiflf",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An instruction decided before a host returns from silence is not served",
-    "work_item": "overseer-c6gjgl",
+    "work_item": "overseer-tzi4y6",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An instruction whose outcome was reported is never served again",
-    "work_item": "overseer-c6gjgl",
+    "work_item": "overseer-tzi4y6",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An internal bug after provisioning commit preserves retry recovery",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-fzkotk",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An internal bug before a known target commit follows commit fencing",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-fzkotk",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An interrupted report resumes before duplicate acknowledgement",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-fkgrsf",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An invalid provisioning request takes no lease and leaves the target unchanged",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-cct6gv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An issued target reference cannot be reassigned",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-fzkotk",
     "first_seen": "2026-09-12"
   },
   {
@@ -1186,35 +1235,35 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An out-of-order completion cannot rewrite the current soak",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-l4mtlv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An out-of-range lease bound acquires no lease",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-eg3iex",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unavailable provisionable-token store returns a typed failure without changing the target",
-    "work_item": "overseer-osb7as",
+    "work_item": "overseer-eg3iex",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An uncertifiable ready on a busy pane is never a ready hold",
-    "work_item": "overseer-qz7ez7",
+    "work_item": "overseer-5fibo3",
     "first_seen": "2026-11-05"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An uncommitted or nonoverlapping peer cannot satisfy spread proof",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-ih2egh",
     "first_seen": "2026-09-12"
   },
   {
@@ -1228,56 +1277,56 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unconfirmed rename leaves a fresh Codex successor unreported and unproven",
-    "work_item": "overseer-rthizs",
+    "work_item": "overseer-a3ymdg",
     "first_seen": "2026-11-02"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unconfirmed rename leaves the relaunched seat's row unchanged",
-    "work_item": "overseer-uzvcbn.7",
+    "work_item": "overseer-a3ymdg",
     "first_seen": "2026-11-02"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unknown consumer report releases the lease without changing lifecycle state",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-gjiflf",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unknown operation-less expiry write remains recoverable",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-sjnfr2",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unlatched track's wrap-up keeps its bare live context figure",
-    "work_item": "overseer-qz7ez7",
+    "work_item": "overseer-5fibo3",
     "first_seen": "2026-11-05"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unreachable enrolled host does not affect a rotation pass",
-    "work_item": "overseer-vfmz5w",
+    "work_item": "overseer-cpngcd",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unsafe isolated-run registration cannot issue a target",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-fkgrsf",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Another completion on the latest soak date is a dated no-op",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-fkgrsf",
     "first_seen": "2026-09-12"
   },
   {
@@ -1291,28 +1340,28 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Anthropic setup-token refuses unsupported remaining-percent selection",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-sjnfr2",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Anthropic validation maps every probe response",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-sjnfr2",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Attention output is exact and path-sorted",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-5g5uzg",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Authoritative reread abandonment restarts provision durably",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-fkpevs",
     "first_seen": "2026-09-12"
   },
   {
@@ -1326,14 +1375,14 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Backward time between validation and publication is clamped",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-yyq6eh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Bound target retry survives issuance expiry",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-fkpevs",
     "first_seen": "2026-09-12"
   },
   {
@@ -1361,21 +1410,21 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Canonical stored JSON has one byte representation",
-    "work_item": "overseer-osb7as",
+    "work_item": "overseer-yyq6eh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Completion after lease end uses the retained tombstone",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-3vslbr",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Concurrent acquisition for one provider account is serialized",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-eg3iex",
     "first_seen": "2026-09-12"
   },
   {
@@ -1389,7 +1438,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Concurrent prepared spread runs still prove overlap",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-fkpevs",
     "first_seen": "2026-09-12"
   },
   {
@@ -1403,49 +1452,49 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Concurrent requests serialize revalidation of one record",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-ih2egh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Concurrent target issuance refuses one shared destination",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-fzkotk",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Concurrent writes to one target reference serialize",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-l4mtlv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Conflicting completion evidence preserves proof and lease state",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-eg3iex",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Consume-first revalidates its stale incumbent first",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-fkpevs",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Consume-first selection preserves capacity reserved for another purpose",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-eg3iex",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Consume-first selects and replaces its incumbent deterministically",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-gjiflf",
     "first_seen": "2026-09-12"
   },
   {
@@ -1459,56 +1508,56 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Corrected target input proceeds after validation refusal",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-5g5uzg",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Credential expiry is audited and retained without a journal",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-sjnfr2",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Credential freshness boundaries are exclusive",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-fkpevs",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Credential generations publish without stale-reference ambiguity",
-    "work_item": "overseer-osb7as",
+    "work_item": "overseer-sjnfr2",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Dead credential records and values remain retained",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-3vslbr",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Deterministic local paths use length-prefixed identities",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-sjnfr2",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Disabling a target adapter refuses fresh provision but preserves recovery",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-l4mtlv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Duplicate JSON member names are never silently collapsed",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-yyq6eh",
     "first_seen": "2026-09-12"
   },
   {
@@ -1536,56 +1585,56 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Every supported harness exposes one lockstep caam operation",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-cct6gv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Every supported harness exposes one lockstep manager operation",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-fzkotk",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Expired assignment closure is resumable and identity-safe",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-fkpevs",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Expired credential material becomes dead without revalidation",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-eg3iex",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Expired post-commit recovery preserves effects without returning a receipt",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-ih2egh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Explicit lease release is idempotent",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-fzkotk",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Explicit provisioning defaults are identical on retry",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-5g5uzg",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: External adapter deadlines have typed fail-closed outcomes",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-sjnfr2",
     "first_seen": "2026-09-12"
   },
   {
@@ -1599,21 +1648,21 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Failed provisioning cleanup can hold only through recovery or expiry",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-fkgrsf",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Failed provisioning leaves an existing target byte-identical",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-cct6gv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Failed provisioning releases its account lease immediately",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-gjiflf",
     "first_seen": "2026-09-12"
   },
   {
@@ -1662,14 +1711,14 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Invalid manager configuration fails before every external access",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-l4mtlv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Invalid purpose reservations fail before external access",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-l4mtlv",
     "first_seen": "2026-09-12"
   },
   {
@@ -1683,49 +1732,49 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Isolated-run provisioning preserves exact credential bytes",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-fkpevs",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Kernel lock files release when their holder ends",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-yyq6eh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Lease expiry restores account eligibility",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-eg3iex",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Lease mutations serialize on one account identity lock",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-yyq6eh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Lease release deletes the live lease record",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-3vslbr",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Lease timestamps derive once from lease creation",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-fkpevs",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Lease-record transaction contention retries selection without blocking",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-eg3iex",
     "first_seen": "2026-09-12"
   },
   {
@@ -1739,7 +1788,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Lifecycle metadata writes use a field-limited capability",
-    "work_item": "overseer-osb7as",
+    "work_item": "overseer-cct6gv",
     "first_seen": "2026-09-12"
   },
   {
@@ -1753,119 +1802,119 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Malformed consumer JSON maps to its command-specific error",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-fzkotk",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Manager backends and browser control run in the isolated interpreter",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-fzkotk",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Manager configuration and state use one invoker-independent home",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-fzkotk",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Manager invocation failures use the closed error mapping",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-5g5uzg",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Manager runtime prerequisites fail without fallback",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-yyq6eh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Manager state and provisioned targets enforce private permissions",
-    "work_item": "overseer-osb7as",
+    "work_item": "overseer-gjiflf",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Manager time truncates toward the earlier UTC second",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-yyq6eh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Manager-local transaction records use exact versioned shapes",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-5g5uzg",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Missing acquisition prerequisites start no worker",
-    "work_item": "overseer-osb7as",
+    "work_item": "overseer-sjnfr2",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Missing manager-local records have exact initial state",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-5g5uzg",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Moving the credential-rotation role changes nothing on an enrolled host",
-    "work_item": "overseer-lfyj7e",
+    "work_item": "overseer-cpngcd",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: No lifetime-cap warning before the cap is measured",
-    "work_item": "overseer-oomnmk",
+    "work_item": "overseer-meryyx",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: No push channel configured is reported",
-    "work_item": "overseer-hydiph",
+    "work_item": "overseer-wh4sh2",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Non-qualifying completion evidence cannot advance coexistence proof",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-l4mtlv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Omitted manager bounds use their contract defaults",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-fzkotk",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: One refused reading does not judge a login dark",
-    "work_item": "overseer-iusknl",
+    "work_item": "overseer-meryyx",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: OnePassword stores separate acquisition and provisionable secrets",
-    "work_item": "overseer-osb7as",
+    "work_item": "overseer-sjnfr2",
     "first_seen": "2026-09-12"
   },
   {
@@ -1879,112 +1928,112 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Out-of-interval consumer evidence is refused without proof mutation",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-3vslbr",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Out-of-range validation worker and cache configuration fails before access",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-eg3iex",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Overlapping spread receipts record the simultaneous proof",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-fzkotk",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Post-commit retry completes simultaneous-spread proof",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-ih2egh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Pre-lease exhaustion removes its empty provision plan",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-fkpevs",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Prepared-only assignments reject consumer lifecycle commands",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-fkpevs",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Process identifier reuse cannot impersonate a stopped worker",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-5g5uzg",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Process interruption preserves prior target bytes",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-l4mtlv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Proof status before rollout is uniformly false",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-cct6gv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Provider probe timeout bounds synchronous revalidation",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-3vslbr",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Provider-observer access failure excludes only its candidate",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-l4mtlv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Provisioning writes a credential directly with no manager in the inference path",
-    "work_item": "overseer-wm7wf4",
+    "work_item": "overseer-cct6gv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Purpose names do not restrict a registered credential kind",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-fkgrsf",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Recording a new login replaces the old one and releases a login hold",
-    "work_item": "overseer-oomnmk",
+    "work_item": "overseer-meryyx",
     "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Recovery candidates bypass health until final selection",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-yyq6eh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Recovery cleans a worker record left after lifecycle completion",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-5g5uzg",
     "first_seen": "2026-09-12"
   },
   {
@@ -2005,77 +2054,77 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Repeating one consumer failure report is idempotent",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-gjiflf",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Repeating one live provisioning request is idempotent",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-gjiflf",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Report diagnostics do not change idempotent identity",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-yyq6eh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Report retry compares against a replaced value again",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-ih2egh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Retried close keeps its original acceptance time",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-3vslbr",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Retry discards an uncommitted prepared assignment",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-fkgrsf",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Revalidation skips leased or reserved-away accounts",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-ih2egh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Revoking one host's enrolment leaves every other host served",
-    "work_item": "overseer-4uafx2",
+    "work_item": "overseer-cpngcd",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Run closure clamps a lease that expires during global recovery",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-yyq6eh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Run closure records assignment end before tombstone creation",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-yyq6eh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Secret-free completion evidence updates the coexistence proof",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-fzkotk",
     "first_seen": "2026-09-12"
   },
   {
@@ -2089,56 +2138,56 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Selection history and tombstones remain retained",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-3vslbr",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Seven consecutive dates complete a soak with no authentication failure",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-fkgrsf",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Shared selection and proof updates cannot lose concurrent evidence",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-3vslbr",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Simultaneous-spread peer choice is deterministic",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-fkpevs",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Spread assignment cannot replace a consume-first incumbent",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-sjnfr2",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Spread orders a never-assigned record before assigned records",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-ih2egh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Spread revalidation preserves least-recently-assigned order",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-fkpevs",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Spread selects the least recently assigned record deterministically",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-gjiflf",
     "first_seen": "2026-09-12"
   },
   {
@@ -2152,56 +2201,56 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Successful provisioning returns a secret-free receipt",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-cct6gv",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Successful replacement refreshes acquisition time and declared expiry",
-    "work_item": "overseer-osb7as",
+    "work_item": "overseer-sjnfr2",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Syntactically rejected input does not trigger unrelated worker recovery",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-5g5uzg",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Target commands serialize every local effect for one run",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-yyq6eh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Target commit evidence closes the atomic-replace crash window",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-fkgrsf",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Target commit persists selection ordering state",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-ih2egh",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Target retry returns its existing issuance",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-3vslbr",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Target-committed prepared expiry completes both recovery phases",
-    "work_item": "overseer-dykjx4",
+    "work_item": "overseer-fkpevs",
     "first_seen": "2026-09-12"
   },
   {
@@ -2229,35 +2278,35 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The client refuses a service it cannot authenticate",
-    "work_item": "overseer-lfyj7e",
+    "work_item": "overseer-cpngcd",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The client refuses to overwrite a host's own login",
-    "work_item": "overseer-lfyj7e",
+    "work_item": "overseer-cpngcd",
     "first_seen": "2026-11-08"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The coexistence proof schema retains its first qualifying evidence",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-5g5uzg",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The consumer wire protocol emits one typed secret-free result",
-    "work_item": "overseer-5tpc72",
+    "work_item": "overseer-gjiflf",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The daemon refuses to start with an invalid ready-hold window",
-    "work_item": "overseer-qz7ez7",
+    "work_item": "overseer-5fibo3",
     "first_seen": "2026-11-05"
   },
   {
@@ -2278,21 +2327,21 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The default empty reservation map reserves no account",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-eg3iex",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The default health strategy performs no usage observation",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-gjiflf",
     "first_seen": "2026-09-12"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The lifecycle table determines every credential state transition",
-    "work_item": "overseer-fb7usz",
+    "work_item": "overseer-gjiflf",
     "first_seen": "2026-09-12"
   },
   {
@@ -2301,174 +2350,6 @@
     "heading": "## Scenario: The narrowest qualifying reset is claimed",
     "work_item": "overseer-33kyxp",
     "first_seen": "2026-10-15"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The ready-hold window defaults to 600 seconds",
-    "work_item": "overseer-qz7ez7",
-    "first_seen": "2026-11-05"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The ready-hold window is configured at daemon launch",
-    "work_item": "overseer-qz7ez7",
-    "first_seen": "2026-11-05"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The resume prompt and the picker-stall relay keep their paste forms",
-    "work_item": "overseer-uepcr6",
-    "first_seen": "2026-10-15"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The rotation pass runs while every agent session's login is dark",
-    "work_item": "overseer-iusknl",
-    "first_seen": "2026-11-10"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The sanctioned relaunch refuses before launching into an unsafe or unknown target",
-    "work_item": "overseer-uzvcbn.7",
-    "first_seen": "2026-11-02"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The selection brain reads metadata but no secret value",
-    "work_item": "overseer-osb7as",
-    "first_seen": "2026-09-12"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The spread strategy assigns distinct accounts to simultaneous runs",
-    "work_item": "overseer-wm7wf4",
-    "first_seen": "2026-09-12"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: Tombstone-first close survives an assignment-removal crash",
-    "work_item": "overseer-fb7usz",
-    "first_seen": "2026-09-12"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: Unassigned consumer messages cannot mutate another assignment",
-    "work_item": "overseer-fb7usz",
-    "first_seen": "2026-09-12"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: Unconfirmed worker termination stops command recovery",
-    "work_item": "overseer-fb7usz",
-    "first_seen": "2026-09-12"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: Unreadable attention state returns a typed failure",
-    "work_item": "overseer-5tpc72",
-    "first_seen": "2026-09-12"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: Unreadable or below-floor shared usage excludes an account",
-    "work_item": "overseer-fb7usz",
-    "first_seen": "2026-09-12"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: Unregistered provider identities fail before external access",
-    "work_item": "overseer-5tpc72",
-    "first_seen": "2026-09-12"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: Unsafe manager-local records fail closed without reset",
-    "work_item": "overseer-fb7usz",
-    "first_seen": "2026-09-12"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: Worker operation phases retain every terminal effect",
-    "work_item": "overseer-fb7usz",
-    "first_seen": "2026-09-12"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: a hand commit's passing delegated pre-commit verdict stands in at the pre-push gate",
-    "work_item": "overseer-z2j3vn",
-    "first_seen": "2026-11-11"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "spec.md",
-    "heading": "## Enrolled-host credential delivery",
-    "work_item": "overseer-vfmz5w",
-    "first_seen": "2026-11-08"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "spec.md",
-    "heading": "## LLM provider credential management",
-    "work_item": "overseer-5tpc72",
-    "first_seen": "2026-09-12"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A Codex session held by a helper a worker thread spawned is adopted like any other",
-    "work_item": "overseer-uzvcbn.21",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A sanctioned relaunch pastes the resume once when the fresh composer reads empty after the paste",
-    "work_item": "overseer-f2t7cg",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A daemon wrap-up left unsubmitted in an idle composer is submitted with Enter only",
-    "work_item": "overseer-llrj5k",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A daemon wrap-up pending in the composer past its window is surfaced",
-    "work_item": "overseer-llrj5k",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A reset is claimed at the weekly reserve while days remain, instead of rotating",
-    "work_item": "overseer-sozqxs",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A reset is not claimed at the weekly reserve when the window resets within the claim horizon",
-    "work_item": "overseer-sozqxs",
-    "first_seen": "2026-11-13"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -2487,8 +2368,127 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A reset is not claimed at the best-value moment on a spend-capped account",
-    "work_item": "overseer-sozqxs",
-    "first_seen": "2026-11-13"
+    "heading": "## Scenario: The ready-hold window defaults to 600 seconds",
+    "work_item": "overseer-5fibo3",
+    "first_seen": "2026-11-05"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The ready-hold window is configured at daemon launch",
+    "work_item": "overseer-5fibo3",
+    "first_seen": "2026-11-05"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The resume prompt and the picker-stall relay keep their paste forms",
+    "work_item": "overseer-uepcr6",
+    "first_seen": "2026-10-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The rotation pass runs while every agent session's login is dark",
+    "work_item": "overseer-meryyx",
+    "first_seen": "2026-11-10"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The sanctioned relaunch refuses before launching into an unsafe or unknown target",
+    "work_item": "overseer-a3ymdg",
+    "first_seen": "2026-11-02"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The selection brain reads metadata but no secret value",
+    "work_item": "overseer-cct6gv",
+    "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The spread strategy assigns distinct accounts to simultaneous runs",
+    "work_item": "overseer-cct6gv",
+    "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Tombstone-first close survives an assignment-removal crash",
+    "work_item": "overseer-3vslbr",
+    "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Unassigned consumer messages cannot mutate another assignment",
+    "work_item": "overseer-l4mtlv",
+    "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Unconfirmed worker termination stops command recovery",
+    "work_item": "overseer-5g5uzg",
+    "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Unreadable attention state returns a typed failure",
+    "work_item": "overseer-5g5uzg",
+    "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Unreadable or below-floor shared usage excludes an account",
+    "work_item": "overseer-gjiflf",
+    "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Unregistered provider identities fail before external access",
+    "work_item": "overseer-sjnfr2",
+    "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Unsafe manager-local records fail closed without reset",
+    "work_item": "overseer-5g5uzg",
+    "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Worker operation phases retain every terminal effect",
+    "work_item": "overseer-sjnfr2",
+    "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: a hand commit's passing delegated pre-commit verdict stands in at the pre-push gate",
+    "work_item": "overseer-z2j3vn",
+    "first_seen": "2026-11-11"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## Enrolled-host credential delivery",
+    "work_item": "overseer-xnpfsc",
+    "first_seen": "2026-11-08"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## LLM provider credential management",
+    "work_item": "overseer-sqaect",
+    "first_seen": "2026-09-12"
   }
 ]
