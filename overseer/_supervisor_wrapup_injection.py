@@ -214,6 +214,9 @@ def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of 
             == _supervisor_channel.CHANNEL_UNCONFIRMED,
             bands=due,
             compaction_latched_at=compaction_latched_at,
+            round_at=registry.read_round_record(
+                repo=repo, topic=topic, stamp_path=sup.stamp_path
+            ).at,
         ),
     )
     if submitted:
