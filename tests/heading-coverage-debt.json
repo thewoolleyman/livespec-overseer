@@ -2441,5 +2441,12 @@
     "heading": "## Scenario: The service refuses to push to a host whose host key it cannot verify",
     "work_item": "overseer-aj577z",
     "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A Codex successor launch disables Codex's startup update check",
+    "work_item": "overseer-dd5qus",
+    "first_seen": "2026-11-13"
   }
 ]

@@ -602,6 +602,21 @@ delta never alters the command. A launch profile MUST NOT record
 any secret or token value; it records only the harness, the model token,
 and the wrapper's path, since the wrapper itself owns its own secrets.
 
+Every Codex launch command that the daemon or the sanctioned out-of-band
+relaunch composes MUST run Codex with its startup update check disabled, by
+passing the Codex configuration `check_for_update_on_startup=false` on that
+invocation. This covers a fresh successor, a resume, and a relaunch of a Codex
+row that carries no recorded launch profile. Codex caches a newer upstream
+release on one launch and opens the NEXT launch at an update picker. A
+launched successor waiting there shows a structured gate, which §"The restart"
+forbids keystroking, so the replacement or relaunch would wait forever. The
+override is a fixed part of the Codex launch command, not a launch-profile
+field. It MUST NOT be recorded in a captured launch profile, and re-capturing
+a profile from a running successor that carries it MUST NOT make the next
+launch carry it twice. For a Codex row that carries no launch profile, this is
+the one sanctioned difference from the rule above that such a row relaunches
+with exactly the command it uses today.
+
 On every relaunch — of EVERY harness, and INCLUDING a relaunch of a row that
 carries no recorded launch profile — the daemon MUST explicitly set or unset
 `ANTHROPIC_MODEL`, `ANTHROPIC_SMALL_FAST_MODEL`, and the `CLAUDE_CODE_*`
