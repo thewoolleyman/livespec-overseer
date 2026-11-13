@@ -413,7 +413,8 @@ keyword flags. (`<cmd>` is one of `list` / `add` / `remove` / `unassign` /
     pasted, exactly as before;
   - a track whose recorded `codex:<uuid>` identity, Codex index entry and surviving
     rollout all agree resumes ITS OWN session with
-    `codex resume --dangerously-bypass-approvals-and-sandbox <uuid> "<resume line>"`,
+    `codex -c check_for_update_on_startup=false resume
+    --dangerously-bypass-approvals-and-sandbox <uuid> "<resume line>"`,
     so a Codex track is never replaced by a Claude one;
   - anything else — a same-topic Codex namesake with no recorded identity behind it,
     a pruned rollout, an identifier the index maps to another thread, an identity

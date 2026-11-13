@@ -88,7 +88,10 @@ def test_start_resumes_a_dead_codex_track_under_its_own_runtime_and_identity(
 
     assert len(respawns(fake=fake)) == 1
     command = respawns(fake=fake)[0][3]
-    assert command.startswith(f"codex resume --dangerously-bypass-approvals-and-sandbox {SID} ")
+    assert command.startswith(
+        f"codex -c check_for_update_on_startup=false "
+        f"resume --dangerously-bypass-approvals-and-sandbox {SID} "
+    )
     assert "claude" not in command
     assert f"started {repo}::{topic}" in capsys.readouterr().out
     assert [row.topic for row in registry.read_valid_mapping(store_path=None)] == [topic]

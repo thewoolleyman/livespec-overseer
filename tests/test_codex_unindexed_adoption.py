@@ -227,7 +227,9 @@ def test_mapped_unindexed_codex_track_gets_wrapup_and_ready_restart(tmp_path):
     # A wrap-up restart launches a FRESH session — no `resume`, no prior rollout id — and
     # the successor is re-adopted through the STORE-BOUND binding within the same tick,
     # which is what keeps an unindexed Codex track trackable across its own restart.
-    assert respawn_commands[0] == "codex --dangerously-bypass-approvals-and-sandbox"
+    assert respawn_commands[0] == (
+        "codex -c check_for_update_on_startup=false " "--dangerously-bypass-approvals-and-sandbox"
+    )
     assert ID_B not in respawn_commands[0]
     assert sup.live_codex[(registry.tmux_id(repo=str(repo), topic=topic), topic)].session_id == ID_C
 
@@ -356,7 +358,9 @@ def test_indexed_rollout_fd_makes_track_codex_and_routes_ready_restart(tmp_path)
     assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
     respawn_commands = [call[3] for call in fake.calls if call[0] == "respawn"]
     assert len(respawn_commands) == 1
-    assert respawn_commands[0] == "codex --dangerously-bypass-approvals-and-sandbox"
+    assert respawn_commands[0] == (
+        "codex -c check_for_update_on_startup=false " "--dangerously-bypass-approvals-and-sandbox"
+    )
     assert ID_A not in respawn_commands[0] and ID_C not in respawn_commands[0]
     assert f"/rename {topic}" in fake.paste_texts()  # the successor is NAMED, durably
     # ...and the ordinary thread-name join now resolves the topic to the FRESH rollout,

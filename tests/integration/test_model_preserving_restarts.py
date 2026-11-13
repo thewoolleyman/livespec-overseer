@@ -367,7 +367,8 @@ def test_codex_launch_plan_uses_m_flag_for_a_cloud_profile(*, tmp_path):
 
     assert isinstance(plan, codex_launch_plan_type)
     assert plan.command == (
-        "codex -m gpt-5-codex resume --dangerously-bypass-approvals-and-sandbox "
+        "codex -m gpt-5-codex -c check_for_update_on_startup=false "
+        "resume --dangerously-bypass-approvals-and-sandbox "
         "019f6a1e-266d-7fc2-8eb2-15ec9d324fb8 'read first'"
     )
     assert plan.env == {
@@ -408,6 +409,7 @@ def test_codex_launch_plan_uses_wrapper_and_recorded_model_flag_and_env(*, tmp_p
     assert isinstance(plan, codex_launch_plan_type)
     assert plan.command == (
         f"{wrapper} -m macmini/qwen3-coder-next "
+        "-c check_for_update_on_startup=false "
         "resume --dangerously-bypass-approvals-and-sandbox "
         "019f6a1e-266d-7fc2-8eb2-15ec9d324fb8 'read first'"
     )

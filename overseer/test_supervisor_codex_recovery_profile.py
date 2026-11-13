@@ -61,6 +61,7 @@ def test_recover_resumes_a_codex_track_with_its_recorded_wrapper_profile(*, tmp_
         session,
         str(repo),
         f"{wrapper} -m macmini/qwen3-coder-next "
+        "-c check_for_update_on_startup=false "
         "resume --dangerously-bypass-approvals-and-sandbox "
         f"{sid} {shlex.quote(supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC))}",
         {
