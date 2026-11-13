@@ -23,6 +23,7 @@ from _supervisor_statusline_model import rendered_statusline_model
 __all__: list[str] = [
     "CLAUDE_CONTROLLED_ENV",
     "CODEX_APPROVALS_FLAG",
+    "CODEX_STARTUP_UPDATE_CHECK_OVERRIDE",
     "DEFAULT_START_MODEL",
     "PLAN_UNATTENDED_ENV",
     "ClaudeLaunchPlan",
@@ -208,6 +209,7 @@ def claude_launch_plan(
 
 
 CODEX_APPROVALS_FLAG = "--dangerously-bypass-approvals-and-sandbox"
+CODEX_STARTUP_UPDATE_CHECK_OVERRIDE = "-c check_for_update_on_startup=false"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -227,7 +229,7 @@ class _CodexInvocation:
 
 def _codex_prefix(*, invocation: _CodexInvocation) -> str:
     model_arg = "" if invocation.model is None else f" -m {shlex.quote(invocation.model)}"
-    return f"{shlex.quote(invocation.command)}{model_arg}"
+    return f"{shlex.quote(invocation.command)}{model_arg} " f"{CODEX_STARTUP_UPDATE_CHECK_OVERRIDE}"
 
 
 def _codex_invocation(

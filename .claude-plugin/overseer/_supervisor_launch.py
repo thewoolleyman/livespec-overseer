@@ -22,6 +22,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, cast
 
+import _supervisor_launch_profile
 import herdr_identity
 import pane_router_cycle
 import registry
@@ -162,7 +163,8 @@ def launch_command(*, track: registry.Track) -> str:
 
 def codex_launch_command(*, session_id: str, resume: str) -> str:
     """The Codex (re)start command:
-    ``codex resume --dangerously-bypass-approvals-and-sandbox <session-id> "<resume>"``.
+    ``codex -c check_for_update_on_startup=false resume
+    --dangerously-bypass-approvals-and-sandbox <session-id> "<resume>"``.
 
     ``--dangerously-bypass-approvals-and-sandbox`` is the codex twin of the Claude
     path's REQUIRED ``--dangerously-skip-permissions`` (maintainer-declared 2026-07-17):
@@ -185,7 +187,8 @@ def codex_launch_command(*, session_id: str, resume: str) -> str:
     method's docstring); do not re-add a scoping prefix here.
     """
     return (
-        "codex resume --dangerously-bypass-approvals-and-sandbox "
+        f"codex {_supervisor_launch_profile.CODEX_STARTUP_UPDATE_CHECK_OVERRIDE} "
+        "resume --dangerously-bypass-approvals-and-sandbox "
         f"{shlex.quote(session_id)} {shlex.quote(resume)}"
     )
 

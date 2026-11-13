@@ -101,7 +101,10 @@ def test_codex_launch_command_carries_no_tmux_scoping():
     )
 
     assert_no_tmux_scoping(command=command)
-    assert command.startswith("codex resume --dangerously-bypass-approvals-and-sandbox ")
+    assert command.startswith(
+        "codex -c check_for_update_on_startup=false "
+        "resume --dangerously-bypass-approvals-and-sandbox "
+    )
 
 
 def test_restart_fires_when_marker_valid_notbusy_idle(*, tmp_path):

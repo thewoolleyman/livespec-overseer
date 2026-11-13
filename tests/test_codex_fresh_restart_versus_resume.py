@@ -68,9 +68,13 @@ def test_the_wrapup_arm_launches_fresh_where_the_recovery_arm_resumes(*, tmp_pat
     resumed = codex_launch_plan(track=track, session_id=SESSION_ID, resume="read first")
 
     assert isinstance(fresh, CodexLaunchPlan) and isinstance(resumed, CodexLaunchPlan)
-    assert fresh.command == "codex --dangerously-bypass-approvals-and-sandbox"
+    assert fresh.command == (
+        "codex -c check_for_update_on_startup=false " "--dangerously-bypass-approvals-and-sandbox"
+    )
     assert resumed.command == (
-        "codex resume --dangerously-bypass-approvals-and-sandbox " f"{SESSION_ID} 'read first'"
+        "codex -c check_for_update_on_startup=false "
+        "resume --dangerously-bypass-approvals-and-sandbox "
+        f"{SESSION_ID} 'read first'"
     )
     assert SESSION_ID not in fresh.command  # the exhausted window is never handed back
     # Autonomy is NOT what differs: both arms keep the codex twin of
@@ -99,7 +103,10 @@ def test_a_fresh_wrapup_launch_re_asserts_a_recorded_cloud_model(*, tmp_path):
     plan = codex_fresh_launch_plan(track=track)
 
     assert isinstance(plan, CodexLaunchPlan)
-    assert plan.command == "codex -m gpt-5-codex --dangerously-bypass-approvals-and-sandbox"
+    assert plan.command == (
+        "codex -m gpt-5-codex -c check_for_update_on_startup=false "
+        "--dangerously-bypass-approvals-and-sandbox"
+    )
     assert plan.env == SCRUBBED_ENV
 
 
@@ -127,7 +134,9 @@ def test_a_fresh_wrapup_launch_goes_through_the_recorded_wrapper_with_its_model(
 
     assert isinstance(plan, CodexLaunchPlan)
     assert plan.command == (
-        f"{wrapper} -m macmini/qwen3-coder-next --dangerously-bypass-approvals-and-sandbox"
+        f"{wrapper} -m macmini/qwen3-coder-next "
+        "-c check_for_update_on_startup=false "
+        "--dangerously-bypass-approvals-and-sandbox"
     )
     assert plan.env == {**SCRUBBED_ENV, "ANTHROPIC_MODEL": "macmini/qwen3-coder-next"}
 
@@ -190,7 +199,8 @@ def test_crash_recovery_still_resumes_the_exact_persisted_rollout(*, tmp_path):
     commands = [call[3] for call in fake.calls if call[0] == "respawn"]
     assert len(commands) == 1
     assert commands[0] == (
-        "codex resume --dangerously-bypass-approvals-and-sandbox "
+        "codex -c check_for_update_on_startup=false "
+        "resume --dangerously-bypass-approvals-and-sandbox "
         f"{SESSION_ID} "
         f"{supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC)!r}"
     )

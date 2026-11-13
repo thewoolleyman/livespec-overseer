@@ -4714,8 +4714,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A Codex successor launch disables Codex's startup update check",
-    "test": "TODO",
-    "work_item": "overseer-dd5qus",
-    "reason": "Ratified in v100 (a-codex-replacement-or-relaunch) ahead of its implementation child; a test at integration tier is owed, and overseer-dd5qus MUST replace this TODO with a test at integration tier."
+    "test": "tests.integration.test_codex_startup_update_check.test_scenario_codex_launches_disable_the_startup_update_check",
+    "reason": "Integration-tier: checks each Codex launch shape the specification names — a fresh successor, an existing-rollout resume, and a row with no recorded profile — for the fixed per-invocation update-check override, while proving that the recorded profile remains only harness, model and wrapper rather than accumulating the transient configuration."
   }
 ]
