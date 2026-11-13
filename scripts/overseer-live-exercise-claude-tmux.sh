@@ -213,7 +213,7 @@ stage_bootstrap() {
   clear_claude_trust_gate
   mkdir -p -- "$evidence"
   tx new-window -d -t "$instance:" -n "$topic" -c "$repo" \
-    "exec claude --dangerously-skip-permissions -n $(printf %q "$topic")" ||
+    "exec env CLAUDECODE=1 claude --dangerously-skip-permissions -n $(printf %q "$topic")" ||
     fail_stage bootstrap "could not open the Claude window on the private server"
   wait_until "$CLAUDE_READY_TIMEOUT" claude_pane_is_idle || fail_stage bootstrap \
     "no idle Claude input in retained pane $agent_target within ${CLAUDE_READY_TIMEOUT}s (shipped is_idle_input never held)"
@@ -273,7 +273,8 @@ stage_declaration() {
 
 successor_is_bound() {
   successor="$(live_identity)"
-  [[ -n "$successor" ]] && [[ "$successor" != "$predecessor" ]]
+  [[ -n "$successor" ]] && [[ "$successor" != "$predecessor" ]] &&
+    [[ "$(snapshot_row session_identity)" == "$successor" ]]
 }
 
 stage_replacement() {
