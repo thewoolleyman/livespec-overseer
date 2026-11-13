@@ -133,7 +133,7 @@ jobs:
     # red-in-sandbox drift this epic exists to remove, on either lane.
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.204.0
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.205.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -219,7 +219,7 @@ jobs:
     name: check-per-file-coverage
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.204.0
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.205.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -272,7 +272,7 @@ jobs:
 
       - name: Publish the flake-retry records for the host-side reader
         if: ${{ !cancelled() }}
-        uses: thewoolleyman/livespec-dev-tooling/.github/actions/publish-flake-retries@v1.204.0
+        uses: thewoolleyman/livespec-dev-tooling/.github/actions/publish-flake-retries@v1.205.0
 
       # include-hidden-files is REQUIRED: upload-artifact@v4 excludes dotfiles
       # by default and both handoff files are dotfiles; without it the upload
@@ -305,7 +305,7 @@ jobs:
     needs: check-per-file-coverage
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.204.0
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.205.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -381,7 +381,7 @@ jobs:
     name: check-python-batch
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.204.0
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.205.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -449,7 +449,7 @@ jobs:
     # Self-hosted in the baked image, same rationale as check-python above.
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.204.0
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.205.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -570,7 +570,7 @@ jobs:
     # preserved).
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.204.0
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.205.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -635,7 +635,7 @@ jobs:
     name: check-metadata-batch
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.204.0
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.205.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -768,7 +768,7 @@ jobs:
     name: incident-ci
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.204.0
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.205.0
     permissions:
       contents: read
       pull-requests: read
