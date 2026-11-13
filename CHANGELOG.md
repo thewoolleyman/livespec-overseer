@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.55.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.55.0...v5.55.1) (2026-11-13)
+
+
+### Reverts
+
+* chore(deps): bump livespec-dev-tooling pin to v1.202.0 (88221220) ([ee4a5fc](https://github.com/thewoolleyman/livespec-overseer/commit/ee4a5fc5537c4fb02f7197915876b8297142891e))
+
 ## [5.55.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.54.1...v5.55.0) (2026-11-13)
 
 
