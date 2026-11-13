@@ -1,5 +1,19 @@
 # Changelog
 
+## [5.55.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.54.1...v5.55.0) (2026-11-13)
+
+
+### Features
+
+* **delivery:** push deliveries to listed hosts over ssh, with a status command ([367c944](https://github.com/thewoolleyman/livespec-overseer/commit/367c944ddd3afe413c01c86d4b5cb3b5439df2ef))
+* **delivery:** status shows live vs caam-selected account; re-issue Remote Control on account change ([7b27c95](https://github.com/thewoolleyman/livespec-overseer/commit/7b27c957e5ce97d7219a4fec2ed679111b171eed))
+
+
+### Bug Fixes
+
+* **delivery:** harden push delivery to spec v096 (in-memory delivery, ssh hardening, host states) ([305d87d](https://github.com/thewoolleyman/livespec-overseer/commit/305d87d84669e2520e32b79536a2ac8c6e2d115b))
+* **delivery:** pin host keys to a record, spec result lines, rollback and status per v096 ([c71da50](https://github.com/thewoolleyman/livespec-overseer/commit/c71da5086917864aeb6539ca99c3859b276fd2c4))
+
 ## [5.54.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.54.0...v5.54.1) (2026-11-11)
 
 
