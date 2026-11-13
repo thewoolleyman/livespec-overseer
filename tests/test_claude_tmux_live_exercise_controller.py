@@ -16,3 +16,11 @@ def test_controller_is_checked_in_executable_and_uses_only_the_exercise_socket()
     source = CONTROLLER.read_text(encoding="utf-8")
     assert 'tmux -S "$endpoint"' in source
     assert "tmux " not in source.replace('tmux -S "$endpoint"', "")
+
+
+def test_replacement_evidence_labels_both_process_identity_components() -> None:
+    """A reviewer can read the predecessor and successor PID/start-time pairs."""
+    source = CONTROLLER.read_text(encoding="utf-8")
+    assert "predecessor pid=" in source
+    assert "successor pid=" in source
+    assert "starttime=" in source
