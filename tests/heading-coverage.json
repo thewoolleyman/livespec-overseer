@@ -4729,8 +4729,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A reachable host holding the current delivery stays current between deliveries",
-    "test": "TODO",
-    "work_item": "overseer-r7pymu",
-    "reason": "An integration-tier test is owed for this heading, ratified for contracts.md 'Enrolled-host delivery' (its retry and timeouts paragraph, the refresh push) under proposal enrolled-host-refresh-push, plan central-credential-service, epic overseer-iyfjbo; work item overseer-r7pymu owns landing it."
+    "test": "tests.integration.test_delivery_push.test_a_reachable_host_holding_the_current_delivery_stays_current_between_deliveries",
+    "reason": "Integration-tier: drives the push service's due-host selection against a real push record. A listed host that applied the current delivery and whose last successful push is older than half of delivery.stale_after is re-pushed that same delivery. Its already-holds answer is recorded as a successful push, and the status command then reads the host as current rather than stale past delivery.stale_after."
   }
 ]
