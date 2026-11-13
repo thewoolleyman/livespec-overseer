@@ -448,6 +448,100 @@ def test_herdr_relaunch_retries_a_dropped_first_submit_without_rebinding_early(
     assert rebinds == [tmux.native[0][0]]
 
 
+def test_herdr_relaunch_retries_a_buffered_paste_with_enter_only(
+    *, monkeypatch, tmp_path: Path
+) -> None:
+    """A composer that draws a buffered paste late must not authorize another paste."""
+    entrypoint = importlib.import_module("out_of_band_relaunch")
+
+    class BufferedPasteTmux:
+        def __init__(self) -> None:
+            self.pastes = 0
+            self.enter_attempts = 0
+
+        def submit_prompt_once(
+            self, *, session: str, text: str, expect_codex: bool, sleep: object
+        ) -> tuple[bool, bool]:
+            del session, text, expect_codex, sleep
+            self.pastes += 1
+            # Herdr has accepted the paste, but Claude has not yet drawn it.
+            return False, False
+
+        def retry_prompt_enter_once(
+            self, *, session: str, text: str, sleep: object
+        ) -> tuple[bool, bool]:
+            del session, text, sleep
+            self.enter_attempts += 1
+            # The delayed composer read finally reveals the first buffered paste.
+            return (self.enter_attempts == 3, False)
+
+    coordinate = herdr_identity.encode_herdr_target(
+        target=herdr_identity.HerdrPaneTarget(
+            socket_path="/run/herdr-test.sock",
+            server_pid=41,
+            server_starttime="777",
+            pane_id="w1:p1",
+        )
+    )
+    tmux = BufferedPasteTmux()
+    sup = SimpleNamespace(tmux=tmux, sleep=lambda _seconds: None, log=lambda **_kwargs: None)
+
+    assert entrypoint.submit_prompt(
+        sup=sup,
+        target=coordinate,
+        text="resume",
+        retry_native=True,
+    )
+    assert tmux.pastes == 1
+    assert tmux.enter_attempts == 3
+
+
+def test_herdr_relaunch_never_replays_a_buffered_paste_when_enters_exhaust(
+    *, monkeypatch, tmp_path: Path
+) -> None:
+    """An unconfirmed buffered paste still leaves only its first copy in the composer."""
+    entrypoint = importlib.import_module("out_of_band_relaunch")
+
+    class BufferedPasteTmux:
+        def __init__(self) -> None:
+            self.pastes = 0
+            self.enter_attempts = 0
+
+        def submit_prompt_once(
+            self, *, session: str, text: str, expect_codex: bool, sleep: object
+        ) -> tuple[bool, bool]:
+            del session, text, expect_codex, sleep
+            self.pastes += 1
+            return False, False
+
+        def retry_prompt_enter_once(
+            self, *, session: str, text: str, sleep: object
+        ) -> tuple[bool, bool]:
+            del session, text, sleep
+            self.enter_attempts += 1
+            return False, False
+
+    coordinate = herdr_identity.encode_herdr_target(
+        target=herdr_identity.HerdrPaneTarget(
+            socket_path="/run/herdr-test.sock",
+            server_pid=41,
+            server_starttime="777",
+            pane_id="w1:p1",
+        )
+    )
+    tmux = BufferedPasteTmux()
+    sup = SimpleNamespace(tmux=tmux, sleep=lambda _seconds: None, log=lambda **_kwargs: None)
+
+    assert not entrypoint.submit_prompt(
+        sup=sup,
+        target=coordinate,
+        text="resume",
+        retry_native=True,
+    )
+    assert tmux.pastes == 1
+    assert tmux.enter_attempts == SUBMIT_MAX_ENTERS - 1
+
+
 def test_relaunch_requires_a_ready_input_box_before_submitting_resume(
     *, monkeypatch, tmp_path: Path
 ) -> None:
