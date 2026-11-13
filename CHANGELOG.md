@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.55.9](https://github.com/thewoolleyman/livespec-overseer/compare/v5.55.8...v5.55.9) (2026-11-13)
+
+
+### Bug Fixes
+
+* bound, validate and type-align delivery refresh pushes (overseer-r7pymu) ([0757cb0](https://github.com/thewoolleyman/livespec-overseer/commit/0757cb0be59f99ebb4a79229381d05b2d12bb991))
+* re-push a held delivery so a reachable host stays current between deliveries (overseer-r7pymu) ([46ecc79](https://github.com/thewoolleyman/livespec-overseer/commit/46ecc79ddb7e913f15d3ed63714d5b7635ba2b4e))
+
 ## [5.55.8](https://github.com/thewoolleyman/livespec-overseer/compare/v5.55.7...v5.55.8) (2026-11-13)
 
 
