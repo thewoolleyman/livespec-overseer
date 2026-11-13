@@ -43,6 +43,7 @@ class PendingDelivery:
     paste_unconfirmed: bool
     bands: list[int]
     compaction_latched_at: float | None
+    round_at: float | None
 
 
 def clear(*, state: InjectState) -> None:
@@ -51,6 +52,7 @@ def clear(*, state: InjectState) -> None:
     state.pending_wrapup_since = None
     state.pending_wrapup_bands = ()
     state.pending_wrapup_compaction_latched_at = None
+    state.pending_wrapup_round_at = None
 
 
 def remember(
@@ -60,12 +62,14 @@ def remember(
     since: float,
     bands: list[int],
     compaction_latched_at: float | None,
+    round_at: float | None,
 ) -> None:
     """Retain only this daemon process's authority to complete one wrap-up submit."""
     state.pending_wrapup_text = text
     state.pending_wrapup_since = since
     state.pending_wrapup_bands = tuple(bands)
     state.pending_wrapup_compaction_latched_at = compaction_latched_at
+    state.pending_wrapup_round_at = round_at
 
 
 def record_delivery(
@@ -84,6 +88,7 @@ def record_delivery(
         since=sup.now(),
         bands=delivery.bands,
         compaction_latched_at=delivery.compaction_latched_at,
+        round_at=delivery.round_at,
     )
 
 
@@ -92,6 +97,7 @@ def _round_still_authorizes(*, obs: Observation, state: InjectState) -> bool:
         obs.round_record.at is not None
         and obs.round_record.session_identity is not None
         and obs.round_record.session_identity == obs.session_identity
+        and obs.round_record.at == state.pending_wrapup_round_at
         and state.pending_wrapup_text is not None
     )
 

@@ -182,6 +182,9 @@ class InjectState:
     pending_wrapup_since: float | None = None
     pending_wrapup_bands: tuple[int, ...] = ()
     pending_wrapup_compaction_latched_at: float | None = None
+    # The ``at`` of the round the payload was pasted for: Enter authority belongs to THAT
+    # round, so a later round opened on the same pane never revives a stale payload.
+    pending_wrapup_round_at: float | None = None
 
 
 @dataclass(frozen=True, kw_only=True)

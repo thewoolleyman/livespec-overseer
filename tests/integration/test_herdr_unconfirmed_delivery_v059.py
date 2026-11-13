@@ -356,6 +356,35 @@ def test_a_retained_wrapup_never_retries_after_its_round_closes(*, tmp_path, mon
     assert retries == []
 
 
+def test_a_retained_wrapup_never_retries_into_a_later_round(*, tmp_path, monkeypatch):
+    """The payload is bound to the round it was pasted for, not to any open round."""
+    repo, topic, session, sup, track, clock, _fake = _retained_wrapup(
+        tmp_path=tmp_path, monkeypatch=monkeypatch
+    )
+    launch = importlib.import_module("_supervisor_launch")
+    retries: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        launch,
+        "retry_prompt_enter_once",
+        lambda **kwargs: retries.append(kwargs) or (True, False),
+    )
+    first = registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+    registry.clear_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+    clock["t"] += 5
+    registry.write_injection_stamp(
+        repo=str(repo),
+        topic=topic,
+        ts=clock["t"],
+        session_identity=first.session_identity,
+        stamp_path=sup.stamp_path,
+    )
+
+    sup.evaluate(track=track, act=True)
+
+    assert retries == []
+    assert sup.inject[(str(repo), topic)].pending_wrapup_text is None
+
+
 def test_a_retained_wrapup_never_retries_after_pane_identity_changes(*, tmp_path, monkeypatch):
     repo, topic, session, sup, track, _clock, fake = _retained_wrapup(
         tmp_path=tmp_path, monkeypatch=monkeypatch
