@@ -244,8 +244,11 @@ track_is_adopted() {
 stage_adoption() {
   wait_until "$ADOPTION_TIMEOUT" track_is_adopted || fail_stage adoption \
     "the daemon's own snapshot never bound '$topic' to claude:$predecessor:$topic within ${ADOPTION_TIMEOUT}s (snapshot said '$(snapshot_row session_identity)')"
+  tracked_pane="$(snapshot_row tmux)"
+  [[ -n "$tracked_pane" ]] || fail_stage adoption \
+    "the daemon bound '$topic' to its Claude identity but reported no retained pane"
   pass_stage adoption \
-    "the daemon's snapshot binds $topic to claude:$predecessor:$topic at $(snapshot_row tmux)"
+    "the daemon's snapshot binds $topic to claude:$predecessor:$topic at $tracked_pane"
 }
 
 wrapup_round_is_open() {
@@ -281,7 +284,8 @@ stage_declaration() {
 
 successor_is_bound() {
   successor="$(snapshot_row session_identity)"
-  [[ "$successor" == claude:* ]] && [[ "$successor" != "claude:$predecessor:$topic" ]]
+  [[ "$successor" == claude:* ]] && [[ "$successor" != "claude:$predecessor:$topic" ]] && \
+    [[ "$(snapshot_row tmux)" == "$tracked_pane" ]]
 }
 
 stage_replacement() {
@@ -306,6 +310,7 @@ stage_continuation() {
 
 predecessor=""
 successor=""
+tracked_pane=""
 : "${OVERSEER_EXERCISE_EPIC:=overseer-exercise-epic}"
 : "${HERDR_SOCKET_PATH:=$HOME/.config/herdr/sessions/$instance/herdr.sock}"
 
