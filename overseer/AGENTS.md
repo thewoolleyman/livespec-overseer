@@ -1369,8 +1369,11 @@ for the marker's edge-triggered lifecycle.
   region (`input_settled`), and the pre-paste recheck compares only identity,
   declaration/ACK, gate, human-wait and input (`_input_authorization_changed`), so a
   change in busy evidence alone never cancels it. Typed input, a gate, a human wait or
-  a standing declaration still holds the paste. A busy Codex session cannot prove an
-  empty composer, so it is withheld and surfaced
+  a standing declaration still holds the paste. A busy Codex session proves an empty
+  composer only from its styled `›` row immediately above the statusline: every
+  non-blank glyph after `›` must remain inside an SGR-2 (dim) span. Its rotating
+  placeholder words are not evidence, and ANSI background colors are permitted. An
+  undimmed, malformed, or unavailable styled row is withheld and surfaced
   (`codex-busy-wrapup-withheld`). The RESTART keeps every no-busy gate: winding down,
   including stopping background work, is the session's job before it declares
   `ready`. Separately, an un-rounded `ready` on a track that owes a wind-down is

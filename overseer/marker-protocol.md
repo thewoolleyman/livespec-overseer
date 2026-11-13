@@ -137,13 +137,18 @@ typed input, an open picker or structured gate, a runtime-reported human wait,
 unknown/ambiguous identity or input evidence. Claude needs a positively available
 input box (empty, or a generated placeholder proven by its dim terminal styling);
 for a busy pane the settle compares that INPUT region across the two captures, not
-the whole pane. Codex cannot tell its empty placeholder from typed text, so an IDLE
-Codex session's structural prompt and statusline are its proof of an empty
-composer, and a BUSY Codex session has none: its wrap-up is withheld and the row
-says `wrap-up withheld: busy Codex composer cannot be proven empty`. Immediately
-before opening the round the daemon re-reads the pane identity, declaration/ACK,
-gate, human-wait and input state; for a busy pane a change in busy evidence alone
-(the capture, the spinner, the registry's busy/shell status) does not cancel it.
+the whole pane. Codex's ANSI-stripped capture cannot tell its empty placeholder from
+typed text, but its styled composer can: an IDLE Codex session's structural prompt
+and statusline prove an empty composer, while a BUSY one needs the live `›` composer
+row immediately above the statusline, with every non-blank glyph after `›` inside an
+SGR-2 (dim) span. The placeholder words rotate, so their styling — not their text —
+is the evidence; background-color SGR sequences are allowed. An undimmed, malformed,
+or unavailable styled composer is not positive evidence: its wrap-up is withheld and
+the row says `wrap-up withheld: busy Codex composer cannot be proven empty`.
+Immediately before opening the round the daemon re-reads the pane identity,
+declaration/ACK, gate, human-wait and input state; for a busy pane a change in busy
+evidence alone (the capture, the spinner, the registry's busy/shell status) does not
+cancel it.
 
 The RESTART is untouched by any of this: a `ready` still restarts a session only
 under the restart interlock's own no-busy gates, so a busy session that declares
