@@ -4579,6 +4579,70 @@ And no further hold event is journaled while the reading stays below the floor
 When a later reading shows 30 GiB available and pressure 0.4
 Then the daemon journals the release and performs the replacement through the ordinary restart interlock
 
+## Scenario: A topic live on one machine is not bound on another
+
+Given plan topic T's live-seat record names machine M1 and a seat there
+
+And the daemon on machine M2 discovers a live local session for topic T
+
+When the daemon on M2 observes the track
+
+Then it does not bind, replace, keystroke or terminate the M2 session
+
+And it journals one `live-seat-held-elsewhere` event naming T, M1 and M2
+
+And the record still names M1
+
+## Scenario: A stopped machine's live-seat record is not taken over by time
+
+Given plan topic T's live-seat record names machine M1
+
+And machine M1's daemon has stopped for longer than any supervision interval
+
+And a session for topic T is started on machine M2
+
+When the daemon on M2 observes the track
+
+Then it does not bind the M2 session
+
+And the record still names M1
+
+When an operator releases T's record with an attributed release naming T and M1
+
+Then the daemon on M2 takes the record and binds the M2 session
+
+## Scenario: A ready seat is held while its live-seat record cannot be verified
+
+Given a supervised seat on machine M1 holds plan topic T's live-seat record and has declared a certifiable `ready`
+
+And the ledger cannot be reached from M1
+
+When the daemon on M1 would start the replacement
+
+Then it does not terminate, respawn or keystroke the session
+
+And the `ready` declaration and the open round are preserved
+
+And it journals one `live-seat-unverifiable` event naming T
+
+And the seat's context reading continues to be observed
+
+When the ledger is reachable again and the record still names M1
+
+Then the replacement proceeds through the ordinary restart interlock
+
+## Scenario: A seat moved between machines is bound only after the old seat releases
+
+Given plan topic T's live-seat record names machine M1 and its live seat there
+
+When the M1 seat exits and is not being replaced
+
+Then the daemon on M1 releases T's record
+
+When a session for T is then started on machine M2
+
+Then the daemon on M2 takes the record and binds the M2 session
+
 ## Scenario: A confirmed fresh Codex successor is reported for its launch pane and proven without a rollout file
 
 Given a Codex track on a terminal backend that accepts agent-session reports, whose fresh ready declaration authorized a guarded replacement
