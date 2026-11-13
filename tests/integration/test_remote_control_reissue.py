@@ -1,10 +1,14 @@
 """Remote Control re-issue after a pushed account switch (overseer-fdwat6).
 
 Each scenario runs the script the way the push loop does, `python3 - < file`,
-against a stub `tmux` on PATH, and again in-process for coverage. Screens are
-built from REAL `tmux capture-pane -p -J` captures of Claude Code 2.1.322's
+against a stub `tmux` and `ps` on PATH, and again in-process for coverage.
+Screens are built from REAL `tmux capture-pane -p -J` captures of Claude Code's
 input box (tests/fixtures/claude_2.1.322_input_*.txt) with the account-changed
-notice placed in the forms the 2.1.322 binary renders it in.
+notice placed in the two forms a real account switch showed under Claude Code
+2.1.323 (spec v099, contracts.md "Remote Control re-issue"): the transcript line
+behind `●`, and the footer status `/rc failed`. A pane is Claude Code by the
+executable its foreground process runs, because tmux reports 2.1.323's current
+command as its version number.
 """
 
 from __future__ import annotations
@@ -31,14 +35,27 @@ NOTICE = FIXTURE["notice"]
 FULL = NOTICE + FIXTURE["notice_rest"]
 EMPTY = (FIXTURES / FIXTURE["input_captures"]["empty"]).read_text(encoding="utf-8")
 DRAFT = (FIXTURES / FIXTURE["input_captures"]["draft"]).read_text(encoding="utf-8")
-TRANSCRIPT = f"  ⎿  {FIXTURE['transcript_prefix']}{FULL}"
-FOOTER = f"  {FIXTURE['footer_prefix']}{FULL}"
+MARK = FIXTURE["transcript_mark"]
+TRANSCRIPT = f"{MARK} {FIXTURE['transcript_prefix']}{FULL}"
+LEGACY_TRANSCRIPT = f"  ⎿  {FIXTURE['transcript_prefix']}{FULL}"
+FOOTER = f"  {FIXTURE['footer_status']}"
 NARROW = textwrap.wrap(
     f"{FIXTURE['transcript_prefix']}{FULL}",
     width=48,
-    initial_indent="  ⎿  ",
-    subsequent_indent="     ",
+    initial_indent=f"{MARK} ",
+    subsequent_indent="  ",
 )
+VERSIONS = Path.home() / ".local/share/claude/versions"
+CLAUDE_EXE = f"{VERSIONS / FIXTURE['claude_code_version']} --dangerously-skip-permissions"
+# What ps shows on a pane's tty, as (stat, args): `+` marks the foreground group.
+PROCS = {
+    "claude": [["Ss", "-zsh"], ["Sl+", CLAUDE_EXE]],
+    "claude-on-path": [["Ss", "-zsh"], ["Sl+", "claude --resume"]],
+    "zsh": [["Ss+", "-zsh"]],
+    "less": [["Ss", "-zsh"], ["S+", "less notes.txt"]],
+    "claude-stopped": [["Ss+", "-zsh"], ["T", CLAUDE_EXE]],
+    "lookalike": [["Ss", "-zsh"], ["S+", "/opt/tools/claude-wrapper/run"]],
+}
 
 STUB = """#!/usr/bin/env python3
 import json, os, sys
@@ -47,7 +64,8 @@ args = sys.argv[1:]
 if state.get("no_server"):
     sys.exit(1)
 if args[0] == "list-panes":
-    print("\\n".join(f"{p['id']} {p['cmd']} {p['mode']}" for p in state["panes"]))
+    assert "#{pane_current_command}" not in args[-1]
+    print("\\n".join(f"{p['id']} {p['tty']} {p['mode']}" for p in state["panes"]))
 elif args[0] == "capture-pane":
     assert "-J" in args
     pane = next(p for p in state["panes"] if p["id"] == args[-1])
@@ -57,6 +75,17 @@ elif args[0] == "capture-pane":
 else:
     with open(os.environ["STUB_TMUX_LOG"], "a") as log:
         log.write(json.dumps(args) + "\\n")
+"""
+
+
+PS_STUB = """#!/usr/bin/env python3
+import json, os, sys
+state = json.load(open(os.environ["STUB_TMUX_STATE"]))
+tty = sys.argv[sys.argv.index("-t") + 1]
+pane = next((p for p in state["panes"] if p["tty"].removeprefix("/dev/") == tty), None)
+if pane is None or pane["procs"] is None:
+    sys.exit(1)
+print("\\n".join(f"{stat} {args}" for stat, args in pane["procs"]))
 """
 
 
@@ -93,7 +122,15 @@ def _rc() -> ModuleType:
 
 
 def _pane(*, pane: str, screen: str | None, cmd: str = "claude", mode: str = "0") -> dict:
-    return {"id": pane, "cmd": cmd, "mode": mode, "screen": screen}
+    """A pane whose foreground process is `cmd` (a PROCS key, or "ps-fails")."""
+    procs = None if cmd == "ps-fails" else PROCS[cmd]
+    return {
+        "id": pane,
+        "tty": f"/dev/pts/{pane[1:]}",
+        "mode": mode,
+        "screen": screen,
+        "procs": procs,
+    }
 
 
 def _run(
@@ -103,6 +140,9 @@ def _run(
     stub.parent.mkdir(exist_ok=True)
     _ = stub.write_text(STUB, encoding="utf-8")
     stub.chmod(0o755)
+    ps_stub = tmp_path / "bin" / "ps"
+    _ = ps_stub.write_text(PS_STUB, encoding="utf-8")
+    ps_stub.chmod(0o755)
     _ = (tmp_path / "state.json").write_text(json.dumps(state), encoding="utf-8")
     log = tmp_path / "sent.log"
     env = {
@@ -136,9 +176,61 @@ SCENARIOS = {
         [_pane(pane="%1", screen=_above_input(capture=EMPTY, lines=[TRANSCRIPT]))],
         ["%1"],
     ),
-    "footer notice, empty input": (
+    "the 2.1.322 transcript mark is still recognized": (
+        [_pane(pane="%24", screen=_above_input(capture=EMPTY, lines=[LEGACY_TRANSCRIPT]))],
+        ["%24"],
+    ),
+    "footer status /rc failed, empty input": (
         [_pane(pane="%2", screen=_below_input(capture=EMPTY, lines=[FOOTER]))],
         ["%2"],
+    ),
+    "footer status among other footer items": (
+        [
+            _pane(
+                pane="%25",
+                screen=_below_input(
+                    capture=EMPTY,
+                    lines=["  ⏵⏵ bypass permissions on (shift+tab to cycle) · /rc failed"],
+                ),
+            )
+        ],
+        ["%25"],
+    ),
+    "a footer word that only starts like the status": (
+        [_pane(pane="%26", screen=_below_input(capture=EMPTY, lines=["  /rc failedover"]))],
+        [],
+    ),
+    "claude started from PATH as `claude`": (
+        [
+            _pane(
+                pane="%27",
+                screen=_above_input(capture=EMPTY, lines=[TRANSCRIPT]),
+                cmd="claude-on-path",
+            )
+        ],
+        ["%27"],
+    ),
+    "claude stopped in the background behind its shell": (
+        [
+            _pane(
+                pane="%28",
+                screen=_above_input(capture=EMPTY, lines=[TRANSCRIPT]),
+                cmd="claude-stopped",
+            )
+        ],
+        [],
+    ),
+    "an executable whose path merely mentions claude": (
+        [
+            _pane(
+                pane="%29", screen=_above_input(capture=EMPTY, lines=[TRANSCRIPT]), cmd="lookalike"
+            )
+        ],
+        [],
+    ),
+    "ps cannot read the pane's tty": (
+        [_pane(pane="%30", screen=_above_input(capture=EMPTY, lines=[TRANSCRIPT]), cmd="ps-fails")],
+        [],
     ),
     "notice with an unsubmitted draft in the input box": (
         [_pane(pane="%3", screen=_above_input(capture=DRAFT, lines=[TRANSCRIPT]))],
@@ -288,13 +380,8 @@ SCENARIOS = {
         ],
         [],
     ),
-    "the footer form quoted in the transcript": (
-        [
-            _pane(
-                pane="%22",
-                screen=_above_input(capture=EMPTY, lines=[f"  {FIXTURE['footer_prefix']}{FULL}"]),
-            )
-        ],
+    "the footer status quoted in the transcript": (
+        [_pane(pane="%22", screen=_above_input(capture=EMPTY, lines=[FOOTER]))],
         [],
     ),
     "input box with no top rule": (
@@ -316,7 +403,7 @@ def test_the_module_pins_the_version_notice_and_forms() -> None:
     expected = (
         FIXTURE["claude_code_version"],
         NOTICE,
-        (FIXTURE["transcript_prefix"], FIXTURE["footer_prefix"]),
+        (FIXTURE["transcript_prefix"], FIXTURE["footer_status"]),
     )
     assert pinned == expected
 
@@ -356,10 +443,15 @@ def test_no_tmux_server_touches_nothing(
     assert _run(tmp_path=tmp_path, monkeypatch=monkeypatch, mode=mode, state=state) == ([], [])
 
 
+def _fake_ps(*, tty: str) -> str | None:
+    assert tty.startswith("/dev/pts/")
+    return "\n".join(f"{stat} {args}" for stat, args in PROCS["claude"])
+
+
 def _fake_tmux(*, screen: str, sent: list[tuple[str, ...]]) -> Callable[..., str | None]:
     def tmux(*args: str) -> str | None:
         if args[0] == "list-panes":
-            return "%1 claude 0"
+            return "%1 /dev/pts/1 0"
         if args[0] == "capture-pane":
             return screen
         sent.append(args)
@@ -375,14 +467,15 @@ def test_every_pane_width_from_20_to_199_reissues_exactly_once() -> None:
         lines = textwrap.wrap(
             f"{FIXTURE['transcript_prefix']}{FULL}",
             width=width,
-            initial_indent="  ⎿  ",
-            subsequent_indent="     ",
+            initial_indent=f"{MARK} ",
+            subsequent_indent="  ",
             # Ink's wrap-ansi breaks only at spaces, never after a hyphen.
             break_on_hyphens=False,
         )
         sent: list[tuple[str, ...]] = []
         screen = _above_input(capture=EMPTY, lines=lines)
-        if rc.reissue(tmux=_fake_tmux(screen=screen, sent=sent)) != ["%1"] or len(sent) != 2:
+        tmux = _fake_tmux(screen=screen, sent=sent)
+        if rc.reissue(tmux=tmux, ps=_fake_ps) != ["%1"] or len(sent) != 2:
             missed.append(width)
     assert missed == []
 
@@ -391,9 +484,9 @@ def test_failed_send_is_not_reported() -> None:
     screen = _above_input(capture=EMPTY, lines=[TRANSCRIPT])
 
     def tmux(*args: str) -> str | None:
-        return {"list-panes": "%1 claude 0", "capture-pane": screen}.get(args[0])
+        return {"list-panes": "%1 /dev/pts/1 0", "capture-pane": screen}.get(args[0])
 
-    assert _rc().reissue(tmux=tmux) == []
+    assert _rc().reissue(tmux=tmux, ps=_fake_ps) == []
 
 
 def test_run_tmux_maps_hang_or_missing_binary_to_none(*, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -404,3 +497,66 @@ def test_run_tmux_maps_hang_or_missing_binary_to_none(*, monkeypatch: pytest.Mon
 
     monkeypatch.setattr(rc.subprocess, "run", run)
     assert rc._run_tmux("-V") is None
+    assert rc._run_ps(tty="/dev/pts/1") is None
+
+
+def test_run_ps_reads_the_tty_without_its_dev_prefix(*, monkeypatch: pytest.MonkeyPatch) -> None:
+    rc = _rc()
+    seen: list[list[str]] = []
+
+    def run(argv: list[str], **_k: object) -> subprocess.CompletedProcess[str]:
+        seen.append(argv)
+        return subprocess.CompletedProcess(argv, 0, stdout="S+ claude\n", stderr="")
+
+    monkeypatch.setattr(rc.subprocess, "run", run)
+    assert rc._run_ps(tty="/dev/pts/7") == "S+ claude\n"
+    assert seen == [["ps", "-o", "stat=,args=", "-t", "pts/7"]]
+
+
+def _live(*, home: Path, token: str, account: str) -> None:
+    for path, body in (
+        (
+            home / ".claude/.credentials.json",
+            {"claudeAiOauth": {"accessToken": token, "expiresAt": 9_999_999_999_000}},
+        ),
+        (home / ".claude.json", {"oauthAccount": {"accountUuid": account}, "userID": "u"}),
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _ = path.write_text(json.dumps(body), encoding="utf-8")
+
+
+def test_the_role_holder_reissues_once_per_switch_even_when_no_delivery_is_issued(
+    *, tmp_path: Path
+) -> None:
+    """Spec v099: the role holder re-issues after the rotation switches its live login.
+
+    The coordinator's grade of #2990 (2026-11-13) has the service fire on EITHER
+    event: the switch of the live account, or a delivery naming a different
+    account, once for that switch. A switch whose account confirmation fails
+    issues no delivery, and before this rework re-issued nothing until a later
+    retry succeeded.
+    """
+    entry = importlib.import_module("caam_delivery_push_entry")
+    ran: list[str] = []
+
+    def local(**kwargs: str) -> str:
+        ran.append(kwargs["script"])
+        return "ok"
+
+    loop = entry.PushLoop()
+    _live(home=tmp_path, token="tok-" + "s1", account="acct-1")
+    entry.run_once(
+        home=tmp_path, now=1.0, loop=loop, confirm=lambda **_: "acct-1", reissue="RC", local=local
+    )
+    assert ran == []
+    _live(home=tmp_path, token="tok-" + "s2", account="acct-2")
+    entry.run_once(
+        home=tmp_path, now=2.0, loop=loop, confirm=lambda **_: None, reissue="RC", local=local
+    )
+    assert ran == ["RC"]
+    assert loop.last is not None and loop.last.account_id == "acct-1"
+    entry.run_once(
+        home=tmp_path, now=500.0, loop=loop, confirm=lambda **_: "acct-2", reissue="RC", local=local
+    )
+    assert loop.last.account_id == "acct-2"
+    assert ran == ["RC"]

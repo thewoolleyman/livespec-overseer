@@ -1,10 +1,12 @@
 {
-  "claude_code_version": "2.1.322",
-  "source": "Claude Code 2.1.322 binary strings: the notice rendered when the signed-in account changes under a running session on a pushed credential, and the two forms it appears in",
+  "claude_code_version": "2.1.323",
+  "source": "A real account switch under Claude Code 2.1.323, run on the credential-rotation role holder 2026-11-13T04:13:26Z-04:15:23Z (anthropic-3 then anthropic-6, access tokens only, maintainer-approved via caam-anthropic-loop-runner), transcribed verbatim on epic overseer-iyfjbo (handoff 2026-11-13T05:25:09Z): the transcript line behind the mark, the footer status, and tmux's current command for the pane. The raw tmux capture-pane -p -J files from that run were lost with its session scratchpad; a real full-pane capture is owed as a fixture by spec v099 and awaits a fresh approval.",
   "notice": "signed-in claude.ai account or organization changed on this machine — run /remote-control",
   "notice_rest": " to start a session for the current account, or /login to switch back, then /remote-control",
+  "transcript_mark": "●",
   "transcript_prefix": "Remote Control disconnected — ",
-  "footer_prefix": "Remote Control failed · ",
+  "footer_status": "/rc failed",
+  "pane_current_command": "2.1.323",
   "input_captures": {
     "empty": "claude_2.1.322_input_empty.txt",
     "draft": "claude_2.1.322_input_draft.txt",
