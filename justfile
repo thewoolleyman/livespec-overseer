@@ -300,6 +300,20 @@ check:
         # a shipped durable-artifact reader must have a non-test producer.
         check-report-only-artifact-producers
     )
+    # `check-targets.txt` is this aggregate's inventory: the same members, in the
+    # same order, carrying the purity and `incident-timing` declarations that the
+    # green-token reader and livespec-dev-tooling's expedited incident hooks read.
+    # The shared checks (`check-aggregate-completeness` among them) read that file
+    # in place of this array, so the two MUST NOT drift: refuse to run when they
+    # differ, as livespec-dev-tooling's own aggregate does.
+    mapfile -t inventory_targets < <(
+        sed -E 's/[[:space:]]*#.*$//; s/^[[:space:]]+//; s/[[:space:]]+$//' check-targets.txt | grep -v '^$'
+    )
+    if [[ "${inventory_targets[*]}" != "${targets[*]}" ]]; then
+        echo "ERROR: check-targets.txt does not list exactly this aggregate's targets, in order" >&2
+        diff <(printf '%s\n' "${targets[@]}") <(printf '%s\n' "${inventory_targets[@]}") >&2
+        exit 1
+    fi
     # A matching green token may stand in only for members whose declarations
     # prove their verdict is decided by the committed tree. Refuse to run an
     # aggregate with a missing declaration: treating it as world-reading is
