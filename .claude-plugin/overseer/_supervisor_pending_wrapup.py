@@ -19,6 +19,7 @@ __all__: list[str] = [
     "PendingDelivery",
     "PendingWrapupDecision",
     "clear",
+    "pending_alert_conditions",
     "record_delivery",
     "remember",
     "retry_decision",
@@ -99,6 +100,44 @@ def _status(*, obs: Observation) -> str:
     return "danger" if obs.eff_ctx is not None and obs.eff_ctx <= DANGER_CTX_REMAINING else "warned"
 
 
+def pending_alert_conditions(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    obs: Observation,
+    session: str,
+    target: str,
+    act: bool,
+) -> set[str]:
+    """Raise the pending-composer event for a retained payload, whatever the pane is doing.
+
+    Alerting is not the Enter retry: the retry stays blocked in a busy or gated pane,
+    but a daemon payload sitting unsubmitted past ``_ALERT_AFTER_SECONDS`` is owed an
+    event regardless, once on entry and re-armed when the payload leaves the composer.
+    """
+    state = obs.istate
+    text = state.pending_wrapup_text
+    since = state.pending_wrapup_since
+    pending_long_enough = since is not None and sup.now() - since >= _ALERT_AFTER_SECONDS
+    if (
+        text is None
+        or not act
+        or not pending_long_enough
+        or not _round_still_authorizes(obs=obs, state=state)
+        or not _supervisor_launch.retained_prompt_visible(sup=sup, target=target, text=text)
+    ):
+        return set()
+    sup.alert(
+        repo=track.repo,
+        topic=track.topic,
+        session=session,
+        pane=target,
+        message="its own wrap-up is pending in the composer",
+        condition=_ALERT_CONDITION,
+    )
+    return {_ALERT_CONDITION}
+
+
 def retry_decision(
     *,
     sup: Supervisor,
@@ -129,20 +168,13 @@ def retry_decision(
         # the edge that re-arms the pending-composer alert and spends no new input.
         return PendingWrapupDecision(status=_status(obs=obs), active_conditions=set())
 
-    active_conditions: set[str] = set()
-    since = state.pending_wrapup_since
-    if since is not None and sup.now() - since >= _ALERT_AFTER_SECONDS:
-        sup.alert(
-            repo=track.repo,
-            topic=track.topic,
-            session=session,
-            pane=target,
-            message="its own wrap-up is pending in the composer",
-            condition=_ALERT_CONDITION,
-        )
-        active_conditions.add(_ALERT_CONDITION)
-    if obs.busy or obs.gate:
-        return PendingWrapupDecision(status=None, active_conditions=active_conditions)
+    # The over-ten-minutes event is NOT raised here: this call is reached only after the
+    # busy/gate cascade declined the track, so `pending_alert_conditions` raises it from
+    # the evaluator's prologue instead and this decision carries no conditions.
+    # The same two-capture settle every guarded paste takes: an Enter into a composer
+    # whose pane is still rendering could submit a half-drawn frame.
+    if obs.busy or obs.gate or not _supervisor_launch.pane_settled(sup=sup, target=target):
+        return PendingWrapupDecision(status=None, active_conditions=set())
 
     submitted, _effect_unknown = _supervisor_launch.retry_prompt_enter_once(
         sup=sup, target=target, text=text
@@ -160,4 +192,4 @@ def retry_decision(
     elif not _supervisor_launch.retained_prompt_visible(sup=sup, target=target, text=text):
         clear(state=state)
         return None
-    return PendingWrapupDecision(status=_status(obs=obs), active_conditions=active_conditions)
+    return PendingWrapupDecision(status=_status(obs=obs), active_conditions=set())
