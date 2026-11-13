@@ -4697,6 +4697,22 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: The host list and the service stores hold no credential material",
+    "test": "TODO",
+    "work_item": "overseer-aj577z",
+    "reason": "An integration-tier test is owed for this heading, ratified for spec.md 'Least privilege' under enrolled-host delivery by ssh push (proposal enrolled-host-reissue-trigger-and-least-privilege-scenarios, plan central-credential-service, epic overseer-iyfjbo); work item overseer-aj577z owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The role key is readable only by the role holder's operating user",
+    "test": "TODO",
+    "work_item": "overseer-aj577z",
+    "reason": "An integration-tier test is owed for this heading, ratified for spec.md 'Least privilege' under enrolled-host delivery by ssh push (proposal enrolled-host-reissue-trigger-and-least-privilege-scenarios, plan central-credential-service, epic overseer-iyfjbo); work item overseer-aj577z owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A Codex successor launch disables Codex's startup update check",
     "test": "TODO",
     "work_item": "overseer-dd5qus",

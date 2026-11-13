@@ -6008,6 +6008,24 @@ And on its next push or retry to that host the service records that result as th
 
 And neither the result file nor the status command's output contains credential material
 
+## Scenario: The host list and the service stores hold no credential material
+
+Given a role holder whose host list names a listed host
+
+When the service issues a delivery and pushes it to that host
+
+Then neither the host list, the delivery-sequence counter nor the push state contains the delivered access token or any refresh token
+
+## Scenario: The role key is readable only by the role holder's operating user
+
+Given the delivery service is installed on the role holder
+
+When it pushes a delivery to a listed host
+
+Then the role key file grants no access to any user but the role holder's operating user
+
+And the status command's output contains no credential material
+
 ## Scenario: A silent enrolled host is reported as stale
 
 Given a converted listed host whose last-applied delivery has not expired and which has had no successful push within `delivery.stale_after`

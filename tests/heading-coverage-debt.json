@@ -2410,6 +2410,20 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: The host list and the service stores hold no credential material",
+    "work_item": "overseer-aj577z",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The role key is readable only by the role holder's operating user",
+    "work_item": "overseer-aj577z",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A push refuses to overwrite a host's own login",
     "work_item": "overseer-aj577z",
     "first_seen": "2026-11-13"
