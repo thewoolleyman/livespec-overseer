@@ -429,8 +429,19 @@ def test_entry_seams_and_main(  # noqa: PLR0915 - one end-to-end scenario per te
     push = importlib.import_module("caam_delivery_push")
     entry = importlib.import_module("caam_delivery_push_entry")
     probe = "t"
-    monkeypatch.setattr(entry, "get_json", lambda **_: ({"account_uuid": "acct"}, None))
+    # The provider's real profile body nests the identifier as `account.uuid`
+    # (measured on the role holder 2026-11-13, overseer-4ji2n4); a top-level
+    # `account_uuid` is not part of it and must not confirm anything.
+    profile = {
+        "account": {"uuid": "acct", "has_claude_max": True},
+        "organization": {"uuid": "org", "rate_limit_tier": "default_claude_max_20x"},
+    }
+    monkeypatch.setattr(entry, "get_json", lambda **_: (profile, None))
     assert entry.confirm_live_account(access_token=probe) == "acct"
+    monkeypatch.setattr(entry, "get_json", lambda **_: ({"account_uuid": "acct"}, None))
+    assert entry.confirm_live_account(access_token=probe) is None
+    monkeypatch.setattr(entry, "get_json", lambda **_: ({"account": "acct"}, None))
+    assert entry.confirm_live_account(access_token=probe) is None
     monkeypatch.setattr(entry, "get_json", lambda **_: (None, "HTTP 401 for t"))
     assert entry.confirm_live_account(access_token=probe) is None
     assert "[redacted]" in capsys.readouterr().err
