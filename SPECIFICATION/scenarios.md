@@ -5009,11 +5009,23 @@ Then any switch it makes is the explicit rotate-now request and not a drain
 
 ## Scenario: The account table shows each account's resets
 
-Given an account holds one reset that clears its short-window and weekly windows, with one use remaining, lapsing in eight days
+Given an account holds two resets with one use remaining each, one lapsing in five days and four hours and the other in eight days
 
 When a pass renders the account table
 
-Then that account's row shows one reset clearing the short-window and weekly windows, with one use left, lapsing in eight days
+Then that account's QUOTA RESETS cell, immediately to the left of its EXTRA cell, reads `2, next expires in 5d 4h`
+
+## Scenario: The account table's columns align on every kind of row
+
+Given the account table renders the active account, whose CURRENT cell holds the two-column-wide ✅, a readable inactive account, an account whose current reading has no short-window limit, an account with no usage reading, and an account whose reading is stale
+
+And one account reports an unrecognised limit, so the OTHER LIMITS column is shown
+
+And one cell is wider than its column's header
+
+When a pass renders the account table
+
+Then in every row, each cell of each column ends where that column's right-aligned header ends, or starts where its left-aligned header starts
 
 ## Scenario: A reset reading declined for the requesting client is unreadable, not empty
 
@@ -5735,7 +5747,7 @@ Then each row shows its capacity class with the provider's plan name as detail
 
 Given the provider reports the display name `Ultra` and the tier `default_claude_max_20x` for an account
 
-When the operation renders the account table for seven accounts in a 120-column terminal
+When the operation renders the account table for seven accounts in a terminal at least as wide as the table's header
 
 Then the account's capacity cell shows the class with `Ultra` as detail
 

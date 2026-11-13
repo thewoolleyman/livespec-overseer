@@ -4731,5 +4731,13 @@
     "heading": "## Scenario: A reachable host holding the current delivery stays current between deliveries",
     "test": "tests.integration.test_delivery_push.test_a_reachable_host_holding_the_current_delivery_stays_current_between_deliveries",
     "reason": "Integration-tier: drives the push service's due-host selection against a real push record. A listed host that applied the current delivery and whose last successful push is older than half of delivery.stale_after is re-pushed that same delivery. Its already-holds answer is recorded as a successful push, and the status command then reads the host as current rather than stale past delivery.stale_after."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The account table's columns align on every kind of row",
+    "test": "TODO",
+    "work_item": "overseer-fr3hnj",
+    "reason": "An integration-tier test over the rendered account table is owed for this heading, ratified for spec.md 'Account rotation and quota supervision' (the QUOTA RESETS column and aligned columns) under proposal account-table-quota-resets-column, plan caam-quota-resets, epic overseer-pv53ri; work item overseer-fr3hnj owns landing it."
   }
 ]
