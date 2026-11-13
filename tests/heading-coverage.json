@@ -4773,5 +4773,29 @@
     "test": "TODO",
     "work_item": "overseer-sozqxs",
     "reason": "Ratified in v097 (caam-reset-best-value) ahead of its implementation child; a test at integration tier is owed, and overseer-sozqxs MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A live herdr test releases its staged startup transient only after the shell pin, and always releases it",
+    "test": "TODO",
+    "work_item": "overseer-wbrvxm",
+    "reason": "Ratified in v098 (readyshellgate-stages-its-startup-transient) ahead of its implementation child; a test at integration tier is owed, and overseer-wbrvxm MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A live herdr test's staged startup transient outlives a slow first reading",
+    "test": "TODO",
+    "work_item": "overseer-wbrvxm",
+    "reason": "Ratified in v098 (readyshellgate-stages-its-startup-transient) ahead of its implementation child; a test at integration tier is owed, and overseer-wbrvxm MUST replace this TODO with a test at integration tier."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A staged startup transient ended by its hang guard fails the exercise loudly",
+    "test": "TODO",
+    "work_item": "overseer-wbrvxm",
+    "reason": "Ratified in v098 (readyshellgate-stages-its-startup-transient) ahead of its implementation child; a test at integration tier is owed, and overseer-wbrvxm MUST replace this TODO with a test at integration tier."
   }
 ]
