@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import caam_delivery_push
+import caam_delivery_push_state
 import caam_delivery_push_status
 import caam_delivery_service
 import jsonio
@@ -45,6 +46,7 @@ class PushLoop:
 
     seen: tuple[str, str] | None = None
     last: caam_delivery_service.Delivery | None = None
+    retry_at: float | None = None
 
 
 def confirm_live_account(*, access_token: str) -> str | None:
@@ -100,11 +102,24 @@ def run_once(  # noqa: PLR0913 - each argument is an independent seam
 ) -> None:
     """One pass: issue a delivery when the live file changed, then push to hosts behind it."""
     marker = _live_pair(home=home)
-    if marker is not None and marker != loop.seen:
+    retry_due = loop.retry_at is not None and now >= loop.retry_at
+    if marker is not None and (marker != loop.seen or retry_due):
         loop.seen = marker
+        loop.retry_at = None
+        answers: list[str | None] = []
+
+        def confirming(**kwargs: object) -> str | None:
+            answers.append(confirm(**kwargs))
+            return answers[-1]
+
         issued = caam_delivery_service.issue_delivery(
-            home=home, now=now, confirm_account=confirm, last=loop.last
+            home=home, now=now, confirm_account=confirming, last=loop.last
         )
+        if issued is None and None in answers:
+            # A failed request is not an answer: ask again after the retry
+            # interval. A different account IS one, and waits for a change.
+            settings = caam_delivery_push.load_config(home=home)
+            loop.retry_at = now + caam_delivery_push_state.seconds(settings=settings, key="retry_s")
         if issued is not None:
             if loop.last is not None and loop.last.account_id != issued.account_id:
                 line = "re-issue unavailable" if reissue is None else local(script=reissue)

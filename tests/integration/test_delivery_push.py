@@ -516,3 +516,45 @@ def test_entry_seams_and_main(  # noqa: PLR0915 - one end-to-end scenario per te
     settings = push.load_config(home=tmp_path)
     assert not push._due(entry=entry_state, sequence=1, now=40.0, settings=settings)
     assert push._due(entry=entry_state, sequence=1, now=61.0, settings=settings)
+
+
+def test_a_failed_confirmation_is_retried_each_retry_interval_and_a_mismatch_waits(
+    *, tmp_path: Path
+) -> None:
+    """A FAILED confirmation is retried; a MISMATCHED one waits for the next change.
+
+    Measured at deploy 2026-11-13 (overseer-4ji2n4): the first confirmation
+    timed out, and because the pass had already remembered the live credential
+    as seen, the service never asked again and issued no delivery for as long
+    as the token stayed the same. A failed request is not an answer, so it is
+    retried no more often than once per `retry_s` (default 60 s). A different
+    account IS an answer, and spec v096 has the service read again only on the
+    next change to the live credential or the global state file.
+    """
+    entry = importlib.import_module("caam_delivery_push_entry")
+    answers = iter([None, "acct-1", "someone-else"])
+    asked: list[str | None] = []
+
+    def confirm(**_: object) -> str | None:
+        answer = next(answers)
+        asked.append(answer)
+        return answer
+
+    loop = entry.PushLoop()
+    _live(home=tmp_path, token="tok-" + "r1", account="acct-1")
+    entry.run_once(home=tmp_path, now=100.0, loop=loop, confirm=confirm)
+    assert asked == [None] and loop.last is None
+    entry.run_once(home=tmp_path, now=130.0, loop=loop, confirm=confirm)
+    assert asked == [None]
+    entry.run_once(home=tmp_path, now=160.0, loop=loop, confirm=confirm)
+    assert asked == [None, "acct-1"]
+    assert loop.last is not None and loop.last.account_id == "acct-1"
+    sequence_file = tmp_path / ".local/state/caam-usage-rotate/delivery-sequence.json"
+    assert _read(path=sequence_file) == {"sequence": loop.last.sequence}
+
+    _live(home=tmp_path, token="tok-" + "r2", account="acct-2")
+    entry.run_once(home=tmp_path, now=200.0, loop=loop, confirm=confirm)
+    assert asked == [None, "acct-1", "someone-else"]
+    entry.run_once(home=tmp_path, now=400.0, loop=loop, confirm=confirm)
+    assert asked == [None, "acct-1", "someone-else"]
+    assert loop.last.account_id == "acct-1"
