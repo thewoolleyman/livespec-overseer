@@ -74,6 +74,16 @@ class NativeSubmit(Protocol):
     ) -> tuple[bool, bool]: ...
 
 
+class NativeEnterRetry(Protocol):
+    def __call__(
+        self,
+        *,
+        session: str,
+        text: str,
+        sleep: Callable[[float], None],
+    ) -> tuple[bool, bool]: ...
+
+
 def session_of(*, sup: Supervisor, track: registry.Track) -> str:
     # A mapped track carries its real session name (`track.tmux`); only an
     # unmapped one falls back to the derived name, which must use THIS tick's
@@ -255,11 +265,29 @@ def submit_prompt(
 
     The daemon leaves ``retry_native`` false, preserving its one-native-submit-per-tick
     cadence.  A sanctioned relaunch has no later tick, so it opts in to retrying the
-    native submitter.  That submitter retains the pasted payload in per-pane state,
-    making every retry an Enter-only attempt rather than a duplicate paste.
+    native submitter.  Once a Herdr paste may have landed, a driver that supports the
+    exact-payload retry surface is polled and sent Enter only, never pasted again.
     """
     submit_once = cast(NativeSubmit | None, getattr(sup.tmux, "submit_prompt_once", None))
     if retry_native and target.startswith(herdr_identity.HERDR_SCHEME) and submit_once is not None:
+        retry_enter = cast(
+            NativeEnterRetry | None,
+            getattr(sup.tmux, "retry_prompt_enter_once", None),
+        )
+        if retry_enter is not None:
+            submitted, _effect_unknown = submit_prompt_outcome(
+                sup=sup, target=target, text=text, expect_codex=expect_codex
+            )
+            for _ in range(SUBMIT_MAX_ENTERS - 1):
+                if submitted:
+                    break
+                sup.sleep(SUBMIT_POLL)
+                submitted, _effect_unknown = retry_enter(
+                    session=target,
+                    text=text,
+                    sleep=sup.sleep,
+                )
+            return submitted
         for _ in range(SUBMIT_MAX_ENTERS):
             submitted, _effect_unknown = submit_prompt_outcome(
                 sup=sup, target=target, text=text, expect_codex=expect_codex
