@@ -4693,5 +4693,13 @@
     "test": "TODO",
     "work_item": "overseer-7m6wu6",
     "reason": "An integration-tier test is owed for this heading, re-ratified for topology B with ssh push (proposal enrolled-host-ssh-push, plan central-credential-service, epic overseer-iyfjbo); work item overseer-7m6wu6 owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A Codex successor launch disables Codex's startup update check",
+    "test": "TODO",
+    "work_item": "overseer-dd5qus",
+    "reason": "Ratified in v100 (a-codex-replacement-or-relaunch) ahead of its implementation child; a test at integration tier is owed, and overseer-dd5qus MUST replace this TODO with a test at integration tier."
   }
 ]

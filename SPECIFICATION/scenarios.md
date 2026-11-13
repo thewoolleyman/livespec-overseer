@@ -4555,6 +4555,17 @@ And it pastes the replacement's resume line into the successor's pane
 And it confirms that delivery only when the successor's turn starts
 And the replacement reaches phase completed and consumes the ready declaration
 
+
+## Scenario: A Codex successor launch disables Codex's startup update check
+
+Given a tracked Codex session on herdr has declared `ready`
+And the installed Codex has cached a newer upstream release, so a plain `codex` launch opens at its update picker
+When the daemon launches the fresh Codex successor in the retained shell
+Then the launch command carries `check_for_update_on_startup=false`
+And the successor opens at its input composer, not at the update picker
+And the daemon names and resumes the successor without sending a key to any picker
+And the track's recorded launch profile does not record the override
+
 ## Scenario: A confirmed fresh Codex successor is reported for its launch pane and proven without a rollout file
 
 Given a Codex track on a terminal backend that accepts agent-session reports, whose fresh ready declaration authorized a guarded replacement
