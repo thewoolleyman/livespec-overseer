@@ -54,7 +54,7 @@ scanned as soon as it applies the delivery and Claude Code may not have drawn
 the notice yet. A pane is sent to at most once per run.
 """
 
-# livespec-lloc-soft-band-owner: overseer-9l63
+# livespec-lloc-soft-band-owner: overseer-2a7cml
 
 from __future__ import annotations
 

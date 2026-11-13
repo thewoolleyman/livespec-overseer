@@ -4674,17 +4674,15 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An account switch re-issues Remote Control only where it stopped",
-    "test": "TODO",
-    "work_item": "overseer-fdwat6",
-    "reason": "An integration-tier test is owed for this heading, re-ratified for topology B with ssh push (proposal enrolled-host-ssh-push, plan central-credential-service, epic overseer-iyfjbo); work item overseer-fdwat6 owns landing it."
+    "test": "tests.integration.test_remote_control_reissue.test_herdr_reissue_scenarios",
+    "reason": "Integration-tier: runs the re-issue program the way the push loop does, `python3 -` on stdin, against stub herdr panes. A Claude Code pane whose process name is the version number 2.1.323 and which shows the account-changed notice gets `/remote-control` and Enter once. A shell pane or a pager (less) showing the same notice, a pane scrolled back, a pane whose input box holds a draft, and a pane already re-issued get nothing. test_reissue_scenarios covers the same cases for tmux panes."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An account switch re-issues Remote Control on the role holder's own sessions",
-    "test": "TODO",
-    "work_item": "overseer-fdwat6",
-    "reason": "An integration-tier test is owed for this heading, re-ratified for topology B with ssh push (proposal enrolled-host-ssh-push, plan central-credential-service, epic overseer-iyfjbo); work item overseer-fdwat6 owns landing it."
+    "test": "tests.integration.test_remote_control_reissue.test_the_role_holder_reissues_once_per_switch_even_when_no_delivery_is_issued",
+    "reason": "Integration-tier: drives caam-delivery-push's run_once against a real home directory as the role holder's live login changes account. The local re-issue fires once for that switch, whether the switch is first seen in the live credential or in a delivery, and not at all for the first account a run observes. test_the_role_holder_reissue_does_not_hold_the_push_loop proves the launcher returns before the re-scan window ends."
   },
   {
     "spec_root": "SPECIFICATION",
