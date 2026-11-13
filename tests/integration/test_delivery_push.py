@@ -558,3 +558,64 @@ def test_a_failed_confirmation_is_retried_each_retry_interval_and_a_mismatch_wai
     entry.run_once(home=tmp_path, now=400.0, loop=loop, confirm=confirm)
     assert asked == [None, "acct-1", "someone-else"]
     assert loop.last.account_id == "acct-1"
+
+
+def test_a_reachable_host_holding_the_current_delivery_stays_current_between_deliveries(
+    *, tmp_path: Path
+) -> None:
+    """Scenario: A reachable host holding the current delivery stays current between deliveries.
+
+    Measured 2026-11-13 (overseer-r7pymu): the service never pushed an
+    unchanged delivery again, so a healthy host's last successful push aged
+    past `delivery.stale_after` and the status command showed it `stale`
+    although it held the current sequence. A host that holds the current
+    delivery is re-pushed once its last successful push is older than half
+    of `stale_after`; its `stale-sequence N host-applied N` answer is a
+    successful push, so the status command keeps showing it `current`.
+    """
+    push = importlib.import_module("caam_delivery_push")
+    service = importlib.import_module("caam_delivery_service")
+    status = importlib.import_module("caam_delivery_push_status")
+    settings = push.load_config(home=tmp_path)
+    half = float(settings["stale_after_s"]) / 2
+    held = {"sequence": 3, "attempt_sequence": 3, "last_attempt": 0.0, "last_success": 0.0}
+    assert not push._due(entry=held, sequence=3, now=half - 1, settings=settings)
+    assert push._due(entry=held, sequence=3, now=half, settings=settings)
+    failed = {**held, "state": "failed", "last_attempt": half}
+    assert not push._due(entry=failed, sequence=3, now=half + 1, settings=settings)
+    assert push._due(
+        entry=failed, sequence=3, now=half + float(settings["retry_s"]), settings=settings
+    )
+
+    delivery = service.Delivery(
+        sequence=3,
+        account_id="acct-a",
+        identity={},
+        oauth={"accessToken": TOKEN, "expiresAt": 9_999_999_999_000},
+    )
+    (tmp_path / push.HOSTS_FILE).parent.mkdir(parents=True)
+    _ = (tmp_path / push.HOSTS_FILE).write_text("h u@h linux\n", encoding="utf-8")
+    sent: list[str] = []
+
+    def fake_run(*, target: str, **_: object) -> tuple[int, str]:
+        sent.append(target)
+        return 0, ("applied 3" if len(sent) == 1 else "stale-sequence 3 host-applied 3")
+
+    stale_after = float(settings["stale_after_s"])
+    now = 100.0
+    for _ in range(4):
+        _ = push.push_due(home=tmp_path, delivery=delivery, now=now, run=fake_run)
+        entry = push.load_state(home=tmp_path)["h"]
+        later = now + stale_after + 1
+        shown = status.host_state(
+            entry=entry, current_sequence=3, now=now + half, stale_after=stale_after
+        )
+        assert shown == "current"
+        now += half
+    assert len(sent) == 4
+    entry = push.load_state(home=tmp_path)["h"]
+    assert entry["state"] == "ok" and entry["sequence"] == 3
+    assert (
+        status.host_state(entry=entry, current_sequence=3, now=later, stale_after=stale_after)
+        == "stale"
+    )
