@@ -110,16 +110,25 @@ def proc_environ(*, pid: int) -> bytes | None:
 
 
 def proc_children(*, pid: int) -> list[int]:
-    """Direct child PIDs of ``pid`` via ``/proc/<pid>/task/<pid>/children`` ([] on error)."""
+    """Direct child PIDs of ``pid`` across its threads' ``children`` files ([] on error)."""
     try:
-        data = Path(f"/proc/{pid}/task/{pid}/children").read_text(encoding="utf-8")
-    # ValueError is defence-in-depth here, not a live hazard: the kernel writes this
-    # file as ASCII pids and spaces, so it cannot fail to decode. Widened anyway so
-    # every read boundary in the package carries ONE rule rather than two.
+        tasks = sorted(Path(f"/proc/{pid}/task").iterdir())
     except (OSError, ValueError):
         return []
     out: list[int] = []
-    for token in data.split():
-        with contextlib.suppress(ValueError):
-            out.append(int(token))
+    seen: set[int] = set()
+    for task in tasks:
+        try:
+            data = (task / "children").read_text(encoding="utf-8")
+        # ValueError is defence-in-depth here, not a live hazard: the kernel writes this
+        # file as ASCII pids and spaces, so it cannot fail to decode. Widened anyway so
+        # every read boundary in the package carries ONE rule rather than two.
+        except (OSError, ValueError):
+            continue
+        for token in data.split():
+            with contextlib.suppress(ValueError):
+                child = int(token)
+                if child not in seen:
+                    seen.add(child)
+                    out.append(child)
     return out
