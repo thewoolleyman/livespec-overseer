@@ -1,4 +1,4 @@
-"""Re-issue Remote Control in tmux panes that lost it to a pushed account switch.
+"""Re-issue Remote Control in herdr and tmux panes that lost it to a pushed account switch.
 
 When the signed-in account changes under a running session on a pushed
 credential, Claude Code drops Remote Control and shows it in one of FORMS, as a
@@ -12,14 +12,27 @@ either form is a recorded drift from CLAUDE_CODE_VERSION.
 
 Self-contained and stdlib-only on purpose: the push loop runs it on a listed
 host over ssh as `python3 -` with this file on stdin, where no overseer package
-is installed. It prints one JSON line naming the panes it re-issued.
+is installed. It prints one JSON line naming the panes it re-issued: a tmux pane
+by its id (`%3`), a herdr pane as `herdr:<session>:<pane id>`.
+
+The panes are those of the host's terminal multiplexer (spec v102): every pane of
+every RUNNING herdr session, plus every tmux pane. The fleet runs herdr; tmux
+stays because it costs one listing. herdr is driven through its own CLI, the
+same client an operator types, because this file cannot import the overseer's
+socket client (`herdr_transport`) on a host that has no overseer package. The
+replies it reads are the shapes `herdr_calls` measured: `result.panes[]`,
+`result.process_info.foreground_processes[]`, and the `Enter` key name. A pane
+is captured with `pane read --source recent-unwrapped`, herdr's capture with
+soft wraps joined, limited to the pane's viewport rows: the counterpart of
+`tmux capture-pane -p -J`.
 
 A pane qualifies only when ALL of these hold:
 - its foreground process is Claude Code, judged by the executable that process
   runs: basename `claude`, or a path under `~/.local/share/claude/versions/`.
-  tmux's current-command name is never consulted, because Claude Code 2.1.323
-  reports its version number (`2.1.323`) there;
-- it is not in a tmux mode such as copy mode;
+  The multiplexer's current-command or process name is never consulted,
+  because Claude Code 2.1.323 reports its version number (`2.1.323`) there;
+- it is not in a mode that takes over the pane: a tmux mode such as copy mode,
+  or a herdr pane scrolled back from its bottom;
 - its input box is visible and EMPTY: the last `❯` prompt line, between two
   `─` rules, holds no text and only blank lines precede the closing rule. A
   pane holding unsubmitted text is never typed into;
@@ -39,14 +52,17 @@ from __future__ import annotations
 import itertools
 import json
 import re
+import shutil
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
+from typing import cast
 
 __all__: list[str] = [
     "CLAUDE_CODE_VERSION",
     "FORMS",
     "NOTICE",
+    "herdr_panes_needing_reissue",
     "main",
     "panes_needing_reissue",
     "reissue",
@@ -65,39 +81,45 @@ _TRANSCRIPT_MARKS = ("●", "⎿")
 _FOOTER_STATUS = re.compile(r"(?:^|\s)" + re.escape(FORMS[1]) + r"(?:\s|$)")
 _RULE = "─"
 _TIMEOUT_S = 10
+_HERDR = "herdr"
+_HERDR_FALLBACK = Path(".local", "bin", _HERDR)
+_HERDR_SOURCE = "recent-unwrapped"
+_ENTER = "Enter"
 
 Tmux = Callable[..., str | None]
 Ps = Callable[..., str | None]
+Herdr = Callable[..., str | None]
+
+
+def _run(*, argv: list[str]) -> str | None:
+    """Run one command; None on any failure (no binary, no server, hang, nonzero exit)."""
+    try:
+        done = subprocess.run(  # noqa: S603 -- fixed argv, no shell
+            argv, capture_output=True, text=True, timeout=_TIMEOUT_S, check=False
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return done.stdout if done.returncode == 0 else None
 
 
 def _run_tmux(*args: str) -> str | None:
-    """Run one tmux command; None on any failure (no server, no binary, hang)."""
-    try:
-        done = subprocess.run(  # noqa: S603 -- fixed argv, no shell
-            ["tmux", *args],  # noqa: S607 -- tmux resolved on the host's PATH
-            capture_output=True,
-            text=True,
-            timeout=_TIMEOUT_S,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    return done.stdout if done.returncode == 0 else None
+    return _run(argv=["tmux", *args])
 
 
 def _run_ps(*, tty: str) -> str | None:
-    """`stat args` of every process on one pane's tty; None on any failure."""
-    try:
-        done = subprocess.run(  # noqa: S603 -- fixed argv, no shell
-            ["ps", "-o", "stat=,args=", "-t", tty.removeprefix("/dev/")],  # noqa: S607
-            capture_output=True,
-            text=True,
-            timeout=_TIMEOUT_S,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    return done.stdout if done.returncode == 0 else None
+    """`stat args` of every process on one pane's tty."""
+    return _run(argv=["ps", "-o", "stat=,args=", "-t", tty.removeprefix("/dev/")])
+
+
+def _herdr_binary() -> str | None:
+    """herdr on PATH, else the installer's `~/.local/bin/herdr`: a non-login ssh PATH lacks it."""
+    fallback = Path.home() / _HERDR_FALLBACK
+    return shutil.which(_HERDR) or (str(fallback) if fallback.is_file() else None)
+
+
+def _run_herdr(*args: str) -> str | None:
+    binary = _herdr_binary()
+    return None if binary is None else _run(argv=[binary, *args])
 
 
 def _is_claude(*, executable: str) -> bool:
@@ -211,7 +233,76 @@ def panes_needing_reissue(*, tmux: Tmux = _run_tmux, ps: Ps = _run_ps) -> list[s
     return found
 
 
-def reissue(*, tmux: Tmux = _run_tmux, ps: Ps = _run_ps) -> list[str]:
+def _at(*, value: object, path: tuple[str, ...]) -> object:
+    """`value[path[0]][path[1]]...` of a parsed reply, None where a step is not an object."""
+    for key in path:
+        value = cast("dict[str, object]", value).get(key) if isinstance(value, dict) else None
+    return value
+
+
+def _list(*, value: object) -> list[object]:
+    return value if isinstance(value, list) else []  # pyright: ignore[reportUnknownVariableType]
+
+
+def _items(*, text: str | None, path: tuple[str, ...]) -> list[object]:
+    """The list at `path` in one herdr CLI JSON reply; empty when unreadable."""
+    try:
+        return _list(value=_at(value=json.loads(text or ""), path=path))
+    except ValueError:
+        return []
+
+
+def _count(*, value: object) -> int:
+    """A JSON integer, or -1 for anything else (`true` included)."""
+    return value if type(value) is int else -1
+
+
+def _herdr_sessions(*, herdr: Herdr) -> list[str]:
+    """The names of the host's RUNNING herdr sessions; a stopped one has no panes to reach."""
+    rows = _items(text=herdr("session", "list", "--json"), path=("sessions",))
+    names = [
+        _at(value=row, path=("name",)) for row in rows if _at(value=row, path=("running",)) is True
+    ]
+    return [name for name in names if isinstance(name, str)]
+
+
+def _herdr_viewports(*, herdr: Herdr, session: str) -> list[tuple[str, int]]:
+    """(pane id, viewport rows) of each pane at its bottom; a scrolled-back pane is skipped."""
+    found: list[tuple[str, int]] = []
+    for row in _items(text=herdr("--session", session, "pane", "list"), path=("result", "panes")):
+        pane = _at(value=row, path=("pane_id",))
+        rows = _count(value=_at(value=row, path=("scroll", "viewport_rows")))
+        offset = _count(value=_at(value=row, path=("scroll", "offset_from_bottom")))
+        if isinstance(pane, str) and pane and offset == 0 and rows > 0:
+            found.append((pane, rows))
+    return found
+
+
+def _herdr_foreground_is_claude(*, herdr: Herdr, session: str, pane: str) -> bool:
+    """Whether a process in the pane's foreground group runs Claude Code's executable."""
+    info = herdr("--session", session, "pane", "process-info", "--pane", pane)
+    path = ("result", "process_info", "foreground_processes")
+    heads = [
+        next(iter(_list(value=_at(value=p, path=("argv",)))), None)
+        for p in _items(text=info, path=path)
+    ]
+    return any(isinstance(head, str) and _is_claude(executable=head) for head in heads)
+
+
+def herdr_panes_needing_reissue(*, herdr: Herdr = _run_herdr) -> list[tuple[str, str]]:
+    """(session, pane id) of each herdr Claude Code pane showing the notice, input box empty."""
+    found: list[tuple[str, str]] = []
+    for session in _herdr_sessions(herdr=herdr):
+        for pane, rows in _herdr_viewports(herdr=herdr, session=session):
+            read = ("pane", "read", pane, "--source", _HERDR_SOURCE, "--lines", str(rows))
+            if _herdr_foreground_is_claude(herdr=herdr, session=session, pane=pane) and (
+                _needs_reissue(screen=herdr("--session", session, *read) or "")
+            ):
+                found.append((session, pane))
+    return found
+
+
+def reissue(*, tmux: Tmux = _run_tmux, ps: Ps = _run_ps, herdr: Herdr = _run_herdr) -> list[str]:
     """Send `/remote-control` and Enter to every qualifying pane; return those panes."""
     sent: list[str] = []
     for pane in panes_needing_reissue(tmux=tmux, ps=ps):
@@ -219,11 +310,17 @@ def reissue(*, tmux: Tmux = _run_tmux, ps: Ps = _run_ps) -> list[str]:
             tmux("send-keys", "-t", pane, "Enter") is not None
         ):
             sent.append(pane)
+    for session, pane in herdr_panes_needing_reissue(herdr=herdr):
+        target = ("--session", session, "pane")
+        if herdr(*target, "send-text", pane, _COMMAND) is not None and (
+            herdr(*target, "send-keys", pane, _ENTER) is not None
+        ):
+            sent.append(f"herdr:{session}:{pane}")
     return sent
 
 
-def main(*, tmux: Tmux = _run_tmux, ps: Ps = _run_ps) -> int:
-    print(json.dumps({"reissued": reissue(tmux=tmux, ps=ps)}))  # noqa: T201 -- the script's one output line
+def main(*, tmux: Tmux = _run_tmux, ps: Ps = _run_ps, herdr: Herdr = _run_herdr) -> int:
+    print(json.dumps({"reissued": reissue(tmux=tmux, ps=ps, herdr=herdr)}))  # noqa: T201 -- the script's one output line
     return 0
 
 

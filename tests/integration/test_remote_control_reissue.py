@@ -1,19 +1,26 @@
 """Remote Control re-issue after a pushed account switch (overseer-fdwat6).
 
 Each scenario runs the script the way the push loop does, `python3 - < file`,
-against a stub `tmux` and `ps` on PATH, and again in-process for coverage.
-Screens are built from REAL `tmux capture-pane -p -J` captures of Claude Code's
-input box (tests/fixtures/claude_2.1.322_input_*.txt) with the account-changed
-notice placed in the two forms a real account switch showed under Claude Code
-2.1.323 (spec v099, contracts.md "Remote Control re-issue"): the transcript line
-behind `●`, and the footer status `/rc failed`. A pane is Claude Code by the
-executable its foreground process runs, because tmux reports 2.1.323's current
-command as its version number.
+against a stub `tmux`, `ps` and `herdr` on PATH, and again in-process for coverage.
+Screens are built from REAL captures of Claude Code's input box: `tmux
+capture-pane -p -J` (tests/fixtures/claude_2.1.322_input_*.txt) and herdr's
+`pane read --source recent-unwrapped` (claude_2.1.323_herdr_input_empty.txt),
+with the account-changed notice placed in the two forms a real account switch
+showed under Claude Code 2.1.323 (spec v102, contracts.md "Remote Control
+re-issue"): the transcript line behind `●`, and the footer status `/rc failed`.
+A pane is Claude Code by the executable its foreground process runs, because the
+multiplexer reports 2.1.323's current command as its version number.
+
+No test may reach a real multiplexer: the fleet's own host runs herdr, so an
+autouse fixture puts refusing `herdr` and `tmux` stubs first on PATH for every
+test, and every scenario's own stubs go in front of those.
 """
 
 from __future__ import annotations
 
+import contextlib
 import importlib
+import io
 import json
 import os
 import subprocess
@@ -27,6 +34,8 @@ import pytest
 
 __all__: list[str] = []
 
+REFUSE = "#!/bin/sh\nexit 1\n"
+
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "overseer" / "remote_control_reissue.py"
 FIXTURES = ROOT / "tests" / "fixtures"
@@ -35,6 +44,8 @@ NOTICE = FIXTURE["notice"]
 FULL = NOTICE + FIXTURE["notice_rest"]
 EMPTY = (FIXTURES / FIXTURE["input_captures"]["empty"]).read_text(encoding="utf-8")
 DRAFT = (FIXTURES / FIXTURE["input_captures"]["draft"]).read_text(encoding="utf-8")
+HERDR_EMPTY = (FIXTURES / FIXTURE["herdr_input_capture"]["empty"]).read_text(encoding="utf-8")
+HERDR_DRAFT = HERDR_EMPTY.replace("❯\u00a0\n", "❯\u00a0half written draft about deploys\n")
 MARK = FIXTURE["transcript_mark"]
 TRANSCRIPT = f"{MARK} {FIXTURE['transcript_prefix']}{FULL}"
 LEGACY_TRANSCRIPT = f"  ⎿  {FIXTURE['transcript_prefix']}{FULL}"
@@ -77,6 +88,42 @@ else:
         log.write(json.dumps(args) + "\\n")
 """
 
+
+HERDR_STUB = """#!/usr/bin/env python3
+import json, os, sys
+state = json.load(open(os.environ["STUB_TMUX_STATE"])).get("herdr", {})
+args = sys.argv[1:]
+if state.get("fails"):
+    sys.exit(1)
+if args == ["session", "list", "--json"]:
+    print(json.dumps({"sessions": state.get("sessions", [])}))
+    sys.exit(0)
+assert args[0] == "--session" and args[2] == "pane", args
+session, op, rest = args[1], args[3], args[4:]
+panes = state.get("panes", {}).get(session)
+if panes is None:
+    sys.exit(1)
+if op == "list":
+    print(json.dumps({"id": "cli:pane:list", "result": {"panes": [p["row"] for p in panes]}}))
+    sys.exit(0)
+pane_id = rest[1] if op == "process-info" else rest[0]
+pane = next(p for p in panes if p["row"].get("pane_id") == pane_id)
+if op == "process-info":
+    assert rest[0] == "--pane", rest
+    if pane["argvs"] is None:
+        sys.exit(1)
+    procs = [{"argv": argv, "name": "2.1.323"} for argv in pane["argvs"]]
+    print(json.dumps({"result": {"process_info": {"foreground_processes": procs}}}))
+elif op == "read":
+    lines = str(pane["row"]["scroll"]["viewport_rows"])
+    assert rest[1:] == ["--source", "recent-unwrapped", "--lines", lines], rest
+    if pane["screen"] is None:
+        sys.exit(1)
+    sys.stdout.write(pane["screen"])
+else:
+    with open(os.environ["STUB_HERDR_LOG"], "a") as log:
+        log.write(json.dumps(args) + "\\n")
+"""
 
 PS_STUB = """#!/usr/bin/env python3
 import json, os, sys
@@ -133,22 +180,41 @@ def _pane(*, pane: str, screen: str | None, cmd: str = "claude", mode: str = "0"
     }
 
 
-def _run(
+@pytest.fixture(autouse=True)
+def _no_real_multiplexer(
+    *, tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Refusing `herdr` and `tmux` first on PATH, so no test can reach a live pane."""
+    refusing = tmp_path_factory.mktemp("refusing-bin")
+    for name in ("herdr", "tmux"):
+        stub = refusing / name
+        _ = stub.write_text(REFUSE, encoding="utf-8")
+        stub.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{refusing}{os.pathsep}{os.environ['PATH']}")
+
+
+def _read_log(*, path: Path) -> list[list[str]]:
+    return [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+
+
+def _run_all(
     *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str, state: dict
-) -> tuple[list[str], list[list[str]]]:
-    stub = tmp_path / "bin" / "tmux"
-    stub.parent.mkdir(exist_ok=True)
-    _ = stub.write_text(STUB, encoding="utf-8")
-    stub.chmod(0o755)
-    ps_stub = tmp_path / "bin" / "ps"
-    _ = ps_stub.write_text(PS_STUB, encoding="utf-8")
-    ps_stub.chmod(0o755)
+) -> tuple[list[str], list[list[str]], list[list[str]]]:
+    """The reported panes, the tmux sends and the herdr sends of one run."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    for name, body in (("tmux", STUB), ("ps", PS_STUB), ("herdr", HERDR_STUB)):
+        stub = bin_dir / name
+        _ = stub.write_text(body, encoding="utf-8")
+        stub.chmod(0o755)
     _ = (tmp_path / "state.json").write_text(json.dumps(state), encoding="utf-8")
     log = tmp_path / "sent.log"
+    herdr_log = tmp_path / "herdr-sent.log"
     env = {
-        "PATH": f"{stub.parent}{os.pathsep}{os.environ['PATH']}",
+        "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
         "STUB_TMUX_STATE": str(tmp_path / "state.json"),
         "STUB_TMUX_LOG": str(log),
+        "STUB_HERDR_LOG": str(herdr_log),
     }
     if mode == "subprocess":
         done = subprocess.run(  # noqa: S603 -- the push loop's own invocation
@@ -163,11 +229,20 @@ def _run(
     else:
         for key, value in env.items():
             monkeypatch.setenv(key, value)
-        rc = _rc()
-        assert rc.main() == 0
-        out = ""
-    sent = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
-    reissued = json.loads(out)["reissued"] if out else sorted({a[2] for a in sent})
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            assert _rc().main() == 0
+        out = printed.getvalue()
+    return json.loads(out)["reissued"], _read_log(path=log), _read_log(path=herdr_log)
+
+
+def _run(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str, state: dict
+) -> tuple[list[str], list[list[str]]]:
+    reissued, sent, herdr_sent = _run_all(
+        tmp_path=tmp_path, monkeypatch=monkeypatch, mode=mode, state=state
+    )
+    assert herdr_sent == []
     return reissued, sent
 
 
@@ -443,6 +518,10 @@ def test_no_tmux_server_touches_nothing(
     assert _run(tmp_path=tmp_path, monkeypatch=monkeypatch, mode=mode, state=state) == ([], [])
 
 
+def _no_herdr(*_args: str) -> str | None:
+    return None
+
+
 def _fake_ps(*, tty: str) -> str | None:
     assert tty.startswith("/dev/pts/")
     return "\n".join(f"{stat} {args}" for stat, args in PROCS["claude"])
@@ -475,7 +554,7 @@ def test_every_pane_width_from_20_to_199_reissues_exactly_once() -> None:
         sent: list[tuple[str, ...]] = []
         screen = _above_input(capture=EMPTY, lines=lines)
         tmux = _fake_tmux(screen=screen, sent=sent)
-        if rc.reissue(tmux=tmux, ps=_fake_ps) != ["%1"] or len(sent) != 2:
+        if rc.reissue(tmux=tmux, ps=_fake_ps, herdr=_no_herdr) != ["%1"] or len(sent) != 2:
             missed.append(width)
     assert missed == []
 
@@ -486,7 +565,7 @@ def test_failed_send_is_not_reported() -> None:
     def tmux(*args: str) -> str | None:
         return {"list-panes": "%1 /dev/pts/1 0", "capture-pane": screen}.get(args[0])
 
-    assert _rc().reissue(tmux=tmux, ps=_fake_ps) == []
+    assert _rc().reissue(tmux=tmux, ps=_fake_ps, herdr=_no_herdr) == []
 
 
 def test_run_tmux_maps_hang_or_missing_binary_to_none(*, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -498,6 +577,7 @@ def test_run_tmux_maps_hang_or_missing_binary_to_none(*, monkeypatch: pytest.Mon
     monkeypatch.setattr(rc.subprocess, "run", run)
     assert rc._run_tmux("-V") is None
     assert rc._run_ps(tty="/dev/pts/1") is None
+    assert rc._run_herdr("--version") is None
 
 
 def test_run_ps_reads_the_tty_without_its_dev_prefix(*, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -511,6 +591,271 @@ def test_run_ps_reads_the_tty_without_its_dev_prefix(*, monkeypatch: pytest.Monk
     monkeypatch.setattr(rc.subprocess, "run", run)
     assert rc._run_ps(tty="/dev/pts/7") == "S+ claude\n"
     assert seen == [["ps", "-o", "stat=,args=", "-t", "pts/7"]]
+
+
+# What `herdr pane process-info` lists as a pane's foreground processes, by argv.
+ARGVS = {
+    "claude": [["claude", "--dangerously-skip-permissions"], ["node", "/opt/mcp/server"]],
+    "claude-versions": [[str(VERSIONS / FIXTURE["claude_code_version"]), "--resume"]],
+    "zsh": [["-zsh"]],
+    "less": [["less", "notes.txt"]],
+    "lookalike": [["/opt/tools/claude-wrapper/run"]],
+}
+
+
+def _herdr_pane(
+    *, pane: str, screen: str | None, cmd: str = "claude", offset: object = 0, rows: int = 40
+) -> dict:
+    """A herdr pane whose foreground processes are `cmd` (an ARGVS key, or "info-fails")."""
+    return {
+        "row": {"pane_id": pane, "scroll": {"offset_from_bottom": offset, "viewport_rows": rows}},
+        "argvs": None if cmd == "info-fails" else ARGVS[cmd],
+        "screen": screen,
+    }
+
+
+def _herdr(panes: dict[str, list[dict] | None], *, stopped: tuple[str, ...] = ()) -> dict:
+    """herdr state: each named session running with its panes (None: its listing fails)."""
+    sessions = [{"name": name, "running": True} for name in panes]
+    sessions += [{"name": name, "running": False} for name in stopped]
+    return {"sessions": sessions, "panes": {k: v for k, v in panes.items() if v is not None}}
+
+
+H_NOTICE = _above_input(capture=HERDR_EMPTY, lines=[TRANSCRIPT])
+
+HERDR_SCENARIOS = {
+    "transcript notice, empty input": (
+        _herdr({"default": [_herdr_pane(pane="w1:p1", screen=H_NOTICE)]}),
+        ["herdr:default:w1:p1"],
+    ),
+    "footer status /rc failed, empty input": (
+        _herdr(
+            {
+                "default": [
+                    _herdr_pane(
+                        pane="w1:p2", screen=_below_input(capture=HERDR_EMPTY, lines=[FOOTER])
+                    )
+                ]
+            }
+        ),
+        ["herdr:default:w1:p2"],
+    ),
+    "claude run from its versions directory": (
+        _herdr({"default": [_herdr_pane(pane="w1:p3", screen=H_NOTICE, cmd="claude-versions")]}),
+        ["herdr:default:w1:p3"],
+    ),
+    "notice with an unsubmitted draft": (
+        _herdr(
+            {
+                "default": [
+                    _herdr_pane(
+                        pane="w1:p4", screen=_above_input(capture=HERDR_DRAFT, lines=[TRANSCRIPT])
+                    )
+                ]
+            }
+        ),
+        [],
+    ),
+    "notice already re-issued": (
+        _herdr(
+            {
+                "default": [
+                    _herdr_pane(
+                        pane="w1:p5",
+                        screen=_above_input(
+                            capture=HERDR_EMPTY,
+                            lines=[
+                                TRANSCRIPT,
+                                "❯ /remote-control",
+                                "  ⎿  Remote Control connected",
+                            ],
+                        ),
+                    )
+                ]
+            }
+        ),
+        [],
+    ),
+    "notice in a shell pane": (
+        _herdr({"default": [_herdr_pane(pane="w1:p6", screen=H_NOTICE, cmd="zsh")]}),
+        [],
+    ),
+    "notice in less": (
+        _herdr({"default": [_herdr_pane(pane="w1:p7", screen=H_NOTICE, cmd="less")]}),
+        [],
+    ),
+    "an executable whose path merely mentions claude": (
+        _herdr({"default": [_herdr_pane(pane="w1:p8", screen=H_NOTICE, cmd="lookalike")]}),
+        [],
+    ),
+    "pane scrolled back from its bottom": (
+        _herdr({"default": [_herdr_pane(pane="w1:p9", screen=H_NOTICE, offset=3)]}),
+        [],
+    ),
+    "process info unreadable": (
+        _herdr({"default": [_herdr_pane(pane="w1:pA", screen=H_NOTICE, cmd="info-fails")]}),
+        [],
+    ),
+    "capture fails": (_herdr({"default": [_herdr_pane(pane="w1:pB", screen=None)]}), []),
+    "every running session is reached, a stopped one is not": (
+        _herdr(
+            {
+                "default": [_herdr_pane(pane="w1:p1", screen=HERDR_EMPTY)],
+                "work": [_herdr_pane(pane="w1:p1", screen=H_NOTICE)],
+            },
+            stopped=("old",),
+        ),
+        ["herdr:work:w1:p1"],
+    ),
+    "a session whose pane listing fails is skipped": (
+        _herdr({"broken": None, "default": [_herdr_pane(pane="w2:p1", screen=H_NOTICE)]}),
+        ["herdr:default:w2:p1"],
+    ),
+    "no herdr server": ({"fails": True}, []),
+}
+
+
+@pytest.mark.parametrize("mode", ["subprocess", "inprocess"])
+@pytest.mark.parametrize("name", list(HERDR_SCENARIOS))
+def test_herdr_reissue_scenarios(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str, name: str
+) -> None:
+    herdr, expected = HERDR_SCENARIOS[name]
+    reissued, sent, herdr_sent = _run_all(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        mode=mode,
+        state={"no_server": True, "panes": [], "herdr": herdr},
+    )
+    assert (reissued, sent) == (expected, [])
+    assert herdr_sent == [
+        ["--session", session, "pane", *step]
+        for target in expected
+        for session, pane in [target.removeprefix("herdr:").split(":", 1)]
+        for step in (["send-text", pane, "/remote-control"], ["send-keys", pane, "Enter"])
+    ]
+
+
+@pytest.mark.parametrize("mode", ["subprocess", "inprocess"])
+def test_herdr_and_tmux_panes_are_both_reissued(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    state = {
+        "panes": [_pane(pane="%1", screen=_above_input(capture=EMPTY, lines=[TRANSCRIPT]))],
+        "herdr": _herdr({"default": [_herdr_pane(pane="w1:p1", screen=H_NOTICE)]}),
+    }
+    reissued, sent, herdr_sent = _run_all(
+        tmp_path=tmp_path, monkeypatch=monkeypatch, mode=mode, state=state
+    )
+    assert reissued == ["%1", "herdr:default:w1:p1"]
+    assert len(sent) == len(herdr_sent) == 2
+
+
+def test_the_real_herdr_capture_shows_an_empty_prompt_between_rules() -> None:
+    rows = HERDR_EMPTY.splitlines()
+    prompt = rows.index("❯\u00a0")
+    assert rows[prompt - 1].startswith("─") and rows[prompt + 1].startswith("─")
+    assert [row for row in HERDR_DRAFT.splitlines() if row.startswith("❯")] == [
+        "❯\u00a0half written draft about deploys"
+    ]
+
+
+def _replies(**by_op: str | None) -> Callable[..., str | None]:
+    """A herdr runner answering each operation (`session`, `list`, `process-info`, ...)."""
+
+    def herdr(*args: str) -> str | None:
+        return by_op.get(args[0] if args[0] == "session" else args[3])
+
+    return herdr
+
+
+SESSIONS = json.dumps({"sessions": [{"name": "default", "running": True}]})
+
+
+@pytest.mark.parametrize(
+    "listing",
+    [
+        None,
+        "not json",
+        "[]",
+        json.dumps({"sessions": "default"}),
+        json.dumps({"sessions": ["default", {"name": 7, "running": True}]}),
+        json.dumps({"sessions": [{"name": "default", "running": "yes"}]}),
+    ],
+)
+def test_an_unreadable_session_listing_reaches_no_session(*, listing: str | None) -> None:
+    assert _rc()._herdr_sessions(herdr=_replies(session=listing)) == []
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        "w1:p1",
+        {"scroll": {"offset_from_bottom": 0, "viewport_rows": 40}},
+        {"pane_id": "", "scroll": {"offset_from_bottom": 0, "viewport_rows": 40}},
+        {"pane_id": "w1:p1"},
+        {"pane_id": "w1:p1", "scroll": {"offset_from_bottom": False, "viewport_rows": 40}},
+        {"pane_id": "w1:p1", "scroll": {"offset_from_bottom": 0, "viewport_rows": 0}},
+        {"pane_id": "w1:p1", "scroll": {"offset_from_bottom": 0, "viewport_rows": True}},
+    ],
+)
+def test_a_pane_row_without_a_bottom_viewport_is_not_reached(*, row: object) -> None:
+    listing = json.dumps({"result": {"panes": [row]}})
+    assert _rc()._herdr_viewports(herdr=_replies(list=listing), session="default") == []
+
+
+@pytest.mark.parametrize(
+    "info",
+    [
+        None,
+        "not json",
+        json.dumps({"result": {}}),
+        json.dumps({"result": {"process_info": {"foreground_processes": [{"argv": []}]}}}),
+        json.dumps({"result": {"process_info": {"foreground_processes": [{"argv": [7]}]}}}),
+        json.dumps({"result": {"process_info": {"foreground_processes": ["claude"]}}}),
+    ],
+)
+def test_unreadable_process_info_is_not_claude(*, info: str | None) -> None:
+    rc = _rc()
+    herdr = _replies(**{"process-info": info})
+    assert rc._herdr_foreground_is_claude(herdr=herdr, session="default", pane="w1:p1") is False
+
+
+@pytest.mark.parametrize("failing", ["send-text", "send-keys"])
+def test_a_failed_herdr_send_is_not_reported(*, failing: str) -> None:
+    info = json.dumps(
+        {"result": {"process_info": {"foreground_processes": [{"argv": ["claude"]}]}}}
+    )
+    replies: dict[str, str | None] = {
+        "session": SESSIONS,
+        "list": json.dumps({"result": {"panes": [_herdr_pane(pane="w1:p1", screen=None)["row"]]}}),
+        "process-info": info,
+        "read": H_NOTICE,
+        "send-text": "",
+        "send-keys": "",
+    }
+    replies[failing] = None
+    rc = _rc()
+
+    def no_tmux(*_args: str) -> str | None:
+        return None
+
+    assert rc.reissue(tmux=no_tmux, ps=_fake_ps, herdr=_replies(**replies)) == []
+
+
+def test_herdr_resolves_on_path_then_in_the_installer_directory(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    rc = _rc()
+    assert rc._herdr_binary() is not None
+    monkeypatch.setattr(rc.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(rc.Path, "home", lambda: tmp_path)
+    assert rc._herdr_binary() is None
+    assert rc._run_herdr("--version") is None
+    installed = tmp_path / ".local" / "bin" / "herdr"
+    installed.parent.mkdir(parents=True)
+    _ = installed.write_text(REFUSE, encoding="utf-8")
+    assert rc._herdr_binary() == str(installed)
 
 
 def _live(*, home: Path, token: str, account: str) -> None:
