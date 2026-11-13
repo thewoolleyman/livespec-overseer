@@ -322,6 +322,29 @@ round) has no round to expire within and is governed
 entirely by the retirement rule of §"Fail-soft posture" — it is neither
 expired nor notice-eligible under this paragraph.
 
+In addition to, and without narrowing, the completion retry for an unconfirmed
+delivery above, a wrap-up paste whose submission the daemon could not confirm
+can leave the daemon's own payload sitting in the composer, and that payload
+MUST NOT itself hold the track out of acting. When a later observation, while
+the round the payload was pasted for is still open, shows the composer holding
+EXACTLY the daemon's retained wrap-up payload (its full text, or the runtime's
+collapsed placeholder for a single paste of exactly that payload), and every
+other leg of the guarded-paste predicate of constraints.md §"Acting safety"
+holds (no busy evidence, no structured gate, a settled input region and
+positive pane identity), the daemon MUST re-send the SUBMISSION only. The
+retained payload stands in for the empty-input leg and for nothing else. The
+daemon MUST NOT paste again, MUST NOT open a new round or notify a new band,
+MUST NOT submit a payload whose round has closed, and MUST NOT treat any
+composer text other than its retained payload as authority to submit: composer
+text the daemon did not author stays governed by the rule that the daemon
+never injects over or submits typed input, and a daemon that no longer holds
+the retained payload, for example after its own restart, MUST NOT submit
+anything on this authority. While its own payload stays unsubmitted for longer
+than 10 minutes, the daemon MUST log an event naming the track and stating
+that its own wrap-up is pending in the composer; per §"Notify, never block"
+the event is emitted on entry and re-arms once the payload leaves the
+composer.
+
 ## The restart
 
 Once — and only once — a fresh `ready` declaration passes the restart
@@ -655,6 +678,20 @@ wrapper, or null when none was launched), so no binding to another pane or
 another runtime remains. The daemon's own identification of the session may
 land before or after this re-binding. Both rest on the same exact evidence, so
 neither can bind the track to a different session.
+
+On a terminal backend that pastes input, the entrypoint MUST paste the resume
+text at most ONCE per relaunch, and only after the launched session's composer
+is observed at its input prompt with no structured gate and no busy evidence.
+Every later attempt within the same relaunch, after a paste that may have
+landed, MUST be an Enter-only submission: a just-launched session can show an
+empty composer for a while and then draw buffered input all at once, so an
+empty reading after a paste does not prove the paste failed and MUST NOT
+authorize a second paste. The entrypoint MUST bound its submission attempts
+and state that bound in its output. When the resume's submission or the
+mapping row's re-binding is not confirmed within the bound, it MUST end with
+the failure outcome `resume_or_rebind_failed` amended onto its start-intent,
+MUST leave the track's mapping row unchanged, and MUST leave at most one copy
+of the resume text in the composer.
 
 ## The keep-going nudge
 
@@ -1278,6 +1315,17 @@ stale namesake, conflicting candidate, or identifier mismatch MUST be
 classified as AMBIGUOUS and reported to the human, and no launch occurs. A
 live process's identity MUST still be established from exact live process
 evidence; an index MUST NOT override live evidence.
+
+Live process evidence MUST include every process the carrier spawned,
+whichever of the carrier's threads spawned it. When the daemon reads a
+process's children to find a carrier's session, it MUST read the children of
+EVERY thread of that process, MUST return each child process identifier once
+even when it is listed under more than one thread, and MUST fail soft: a
+process or thread that has gone contributes no children, and its absence MUST
+NOT raise an error or discard the children of the remaining threads. A session
+held by a helper that a non-main thread of the carrier spawned is therefore
+that carrier's live session for discovery and adoption, exactly as one spawned
+by the main thread would be.
 
 A LIVE carrier of a supported runtime running in a mapped track's recorded
 pane — the pane resolved under contracts.md §"Durable stores"'s backend,

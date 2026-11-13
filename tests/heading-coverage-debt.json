@@ -2427,5 +2427,33 @@
     "heading": "## LLM provider credential management",
     "work_item": "overseer-5tpc72",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A Codex session held by a helper a worker thread spawned is adopted like any other",
+    "work_item": "overseer-uzvcbn.21",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A sanctioned relaunch pastes the resume once when the fresh composer reads empty after the paste",
+    "work_item": "overseer-f2t7cg",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A daemon wrap-up left unsubmitted in an idle composer is submitted with Enter only",
+    "work_item": "overseer-llrj5k",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A daemon wrap-up pending in the composer past its window is surfaced",
+    "work_item": "overseer-llrj5k",
+    "first_seen": "2026-11-13"
   }
 ]

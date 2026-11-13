@@ -6204,6 +6204,30 @@ When the daemon records the outcome
 
 Then the round is un-opened and the failed paste is surfaced
 
+## Scenario: A daemon wrap-up left unsubmitted in an idle composer is submitted with Enter only
+
+Given a tracked session whose wrap-up paste was written to the pane and whose submission was not confirmed
+
+And while that round is still open the composer holds exactly that wrap-up payload on a pane with no busy evidence, no structured gate, a settled input region and positive pane identity
+
+When the daemon next observes the track
+
+Then it re-sends the submission only and does not paste again
+
+And the track is not held at settling by its own pending payload
+
+And composer text the daemon did not author, or a payload whose round has closed, is never submitted
+
+## Scenario: A daemon wrap-up pending in the composer past its window is surfaced
+
+Given a daemon wrap-up payload has stayed unsubmitted in a track's composer for longer than 10 minutes
+
+When the daemon observes the track
+
+Then it logs one event naming the track and stating that its own wrap-up is pending in the composer
+
+And the event re-arms once the payload leaves the composer
+
 ## Scenario: A payload that left the input after it was observed there counts as delivered
 
 Given a wrap-up paste observed in the session's input
@@ -6582,6 +6606,20 @@ Then it refuses before writing any record or sending any input to any pane
 
 And no process is started or terminated, and no mapping row, state file or backend record is changed
 
+## Scenario: A sanctioned relaunch pastes the resume once when the fresh composer reads empty after the paste
+
+Given the sanctioned relaunch entrypoint has launched a non-Codex runtime in a herdr target pane
+
+And the launched session's composer reads empty for a while after the resume is pasted and then shows the buffered paste
+
+When the entrypoint completes its resume delivery
+
+Then the resume text was pasted exactly once and the composer holds at most one copy of it
+
+And every later submission attempt within the relaunch was Enter-only
+
+And either the session runs a turn on the resume prompt and the mapping row is re-bound, or the relaunch ends with the resume_or_rebind_failed outcome and the mapping row is unchanged
+
 ## Scenario: A live Codex carrier with no exact session evidence reads unidentified, never gone
 
 Given a mapped, not-done Codex track whose recorded pane runs a live Codex carrier holding no rollout file open
@@ -6597,6 +6635,20 @@ Then the track reads `unidentified-session`, not session-gone and not misnamed
 And exactly one event names the pane, the carrier's process identifier and the ambiguous-repository-sessions condition
 
 And the carrier is not adopted, wrapped up, nudged or restarted
+
+## Scenario: A Codex session held by a helper a worker thread spawned is adopted like any other
+
+Given a mapped track whose recorded pane runs a live Codex carrier
+
+And the process holding that carrier's session was spawned by a non-main thread of the carrier
+
+When the daemon reads the carrier's live process evidence
+
+Then the helper is found among the carrier's children exactly once
+
+And the session is identified and adopted exactly as one spawned by the main thread would be
+
+And a thread that has exited contributes no children, without an error and without hiding the children of the carrier's remaining threads
 
 ## Scenario: A backend-reported session named for the track identifies the carrier and re-records the row
 
