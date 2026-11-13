@@ -4724,5 +4724,13 @@
     "test": "TODO",
     "work_item": "overseer-uzvcbn.23",
     "reason": "An integration-tier test is owed for this heading, ratified for spec.md 'The restart' (its host memory floor paragraph) under proposal a-seat-replacement-holds-below-the-host-memory-floor, plan herdr-overseer, epic overseer-uzvcbn; work item overseer-uzvcbn.23 owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reachable host holding the current delivery stays current between deliveries",
+    "test": "TODO",
+    "work_item": "overseer-r7pymu",
+    "reason": "An integration-tier test is owed for this heading, ratified for contracts.md 'Enrolled-host delivery' (its retry and timeouts paragraph, the refresh push) under proposal enrolled-host-refresh-push, plan central-credential-service, epic overseer-iyfjbo; work item overseer-r7pymu owns landing it."
   }
 ]

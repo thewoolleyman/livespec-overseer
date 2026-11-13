@@ -6049,6 +6049,18 @@ Then that host is shown as `stale` with the time of its last successful push and
 
 And the output contains no credential material
 
+## Scenario: A reachable host holding the current delivery stays current between deliveries
+
+Given a converted listed host that applied the current delivery and stays reachable
+
+And no new delivery is issued for longer than `delivery.stale_after`
+
+When the operator runs the status command
+
+Then that host is shown as `current`, not `stale`
+
+And its last successful push is more recent than half of `delivery.stale_after` ago
+
 ## Scenario: A context rise under an unchanged session identity latches a restart obligation
 
 Given a tracked session with a known remaining-context reading
