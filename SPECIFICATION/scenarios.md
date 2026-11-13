@@ -5983,9 +5983,9 @@ And every following host applies it
 
 ## Scenario: An account switch re-issues Remote Control only where it stopped
 
-Given a following host runs two agent sessions in tmux panes, one using Remote Control and one not
+Given a following host runs two agent sessions in panes of its terminal multiplexer, herdr or tmux, one using Remote Control and one not
 
-And tmux reports each pane's current command as the Claude Code version number `2.1.323`, not `claude`
+And the multiplexer reports each pane's current command as the Claude Code version number `2.1.323`, not `claude`
 
 And a third pane runs a pager displaying the same notice text
 
@@ -5999,7 +5999,7 @@ And it sends nothing to a pane showing that notice whose input box holds unsubmi
 
 ## Scenario: An account switch re-issues Remote Control on the role holder's own sessions
 
-Given the role holder runs an agent session in a tmux pane that was using Remote Control
+Given the role holder runs an agent session in a herdr or tmux pane that was using Remote Control
 
 When the rotation operation switches the role holder's live login to a different account and that pane shows Claude Code's account-changed notice `signed-in claude.ai account or organization changed on this machine — run /remote-control`
 
