@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.57.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.56.0...v5.57.0) (2026-11-14)
+
+
+### Features
+
+* add Claude Herdr controller contract test ([a8121d1](https://github.com/thewoolleyman/livespec-overseer/commit/a8121d1885d3800bcdac48e8986d0b96aa30bf9b))
+* verify Claude replacement retains its pane ([478ae50](https://github.com/thewoolleyman/livespec-overseer/commit/478ae50f70f7d77e3115b69b1615b6240d166402))
+
 ## [5.56.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.55.9...v5.56.0) (2026-11-13)
 
 
