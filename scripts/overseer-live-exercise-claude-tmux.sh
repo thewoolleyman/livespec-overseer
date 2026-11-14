@@ -192,8 +192,10 @@ print(json.dumps({"repos": [sys.argv[1]]}))
 }
 
 clear_claude_trust_gate() {
-  # The exercise owns this scratch home.  Declare the repo trusted before the
-  # client starts so a directory-trust picker cannot consume its first input.
+  # The exercise owns this scratch home.  Claude Code records folder trust and
+  # first-run onboarding in its profile file (`.claude.json`, beside the config
+  # directory), not in settings.json.  Declare both before the client starts so
+  # neither picker can consume its first input.
   mkdir -p -- "$claude_home"
   python3 -c '
 import json
@@ -206,10 +208,12 @@ try:
     value = json.loads(path.read_text(encoding="utf-8"))
 except (OSError, json.JSONDecodeError):
     value = {}
+value["hasCompletedOnboarding"] = True
 projects = value.setdefault("projects", {})
-projects[repo] = {"trustLevel": "trusted"}
+entry = projects.setdefault(repo, {})
+entry["hasTrustDialogAccepted"] = True
 path.write_text(json.dumps(value), encoding="utf-8")
-' "$claude_home/settings.json" "$repo"
+' "${CLAUDE_CONFIG_DIR:-$HOME}/.claude.json" "$repo"
 }
 
 daemon_is_up() {
