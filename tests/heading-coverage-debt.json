@@ -787,7 +787,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A reset reading declined for the requesting client is unreadable, not empty",
-    "work_item": "overseer-zelcaq",
+    "work_item": "overseer-fr3hnj",
     "first_seen": "2026-10-15"
   },
   {
@@ -2152,7 +2152,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The account table shows each account's resets",
-    "work_item": "overseer-zelcaq",
+    "work_item": "overseer-fr3hnj",
     "first_seen": "2026-10-15"
   },
   {
