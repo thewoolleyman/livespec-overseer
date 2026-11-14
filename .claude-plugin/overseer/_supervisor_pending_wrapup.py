@@ -181,6 +181,13 @@ def retry_decision(
     # whose pane is still rendering could submit a half-drawn frame.
     if obs.busy or obs.gate or not _supervisor_launch.pane_settled(sup=sup, target=target):
         return PendingWrapupDecision(status=None, active_conditions=set())
+    # The settle sleeps between captures, so the pane can exit or leave the repo inside
+    # it: identity is re-proven immediately before the Enter, not only at the top gate.
+    if not _supervisor_observe.pane_is_managed(
+        sup=sup, target=target, repo=track.repo, topic=track.topic, session=session
+    ):
+        clear(state=state)
+        return None
 
     submitted, _effect_unknown = _supervisor_launch.retry_prompt_enter_once(
         sup=sup, target=target, text=text
