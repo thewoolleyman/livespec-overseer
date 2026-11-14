@@ -846,6 +846,26 @@ def test_the_default_start_runs_the_reissue_on_a_daemon_thread_and_returns_at_on
     assert inspect.signature(entry.run_once).parameters["start"].default is push.start_in_background
 
 
+def test_the_installed_unit_writes_its_lines_to_the_journal_unbuffered() -> None:
+    """overseer-olhkq3: the push service's stdout is not block-buffered under systemd.
+
+    Under systemd stdout is a pipe, so Python block-buffered it and push and
+    Remote Control lines reached the journal in bursts hours after the events
+    they reported. The unit the installer copies MUST set PYTHONUNBUFFERED=1 in
+    its [Service] section, and the installer rewrites only ExecStart.
+    """
+    unit = Path(__file__).resolve().parents[2] / "overseer" / "caam-delivery-push.service"
+    service_lines: list[str] = []
+    section = ""
+    for raw in unit.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if line.startswith("[") and line.endswith("]"):
+            section = line
+        elif section == "[Service]" and line:
+            service_lines.append(line)
+    assert "Environment=PYTHONUNBUFFERED=1" in service_lines
+
+
 def test_a_token_straddling_the_200_character_cut_never_leaks_its_first_part(
     *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
