@@ -2490,5 +2490,19 @@
     "heading": "## Scenario: A seat moved between machines is bound only after the old seat releases",
     "work_item": "overseer-xncthh",
     "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A pass names each rotation threshold set away from its default",
+    "work_item": "overseer-gzjv4s",
+    "first_seen": "2026-11-14"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A threshold override tied to an account's reset lapses once the reset is used",
+    "work_item": "overseer-gzjv4s",
+    "first_seen": "2026-11-14"
   }
 ]
