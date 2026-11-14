@@ -106,6 +106,35 @@ def _status(*, obs: Observation) -> str:
     return "danger" if obs.eff_ctx is not None and obs.eff_ctx <= DANGER_CTX_REMAINING else "warned"
 
 
+def _retry_after_settle(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    obs: Observation,
+    target: str,
+    state: InjectState,
+    text: str,
+) -> PendingWrapupDecision | None:
+    """Send the authorized Enter and retain the payload only while it remains visible."""
+    submitted, _effect_unknown = _supervisor_launch.retry_prompt_enter_once(
+        sup=sup, target=target, text=text
+    )
+    if submitted:
+        _supervisor_wrapup_round.mark_delivered(
+            sup=sup,
+            track=track,
+            due=list(state.pending_wrapup_bands),
+            eff_ctx=obs.eff_ctx or 0,
+            compaction_latched_at=state.pending_wrapup_compaction_latched_at,
+            path="wrap-up via retained-composer Enter retry: delivered",
+        )
+        clear(state=state)
+    elif not _supervisor_launch.retained_prompt_visible(sup=sup, target=target, text=text):
+        clear(state=state)
+        return None
+    return PendingWrapupDecision(status=_status(obs=obs), active_conditions=set())
+
+
 def pending_alert_conditions(
     *,
     sup: Supervisor,
@@ -181,21 +210,19 @@ def retry_decision(
     # whose pane is still rendering could submit a half-drawn frame.
     if obs.busy or obs.gate or not _supervisor_launch.pane_settled(sup=sup, target=target):
         return PendingWrapupDecision(status=None, active_conditions=set())
-
-    submitted, _effect_unknown = _supervisor_launch.retry_prompt_enter_once(
-        sup=sup, target=target, text=text
-    )
-    if submitted:
-        _supervisor_wrapup_round.mark_delivered(
-            sup=sup,
-            track=track,
-            due=list(state.pending_wrapup_bands),
-            eff_ctx=obs.eff_ctx or 0,
-            compaction_latched_at=state.pending_wrapup_compaction_latched_at,
-            path="wrap-up via retained-composer Enter retry: delivered",
-        )
-        clear(state=state)
-    elif not _supervisor_launch.retained_prompt_visible(sup=sup, target=target, text=text):
+    # The settle sleeps between captures, so the pane can exit or leave the repo inside
+    # it: identity is re-proven immediately before the Enter, not only at the top gate.
+    if not _supervisor_observe.pane_is_managed(
+        sup=sup, target=target, repo=track.repo, topic=track.topic, session=session
+    ):
         clear(state=state)
         return None
-    return PendingWrapupDecision(status=_status(obs=obs), active_conditions=set())
+
+    return _retry_after_settle(
+        sup=sup,
+        track=track,
+        obs=obs,
+        target=target,
+        state=state,
+        text=text,
+    )
