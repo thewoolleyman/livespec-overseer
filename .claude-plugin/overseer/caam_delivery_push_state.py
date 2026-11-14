@@ -9,13 +9,13 @@ other credential material is ever recorded.
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from pathlib import Path
 
 import caam_delivery_service
 import jsonio
 import streams
+from _caam_redact import redacted_prefix
 
 __all__: list[str] = [
     "CONFIG_FILE",
@@ -176,14 +176,15 @@ def _object(*, path: Path) -> dict[str, object] | None:
 
 # A result line is recorded and printed at most this long, after redaction.
 MAX_RESULT_CHARS = 200
-_CREDENTIAL_SHAPE = re.compile(r"sk-ant-[A-Za-z0-9_-]+")
 
 
 def scrubbed(*, text: str, token: str | None = None) -> str:
     """`text` with the delivered token and any credential shape redacted, THEN cut short.
 
     The cut comes last. Cutting first let a token straddling the cut survive as a
-    prefix that no replacement matched any more (overseer-llyif4).
+    prefix that no replacement matched any more (overseer-llyif4). Credential
+    shapes are matched through _caam_redact, the one definition every overseer
+    diagnostic shares (overseer-yy62oq).
     """
     redacted = text.replace(token, "[redacted]") if token else text
-    return _CREDENTIAL_SHAPE.sub("[redacted]", redacted)[:MAX_RESULT_CHARS]
+    return redacted_prefix(text=redacted, limit=MAX_RESULT_CHARS)

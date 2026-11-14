@@ -6,6 +6,7 @@ import importlib
 import inspect
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -886,6 +887,24 @@ def test_a_token_straddling_the_200_character_cut_never_leaks_its_first_part(
         assert TOKEN[:4] not in text
     assert outcomes["h"].startswith("applied 2 ") and len(outcomes["h"]) <= 200
     assert "remote-control h: applied 2 " in out
+
+
+def test_a_credential_shape_added_to_the_shared_definition_is_redacted_in_push_lines(
+    *, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """overseer-yy62oq: delivery-push lines match credentials through _caam_redact.
+
+    scrubbed() carried a private copy of the sk-ant- pattern, so a credential shape
+    added to the one shared definition was redacted in the caam-loop failure lines
+    but still printed in the delivery push lines.
+    """
+    state = importlib.import_module("caam_delivery_push_state")
+    redact = importlib.import_module("_caam_redact")
+    widened = re.compile(r"sk-ant-[A-Za-z0-9_-]+|newshape-[A-Za-z0-9]+")
+    monkeypatch.setattr(redact, "_CREDENTIAL_SHAPE", widened)
+    line = state.scrubbed(text="applied 3 newshape-Q7x2 and sk-ant-oat01-ZZ tail")
+    assert line == "applied 3 [redacted] and [redacted] tail"
+    assert len(state.scrubbed(text="z" * 300)) == state.MAX_RESULT_CHARS
 
 
 def test_the_role_holders_reissue_line_never_carries_part_of_a_credential(
