@@ -20,7 +20,10 @@ claude_home="${CLAUDE_HOME:-$HOME/.claude}"
 lifecycle="$evidence/lifecycle.jsonl"
 snapshot="$HOME/.livespec-overseer-status.json"
 state_file="$repo/tmp/overseer/$topic/.overseer-state"
-agent_target="$instance:$topic"
+# This is populated by ``new-window -P``.  `overseer-start` renames the window
+# which holds the agent, whereas pane ids remain stable through both that
+# rename and the daemon's later atomic `respawn-pane -k`.
+agent_target=""
 
 readonly POLL_SECONDS=2
 readonly CLAUDE_READY_TIMEOUT=60
@@ -212,9 +215,17 @@ stage_bootstrap() {
   ensure_scratch_plan
   clear_claude_trust_gate
   mkdir -p -- "$evidence"
-  tx new-window -d -t "$instance:" -n "$topic" -c "$repo" \
-    "exec env CLAUDECODE=1 claude --dangerously-skip-permissions -n $(printf %q "$topic")" ||
+  # The daemon's released launch plan deliberately invokes bare `claude`.  A
+  # direct stub exercise may put its stub on this controller's PATH after the
+  # private terminal server was started, so copy that PATH into THIS private
+  # server before starting the pane.  No default terminal server is addressed.
+  tx set-environment -g PATH "$PATH" ||
+    fail_stage bootstrap "could not set PATH on the private exercise server"
+  agent_target="$(tx new-window -d -P -F '#{pane_id}' -t "$instance:" -n "$topic" -c "$repo" \
+    "exec env CLAUDECODE=1 claude --dangerously-skip-permissions -n $(printf %q "$topic")")" ||
     fail_stage bootstrap "could not open the Claude window on the private server"
+  [[ "$agent_target" == %* ]] || fail_stage bootstrap \
+    "private exercise server returned no pane id for the Claude window"
   wait_until "$CLAUDE_READY_TIMEOUT" claude_pane_is_idle || fail_stage bootstrap \
     "no idle Claude input in retained pane $agent_target within ${CLAUDE_READY_TIMEOUT}s (shipped is_idle_input never held)"
   predecessor="$(live_identity)"

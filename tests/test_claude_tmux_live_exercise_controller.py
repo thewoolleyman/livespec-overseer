@@ -31,3 +31,10 @@ def test_controller_gives_a_stub_the_same_bootstrap_ancestry_and_scopes_successo
     source = CONTROLLER.read_text(encoding="utf-8")
     assert "CLAUDECODE=1" in source
     assert '"$(snapshot_row session_identity)" == "$successor"' in source
+
+
+def test_controller_keeps_a_stable_pane_and_private_server_path_for_replacement() -> None:
+    """Window renames and a late-added stub PATH cannot break the shipped relaunch."""
+    source = CONTROLLER.read_text(encoding="utf-8")
+    assert "agent_target=\"$(tx new-window -d -P -F '#{pane_id}'" in source
+    assert 'tx set-environment -g PATH "$PATH"' in source
