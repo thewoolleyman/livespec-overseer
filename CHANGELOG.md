@@ -1,5 +1,29 @@
 # Changelog
 
+## [5.58.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.57.0...v5.58.0) (2026-11-14)
+
+
+### Features
+
+* observe each account's quota resets during the rotation pass ([b6d0698](https://github.com/thewoolleyman/livespec-overseer/commit/b6d0698fe5bbb58d804cd5a1eb7c68e019cdcc9a))
+* restore quota reset observation primitives ([716d650](https://github.com/thewoolleyman/livespec-overseer/commit/716d65032647640e622e1fe4fcd608ee78857ab3))
+* ship a Claude tmux lifecycle controller for the isolated live exercise ([00a531e](https://github.com/thewoolleyman/livespec-overseer/commit/00a531ed10b1dec6d176b7bc24984a905f8328f5))
+
+
+### Bug Fixes
+
+* a raising Remote Control re-issue still prints its host line (overseer-2h5xpe) ([ac6cef8](https://github.com/thewoolleyman/livespec-overseer/commit/ac6cef88c38c3b37a0d73bba2857350a3355c93a))
+* anchor busy Codex composer evidence ([825702e](https://github.com/thewoolleyman/livespec-overseer/commit/825702e9d8a2e43baf947841c2a974700d232cf2))
+* model retained wrap-up retry ([45bb052](https://github.com/thewoolleyman/livespec-overseer/commit/45bb05293b91f3c6bbcb364860e69b9ad0d1f615))
+* name ~/workspace as the clone root in overseer instructions and README ([e014b3f](https://github.com/thewoolleyman/livespec-overseer/commit/e014b3f6e09ff11bf532574a5313fad3a8655790))
+* pass the profile after `--`, refuse flag-shaped backup names, and re-bind before the chmod (overseer-jd42r2) ([1c5bb20](https://github.com/thewoolleyman/livespec-overseer/commit/1c5bb20cf19f202d63c8152324fff1765ed4edda))
+* prove busy Codex composer handling ([b3f18e9](https://github.com/thewoolleyman/livespec-overseer/commit/b3f18e97c92a458214795af59c224ba9873b0e22))
+* re-bind a revived caam profile's identity through caam after copying its credential (overseer-jd42r2) ([672582e](https://github.com/thewoolleyman/livespec-overseer/commit/672582e366607958c63f94cf8f630dba7897ca9a))
+* record each host's push outcome first and run its Remote Control re-issue in the background (overseer-2h5xpe) ([29da721](https://github.com/thewoolleyman/livespec-overseer/commit/29da7212a90848348f949acd39e23c162f751dd3))
+* redact a result line before cutting it to 200 characters (overseer-llyif4) ([98d33c4](https://github.com/thewoolleyman/livespec-overseer/commit/98d33c49403bcc7ed0fa2d4394adda487edc509e))
+* redact credential shapes before cutting resnapshot and keep-warm failure lines (overseer-cwcsjl) ([3e82f01](https://github.com/thewoolleyman/livespec-overseer/commit/3e82f019baa244de96d3b86dc35b4981ba704a97))
+* write Claude's real trust and onboarding shape in the tmux exercise controller ([9eea7d0](https://github.com/thewoolleyman/livespec-overseer/commit/9eea7d033b182b5f9e52a0d56a432949f932c3a7))
+
 ## [5.57.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.56.0...v5.57.0) (2026-11-14)
 
 
