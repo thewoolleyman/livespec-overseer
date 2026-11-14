@@ -20,6 +20,7 @@ from caam_pass_capacity import observe_pass_capacity
 from caam_pass_probe import probe_snapshotless_profiles
 from caam_pass_publish import pass_publication, pass_stamp
 from caam_pass_refusals import observe_pass_refusals
+from caam_pass_resets import observe_pass_resets
 from caam_pass_seams import AgentRunner, PassSeams, line_logger, pass_seams
 from caam_pass_table import emit_pass_table, pass_table_lines
 from caam_pass_warm import WarmStage, run_warm_stage, warm_idle
@@ -195,6 +196,13 @@ def _pass_with_active(
         now=context.now,
         profiles=profiles,
         source=seams.capacity_source,
+    )
+    profiles = observe_pass_resets(
+        active_name=active_name,
+        home=context.home,
+        now=context.now,
+        profiles=profiles,
+        source=seams.reset_source,
     )
     protected_accounts = apply_protected_accounts(
         state=context.state,

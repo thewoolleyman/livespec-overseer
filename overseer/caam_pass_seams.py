@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Final, Protocol, cast
 
 from _caam_switch_host import caam_activate
@@ -28,6 +29,7 @@ from caam_enforcement import enforce_models as default_enforce_models
 from caam_pass_refusals import TrackedSessionSource, tracked_session_source
 from caam_profile_state import save_state as default_save_state
 from caam_profiles import CaamRunner
+from caam_reset_source import ResetSource, read_resets
 from caam_switch import switch_account as default_switch_account
 from caam_usage import fetch_usage
 from caam_warm import AgentProcess, Logger, ResnapshotRunner
@@ -83,10 +85,17 @@ def default_agent_runner(
     )
 
 
+def _unobserved_reset_source(*, creds_path: Path, now: float | None = None) -> tuple[None, str]:
+    """Keep a caller's injected quota fake from opening an unrelated provider read."""
+    del creds_path, now
+    return None, "not observed"
+
+
 @dataclass(frozen=True, kw_only=True)
 class PassSeams:
     fetcher: UsageFetcher
     capacity_source: CapacitySource
+    reset_source: ResetSource
     save_state: SaveState
     switch_account: SwitchAccount
     enforce_models: EnforceModels
@@ -104,11 +113,16 @@ def pass_seams(*, overrides: dict[str, object]) -> PassSeams:
     """
     caam_runner = cast(CaamRunner | None, overrides.get("caam_runner"))
     agent_runner = cast(AgentRunner | None, overrides.get("agent_runner"))
+    fetcher = cast(UsageFetcher, overrides.get("fetcher", fetch_usage))
+    reset_source = cast(ResetSource | None, overrides.get("reset_source"))
+    if reset_source is None:
+        reset_source = read_resets if "fetcher" not in overrides else _unobserved_reset_source
     return PassSeams(
-        fetcher=cast(UsageFetcher, overrides.get("fetcher", fetch_usage)),
+        fetcher=fetcher,
         capacity_source=cast(
             CapacitySource, overrides.get("capacity_source", read_rate_limit_tier)
         ),
+        reset_source=reset_source,
         save_state=cast(SaveState, overrides.get("save_state", default_save_state)),
         switch_account=cast(SwitchAccount, overrides.get("switch_account", default_switch_account)),
         enforce_models=cast(EnforceModels, overrides.get("enforce_models", default_enforce_models)),
