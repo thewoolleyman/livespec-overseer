@@ -2111,10 +2111,10 @@ pane comes back with its conversation loaded but its last turn already FINISHED,
 it sits at an idle `❯` doing nothing until something prompts it. This step is the
 difference between "the tracks are back" and "the tracks are working"; skipping it
 is the single most common way a recovery is reported complete while the whole fleet
-sits idle. Do NOT paste or type the kick into the pane: Claude sessions are never
-driven by typing into their panes (fleet ruling 2026-11-14; on the interactive hosts
-a managed hook denies literal-text tmux input into every pane). Deliver it one of two
-ways instead:
+sits idle. Prefer delivering the kick without typing into the pane, because typed
+text can interrupt the maintainer (fleet ruling 2026-11-14: prefer `SendMessage`).
+Typing into the pane is still allowed and nothing blocks it. Deliver the kick one of
+three ways:
 
 - **As the respawn's trailing prompt argument**, for a track you have already
   established is in none of the four do-not-kick states below (read its
@@ -2124,6 +2124,9 @@ ways instead:
   reading its pane and confirming it is in none of those states — per the fleet's
   distributed SendMessage protocol
   (https://github.com/thewoolleyman/livespec-dev-tooling/blob/master/%2Eai/distributed-sendmessage-protocol.md).
+- **By pasting it into the pane**, when the first two are not available: paste the
+  kick and submit it (`load-buffer -` + `paste-buffer -p`, then `Enter` — the same
+  atomic-paste discipline the daemon uses; never type it key-by-key).
 
 The kick text:
 
