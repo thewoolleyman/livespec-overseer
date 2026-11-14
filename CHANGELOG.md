@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.58.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.58.0...v5.58.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* delivery-push lines redact through the one shared credential-shape definition (overseer-yy62oq) ([a96a73a](https://github.com/thewoolleyman/livespec-overseer/commit/a96a73a89a472f85dc38a0585d30e99d7ddbb476))
+
 ## [5.58.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.57.0...v5.58.0) (2026-11-14)
 
 
