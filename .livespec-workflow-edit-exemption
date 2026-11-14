@@ -1,4 +1,4 @@
-work_item=overseer-urorsb
-reason=B' master-push concurrency group (one top-level concurrency block in ci.yml, the orchestrator's bd-ib-5o5ibo shape): superseded pending master runs are dropped, so PR CI stops queueing behind a master backlog (2026-11-14: PR queue wait 63-105 min, n=12). Purely additive; legacy-coordinator-agent assigned and authorized under its delegated additive authority.
+work_item=overseer-qaahly
+reason=Bullet 3 of overseer-qaahly (ruling R301): check-per-file-coverage uploads tmp/exercise-failure-evidence as a workflow artifact when the job fails, so a timed-out Claude tmux exercise keeps the daemon log and evidence that show which side never moved. One added `if: failure()` actions/upload-artifact@v4 step; no existing line changes.
 change=additive
 ci_runtime=no-significant-increase

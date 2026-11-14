@@ -291,6 +291,21 @@ jobs:
         if: ${{ !cancelled() }}
         uses: thewoolleyman/livespec-dev-tooling/.github/actions/publish-flake-retries@v1.208.0
 
+      # When the isolated Claude tmux exercise's fixture test fails, it copies its
+      # evidence directory, the scratch repository's daemon log and state files,
+      # and the daemon's status snapshot here (overseer-qaahly). Without this a
+      # timeout on a loaded runner leaves no record of which side never moved.
+      # include-hidden-files is REQUIRED: the state and snapshot files are dotfiles.
+      - name: Publish the isolated exercise's evidence when its fixture test failed
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: exercise-failure-evidence
+          path: tmp/exercise-failure-evidence
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+
       # include-hidden-files is REQUIRED: upload-artifact@v4 excludes dotfiles
       # by default and both handoff files are dotfiles; without it the upload
       # silently ships nothing and the consumer falls back to a full duplicate
