@@ -35,6 +35,7 @@ from caam_delivery_push_state import (
     load_hosts,
     load_state,
     record_result,
+    scrubbed,
     seconds,
 )
 
@@ -105,7 +106,7 @@ def run_ssh(
     lines = done.stdout.strip().splitlines()
     if done.returncode != 0 and not lines:
         return done.returncode, f"failed ssh-exit {done.returncode}"
-    return done.returncode, (lines[-1] if lines else "failed no-reply")[:200]
+    return done.returncode, lines[-1] if lines else "failed no-reply"
 
 
 def start_in_background(*, task: Callable[[], None]) -> None:
@@ -160,7 +161,7 @@ def push_due(  # noqa: PLR0913 - each argument is an independent seam
         changed = state.get(host.label, {}).get("account_id") != delivery.account_id
         if reply.startswith("applied") and changed and reissue is not None:
             switched.append(host)
-        return reply.replace(token, "[redacted]")
+        return scrubbed(text=reply, token=token)
 
     with ThreadPoolExecutor(max_workers=max(1, len(behind))) as pool:
         futures = {host.label: pool.submit(push_one, host=host) for host in behind}
@@ -201,7 +202,7 @@ def _reissue_task(
         try:
             line = _reissue(host=host, script=script, run=run, settings=settings, home=home)
             streams.write_stdout(
-                text=f"remote-control {host.label}: {line.replace(token, '[redacted]')}\n"
+                text=f"remote-control {host.label}: {scrubbed(text=line, token=token)}\n"
             )
         except (OSError, RuntimeError) as error:
             streams.write_stdout(
