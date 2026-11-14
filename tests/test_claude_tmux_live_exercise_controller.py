@@ -7,6 +7,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CONTROLLER = REPO_ROOT / "scripts" / "overseer-live-exercise-claude-tmux.sh"
+STUB = REPO_ROOT / "tests" / "stub_claude.py"
+STUB_SHIM_PREPARER = REPO_ROOT / "scripts" / "overseer-live-exercise-stub-shims.sh"
 
 
 def test_controller_is_checked_in_executable_and_uses_only_the_exercise_socket() -> None:
@@ -38,3 +40,11 @@ def test_controller_keeps_a_stable_pane_and_private_server_path_for_replacement(
     source = CONTROLLER.read_text(encoding="utf-8")
     assert "agent_target=\"$(tx new-window -d -P -F '#{pane_id}'" in source
     assert 'tx set-environment -g PATH "$PATH"' in source
+
+
+def test_checked_in_claude_stub_and_launcher_are_available_for_the_private_tmux_run() -> None:
+    """The proof uses tracked fixtures instead of writing an agent double under `/tmp`."""
+    assert STUB.is_file(), "the idle-Claude fixture is missing"
+    preparer = STUB_SHIM_PREPARER.read_text(encoding="utf-8")
+    assert "--claude-script" in preparer
+    assert '"$bin_dir/claude"' in preparer
