@@ -241,3 +241,25 @@ def test_controller_records_the_first_unfinishable_stage_when_claude_never_idles
     assert completed.returncode != 0
     records = [json.loads(line) for line in (evidence / "lifecycle.jsonl").read_text().splitlines()]
     assert [(record["stage"], record["status"]) for record in records] == [("bootstrap", "failed")]
+
+
+def test_trust_gate_writes_claude_profile_shape_not_codex_settings(tmp_path: Path) -> None:
+    """Folder trust and onboarding land in `.claude.json` as real Claude Code reads them."""
+    source = CONTROLLER.read_text(encoding="utf-8")
+    start = source.index("clear_claude_trust_gate() {")
+    function = source[start : source.index("\n}\n", start) + 3]
+    home = tmp_path / "home"
+    home.mkdir()
+    profile = home / ".claude.json"
+    profile.write_text(json.dumps({"userID": "keep", "projects": {"/other": {"x": 1}}}))
+    repo = "/scratch/repo"
+    script = f'claude_home="$HOME/.claude"\nrepo={repo}\n{function}\nclear_claude_trust_gate\n'
+    env = {**os.environ, "HOME": str(home)}
+    env.pop("CLAUDE_CONFIG_DIR", None)
+    subprocess.run(["bash", "-c", script], env=env, check=True)
+    value = json.loads(profile.read_text(encoding="utf-8"))
+    assert value["hasCompletedOnboarding"] is True
+    assert value["projects"][repo]["hasTrustDialogAccepted"] is True
+    assert value["userID"] == "keep"
+    assert value["projects"]["/other"] == {"x": 1}
+    assert not (home / ".claude" / "settings.json").exists()
