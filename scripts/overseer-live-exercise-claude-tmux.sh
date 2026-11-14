@@ -107,7 +107,21 @@ claude_pane_is_idle() {
 import signals
 import sys
 sys.exit(0 if signals.is_idle_input(capture_text=sys.stdin.read()) else 1)
-'
+' && return 0
+  last_observed="the shipped is_idle_input judged the pane not idle; its last row was $(pane_last_row)"
+  return 1
+}
+
+# The last non-blank row of the retained pane, quoted, for a failure line. A
+# second, plain capture: the judgement above reads the styled one unchanged.
+pane_last_row() {
+  local row
+  row="$(tx capture-pane -p -J -t "$agent_target" 2>/dev/null | grep -v '^[[:space:]]*$' | tail -n 1)"
+  if [[ -n "$row" ]]; then
+    printf "'%s'" "${row:0:160}"
+  else
+    printf 'empty or uncapturable'
+  fi
 }
 
 pane_ctx_remaining() {
@@ -163,21 +177,61 @@ for row in rows:
 ' "$snapshot" "$topic" "$1"
 }
 
+# Prints the named fields of this topic's snapshot row as `name=repr` pairs, or says
+# why there is no row to read. It is what a timed-out stage reports as the daemon's
+# side of the story.
+snapshot_fields() {
+  shipped -c '
+import json
+import sys
+from pathlib import Path
+
+path, topic, fields = Path(sys.argv[1]), sys.argv[2], sys.argv[3:]
+try:
+    rows = json.loads(path.read_text(encoding="utf-8")).get("rows", [])
+except FileNotFoundError:
+    print(f"no status snapshot at {path}")
+    sys.exit(0)
+except (OSError, json.JSONDecodeError) as error:
+    print(f"status snapshot unreadable ({type(error).__name__})")
+    sys.exit(0)
+for row in rows:
+    if row.get("topic") == topic:
+        print(" ".join(f"{field}={row.get(field)!r}" for field in fields))
+        break
+else:
+    print(f"no snapshot row for {topic!r}")
+' "$snapshot" "$topic" "$@"
+}
+
 overseer_cli() {
   shipped "$package/supervisor.py" "$@"
 }
 
+# Polls a condition until it holds or the bound runs out. It leaves `waited` (the
+# seconds this wait took) and resets `last_observed`, which each condition rewrites
+# with what it saw, so a timeout can say which side never moved.
 wait_until() {
   local seconds="$1"
   shift
-  local deadline=$((SECONDS + seconds))
+  local started=$SECONDS
+  local deadline=$((started + seconds))
+  last_observed="nothing observed yet"
   while ((SECONDS < deadline)); do
     if "$@"; then
+      waited=$((SECONDS - started))
       return 0
     fi
     sleep "$POLL_SECONDS"
   done
+  waited=$((SECONDS - started))
   return 1
+}
+
+# The tail every timed-out stage appends: how long it waited against which bound,
+# and the last thing its condition observed.
+timed_out() {
+  printf 'after %ss (bound %ss), last observed: %s' "$waited" "$1" "$last_observed"
 }
 
 ensure_scratch_plan() {
@@ -224,7 +278,15 @@ path.write_text(json.dumps(value), encoding="utf-8")
 }
 
 daemon_is_up() {
-  [[ -f "$snapshot" ]]
+  [[ -f "$snapshot" ]] && return 0
+  local tail_line
+  tail_line="$(grep -v '^[[:space:]]*$' "$evidence/overseer-start.log" 2>/dev/null | tail -n 1)"
+  if [[ -n "$tail_line" ]]; then
+    last_observed="no status snapshot yet; overseer-start's log ended '${tail_line:0:160}'"
+  else
+    last_observed="no status snapshot yet; overseer-start's log was empty"
+  fi
+  return 1
 }
 
 stage_bootstrap() {
@@ -252,7 +314,7 @@ stage_bootstrap() {
   [[ "$agent_target" == %* ]] || fail_stage bootstrap \
     "private exercise server returned no pane id for the Claude window"
   wait_until "$CLAUDE_IDLE_TIMEOUT" claude_pane_is_idle || fail_stage bootstrap \
-    "no idle Claude input in retained pane $agent_target within ${CLAUDE_IDLE_TIMEOUT}s (shipped is_idle_input never held)"
+    "no idle Claude input in retained pane $agent_target $(timed_out "$CLAUDE_IDLE_TIMEOUT")"
   predecessor="$(live_identity)"
   [[ -n "$predecessor" ]] || fail_stage bootstrap \
     "no live named Claude registry identity for '$topic' after its input became idle"
@@ -261,23 +323,27 @@ stage_bootstrap() {
   pane_submit "!$package/overseer-start > $(printf %q "$start_log") 2>&1" || fail_stage bootstrap \
     "could not submit overseer-start to Claude pane $agent_target"
   wait_until "$DAEMON_TIMEOUT" daemon_is_up || fail_stage bootstrap \
-    "overseer-start did not create status snapshot $snapshot within ${DAEMON_TIMEOUT}s"
+    "overseer-start did not create status snapshot $snapshot $(timed_out "$DAEMON_TIMEOUT")"
   pass_stage bootstrap \
     "Claude pane $agent_target named '$topic' with predecessor $predecessor; overseer-start brought up the daemon above it"
 }
 
 track_is_adopted() {
-  [[ "$(snapshot_row session_identity)" == "$predecessor" ]]
+  last_observed="$(snapshot_fields session_identity status)"
+  [[ "$last_observed" == "session_identity='$predecessor' "* ]]
 }
 
 stage_adoption() {
   wait_until "$ADOPTION_TIMEOUT" track_is_adopted || fail_stage adoption \
-    "the daemon snapshot never bound '$topic' to $predecessor within ${ADOPTION_TIMEOUT}s (snapshot said '$(snapshot_row session_identity)')"
+    "the daemon snapshot never bound '$topic' to $predecessor $(timed_out "$ADOPTION_TIMEOUT")"
   pass_stage adoption "the daemon snapshot binds $topic to $predecessor at $(snapshot_row tmux)"
 }
 
+# One read of the row decides the round and records the reading: whether the daemon
+# saw the context at all, from where, and how old that reading was.
 wrapup_round_is_open() {
-  [[ "$(snapshot_row round_open)" == True ]]
+  last_observed="$(snapshot_fields round_open status ctx ctx_source ctx_age_seconds)"
+  [[ "$last_observed" == "round_open=True "* ]]
 }
 
 stage_wrapup() {
@@ -290,7 +356,7 @@ stage_wrapup() {
     --epic "$OVERSEER_EXERCISE_EPIC" --ctx-threshold "$threshold" >/dev/null 2>&1 ||
     fail_stage wrap-up "could not open a per-track wrap-up round at ${threshold}%"
   wait_until "$WRAPUP_TIMEOUT" wrapup_round_is_open || fail_stage wrap-up \
-    "the daemon opened no wrap-up round within ${WRAPUP_TIMEOUT}s at threshold ${threshold}% with ${remaining}% remaining"
+    "the daemon opened no wrap-up round at threshold ${threshold}% with ${remaining}% remaining $(timed_out "$WRAPUP_TIMEOUT")"
   pass_stage wrap-up \
     "the daemon injected its wind-down after the controller opened a round at ${threshold}% just above live ${remaining}% remaining context"
 }
@@ -344,7 +410,7 @@ stage_declaration() {
   # opens can interleave the two pastes and submit neither, so wait for an empty
   # idle composer first.
   wait_until "$WRAPUP_TIMEOUT" claude_pane_is_idle || fail_stage declaration \
-    "Claude pane $agent_target showed no empty idle composer within ${WRAPUP_TIMEOUT}s of the wrap-up round opening, so the declaration was never typed"
+    "Claude pane $agent_target showed no empty idle composer after the wrap-up round opened, so the declaration was never typed: $(timed_out "$WRAPUP_TIMEOUT")"
   # One second earlier than now: file timestamps come from the kernel's coarse clock,
   # which can trail the wall clock read here.
   declaration_since="$(python3 -c 'import time; print(time.time() - 1.0)')"
@@ -365,13 +431,14 @@ stage_declaration() {
 
 successor_is_bound() {
   successor="$(live_identity)"
+  last_observed="live registry identity '${successor:-none}', $(snapshot_fields session_identity status)"
   [[ -n "$successor" ]] && [[ "$successor" != "$predecessor" ]] &&
     [[ "$(snapshot_row session_identity)" == "$successor" ]]
 }
 
 stage_replacement() {
   wait_until "$REPLACEMENT_TIMEOUT" successor_is_bound || fail_stage replacement \
-    "no different live Claude identity appeared within ${REPLACEMENT_TIMEOUT}s; predecessor was $predecessor"
+    "no different live Claude identity was bound in place of predecessor $predecessor $(timed_out "$REPLACEMENT_TIMEOUT")"
   pass_stage replacement \
     "atomic respawn retained pane $agent_target and replaced predecessor pid=$(identity_pid "$predecessor") starttime=$(identity_starttime "$predecessor") with successor pid=$(identity_pid "$successor") starttime=$(identity_starttime "$successor")"
 }
@@ -381,13 +448,18 @@ resume_line_delivered() {
   # `-J` rejoins rows the pane width wrapped, and `-S -` reaches back through the
   # scrollback: the retained pane is only a few rows tall, so a long line may have
   # scrolled its first row away by the time it is read.
-  captured="$(tx capture-pane -p -J -S - -t "$agent_target" 2>/dev/null)" || return 1
-  grep -qF "resume plan epic $OVERSEER_EXERCISE_EPIC in repository $repo" <<<"$captured"
+  captured="$(tx capture-pane -p -J -S - -t "$agent_target" 2>/dev/null)" || {
+    last_observed="pane $agent_target could not be captured"
+    return 1
+  }
+  grep -qF "resume plan epic $OVERSEER_EXERCISE_EPIC in repository $repo" <<<"$captured" && return 0
+  last_observed="the resume line was not in the pane; its last row was $(pane_last_row)"
+  return 1
 }
 
 stage_continuation() {
   wait_until "$CONTINUATION_TIMEOUT" resume_line_delivered || fail_stage continuation \
-    "the resume line naming epic $OVERSEER_EXERCISE_EPIC never reached successor $successor"
+    "the resume line naming epic $OVERSEER_EXERCISE_EPIC never reached successor $successor $(timed_out "$CONTINUATION_TIMEOUT")"
   pass_stage continuation \
     "the resume line reached successor $successor; the scratch plan is NOT a real ledger thread, so this proves resume-line delivery only and claims no end-to-end ledger continuation"
 }
@@ -396,6 +468,8 @@ predecessor=""
 successor=""
 declaration_since=""
 declaration_observation=$'pending\tnot yet read'
+waited=0
+last_observed="nothing observed yet"
 : "${OVERSEER_EXERCISE_EPIC:=overseer-exercise-epic}"
 
 stage_bootstrap
