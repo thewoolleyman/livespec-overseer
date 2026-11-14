@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.58.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.58.2...v5.58.3) (2026-11-14)
+
+
+### Bug Fixes
+
+* **test:** the installed-manager chroot copies /usr/lib dependencies of host programs (overseer-3evlnu) ([792af0f](https://github.com/thewoolleyman/livespec-overseer/commit/792af0f73858f9c5c302e7d7aa929f01b55bdb99))
+
 ## [5.58.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.58.1...v5.58.2) (2026-11-14)
 
 
