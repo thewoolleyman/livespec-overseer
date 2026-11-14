@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.58.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.58.1...v5.58.2) (2026-11-14)
+
+
+### Bug Fixes
+
+* every timeout of the Claude tmux exercise names its elapsed seconds and last observation, and a failed fixture run keeps its evidence (overseer-qaahly) ([ed4e023](https://github.com/thewoolleyman/livespec-overseer/commit/ed4e023dd55a5856c298707d2152f3255fc937a2))
+* key the Claude tmux exercise's declaration stage on the declaration, not on wall time (overseer-qaahly) ([6ced90a](https://github.com/thewoolleyman/livespec-overseer/commit/6ced90a1c2ba89195e2d4bf3d1d804af279000cb))
+* the caam-delivery-push unit writes its lines to the journal unbuffered (overseer-olhkq3) ([dcb8d40](https://github.com/thewoolleyman/livespec-overseer/commit/dcb8d409e09922e06c724855aff02939ee9bfac2))
+
 ## [5.58.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.58.0...v5.58.1) (2026-11-14)
 
 
