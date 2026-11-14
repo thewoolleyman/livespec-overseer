@@ -456,8 +456,10 @@ def test_every_unusable_reply_envelope_fails_closed_naming_its_defect(*, socket_
         "a missing required field": _result_body(result={"type": PROCESS_INFO_TYPE}),
     }
 
-    for defect, body in cases.items():
-        address = socket_dir / f"c{len(defect)}{abs(hash(defect)) % 10000}.sock"
+    for index, (defect, body) in enumerate(cases.items()):
+        # The case's position, never a hash of its text: a string hash is salted
+        # per process and truncated, so two cases could share one bind path.
+        address = socket_dir / f"c{index}.sock"
         _ = _serve(address=address, respond=_replies(body=body))
         outcome = _ask(
             transport=_transport(transport_module=transport_module, address=address),
