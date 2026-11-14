@@ -24,9 +24,8 @@ def retry_enter_once(
 ) -> tuple[bool, bool]:
     """Submit an exact, already-visible prompt without pasting it again."""
     target = cast(herdr_identity.HerdrPaneTarget, reads.decode(value=session).herdr)
-    expected = text.partition("\n")[0].strip()
     capture = reads.capture_pane(session=session)
-    prompt_pending = partial(pane_router_submit_signals.prompt_pending, text=expected)
+    prompt_pending = partial(pane_router_submit_signals.prompt_pending, text=text)
     if not prompt_pending(capture=capture):
         return False, False
     entered = writer.send_enter(target=target)
