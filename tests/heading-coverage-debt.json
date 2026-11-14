@@ -2490,5 +2490,12 @@
     "heading": "## Scenario: A seat moved between machines is bound only after the old seat releases",
     "work_item": "overseer-xncthh",
     "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A session-starting surface does not launch while another machine holds the topic's live seat",
+    "work_item": "overseer-bluagz",
+    "first_seen": "2026-11-14"
   }
 ]
