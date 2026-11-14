@@ -99,7 +99,11 @@ def _copy_dependencies(*, root: Path, executable: Path) -> None:
     )
     for line in completed.stdout.splitlines():
         candidate = _dependency_path(line=line)
-        if candidate is None or candidate.is_relative_to(executable.parent.parent):
+        # Skip only what already lives inside the isolated root (the installed
+        # interpreter's own libraries). Comparing against the executable's
+        # grandparent skipped every /usr/lib dependency of a /usr/bin program on
+        # hosts whose ldd prints /usr/lib paths, leaving the chroot without them.
+        if candidate is None or candidate.is_relative_to(root):
             continue
         destination = root / candidate.relative_to("/")
         if destination.exists():
