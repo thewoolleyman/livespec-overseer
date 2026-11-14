@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from caam_capacity import AccountCapacity
+from caam_resets import ResetReading
 
 __all__: list[str] = [
     "ActiveAccount",
@@ -110,6 +111,7 @@ class ProfileUsage:
     usage: UsageRecord | None
     credential_expired: bool = False
     capacity: AccountCapacity | None = None
+    reset_reading: ResetReading | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
