@@ -192,6 +192,21 @@ def test_styled_codex_placeholder_is_empty_only_when_its_glyphs_are_dim():
         )
         is False
     )
+    assert (
+        composer_empty(
+            capture_text=(f"{_CODEX_EMPTY_COMPOSER}\n" "  quoted transcript · not a statusline\n")
+        )
+        is False
+    )
+    assert (
+        composer_empty(
+            capture_text=(
+                f"{_CODEX_EMPTY_COMPOSER}\n"
+                "  ordinary prose mentioning Context without a percentage · and a separator\n"
+            )
+        )
+        is False
+    )
 
 
 # ## Scenario: A busy session with an empty input box receives the wrap-up

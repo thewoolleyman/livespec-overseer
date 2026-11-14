@@ -76,7 +76,9 @@ def _codex_composer_block(*, capture_text: str) -> str | None:
 
     A styled capture includes scrollback as well as the visible composer.  A dim
     ``›`` quoted in transcript is therefore never evidence about input; only the
-    block anchored at the final Codex statusline can authorize a busy wrap-up.
+    block anchored at the final row carrying Codex's own ``Context N% left``
+    statusline reading can authorize a busy wrap-up.  Any other row, even one with
+    a ``·`` separator, is transcript text and never an anchor.
     """
     raw_lines = capture_text.splitlines()
     plain_lines = [strip_ansi(text=line) for line in raw_lines]
@@ -84,7 +86,7 @@ def _codex_composer_block(*, capture_text: str) -> str | None:
         (
             index
             for index in range(len(plain_lines) - 1, -1, -1)
-            if "Context" in plain_lines[index] or " · " in plain_lines[index]
+            if _CTX_RE.search(plain_lines[index]) is not None
         ),
         None,
     )
