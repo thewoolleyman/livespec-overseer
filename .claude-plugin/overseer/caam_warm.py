@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Final, Protocol, cast
 
+from _caam_redact import redacted_prefix
 from _caam_warm_rebind import rebind_identity, refuse_unsafe_backup
 from caam_profile_state import STATE_REL, caam_vault, live_creds_path
 from caam_usage import read_creds
@@ -129,7 +130,7 @@ def resnapshot_active(
             "updated (prevents orphaning on the next switch)"
         )
     else:
-        detail = (result.stderr or result.stdout).strip()[:120]
+        detail = redacted_prefix(text=(result.stderr or result.stdout).strip(), limit=120)
         logger(f"resnapshot: FAILED for {active_name} -- {detail}")
 
 
@@ -351,4 +352,4 @@ def _run_agent(*, sandbox: Path, agent_runner: AgentRunner) -> AgentProcess:
 
 def _first_output_line(*, process: AgentProcess) -> str:
     lines = ((process.stdout or "") + (process.stderr or "")).strip().splitlines()
-    return lines[0][:120] if lines else ""
+    return redacted_prefix(text=lines[0], limit=120) if lines else ""
