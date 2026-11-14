@@ -887,3 +887,44 @@ def test_a_profile_name_that_reads_as_a_flag_is_never_passed_to_caam_backup(*, t
 
     assert caam.calls == []
     assert logs == ["resnapshot: FAILED for --help -- unsafe profile name"]
+
+
+def test_a_failed_resnapshot_line_never_carries_part_of_a_credential(*, tmp_path: Path):
+    """overseer-cwcsjl: caam's backup output is redacted BEFORE it is cut to 120 characters."""
+    module = caam_warm_module()
+    _ = write_snapshot(home=tmp_path, name="active", credential="old", expires_at_s=1000.0)
+    write_creds(path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=9000.0)
+    secret = "sk-ant-oat01-" + "Z" * 40
+    caam = Caam(home=tmp_path, returncode=1, stderr="e" * 110 + secret)
+    logs: list[str] = []
+
+    module.resnapshot_active(
+        active_name="active", home=tmp_path, dry_run=False, caam_runner=caam, logger=logs.append
+    )
+
+    assert len(logs) == 1
+    assert logs[0].startswith("resnapshot: FAILED for active -- " + "e" * 110)
+    assert "sk-ant" not in logs[0]
+    assert "Z" not in logs[0]
+
+
+def test_a_keep_warm_no_refresh_line_never_carries_part_of_a_credential(*, tmp_path: Path):
+    """overseer-cwcsjl: the agent's output is redacted BEFORE it is cut to 120 characters."""
+    module = caam_warm_module()
+    _ = write_snapshot(home=tmp_path, name="idle", credential="old", expires_at_s=1000.0)
+    write_creds(path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=9000.0)
+    secret = "sk-ant-oat01-" + "Z" * 40
+
+    result = module.warm_profile(
+        name="idle",
+        home=tmp_path,
+        now=2000.0,
+        agent_runner=Agent(stdout="o" * 110 + secret + "\n"),
+        caam_runner=IdentityCaam(home=tmp_path),
+        logger=ignore_log,
+    )
+
+    assert result.ok is False
+    assert result.detail.startswith("no refresh -- " + "o" * 110)
+    assert "sk-ant" not in result.detail
+    assert "Z" not in result.detail
