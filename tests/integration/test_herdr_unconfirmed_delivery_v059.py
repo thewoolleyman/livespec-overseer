@@ -413,6 +413,30 @@ def test_a_retained_wrapup_never_retries_after_pane_identity_changes(*, tmp_path
     )
 
 
+def test_a_retained_wrapup_rechecks_pane_identity_after_the_settle(*, tmp_path, monkeypatch):
+    """A pane that leaves the repo during the two-capture settle never receives the Enter."""
+    _repo, _topic, session, sup, track, _clock, fake = _retained_wrapup(
+        tmp_path=tmp_path, monkeypatch=monkeypatch
+    )
+    launch = importlib.import_module("_supervisor_launch")
+    retries: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        launch,
+        "retry_prompt_enter_once",
+        lambda **kwargs: retries.append(kwargs) or (True, False),
+    )
+
+    def _settled_but_exited(*, sup, target):
+        fake.cmds[session] = "zsh"
+        return True
+
+    monkeypatch.setattr(launch, "pane_settled", _settled_but_exited)
+
+    sup.evaluate(track=track, act=True)
+
+    assert retries == []
+
+
 def test_a_retained_wrapup_keeps_busy_or_vanished_payload_out_of_enter_retry(
     *, tmp_path, monkeypatch
 ):
