@@ -204,6 +204,7 @@ def test_keep_warm_and_the_wake_schedule_report_what_the_span_carries(*, tmp_pat
         state={},
         config=warm.WarmConfig(active_name="active", home=tmp_path, dry_run=False, no_warm=False),
         agent_runner=StaticAgent(),
+        caam_runner=lambda *, args: StaticAgent(),
         logger=out.append,
         now=NOW,
     )

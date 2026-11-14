@@ -29,7 +29,13 @@ from _caam_pass_span import PassSpan
 from _caam_rotation_span import emit_warm_schedule
 from caam_anthropic_finish import LineWriter
 from caam_pass_seams import AgentRunner, line_logger
-from caam_warm import WarmConfig, WarmOutcome, emit_next_warm_wake, keep_warm
+from caam_warm import (
+    ResnapshotRunner,
+    WarmConfig,
+    WarmOutcome,
+    emit_next_warm_wake,
+    keep_warm,
+)
 
 __all__: list[str] = [
     "WarmStage",
@@ -48,6 +54,7 @@ class WarmStage:
     dry_run: bool
     no_warm: bool
     agent_runner: AgentRunner
+    caam_runner: ResnapshotRunner
     stdout: LineWriter
     now: float
 
@@ -75,6 +82,7 @@ def warm_idle(*, stage: WarmStage, active_name: str) -> WarmOutcome:
             no_warm=stage.no_warm,
         ),
         agent_runner=stage.agent_runner,
+        caam_runner=stage.caam_runner,
         logger=line_logger(writer=stage.stdout),
         now=stage.now,
     )

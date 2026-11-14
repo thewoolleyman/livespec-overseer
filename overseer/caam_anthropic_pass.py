@@ -247,6 +247,7 @@ def _pass_with_active(
         dry_run=context.flags.dry_run,
         no_warm=context.flags.no_warm,
         agent_runner=seams.agent_runner,
+        caam_runner=seams.caam_runner,
         stdout=context.stdout,
         now=context.now,
     )

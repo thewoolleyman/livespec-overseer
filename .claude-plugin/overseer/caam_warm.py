@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Final, Protocol, cast
 
+from _caam_warm_rebind import rebind_identity
 from caam_profile_state import STATE_REL, caam_vault, live_creds_path
 from caam_usage import read_creds
 from caam_warm_records import WarmOutcome, WarmSchedule
@@ -141,6 +142,7 @@ def keep_warm(
     state: dict[str, object],
     config: WarmConfig,
     agent_runner: AgentRunner,
+    caam_runner: ResnapshotRunner,
     logger: Logger,
     now: float | None = None,
 ) -> WarmOutcome:
@@ -183,6 +185,7 @@ def keep_warm(
             home=config.home,
             now=checked_at,
             agent_runner=agent_runner,
+            caam_runner=caam_runner,
             logger=logger,
         )
         attempted += 1
@@ -266,10 +269,15 @@ def warm_profile(
     name: str,
     home: Path,
     agent_runner: AgentRunner,
+    caam_runner: ResnapshotRunner,
     logger: Logger,
     now: float | None = None,
 ) -> WarmResult:
-    """Refresh one idle profile's snapshot in an isolated CLAUDE_CONFIG_DIR."""
+    """Refresh one idle profile's snapshot in an isolated CLAUDE_CONFIG_DIR.
+
+    A refreshed credential is copied into caam's vault and the profile is then
+    re-bound through caam, so caam still reads it as verified.
+    """
 
     checked_at = time.time() if now is None else now
     vault_profile = caam_vault(home=home) / name
@@ -291,6 +299,7 @@ def warm_profile(
             return WarmResult(ok=False, detail=f"no refresh -- {said or 'no output'}")
         shutil.copy(sandbox / ".credentials.json", vault_profile / ".credentials.json")
         (vault_profile / ".credentials.json").chmod(0o600)
+        rebind_identity(name=name, caam_runner=caam_runner, logger=logger)
         return WarmResult(ok=True, detail="refreshed, +%.1fh" % ((after - checked_at) / 3600))
     except (OSError, ValueError) as exc:
         return WarmResult(ok=False, detail=f"{type(exc).__name__}: {exc}")
