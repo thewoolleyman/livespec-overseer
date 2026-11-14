@@ -3986,7 +3986,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A scheduled pass evaluates an active account that has no short-window limit",
-    "test": "tests/integration/test_caam_generic_limit_windows.py::test_scenario_a_scheduled_pass_evaluates_an_active_account_with_no_short_window_limit",
+    "test": "tests.integration.test_caam_generic_limit_windows.test_scenario_a_scheduled_pass_evaluates_an_active_account_with_no_short_window_limit",
     "work_item": "overseer-yizu3e"
   },
   {
@@ -4000,21 +4000,21 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An account with no short-window limit is selected on a short-window rotation",
-    "test": "tests/integration/test_caam_generic_limit_windows.py::test_scenario_an_account_with_no_short_window_limit_is_selected_on_short_window_rotation",
+    "test": "tests.integration.test_caam_generic_limit_windows.test_scenario_an_account_with_no_short_window_limit_is_selected_on_short_window_rotation",
     "work_item": "overseer-yizu3e"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A temporary short-window limit is honoured only on the readings that report it",
-    "test": "tests/integration/test_caam_generic_limit_windows.py::test_scenario_a_temporary_short_window_limit_is_honoured_only_on_the_readings_that_report_it",
+    "test": "tests.integration.test_caam_generic_limit_windows.test_scenario_a_temporary_short_window_limit_is_honoured_only_on_the_readings_that_report_it",
     "work_item": "overseer-mqieqw"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unrecognised limit leaves the account readable and is shown",
-    "test": "tests/integration/test_caam_generic_limit_windows.py::test_scenario_an_unrecognised_limit_leaves_the_account_readable_and_is_shown",
+    "test": "tests.integration.test_caam_generic_limit_windows.test_scenario_an_unrecognised_limit_leaves_the_account_readable_and_is_shown",
     "work_item": "overseer-j5elif"
   },
   {
@@ -4361,7 +4361,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A pipefail script reports a match in a large input as a match",
-    "test": "tests/integration/test_pipefail_large_input_scenario.py::test_scenario_a_pipefail_script_reports_a_match_in_a_large_input_as_a_match",
+    "test": "tests.integration.test_pipefail_large_input_scenario.test_scenario_a_pipefail_script_reports_a_match_in_a_large_input_as_a_match",
     "work_item": "overseer-ng3b3w"
   },
   {
