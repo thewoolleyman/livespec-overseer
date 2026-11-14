@@ -4643,6 +4643,20 @@ When a session for T is then started on machine M2
 
 Then the daemon on M2 takes the record and binds the M2 session
 
+## Scenario: A session-starting surface does not launch while another machine holds the topic's live seat
+
+Given plan topic T's live-seat record names machine M1 and a seat there
+
+When the sanctioned out-of-band relaunch entrypoint on machine M2 is asked to launch a session for topic T
+
+Then it does not launch a session
+
+And its refusal names T and M1
+
+And T's live-seat record still names M1
+
+And no mapping row for T on M2 is re-bound
+
 ## Scenario: A confirmed fresh Codex successor is reported for its launch pane and proven without a rollout file
 
 Given a Codex track on a terminal backend that accepts agent-session reports, whose fresh ready declaration authorized a guarded replacement

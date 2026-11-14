@@ -4777,5 +4777,13 @@
     "test": "TODO",
     "work_item": "overseer-xncthh",
     "reason": "An integration-tier test is owed for this heading, ratified in SPECIFICATION v106 (scenarios.md, under spec.md 'Supervision across machines', proposal supervision-across-machines-one-live-seat-per-topic, plan herdr-overseer, epic overseer-uzvcbn); work item overseer-xncthh owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A session-starting surface does not launch while another machine holds the topic's live seat",
+    "test": "TODO",
+    "work_item": "overseer-bluagz",
+    "reason": "An integration-tier test is owed for this heading, ratified in SPECIFICATION v107 (scenarios.md, under spec.md 'Supervision across machines', proposal session-start-respects-live-seat-record, plan herdr-overseer, epic overseer-uzvcbn); work item overseer-bluagz owns landing it."
   }
 ]
