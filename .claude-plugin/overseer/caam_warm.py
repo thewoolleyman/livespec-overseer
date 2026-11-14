@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Final, Protocol, cast
 
-from _caam_warm_rebind import rebind_identity
+from _caam_warm_rebind import rebind_identity, refuse_unsafe_backup
 from caam_profile_state import STATE_REL, caam_vault, live_creds_path
 from caam_usage import read_creds
 from caam_warm_records import WarmOutcome, WarmSchedule
@@ -120,7 +120,7 @@ def resnapshot_active(
         return
     live = token_of(path=live_creds_path(home=home))
     snap = token_of(path=vault / active_name / ".credentials.json")
-    if live is None or live == snap:
+    if live is None or live == snap or refuse_unsafe_backup(name=active_name, logger=logger):
         return
     result = caam_runner(args=("backup", _TOOL, active_name))
     if result.returncode == 0:
@@ -298,8 +298,8 @@ def warm_profile(
         if after is None or (before is not None and after <= before):
             return WarmResult(ok=False, detail=f"no refresh -- {said or 'no output'}")
         shutil.copy(sandbox / ".credentials.json", vault_profile / ".credentials.json")
-        (vault_profile / ".credentials.json").chmod(0o600)
         rebind_identity(name=name, caam_runner=caam_runner, logger=logger)
+        (vault_profile / ".credentials.json").chmod(0o600)
         return WarmResult(ok=True, detail="refreshed, +%.1fh" % ((after - checked_at) / 3600))
     except (OSError, ValueError) as exc:
         return WarmResult(ok=False, detail=f"{type(exc).__name__}: {exc}")

@@ -6,7 +6,7 @@ import json
 import subprocess
 from typing import Final, Protocol, cast
 
-__all__: list[str] = ["CaamRunner", "LineLogger", "rebind_identity"]
+__all__: list[str] = ["CaamRunner", "LineLogger", "rebind_identity", "refuse_unsafe_backup"]
 
 _TOOL: Final = "claude"
 
@@ -32,7 +32,8 @@ def rebind_identity(*, name: str, caam_runner: CaamRunner, logger: LineLogger) -
     keeps an identity fingerprint, so the profile then reads `credential_changed`
     and caam refuses to switch onto it. `verify identity --repair` re-binds it to
     the account it already records, and never activates or replaces a credential
-    (overseer-jd42r2). It runs right after the copy, while the new access token is
+    (overseer-jd42r2). The profile name follows `--`, so a vault folder named like
+    a flag stays a profile name. It runs right after the copy, while the new access token is
     still valid for the provider check the repair may make.
     """
 
@@ -46,7 +47,7 @@ def rebind_identity(*, name: str, caam_runner: CaamRunner, logger: LineLogger) -
 
 def _rebind_state(*, name: str, caam_runner: CaamRunner) -> str:
     try:
-        result = caam_runner(args=("verify", "identity", _TOOL, name, "--repair", "--json"))
+        result = caam_runner(args=("verify", "identity", "--repair", "--json", _TOOL, "--", name))
     except (OSError, subprocess.SubprocessError) as exc:
         return f"unchecked ({type(exc).__name__})"
     try:
@@ -55,3 +56,15 @@ def _rebind_state(*, name: str, caam_runner: CaamRunner) -> str:
         reply = None
     state = cast(dict[str, object], reply).get("state") if isinstance(reply, dict) else None
     return state if isinstance(state, str) and state else f"unreadable (exit {result.returncode})"
+
+
+def refuse_unsafe_backup(*, name: str, logger: LineLogger) -> bool:
+    """Whether `caam backup` must not be handed `name`, reporting the refusal when so.
+
+    A vault folder named like a flag (`--help`) would be read by caam as one.
+    """
+
+    if not name.startswith("-"):
+        return False
+    logger(f"resnapshot: FAILED for {name} -- unsafe profile name")
+    return True

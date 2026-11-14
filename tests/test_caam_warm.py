@@ -121,14 +121,26 @@ class IdentityCaam:
 
     def __call__(self, *, args: tuple[str, ...]) -> object:
         self.calls.append(args)
-        assert args[:3] == ("verify", "identity", "claude")
-        name = args[3]
+        assert args[:2] == ("verify", "identity")
+        assert args[-3:-1] == ("claude", "--")
+        name = args[-1]
         creds = self.home / ".local/share/caam/vault/claude" / name / ".credentials.json"
         token = json.loads(creds.read_text(encoding="utf-8"))["claudeAiOauth"]["accessToken"]
+        repaired = "--repair" in args and self.repairable and self.bound.get(name) != token
         if "--repair" in args and self.repairable:
             self.bound[name] = token
         state = "verified" if self.bound.get(name) == token else "credential_changed"
-        reply = json.dumps({"provider": "claude", "profile": name, "state": state})
+        # The field names caam 0.1.25 prints for `verify identity --json`, read
+        # from its live output on the role holder and its binary's json tags.
+        reply = json.dumps(
+            {
+                "provider": "claude",
+                "profile": name,
+                "state": state,
+                "source": "provider" if repaired else "cache",
+                "repaired": repaired,
+            }
+        )
         return type(
             "Process",
             (),
@@ -313,12 +325,14 @@ def test_warm_profile_reports_no_refresh_with_agent_output_without_copying_back(
     write_creds(path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=9000.0)
     agent = Agent(stdout="", stderr="OAuth session expired and could not be refreshed\nsecond")
 
+    caam = IdentityCaam(home=tmp_path)
+
     result = module.warm_profile(
         name="idle",
         home=tmp_path,
         now=2000.0,
         agent_runner=agent,
-        caam_runner=IdentityCaam(home=tmp_path),
+        caam_runner=caam,
         logger=ignore_log,
     )
 
@@ -326,6 +340,7 @@ def test_warm_profile_reports_no_refresh_with_agent_output_without_copying_back(
     assert result.detail == "no refresh -- OAuth session expired and could not be refreshed"
     assert module.read_creds(path=profile / ".credentials.json") == ("old", 1000.0)
     assert not agent.calls[0][1].exists()
+    assert caam.calls == []
 
 
 def test_warm_profile_treats_still_valid_snapshot_as_success(*, tmp_path: Path):
@@ -716,8 +731,8 @@ def test_a_refreshed_profile_is_rebound_through_caam_and_reads_verified(*, tmp_p
     )
 
     assert result.ok is True
-    assert caam.calls == [("verify", "identity", "claude", "idle", "--repair", "--json")]
-    check = caam(args=("verify", "identity", "claude", "idle", "--json"))
+    assert caam.calls == [("verify", "identity", "--repair", "--json", "claude", "--", "idle")]
+    check = caam(args=("verify", "identity", "--json", "claude", "--", "idle"))
     assert json.loads(check.stdout)["state"] == "verified"  # pyright: ignore[reportAttributeAccessIssue]
     assert logs == []
 
@@ -820,6 +835,55 @@ def test_a_revived_dark_profile_is_rebound_through_caam_and_reads_verified(*, tm
 
     _ = revive.revive_dark_profiles(context=context, profiles=(dark,))
 
-    assert ("verify", "identity", "claude", "idle", "--repair", "--json") in caam.calls
-    check = caam(args=("verify", "identity", "claude", "idle", "--json"))
+    assert ("verify", "identity", "--repair", "--json", "claude", "--", "idle") in caam.calls
+    check = caam(args=("verify", "identity", "--json", "claude", "--", "idle"))
     assert json.loads(check.stdout)["state"] == "verified"  # pyright: ignore[reportAttributeAccessIssue]
+
+
+def test_a_chmod_failure_after_the_copy_still_rebinds(*, tmp_path: Path, monkeypatch: object):
+    """The re-bind runs straight after the copy, so a later step failing cannot skip it."""
+    module = caam_warm_module()
+    profile = write_snapshot(home=tmp_path, name="idle", credential="old", expires_at_s=1000.0)
+    write_creds(path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=9000.0)
+    caam = IdentityCaam(home=tmp_path)
+    real_chmod = Path.chmod
+
+    def chmod(self: Path, mode: int) -> None:
+        if self == profile / ".credentials.json":
+            message = "read-only vault"
+            raise OSError(message)
+        real_chmod(self, mode)
+
+    monkeypatch.setattr(Path, "chmod", chmod)  # pyright: ignore[reportAttributeAccessIssue]
+
+    result = module.warm_profile(
+        name="idle",
+        home=tmp_path,
+        now=2000.0,
+        agent_runner=Agent(refreshed_credential="new", after_expires_at_s=30_000.0),
+        caam_runner=caam,
+        logger=ignore_log,
+    )
+
+    assert result.ok is False
+    assert caam.calls == [("verify", "identity", "--repair", "--json", "claude", "--", "idle")]
+
+
+def test_a_profile_name_that_reads_as_a_flag_is_never_passed_to_caam_backup(*, tmp_path: Path):
+    """overseer-jd42r2 grade fix 1: a vault folder named like `--help` must not become a flag."""
+    module = caam_warm_module()
+    _ = write_snapshot(home=tmp_path, name="--help", credential="old", expires_at_s=1000.0)
+    write_creds(path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=9000.0)
+    caam = Caam(home=tmp_path)
+    logs: list[str] = []
+
+    module.resnapshot_active(
+        active_name="--help",
+        home=tmp_path,
+        dry_run=False,
+        caam_runner=caam,
+        logger=logs.append,
+    )
+
+    assert caam.calls == []
+    assert logs == ["resnapshot: FAILED for --help -- unsafe profile name"]
