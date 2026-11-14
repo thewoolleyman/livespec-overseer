@@ -2511,5 +2511,12 @@
     "heading": "## Scenario: A threshold override tied to an account's reset lapses once the reset is used",
     "work_item": "overseer-gzjv4s",
     "first_seen": "2026-11-14"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A write to the plan epic leaves the topic's live-seat record intact",
+    "work_item": "overseer-fnu5gl",
+    "first_seen": "2026-11-14"
   }
 ]
