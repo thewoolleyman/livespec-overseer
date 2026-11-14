@@ -4801,5 +4801,13 @@
     "test": "TODO",
     "work_item": "overseer-gzjv4s",
     "reason": "An integration-tier test is owed for this heading, ratified in SPECIFICATION v109 (scenarios.md, under contracts.md 'The account-rotation operation', proposal caam-anthropic-loop-every-pass, plan caam-quota-resets, epic overseer-pv53ri); work item overseer-gzjv4s owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A write to the plan epic leaves the topic's live-seat record intact",
+    "test": "TODO",
+    "work_item": "overseer-fnu5gl",
+    "reason": "An integration-tier test is owed for this heading, ratified in SPECIFICATION v110 (scenarios.md, under spec.md 'Supervision across machines', proposal live-seat-record-survives-epic-writes, plan herdr-overseer, epic overseer-uzvcbn); work item overseer-fnu5gl owns landing it."
   }
 ]

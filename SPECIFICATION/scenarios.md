@@ -4657,6 +4657,16 @@ And T's live-seat record still names M1
 
 And no mapping row for T on M2 is re-bound
 
+## Scenario: A write to the plan epic leaves the topic's live-seat record intact
+
+Given plan topic T's live-seat record names machine M1 and a seat there
+
+When a session writes a handoff entry and a new next action onto T's plan epic, rewriting the epic's metadata
+
+Then T's live-seat record still names M1 and that seat
+
+And a take of T's record from machine M2 still fails
+
 ## Scenario: A confirmed fresh Codex successor is reported for its launch pane and proven without a rollout file
 
 Given a Codex track on a terminal backend that accepts agent-session reports, whose fresh ready declaration authorized a guarded replacement
