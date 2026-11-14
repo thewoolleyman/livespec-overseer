@@ -10,7 +10,7 @@
 
 [project]
 name = "livespec-overseer"
-version = "5.55.9"
+version = "5.56.0"
 description = "Control-Plane operator tool for livespec: a two-pane tmux or Herdr supervisor that watches tracked sessions' context headroom, injects an escalating wrap-up at threshold, and restarts a session only once it declares itself ready. Peer of livespec-console-beads-fabro, not a component of it."
 requires-python = ">=3.10.16"
 authors = [
@@ -112,6 +112,9 @@ subprocess_spawn_allowlist = [
     "tests/test_codex_herdr_live_exercise_controller.py",
     "tests/test_herdr_operator_delivery.py",
     "tests/test_pytest_cov_bare_spelling.py",
+    # The push loop runs this script over ssh as `python3 - < file`; the test
+    # exercises exactly that invocation against a stub tmux (overseer-fdwat6).
+    "tests/integration/test_remote_control_reissue.py",
 ]
 # Role trees. This section must exist at all: without it the loader falls back to
 # defaults naming core's layout (`.claude-plugin/scripts/livespec`, `.../io`,

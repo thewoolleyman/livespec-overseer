@@ -21,6 +21,7 @@ __all__: list[str] = [
     "HOSTS_FILE",
     "KNOWN_HOSTS",
     "PUSH_STATE",
+    "REISSUE_TIMEOUT_S",
     "STATE_DIR",
     "UNSUPPORTED_MACOS",
     "Host",
@@ -39,13 +40,16 @@ PUSH_STATE = f"{STATE_DIR}/delivery-push.json"
 CONFIG_FILE = ".config/caam-delivery/config.json"
 UNSUPPORTED_MACOS = "failed unsupported-platform: macos inbox lands with overseer-7m6wu6"
 _HOST_FIELDS = 3
+# The re-issue script's 90 s re-scan window plus its last scan of every pane
+# (5.9 s measured on the role holder, 2026-11-13), with room.
+REISSUE_TIMEOUT_S = 120.0
 
 _DEFAULTS: dict[str, object] = {
     "ssh_key": "~/.ssh/id_ed25519",
     "push_timeout_s": 30.0,
     "retry_s": 60.0,
     "stale_after_s": 900.0,
-    "reissue_timeout_s": 15.0,
+    "reissue_timeout_s": REISSUE_TIMEOUT_S,
 }
 
 

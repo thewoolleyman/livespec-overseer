@@ -1,0 +1,19 @@
+{
+  "claude_code_version": "2.1.323",
+  "source": "A real account switch under Claude Code 2.1.323, run on the credential-rotation role holder 2026-11-13T04:13:26Z-04:15:23Z (anthropic-3 then anthropic-6, access tokens only, maintainer-approved via caam-anthropic-loop-runner), transcribed verbatim on epic overseer-iyfjbo (handoff 2026-11-13T05:25:09Z): the transcript line behind the mark, the footer status, and tmux's current command for the pane. The raw tmux capture-pane -p -J files from that run were lost with its session scratchpad; a real full-pane capture taken after a real account switch, read the way the service reads a herdr pane (spec v102), is still owed as a fixture and awaits a fresh approval.",
+  "notice": "signed-in claude.ai account or organization changed on this machine — run /remote-control",
+  "notice_rest": " to start a session for the current account, or /login to switch back, then /remote-control",
+  "transcript_mark": "●",
+  "transcript_prefix": "Remote Control disconnected — ",
+  "footer_status": "/rc failed",
+  "pane_current_command": "2.1.323",
+  "input_captures": {
+    "empty": "claude_2.1.322_input_empty.txt",
+    "draft": "claude_2.1.322_input_draft.txt",
+    "how": "tmux capture-pane -p -J of a throwaway Claude Code 2.1.322 session, 2026-11-12T21:30Z; draft = text typed and not submitted"
+  },
+  "herdr_input_capture": {
+    "empty": "claude_2.1.323_herdr_input_empty.txt",
+    "how": "herdr pane read --source recent-unwrapped of a live idle Claude Code 2.1.323 pane on the role holder, 2026-11-13T17:20Z, read only; the bottom seven lines (last completed-turn summary, input box, statusline, mode hint) kept and nothing above them"
+  }
+}

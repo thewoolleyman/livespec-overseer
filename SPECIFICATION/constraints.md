@@ -110,9 +110,10 @@ forever without cost or staleness.
 
 ## Filesystem boundaries
 
-The overseer's daemon writes its runtime state to exactly two places: its
-operator-home stores and the per-track scratch directory
-`<repo>/tmp/overseer/<topic>/` inside each watched repository. The daemon NEVER reads, writes, or
+The overseer's daemon writes its runtime state to exactly three places: its
+operator-home stores, the per-track scratch directory
+`<repo>/tmp/overseer/<topic>/` inside each watched repository, and, for the live-seat record of
+spec.md §"Supervision across machines" only, the plan's ledger epic. The daemon NEVER reads, writes, or
 hashes files under a repository's plan tree, EXCEPT for the one named,
 bounded resume-artifact certification described in contracts.md §"The
 restart interlock": for a SUPERVISOR topic only, a read-only, restart-gating

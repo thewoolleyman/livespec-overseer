@@ -1,5 +1,25 @@
 # Changelog
 
+## [5.56.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.55.9...v5.56.0) (2026-11-13)
+
+
+### Features
+
+* re-issue Remote Control after a pushed account switch (overseer-fdwat6) ([b5051c8](https://github.com/thewoolleyman/livespec-overseer/commit/b5051c8a089ad10da39058f44dbdd4a91b5823bb))
+
+
+### Bug Fixes
+
+* anchor the Remote Control notice match to the line start and rejoin narrow-pane wraps (overseer-fdwat6) ([f8b3b7a](https://github.com/thewoolleyman/livespec-overseer/commit/f8b3b7ad90f315f141dae6b86bd64787bb5f7cd1))
+* anchor the transcript notice behind ⎿ and the footer notice below the input box (overseer-fdwat6) ([aadca1d](https://github.com/thewoolleyman/livespec-overseer/commit/aadca1dc4189b2e9562325ef3424c050358f554e))
+* match Claude Code's real Remote Control notice and only re-issue safe Claude panes (overseer-fdwat6) ([928eeb4](https://github.com/thewoolleyman/livespec-overseer/commit/928eeb4891a6a264d5358c89a8113e5991dc8ee7))
+* match the notice on the rejoined block and count only a ❯ line as submitted (overseer-fdwat6) ([d22d38c](https://github.com/thewoolleyman/livespec-overseer/commit/d22d38c01331a04d4121be333765551a1b63a3f8))
+* point the Remote Control re-issue scenarios at their tests and the soft-band marker at its owner (overseer-fdwat6) ([152f46f](https://github.com/thewoolleyman/livespec-overseer/commit/152f46f8751ab55961532077f33d178139542f5b))
+* re-check each pane's input box right before its send, and re-scan over a bounded window (overseer-fdwat6) ([5c387a3](https://github.com/thewoolleyman/livespec-overseer/commit/5c387a3b2de693d1f41627912a21b8522b31ec60))
+* re-issue Remote Control in herdr panes as well as tmux panes (overseer-fdwat6) ([51e9ca3](https://github.com/thewoolleyman/livespec-overseer/commit/51e9ca3e3c2df7b481e46755d41becfb03bed566))
+* re-issue Remote Control on Claude Code 2.1.323's real forms, by executable, once per role-holder switch (overseer-fdwat6) ([2a22727](https://github.com/thewoolleyman/livespec-overseer/commit/2a227278ccdccc4610991e63d69612fed5c405bf))
+* re-issue Remote Control on the pushed-credential notice, never into a drafted input box (overseer-fdwat6) ([5d3b35c](https://github.com/thewoolleyman/livespec-overseer/commit/5d3b35c290565a6e53be79501c1da2ce3907a7ce))
+
 ## [5.55.9](https://github.com/thewoolleyman/livespec-overseer/compare/v5.55.8...v5.55.9) (2026-11-13)
 
 

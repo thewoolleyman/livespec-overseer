@@ -4579,6 +4579,70 @@ And no further hold event is journaled while the reading stays below the floor
 When a later reading shows 30 GiB available and pressure 0.4
 Then the daemon journals the release and performs the replacement through the ordinary restart interlock
 
+## Scenario: A topic live on one machine is not bound on another
+
+Given plan topic T's live-seat record names machine M1 and a seat there
+
+And the daemon on machine M2 discovers a live local session for topic T
+
+When the daemon on M2 observes the track
+
+Then it does not bind, replace, keystroke or terminate the M2 session
+
+And it journals one `live-seat-held-elsewhere` event naming T, M1 and M2
+
+And the record still names M1
+
+## Scenario: A stopped machine's live-seat record is not taken over by time
+
+Given plan topic T's live-seat record names machine M1
+
+And machine M1's daemon has stopped for longer than any supervision interval
+
+And a session for topic T is started on machine M2
+
+When the daemon on M2 observes the track
+
+Then it does not bind the M2 session
+
+And the record still names M1
+
+When an operator releases T's record with an attributed release naming T and M1
+
+Then the daemon on M2 takes the record and binds the M2 session
+
+## Scenario: A ready seat is held while its live-seat record cannot be verified
+
+Given a supervised seat on machine M1 holds plan topic T's live-seat record and has declared a certifiable `ready`
+
+And the ledger cannot be reached from M1
+
+When the daemon on M1 would start the replacement
+
+Then it does not terminate, respawn or keystroke the session
+
+And the `ready` declaration and the open round are preserved
+
+And it journals one `live-seat-unverifiable` event naming T
+
+And the seat's context reading continues to be observed
+
+When the ledger is reachable again and the record still names M1
+
+Then the replacement proceeds through the ordinary restart interlock
+
+## Scenario: A seat moved between machines is bound only after the old seat releases
+
+Given plan topic T's live-seat record names machine M1 and its live seat there
+
+When the M1 seat exits and is not being replaced
+
+Then the daemon on M1 releases T's record
+
+When a session for T is then started on machine M2
+
+Then the daemon on M2 takes the record and binds the M2 session
+
 ## Scenario: A confirmed fresh Codex successor is reported for its launch pane and proven without a rollout file
 
 Given a Codex track on a terminal backend that accepts agent-session reports, whose fresh ready declaration authorized a guarded replacement
@@ -5009,11 +5073,23 @@ Then any switch it makes is the explicit rotate-now request and not a drain
 
 ## Scenario: The account table shows each account's resets
 
-Given an account holds one reset that clears its short-window and weekly windows, with one use remaining, lapsing in eight days
+Given an account holds two resets with one use remaining each, one lapsing in five days and four hours and the other in eight days
 
 When a pass renders the account table
 
-Then that account's row shows one reset clearing the short-window and weekly windows, with one use left, lapsing in eight days
+Then that account's QUOTA RESETS cell, immediately to the left of its EXTRA cell, reads `2, next expires in 5d 4h`
+
+## Scenario: The account table's columns align on every kind of row
+
+Given the account table renders the active account, whose CURRENT cell holds the two-column-wide ✅, a readable inactive account, an account whose current reading has no short-window limit, an account with no usage reading, and an account whose reading is stale
+
+And one account reports an unrecognised limit, so the OTHER LIMITS column is shown
+
+And one cell is wider than its column's header
+
+When a pass renders the account table
+
+Then in every row, each cell of each column ends where that column's right-aligned header ends, or starts where its left-aligned header starts
 
 ## Scenario: A reset reading declined for the requesting client is unreadable, not empty
 
@@ -5735,7 +5811,7 @@ Then each row shows its capacity class with the provider's plan name as detail
 
 Given the provider reports the display name `Ultra` and the tier `default_claude_max_20x` for an account
 
-When the operation renders the account table for seven accounts in a 120-column terminal
+When the operation renders the account table for seven accounts in a terminal at least as wide as the table's header
 
 Then the account's capacity cell shows the class with `Ultra` as detail
 

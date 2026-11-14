@@ -2431,20 +2431,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: An account switch re-issues Remote Control on the role holder's own sessions",
-    "work_item": "overseer-fdwat6",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: An account switch re-issues Remote Control only where it stopped",
-    "work_item": "overseer-fdwat6",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: The live login is delivered when it diverges from the selected account",
     "work_item": "overseer-aj577z",
     "first_seen": "2026-11-13"
@@ -2461,6 +2447,48 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A ready seat is held, not replaced, while the host is below its memory floor",
     "work_item": "overseer-uzvcbn.23",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The account table's columns align on every kind of row",
+    "work_item": "overseer-fr3hnj",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## Supervision across machines",
+    "work_item": "overseer-5y7ebe",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A topic live on one machine is not bound on another",
+    "work_item": "overseer-5y7ebe",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A stopped machine's live-seat record is not taken over by time",
+    "work_item": "overseer-5y7ebe",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready seat is held while its live-seat record cannot be verified",
+    "work_item": "overseer-5y7ebe",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A seat moved between machines is bound only after the old seat releases",
+    "work_item": "overseer-5y7ebe",
     "first_seen": "2026-11-13"
   }
 ]

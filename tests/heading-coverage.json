@@ -4674,17 +4674,15 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An account switch re-issues Remote Control only where it stopped",
-    "test": "TODO",
-    "work_item": "overseer-fdwat6",
-    "reason": "An integration-tier test is owed for this heading, re-ratified for topology B with ssh push (proposal enrolled-host-ssh-push, plan central-credential-service, epic overseer-iyfjbo); work item overseer-fdwat6 owns landing it."
+    "test": "tests.integration.test_remote_control_reissue.test_herdr_reissue_scenarios",
+    "reason": "Integration-tier: runs the re-issue program the way the push loop does, `python3 -` on stdin, against stub herdr panes. A Claude Code pane whose process name is the version number 2.1.323 and which shows the account-changed notice gets `/remote-control` and Enter once. A shell pane or a pager (less) showing the same notice, a pane scrolled back, a pane whose input box holds a draft, and a pane already re-issued get nothing. test_reissue_scenarios covers the same cases for tmux panes."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An account switch re-issues Remote Control on the role holder's own sessions",
-    "test": "TODO",
-    "work_item": "overseer-fdwat6",
-    "reason": "An integration-tier test is owed for this heading, re-ratified for topology B with ssh push (proposal enrolled-host-ssh-push, plan central-credential-service, epic overseer-iyfjbo); work item overseer-fdwat6 owns landing it."
+    "test": "tests.integration.test_remote_control_reissue.test_the_role_holder_reissues_once_per_switch_even_when_no_delivery_is_issued",
+    "reason": "Integration-tier: drives caam-delivery-push's run_once against a real home directory as the role holder's live login changes account. The local re-issue fires once for that switch, whether the switch is first seen in the live credential or in a delivery, and not at all for the first account a run observes. test_the_role_holder_reissue_does_not_hold_the_push_loop proves the launcher returns before the re-scan window ends."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4731,5 +4729,53 @@
     "heading": "## Scenario: A reachable host holding the current delivery stays current between deliveries",
     "test": "tests.integration.test_delivery_push.test_a_reachable_host_holding_the_current_delivery_stays_current_between_deliveries",
     "reason": "Integration-tier: drives the push service's due-host selection against a real push record. A listed host that applied the current delivery and whose last successful push is older than half of delivery.stale_after is re-pushed that same delivery. Its already-holds answer is recorded as a successful push, and the status command then reads the host as current rather than stale past delivery.stale_after."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The account table's columns align on every kind of row",
+    "test": "TODO",
+    "work_item": "overseer-fr3hnj",
+    "reason": "An integration-tier test over the rendered account table is owed for this heading, ratified for spec.md 'Account rotation and quota supervision' (the QUOTA RESETS column and aligned columns) under proposal account-table-quota-resets-column, plan caam-quota-resets, epic overseer-pv53ri; work item overseer-fr3hnj owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## Supervision across machines",
+    "test": "TODO",
+    "work_item": "overseer-5y7ebe",
+    "reason": "An integration-tier test is owed for this heading, ratified for spec.md 'Supervision across machines' under proposal supervision-across-machines-one-live-seat-per-topic, plan herdr-overseer, epic overseer-uzvcbn; work item overseer-5y7ebe owns it until the implementation children of overseer-uzvcbn are filed and these rows are re-pointed to them."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A topic live on one machine is not bound on another",
+    "test": "TODO",
+    "work_item": "overseer-5y7ebe",
+    "reason": "An integration-tier test is owed for this heading, ratified for spec.md 'Supervision across machines' under proposal supervision-across-machines-one-live-seat-per-topic, plan herdr-overseer, epic overseer-uzvcbn; work item overseer-5y7ebe owns it until the implementation children of overseer-uzvcbn are filed and these rows are re-pointed to them."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A stopped machine's live-seat record is not taken over by time",
+    "test": "TODO",
+    "work_item": "overseer-5y7ebe",
+    "reason": "An integration-tier test is owed for this heading, ratified for spec.md 'Supervision across machines' under proposal supervision-across-machines-one-live-seat-per-topic, plan herdr-overseer, epic overseer-uzvcbn; work item overseer-5y7ebe owns it until the implementation children of overseer-uzvcbn are filed and these rows are re-pointed to them."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready seat is held while its live-seat record cannot be verified",
+    "test": "TODO",
+    "work_item": "overseer-5y7ebe",
+    "reason": "An integration-tier test is owed for this heading, ratified for spec.md 'Supervision across machines' under proposal supervision-across-machines-one-live-seat-per-topic, plan herdr-overseer, epic overseer-uzvcbn; work item overseer-5y7ebe owns it until the implementation children of overseer-uzvcbn are filed and these rows are re-pointed to them."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A seat moved between machines is bound only after the old seat releases",
+    "test": "TODO",
+    "work_item": "overseer-5y7ebe",
+    "reason": "An integration-tier test is owed for this heading, ratified for spec.md 'Supervision across machines' under proposal supervision-across-machines-one-live-seat-per-topic, plan herdr-overseer, epic overseer-uzvcbn; work item overseer-5y7ebe owns it until the implementation children of overseer-uzvcbn are filed and these rows are re-pointed to them."
   }
 ]
