@@ -100,7 +100,7 @@ class StubClaude:
             self._write_registry(status="busy")
             from overseer.start import main as start
 
-            _ = start()
+            _ = start(argv=[])
             self._write_registry(status="idle")
         elif "declare.py" in command and command.rstrip().endswith(" ready"):
             self._write_registry(status="busy")

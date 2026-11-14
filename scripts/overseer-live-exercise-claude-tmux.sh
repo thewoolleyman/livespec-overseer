@@ -7,6 +7,11 @@
 
 set -uo pipefail
 
+# A host-level PYTHONHOME can make the fixture's interpreter fail before it can
+# register its idle Claude session. The exercise owns its launcher and every
+# Python helper it invokes, so preserve the normal interpreter discovery instead.
+unset PYTHONHOME
+
 backend="${OVERSEER_EXERCISE_BACKEND:?missing exercise backend}"
 instance="${OVERSEER_EXERCISE_INSTANCE:?missing exercise instance}"
 endpoint="${OVERSEER_EXERCISE_ENDPOINT:?missing exercise endpoint}"
@@ -221,8 +226,10 @@ stage_bootstrap() {
   # server before starting the pane.  No default terminal server is addressed.
   tx set-environment -g PATH "$PATH" ||
     fail_stage bootstrap "could not set PATH on the private exercise server"
+  tx set-option -g default-shell /bin/sh ||
+    fail_stage bootstrap "could not set the private exercise server's non-login shell"
   agent_target="$(tx new-window -d -P -F '#{pane_id}' -t "$instance:" -n "$topic" -c "$repo" \
-    "exec env CLAUDECODE=1 claude --dangerously-skip-permissions -n $(printf %q "$topic")")" ||
+    "exec env PATH=$(printf %q "$PATH") CLAUDECODE=1 claude --dangerously-skip-permissions -n $(printf %q "$topic")")" ||
     fail_stage bootstrap "could not open the Claude window on the private server"
   [[ "$agent_target" == %* ]] || fail_stage bootstrap \
     "private exercise server returned no pane id for the Claude window"
