@@ -1,5 +1,7 @@
 # livespec-overseer
 
+Built with [livespec](https://livespec-ai.org/)
+
 The **Control-Plane operator tool** for the livespec fleet: a two-pane terminal
 supervisor that keeps multiple parallel sessions moving, plus a quota loop that
 keeps the accounts behind them usable.
