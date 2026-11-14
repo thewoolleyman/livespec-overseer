@@ -117,6 +117,7 @@ def run_once(  # noqa: PLR0913 - each argument is an independent seam
     run: caam_delivery_push.Runner = caam_delivery_push.run_ssh,
     reissue: str | None = None,
     local: Callable[..., str] = start_local,
+    start: caam_delivery_push.Starter = caam_delivery_push.start_in_background,
 ) -> None:
     """One pass: issue a delivery when the live file changed, then push to hosts behind it."""
     marker = _live_pair(home=home)
@@ -145,7 +146,7 @@ def run_once(  # noqa: PLR0913 - each argument is an independent seam
             loop.last = issued
     if loop.last is not None:
         outcomes = caam_delivery_push.push_due(
-            home=home, delivery=loop.last, now=now, run=run, reissue=reissue
+            home=home, delivery=loop.last, now=now, run=run, reissue=reissue, start=start
         )
         for label, outcome in outcomes.items():
             streams.write_stdout(text=f"push {label} sequence {loop.last.sequence}: {outcome}\n")

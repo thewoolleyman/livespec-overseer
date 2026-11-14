@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
@@ -46,6 +47,7 @@ __all__: list[str] = [
     "PUSH_STATE",
     "STATE_DIR",
     "Host",
+    "Starter",
     "apply_program",
     "load_config",
     "load_hosts",
@@ -53,9 +55,11 @@ __all__: list[str] = [
     "push_due",
     "reissue_script",
     "run_ssh",
+    "start_in_background",
 ]
 
 Runner = Callable[..., tuple[int, str]]
+Starter = Callable[..., None]
 _due = due
 # Refreshes of a delivery a host already holds are spread over passes rather
 # than fanned out to every host at once; a new delivery is never held back.
@@ -104,7 +108,12 @@ def run_ssh(
     return done.returncode, (lines[-1] if lines else "failed no-reply")[:200]
 
 
-def push_due(
+def start_in_background(*, task: Callable[[], None]) -> None:
+    """Run `task` on a daemon thread and return at once."""
+    threading.Thread(target=task, name="remote-control-reissue", daemon=True).start()
+
+
+def push_due(  # noqa: PLR0913 - each argument is an independent seam
     *,
     home: Path,
     delivery: caam_delivery_service.Delivery,
@@ -112,8 +121,15 @@ def push_due(
     run: Runner = run_ssh,
     config: dict[str, object] | None = None,
     reissue: str | None = None,
+    start: Starter = start_in_background,
 ) -> dict[str, str]:
-    """Push `delivery` to every listed host still behind it; return label -> outcome."""
+    """Push `delivery` to every listed host still behind it; return label -> outcome.
+
+    Every outcome is recorded before any Remote Control re-issue runs. Each host whose
+    account changed has its re-issue handed to `start` afterwards, a daemon thread by
+    default, because the re-issue re-scans for up to its whole window and must not hold
+    this pass or the service's loop.
+    """
     settings = config or load_config(home=home)
     state = load_state(home=home)
     hosts = load_hosts(home=home)
@@ -129,6 +145,7 @@ def push_due(
     program = apply_program(payload=json.dumps({**asdict(delivery), "oauth": oauth}))
     token = str(oauth.get("accessToken", "")) or "\0"
     known_hosts = str(home / KNOWN_HOSTS)
+    switched: list[Host] = []
 
     def push_one(*, host: Host) -> str:
         if host.platform == "macos":
@@ -142,9 +159,7 @@ def push_due(
         )[1]
         changed = state.get(host.label, {}).get("account_id") != delivery.account_id
         if reply.startswith("applied") and changed and reissue is not None:
-            reply += "; remote-control " + _reissue(
-                host=host, script=reissue, run=run, settings=settings, home=home
-            )
+            switched.append(host)
         return reply.replace(token, "[redacted]")
 
     with ThreadPoolExecutor(max_workers=max(1, len(behind))) as pool:
@@ -156,7 +171,33 @@ def push_due(
         caam_delivery_service.write_private_json(path=home / PUSH_STATE, value=dict(state))
     except OSError as error:
         streams.write_stderr(text=f"FAIL push state not written: {type(error).__name__}\n")
+    for host in switched:
+        start(
+            task=_reissue_task(
+                host=host, script=reissue, run=run, settings=settings, home=home, token=token
+            )
+        )
     return outcomes
+
+
+def _reissue_task(
+    *,
+    host: Host,
+    script: str | None,
+    run: Runner,
+    settings: dict[str, object],
+    home: Path,
+    token: str,
+) -> Callable[[], None]:
+    """The host's re-issue, printing its one result line, redacted, when it finishes."""
+
+    def task() -> None:
+        line = _reissue(host=host, script=script, run=run, settings=settings, home=home)
+        streams.write_stdout(
+            text=f"remote-control {host.label}: {line.replace(token, '[redacted]')}\n"
+        )
+
+    return task
 
 
 def _bounded(

@@ -3,16 +3,24 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import json
 import os
 import subprocess
 import sys
+import threading
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
 TOKEN = "tok-" + "secret-a"
 _REAL_REPLACE = os.replace
+
+
+def _at_once(*, task: Callable[[], None]) -> None:
+    """Run a background task in the caller's thread, so a test can assert what it did."""
+    task()
 
 
 def _write(*, path: Path, body: object) -> None:
@@ -218,7 +226,7 @@ def test_push_records_each_host_and_status_shows_spec_states(  # noqa: PLR0915 -
         return 0, replies.get(target, '{"reissued": []}')
 
     loop = entry.PushLoop()
-    run = {"confirm": lambda **_: "acct-a", "run": fake_run, "reissue": "RC"}
+    run = {"confirm": lambda **_: "acct-a", "run": fake_run, "reissue": "RC", "start": _at_once}
     entry.run_once(home=tmp_path, now=100.0, loop=loop, **run)
     assert sorted(sent) == ["rc:u@good", "u@good", "u@key", "u@nc"]
     err = capsys.readouterr().err
@@ -715,3 +723,84 @@ def test_a_host_whose_refreshes_keep_failing_turns_stale(*, tmp_path: Path) -> N
         )
         == "stale"
     )
+
+
+def test_a_remote_reissue_starts_after_the_outcome_is_recorded_and_is_printed_once(
+    *, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """overseer-2h5xpe: a host's push outcome is recorded before its Remote Control re-issue runs.
+
+    The re-issue program re-scans for up to 90 s, and push_due used to run it
+    inside each host's push. So the whole pass, and the service's 5 s loop with
+    it, waited up to reissue_timeout_s after every account switch before
+    recording a single outcome.
+    """
+    push = importlib.import_module("caam_delivery_push")
+    service = importlib.import_module("caam_delivery_service")
+    delivery = service.Delivery(
+        sequence=2,
+        account_id="acct-b",
+        identity={},
+        oauth={"accessToken": TOKEN, "expiresAt": 9_999_999_999_000},
+    )
+    (tmp_path / push.HOSTS_FILE).parent.mkdir(parents=True)
+    _ = (tmp_path / push.HOSTS_FILE).write_text(
+        "h u@h linux\nsame u@same linux\n", encoding="utf-8"
+    )
+    _write(
+        path=tmp_path / push.PUSH_STATE,
+        body={
+            "h": {"account_id": "acct-a", "sequence": 1},
+            "same": {"account_id": "acct-b", "sequence": 1},
+        },
+    )
+    tasks: list[Callable[[], None]] = []
+    calls: list[str] = []
+
+    def run(*, target: str, program: str, **_: object) -> tuple[int, str]:
+        if program.startswith(push.APPLY_SCRIPT):
+            calls.append(target)
+            return 0, "applied 2"
+        calls.append("rc:" + target)
+        return 0, '{"reissued": ["herdr:default:w1:p1"]} ' + TOKEN
+
+    def keep(*, task: Callable[[], None]) -> None:
+        tasks.append(task)
+
+    outcomes = push.push_due(
+        home=tmp_path, delivery=delivery, now=1.0, run=run, reissue="RC", start=keep
+    )
+    assert outcomes == {"h": "applied 2", "same": "applied 2"}
+    assert sorted(calls) == ["u@h", "u@same"]
+    recorded = push.load_state(home=tmp_path)
+    assert recorded["h"]["sequence"] == 2 and recorded["h"]["account_id"] == "acct-b"
+    assert len(tasks) == 1
+    assert "remote-control" not in capsys.readouterr().out
+
+    tasks[0]()
+    assert calls[-1] == "rc:u@h"
+    out = capsys.readouterr().out
+    assert out.count("remote-control h: ") == 1
+    assert '{"reissued": ["herdr:default:w1:p1"]} [redacted]' in out
+    assert "secret" not in out
+
+
+def test_the_default_start_runs_the_reissue_on_a_daemon_thread_and_returns_at_once() -> None:
+    push = importlib.import_module("caam_delivery_push")
+    entry = importlib.import_module("caam_delivery_push_entry")
+    release = threading.Event()
+    finished = threading.Event()
+    seen: list[bool] = []
+
+    def task() -> None:
+        assert release.wait(timeout=5)
+        seen.append(threading.current_thread().daemon)
+        finished.set()
+
+    push.start_in_background(task=task)
+    assert seen == []
+    release.set()
+    assert finished.wait(timeout=5)
+    assert seen == [True]
+    assert inspect.signature(push.push_due).parameters["start"].default is push.start_in_background
+    assert inspect.signature(entry.run_once).parameters["start"].default is push.start_in_background
