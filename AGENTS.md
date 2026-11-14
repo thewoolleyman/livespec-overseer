@@ -239,7 +239,7 @@ protected behind `ci-green`, so the discipline applies without exception:
    equals its git-common-dir; a secondary worktree's differs).
 2. Create a dedicated worktree from `master` under the per-user root
    `~/.worktrees/livespec-overseer/<branch>` — never as a peer of the clones
-   under `/data/projects`. **Create it with `just worktree-create <branch>
+   under `~/workspace`. **Create it with `just worktree-create <branch>
    [base_ref]`, NOT with `git worktree add`.** The recipe adds the worktree
    under that root, provisions the gitignored worktree-discipline pack into
    `dev-tooling/`, and runs the hydrate hook (run it from the primary
@@ -254,7 +254,7 @@ protected behind `ci-green`, so the discipline applies without exception:
    step ordering", v219) the FIRST command of both the pre-commit and the
    pre-push hook is `00-install-worktree-pack`, which runs
    `just install-worktree-pack` before any gate reads the pack. So a worktree
-   created by raw `mise exec -- git -C /data/projects/livespec-overseer
+   created by raw `mise exec -- git -C "$HOME/workspace/livespec-overseer"
    worktree add -b <branch> "$HOME/.worktrees/livespec-overseer/<branch>"
    master` CAN commit and push — the hook installs the pack, from the package
    that checkout resolves, and no `just bootstrap` is needed — and the

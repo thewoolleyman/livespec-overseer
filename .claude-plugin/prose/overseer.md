@@ -696,7 +696,7 @@ so it is never stale.
   `codex resume <uuid>` reattaching that session's own rollout). A track whose runtime
   is ambiguous is REPORTED rather than launched; say so to the maintainer instead of
   retrying it as Claude. **`--repo` MUST be the full absolute path**
-  (`/data/projects/livespec`), never the bare slug — see the restart-learnings note in
+  (`"$HOME/workspace/livespec"`), never the bare slug — see the restart-learnings note in
   `AGENTS.md`.
 - The mapping survives the overseer process; a fresh `overseerd` re-attaches its
   table to the same tracks with no hand-re-registration, and `start` re-launches
@@ -775,7 +775,7 @@ under `$PLUGIN_ROOT` as a setup failure.
 - Repo mutations go `worktree → PR → rebase-merge`; never commit on the primary
   checkout; never `--no-verify` (`mise exec -- git …` so the hooks fire).
 - Beads via the env wrapper:
-  `source /data/projects/1password-env-wrapper/with-livespec-env.sh bd -C <repo> <args>`.
+  `source "$HOME/workspace/1password-env-wrapper/with-livespec-env.sh" bd -C <repo> <args>`.
 - Secrets are probe-only (`printenv NAME | wc -c`); never echo values.
 - Scratch under `tmp/overseer/` (never the `tmp/` root; it is maintainer-owned).
 
