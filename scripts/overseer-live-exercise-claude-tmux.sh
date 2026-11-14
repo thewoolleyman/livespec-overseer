@@ -229,7 +229,7 @@ stage_bootstrap() {
   tx set-option -g default-shell /bin/sh ||
     fail_stage bootstrap "could not set the private exercise server's non-login shell"
   agent_target="$(tx new-window -d -P -F '#{pane_id}' -t "$instance:" -n "$topic" -c "$repo" \
-    "exec env PATH=$(printf %q "$PATH") CLAUDECODE=1 claude --dangerously-skip-permissions -n $(printf %q "$topic")")" ||
+    "exec env -u PYTHONHOME PATH=$(printf %q "$PATH") CLAUDECODE=1 claude --dangerously-skip-permissions -n $(printf %q "$topic")")" ||
     fail_stage bootstrap "could not open the Claude window on the private server"
   [[ "$agent_target" == %* ]] || fail_stage bootstrap \
     "private exercise server returned no pane id for the Claude window"

@@ -48,6 +48,7 @@ def test_controller_keeps_a_stable_pane_and_private_server_path_for_replacement(
     source = CONTROLLER.read_text(encoding="utf-8")
     assert "agent_target=\"$(tx new-window -d -P -F '#{pane_id}'" in source
     assert 'tx set-environment -g PATH "$PATH"' in source
+    assert "env -u PYTHONHOME" in source
 
 
 def test_checked_in_claude_stub_and_launcher_are_available_for_the_private_tmux_run() -> None:
