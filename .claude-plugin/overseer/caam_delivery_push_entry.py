@@ -90,7 +90,11 @@ def run_local(*, script: str, timeout: float = caam_delivery_push_state.REISSUE_
     except (subprocess.TimeoutExpired, OSError) as error:
         return f"failed {type(error).__name__}"
     lines = done.stdout.strip().splitlines()
-    return lines[-1][:200] if lines else f"failed exit {done.returncode}"
+    return (
+        caam_delivery_push_state.scrubbed(text=lines[-1])
+        if lines
+        else f"failed exit {done.returncode}"
+    )
 
 
 def start_local(*, script: str) -> str:

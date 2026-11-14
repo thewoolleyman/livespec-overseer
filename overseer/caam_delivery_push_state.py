@@ -9,6 +9,7 @@ other credential material is ever recorded.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -20,6 +21,7 @@ __all__: list[str] = [
     "CONFIG_FILE",
     "HOSTS_FILE",
     "KNOWN_HOSTS",
+    "MAX_RESULT_CHARS",
     "PUSH_STATE",
     "REISSUE_TIMEOUT_S",
     "STATE_DIR",
@@ -30,6 +32,7 @@ __all__: list[str] = [
     "load_hosts",
     "load_state",
     "record_result",
+    "scrubbed",
     "seconds",
 ]
 
@@ -169,3 +172,18 @@ def _object(*, path: Path) -> dict[str, object] | None:
         return None
     parsed = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
     return None if jsonio.is_parse_failure(result=parsed) else parsed.unwrap()
+
+
+# A result line is recorded and printed at most this long, after redaction.
+MAX_RESULT_CHARS = 200
+_CREDENTIAL_SHAPE = re.compile(r"sk-ant-[A-Za-z0-9_-]+")
+
+
+def scrubbed(*, text: str, token: str | None = None) -> str:
+    """`text` with the delivered token and any credential shape redacted, THEN cut short.
+
+    The cut comes last. Cutting first let a token straddling the cut survive as a
+    prefix that no replacement matched any more (overseer-llyif4).
+    """
+    redacted = text.replace(token, "[redacted]") if token else text
+    return _CREDENTIAL_SHAPE.sub("[redacted]", redacted)[:MAX_RESULT_CHARS]

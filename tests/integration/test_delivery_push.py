@@ -843,3 +843,67 @@ def test_the_default_start_runs_the_reissue_on_a_daemon_thread_and_returns_at_on
     assert seen == [True]
     assert inspect.signature(push.push_due).parameters["start"].default is push.start_in_background
     assert inspect.signature(entry.run_once).parameters["start"].default is push.start_in_background
+
+
+def test_a_token_straddling_the_200_character_cut_never_leaks_its_first_part(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """overseer-llyif4: a reply is redacted BEFORE it is cut to 200 characters.
+
+    run_ssh cut each reply to 200 characters and its callers redacted the token
+    afterwards, so a token straddling character 200 survived as a prefix that
+    `str.replace` no longer matched, in both the recorded push outcome and the
+    `remote-control <host>:` line.
+    """
+    push = importlib.import_module("caam_delivery_push")
+    service = importlib.import_module("caam_delivery_service")
+    delivery = service.Delivery(
+        sequence=2,
+        account_id="acct-b",
+        identity={},
+        oauth={"accessToken": TOKEN, "expiresAt": 9_999_999_999_000},
+    )
+    (tmp_path / push.HOSTS_FILE).parent.mkdir(parents=True)
+    _ = (tmp_path / push.HOSTS_FILE).write_text("h u@h linux\n", encoding="utf-8")
+    _ = (tmp_path / push.KNOWN_HOSTS).write_text("h ssh-ed25519 AAAA\n", encoding="utf-8")
+    _write(path=tmp_path / push.PUSH_STATE, body={"h": {"account_id": "acct-a", "sequence": 1}})
+    straddling = "applied 2 " + "x" * 185 + TOKEN + " tail"
+    assert straddling.index(TOKEN) < 200 < straddling.index(TOKEN) + len(TOKEN)
+
+    def fake_subprocess(argv: list[str], **kwargs: object) -> object:
+        del argv, kwargs
+        return subprocess.CompletedProcess([], 0, stdout=straddling + "\n", stderr="")
+
+    monkeypatch.setattr(push.subprocess, "run", fake_subprocess)
+
+    outcomes = push.push_due(
+        home=tmp_path, delivery=delivery, now=1.0, reissue="RC", start=_at_once
+    )
+
+    out = capsys.readouterr().out
+    recorded = json.dumps(push.load_state(home=tmp_path))
+    for text in (outcomes["h"], recorded, out):
+        assert TOKEN[:4] not in text
+    assert outcomes["h"].startswith("applied 2 ") and len(outcomes["h"]) <= 200
+    assert "remote-control h: applied 2 " in out
+
+
+def test_the_role_holders_reissue_line_never_carries_part_of_a_credential(
+    *, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """overseer-llyif4: run_local holds no token, so credential shapes are redacted first."""
+    entry = importlib.import_module("caam_delivery_push_entry")
+    secret = "sk-ant-oat01-" + "Q" * 40
+    line = "y" * 190 + secret
+
+    def fake_subprocess(argv: list[str], **kwargs: object) -> object:
+        del argv, kwargs
+        return subprocess.CompletedProcess([], 0, stdout=line + "\n", stderr="")
+
+    monkeypatch.setattr(entry.subprocess, "run", fake_subprocess)
+
+    result = entry.run_local(script="print(1)")
+
+    assert "sk-ant" not in result
+    assert "Q" not in result
+    assert result.startswith("y" * 190) and len(result) <= 200
