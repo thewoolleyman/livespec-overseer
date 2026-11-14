@@ -4131,17 +4131,15 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A rejected state value is told to its session within one cycle",
-    "test": "tests/integration/test_rejected_state_notice.py",
-    "work_item": "overseer-uzvcbn.12",
-    "reason": "Ratified in v082 (rejected-state-prompt-notice) ahead of its implementation child; a test at integration tier is owed, and overseer-uzvcbn.12 MUST replace this TODO with a test at integration tier."
+    "test": "tests.integration.test_rejected_state_notice.test_scenario_a_rejected_state_value_is_told_to_its_session_within_one_cycle",
+    "reason": "Integration-tier: drives a real Supervisor tick for a settled session whose state file was moved aside to .overseer-state.rejected, and asserts one notice is delivered that tick naming the rejected value and the overseer-declare invocations. Delivered by overseer-uzvcbn.12."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A rejected-state notice is sent once per rejected value",
-    "test": "tests/integration/test_rejected_state_notice.py",
-    "work_item": "overseer-uzvcbn.12",
-    "reason": "Ratified in v082 (rejected-state-prompt-notice) ahead of its implementation child; a test at integration tier is owed, and overseer-uzvcbn.12 MUST replace this TODO with a test at integration tier."
+    "test": "tests.integration.test_rejected_state_notice.test_scenario_a_rejected_state_notice_is_durable_per_rendered_value_and_renoticed_once",
+    "reason": "Integration-tier: asserts the notice is edge-triggered per rendered value across daemon restarts, earns exactly one repeat 24 hours later, and that a new value earns a new notice. Delivered by overseer-uzvcbn.12."
   },
   {
     "spec_root": "SPECIFICATION",
