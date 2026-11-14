@@ -397,7 +397,7 @@ for the marker's edge-triggered lifecycle.
    the top of `build_rows`, before adopt / auto_link / evaluate), and threaded into
    every session-name derivation (`_session_of`, `auto_link`) plus the CLI
    (`_cli_colliding` for `add` / `start`) so a session is named identically wherever
-   it is derived. Never hardcode `/data/projects/livespec`. The daemon's per-tick
+   it is derived. Never hardcode `~/workspace/livespec`. The daemon's per-tick
    `auto_link` links a live session to a discovered plan ONLY when the derived
    session (bare topic, or `<slug>-<topic>` on collision) exists AND its
    `#{pane_current_path}` resolves inside the row's repo — the cwd check, not the
@@ -1877,7 +1877,7 @@ local wrapper — so both relaunch arms are covered:
 tmux new-session -e LIVESPEC_AUTOMATION_SHELL=1 -d -s ex-cloud -c "$EX" \
   'claude --model sonnet --dangerously-skip-permissions -n ex-cloud'
 tmux new-session -e LIVESPEC_AUTOMATION_SHELL=1 -d -s ex-local -c "$EX" \
-  '/data/projects/local-llm/bin/claude-local-llm --dangerously-skip-permissions -n ex-local'
+  '"$HOME/workspace/local-llm/bin/claude-local-llm" --dangerously-skip-permissions -n ex-local'
 ```
 
 Pick the cloud model to **differ from `~/.claude/settings.json`'s `model`**, and
@@ -1953,7 +1953,7 @@ consecutive wrong relaunches before the right one).
 | Survives (on disk) | Dies with the tmux server |
 |---|---|
 | The JSONL mapping `~/.livespec-overseer.jsonl` — one row per assigned track (topic ↔ tmux name ↔ repo ↔ plan ledger `epic` ↔ optional operator resume override). It emits NO `handoff` key; a legacy row carrying one is read without error and rewritten without it. | Every tmux session / window / pane (no `tmux-resurrect` / `tmux-continuum` is installed — a server death loses the whole layout). |
-| Each Claude session's **conversation transcript**: `~/.claude/projects/<cwd-slug>/<session-id>.jsonl`, where `<cwd-slug>` is the repo path with every `/` rewritten to `-` (e.g. `/data/projects/livespec` → `-data-projects-livespec`). | Claude Code's pid-keyed live registry `~/.claude/sessions/<pid>.json` (keyed by the now-dead pid). |
+| Each Claude session's **conversation transcript**: `~/.claude/projects/<cwd-slug>/<session-id>.jsonl`, where `<cwd-slug>` is the repo path with every `/` rewritten to `-` (e.g. `/home/ubuntu/workspace/livespec` → `-home-ubuntu-workspace-livespec`). | Claude Code's pid-keyed live registry `~/.claude/sessions/<pid>.json` (keyed by the now-dead pid). |
 | Each Codex session's **rollout** (`~/.codex/sessions/YYYY/MM/DD/rollout-<ts>-<id>.jsonl`) AND the **codex index** (`~/.codex/session_index.jsonl`, mapping id → thread_name = topic). This is what lets `recover_missing_sessions` reverse-look-up a dead codex track's id by topic and `codex resume` it AUTOMATICALLY (defect #5) — no manual step for codex. | The running codex process + its held-open rollout fd (the LIVE signal `self.live_codex` derives from — gone at cold start, which is why recovery uses the surviving INDEX instead). |
 | Each plan's ledger-held plan state (the entries on its ledger epic). | The daemon process + its in-memory round state. |
 
@@ -2270,7 +2270,7 @@ does not re-learn it. Append here — do NOT scatter these.
   falls back to home, the repository path named in the resume line is wrong,
   and `_do_launch` then fails at the await/submit while claude boots in the wrong cwd
   — reported only as a generic `start FAILED to launch`. Always pass
-  `--repo /data/projects/<repo>`. (`repo_slug`/`tmux_id` still produce the right
+  `--repo "$HOME/workspace/<repo>"`. (`repo_slug`/`tmux_id` still produce the right
   session NAME from a bare slug, which is why the failure is silent — only the cwd and
   resume path are wrong.)
 - **A `--resume`d large session FREEZES on the summary-vs-full modal** — see "Two

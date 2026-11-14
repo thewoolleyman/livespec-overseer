@@ -75,8 +75,8 @@ Which repos it supervises is declared in **`~/.livespec-overseer-repos.json`**:
 // JSONC — comments are fine.
 {
   "repos": [
-    "/data/projects/livespec",
-    "/data/projects/some-other-repo"
+    "~/workspace/livespec",
+    "~/workspace/some-other-repo"
   ]
 }
 ```
@@ -88,8 +88,8 @@ An entry may also be an object, which is how a repo carries settings of its own:
 ```jsonc
 {
   "repos": [
-    "/data/projects/livespec",
-    { "path": "/data/projects/some-other-repo", "idle_nudge": false }
+    "~/workspace/livespec",
+    { "path": "~/workspace/some-other-repo", "idle_nudge": false }
   ]
 }
 ```
