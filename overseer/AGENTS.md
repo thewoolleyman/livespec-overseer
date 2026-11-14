@@ -2108,8 +2108,21 @@ pane comes back with its conversation loaded but its last turn already FINISHED,
 it sits at an idle `❯` doing nothing until something prompts it. This step is the
 difference between "the tracks are back" and "the tracks are working"; skipping it
 is the single most common way a recovery is reported complete while the whole fleet
-sits idle. Paste a kick and submit it (`load-buffer -` + `paste-buffer -p`, then
-`Enter` — the same atomic-paste discipline the daemon uses; never type it key-by-key):
+sits idle. Do NOT paste or type the kick into the pane: Claude sessions are never
+driven by typing into their panes (fleet ruling 2026-11-14; on the interactive hosts
+a managed hook denies literal-text tmux input into every pane). Deliver it one of two
+ways instead:
+
+- **As the respawn's trailing prompt argument**, for a track you have already
+  established is in none of the four do-not-kick states below (read its
+  `.overseer-state` and its transcript tail before respawning):
+  `"claude --resume <session-id> --dangerously-skip-permissions -n <topic> \"<kick>\""`.
+- **Through `SendMessage`**, once the restored track appears in `ListAgents`, after
+  reading its pane and confirming it is in none of those states — per the fleet's
+  distributed SendMessage protocol
+  (https://github.com/thewoolleyman/livespec-dev-tooling/blob/master/%2Eai/distributed-sendmessage-protocol.md).
+
+The kick text:
 
 ```
 Your tmux session was killed at <time> by an external fleet-wide tmux kill-server
@@ -2126,7 +2139,7 @@ MAINTAINER having cancelled its work and will abandon it. Name what died in the 
 factory dispatch both had to be corrected this way).
 
 **DO NOT kick a track in any of these four states — read the pane FIRST, one at a
-time.** A kick is arbitrary text submitted into whatever is focused, so kicking a
+time.** A kick is arbitrary text the session receives as its next turn, so kicking a
 waiting session ANSWERS its question on the maintainer's behalf:
 
 | State | How it looks | What to do instead |
