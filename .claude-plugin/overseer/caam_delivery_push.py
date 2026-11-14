@@ -189,13 +189,24 @@ def _reissue_task(
     home: Path,
     token: str,
 ) -> Callable[[], None]:
-    """The host's re-issue, printing its one result line, redacted, when it finishes."""
+    """The host's re-issue, printing its one result line, redacted, when it finishes.
+
+    The task runs on a daemon thread, so a failure there is reported as that
+    host's line rather than ending the thread with a bare traceback. The caught
+    types are the ones its steps raise: OSError from ssh, the subprocess or a
+    broken stdout pipe, and RuntimeError from Path.expanduser with no home.
+    """
 
     def task() -> None:
-        line = _reissue(host=host, script=script, run=run, settings=settings, home=home)
-        streams.write_stdout(
-            text=f"remote-control {host.label}: {line.replace(token, '[redacted]')}\n"
-        )
+        try:
+            line = _reissue(host=host, script=script, run=run, settings=settings, home=home)
+            streams.write_stdout(
+                text=f"remote-control {host.label}: {line.replace(token, '[redacted]')}\n"
+            )
+        except (OSError, RuntimeError) as error:
+            streams.write_stdout(
+                text=f"remote-control {host.label}: failed {type(error).__name__}\n"
+            )
 
     return task
 

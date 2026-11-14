@@ -754,35 +754,74 @@ def test_a_remote_reissue_starts_after_the_outcome_is_recorded_and_is_printed_on
             "same": {"account_id": "acct-b", "sequence": 1},
         },
     )
-    tasks: list[Callable[[], None]] = []
     calls: list[str] = []
+    # What the re-issue saw on disk when it ran. Recorded rather than asserted
+    # in place, because the task's own guard would turn a failed assertion into
+    # a "failed AssertionError" line instead of failing the test.
+    seen_at_reissue: list[object] = []
 
     def run(*, target: str, program: str, **_: object) -> tuple[int, str]:
         if program.startswith(push.APPLY_SCRIPT):
             calls.append(target)
             return 0, "applied 2"
         calls.append("rc:" + target)
+        seen_at_reissue.append(push.load_state(home=tmp_path).get("h", {}).get("sequence"))
         return 0, '{"reissued": ["herdr:default:w1:p1"]} ' + TOKEN
 
-    def keep(*, task: Callable[[], None]) -> None:
-        tasks.append(task)
+    started: list[str] = []
+
+    def at_once(*, task: Callable[[], None]) -> None:
+        started.append("task")
+        task()
 
     outcomes = push.push_due(
-        home=tmp_path, delivery=delivery, now=1.0, run=run, reissue="RC", start=keep
+        home=tmp_path, delivery=delivery, now=1.0, run=run, reissue="RC", start=at_once
     )
     assert outcomes == {"h": "applied 2", "same": "applied 2"}
-    assert sorted(calls) == ["u@h", "u@same"]
+    assert started == ["task"]
+    assert sorted(calls[:2]) == ["u@h", "u@same"] and calls[2:] == ["rc:u@h"]
+    assert seen_at_reissue == [2]
     recorded = push.load_state(home=tmp_path)
     assert recorded["h"]["sequence"] == 2 and recorded["h"]["account_id"] == "acct-b"
-    assert len(tasks) == 1
-    assert "remote-control" not in capsys.readouterr().out
-
-    tasks[0]()
-    assert calls[-1] == "rc:u@h"
     out = capsys.readouterr().out
     assert out.count("remote-control h: ") == 1
+    assert "remote-control same" not in out
     assert '{"reissued": ["herdr:default:w1:p1"]} [redacted]' in out
     assert "secret" not in out
+
+
+def test_a_reissue_that_raises_still_prints_its_host_line(
+    *, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """overseer-2h5xpe: the re-issue runs on a daemon thread, so an exception there is caught.
+
+    Uncaught, it would end the thread with a raw traceback, and that host
+    would never get its `remote-control <host>:` line.
+    """
+    push = importlib.import_module("caam_delivery_push")
+    service = importlib.import_module("caam_delivery_service")
+    delivery = service.Delivery(
+        sequence=2,
+        account_id="acct-b",
+        identity={},
+        oauth={"accessToken": TOKEN, "expiresAt": 9_999_999_999_000},
+    )
+    (tmp_path / push.HOSTS_FILE).parent.mkdir(parents=True)
+    _ = (tmp_path / push.HOSTS_FILE).write_text("h u@h linux\n", encoding="utf-8")
+    _write(path=tmp_path / push.PUSH_STATE, body={"h": {"account_id": "acct-a", "sequence": 1}})
+
+    def run(*, program: str, **_: object) -> tuple[int, str]:
+        if program.startswith(push.APPLY_SCRIPT):
+            return 0, "applied 2"
+        message = "broken pipe " + TOKEN
+        raise RuntimeError(message)
+
+    outcomes = push.push_due(
+        home=tmp_path, delivery=delivery, now=1.0, run=run, reissue="RC", start=_at_once
+    )
+    assert outcomes == {"h": "applied 2"}
+    out = capsys.readouterr().out
+    assert out == "remote-control h: failed RuntimeError\n"
 
 
 def test_the_default_start_runs_the_reissue_on_a_daemon_thread_and_returns_at_once() -> None:
