@@ -154,6 +154,13 @@ lived in.
   daemon's own output and reconcile each attention row before acting on a
   handoff. Close an item only on behavior observed on the fleet daemon, never
   on a merge or a green CI run.
+- **The fleet's distributed SendMessage protocol** (https://github.com/thewoolleyman/livespec-dev-tooling/blob/master/%2Eai/distributed-sendmessage-protocol.md) — read BEFORE
+  messaging, asking, directing or answering another agent session on any host,
+  and before running `herdr pane send-text`, `herdr pane run`,
+  `herdr agent prompt` or `tmux send-keys` against a pane you did not create.
+  Claude sessions talk through `SendMessage` (across machines via Remote
+  Control), never by typing into each other's panes; a managed hook denies it
+  (maintainer ruling 2026-11-14).
 - **`.ai/supervisor-protocol.md`** — read BEFORE driving a worker as supervisor.
   The shared role-level contract that every generated per-plan binder is read
   TOGETHER with; a binder alone is intentionally incomplete and this file alone
