@@ -104,6 +104,38 @@ class Caam:
         )()
 
 
+class IdentityCaam:
+    """A stub of caam 0.1.25's saved-identity check for one vault.
+
+    A profile reads `verified` only while its saved access token is the one last
+    bound to it, so writing a new credential into the vault leaves it
+    `credential_changed` until `verify identity ... --repair` re-binds it. That is
+    the measured behaviour the revive copy tripped over.
+    """
+
+    def __init__(self, *, home: Path, repairable: bool = True) -> None:
+        self.home = home
+        self.repairable = repairable
+        self.bound: dict[str, str | None] = {}
+        self.calls: list[tuple[str, ...]] = []
+
+    def __call__(self, *, args: tuple[str, ...]) -> object:
+        self.calls.append(args)
+        assert args[:3] == ("verify", "identity", "claude")
+        name = args[3]
+        creds = self.home / ".local/share/caam/vault/claude" / name / ".credentials.json"
+        token = json.loads(creds.read_text(encoding="utf-8"))["claudeAiOauth"]["accessToken"]
+        if "--repair" in args and self.repairable:
+            self.bound[name] = token
+        state = "verified" if self.bound.get(name) == token else "credential_changed"
+        reply = json.dumps({"provider": "claude", "profile": name, "state": state})
+        return type(
+            "Process",
+            (),
+            {"returncode": 0 if state == "verified" else 1, "stdout": reply + "\n", "stderr": ""},
+        )()
+
+
 def warm_config(
     *,
     module: ModuleType,
@@ -252,6 +284,7 @@ def test_warm_profile_delegates_refresh_to_agent_sandbox_and_copies_back(*, tmp_
         home=tmp_path,
         now=2000.0,
         agent_runner=agent,
+        caam_runner=IdentityCaam(home=tmp_path),
         logger=logs.append,
     )
 
@@ -285,6 +318,7 @@ def test_warm_profile_reports_no_refresh_with_agent_output_without_copying_back(
         home=tmp_path,
         now=2000.0,
         agent_runner=agent,
+        caam_runner=IdentityCaam(home=tmp_path),
         logger=ignore_log,
     )
 
@@ -308,6 +342,7 @@ def test_warm_profile_treats_still_valid_snapshot_as_success(*, tmp_path: Path):
         home=tmp_path,
         now=12_000.0,
         agent_runner=agent,
+        caam_runner=IdentityCaam(home=tmp_path),
         logger=ignore_log,
     )
 
@@ -334,6 +369,7 @@ def test_warm_profile_reports_exception_removes_sandbox_and_checks_live_token(*,
         home=tmp_path,
         now=2000.0,
         agent_runner=MutatingAgent(),
+        caam_runner=IdentityCaam(home=tmp_path),
         logger=logs.append,
     )
 
@@ -368,6 +404,7 @@ def test_keep_warm_skips_disabled_dry_run_and_missing_vault(*, tmp_path: Path):
         config=warm_config(module=module, active_name="active", home=tmp_path),
         now=2000.0,
         agent_runner=agent,
+        caam_runner=IdentityCaam(home=tmp_path),
         logger=ignore_log,
     )
     module.keep_warm(
@@ -375,6 +412,7 @@ def test_keep_warm_skips_disabled_dry_run_and_missing_vault(*, tmp_path: Path):
         config=warm_config(module=module, active_name="active", home=tmp_path, dry_run=True),
         now=2000.0,
         agent_runner=agent,
+        caam_runner=IdentityCaam(home=tmp_path),
         logger=ignore_log,
     )
     module.keep_warm(
@@ -382,6 +420,7 @@ def test_keep_warm_skips_disabled_dry_run_and_missing_vault(*, tmp_path: Path):
         config=warm_config(module=module, active_name="active", home=tmp_path, no_warm=True),
         now=2000.0,
         agent_runner=agent,
+        caam_runner=IdentityCaam(home=tmp_path),
         logger=ignore_log,
     )
 
@@ -414,6 +453,7 @@ def test_keep_warm_skips_a_still_valid_snapshot_inside_the_old_margin(*, tmp_pat
         config=warm_config(module=module, active_name="active", home=tmp_path),
         now=10_000.0,
         agent_runner=agent,
+        caam_runner=IdentityCaam(home=tmp_path),
         logger=logs.append,
     )
 
@@ -439,6 +479,7 @@ def test_keep_warm_refreshes_an_expired_snapshot_and_backs_off(*, tmp_path: Path
         config=warm_config(module=module, active_name="active", home=tmp_path),
         now=10_000.0,
         agent_runner=agent,
+        caam_runner=IdentityCaam(home=tmp_path),
         logger=logs.append,
     )
     module.keep_warm(
@@ -446,6 +487,7 @@ def test_keep_warm_refreshes_an_expired_snapshot_and_backs_off(*, tmp_path: Path
         config=warm_config(module=module, active_name="active", home=tmp_path),
         now=10_500.0,
         agent_runner=agent,
+        caam_runner=IdentityCaam(home=tmp_path),
         logger=logs.append,
     )
 
@@ -473,6 +515,7 @@ def test_keep_warm_attempts_at_the_expiry_boundary_and_skips_just_before_it(*, t
         config=warm_config(module=module, active_name="active", home=tmp_path),
         now=10_000.0,
         agent_runner=agent,
+        caam_runner=IdentityCaam(home=tmp_path),
         logger=ignore_log,
     )
 
@@ -504,6 +547,7 @@ def test_keep_warm_skips_active_underscore_and_backed_off_profiles(*, tmp_path: 
         config=warm_config(module=module, active_name="active", home=tmp_path),
         now=10_000.0,
         agent_runner=agent,
+        caam_runner=IdentityCaam(home=tmp_path),
         logger=logs.append,
     )
 
@@ -542,6 +586,7 @@ def test_keep_warm_attempts_a_profile_whose_credentials_file_is_absent(*, tmp_pa
         config=warm_config(module=module, active_name="active", home=tmp_path),
         now=10_000.0,
         agent_runner=agent,
+        caam_runner=IdentityCaam(home=tmp_path),
         logger=logs.append,
     )
 
@@ -567,6 +612,7 @@ def test_keep_warm_backoff_applies_after_failure_and_logs_survivable_failure(*, 
         config=warm_config(module=module, active_name="active", home=tmp_path),
         now=10_000.0,
         agent_runner=agent,
+        caam_runner=IdentityCaam(home=tmp_path),
         logger=logs.append,
     )
     module.keep_warm(
@@ -574,6 +620,7 @@ def test_keep_warm_backoff_applies_after_failure_and_logs_survivable_failure(*, 
         config=warm_config(module=module, active_name="active", home=tmp_path),
         now=10_001.0,
         agent_runner=agent,
+        caam_runner=IdentityCaam(home=tmp_path),
         logger=logs.append,
     )
 
@@ -643,3 +690,136 @@ def test_idle_snapshots_are_empty_without_a_vault(*, tmp_path: Path):
     module = caam_warm_module()
 
     assert module.idle_snapshots(home=tmp_path, active_name="active") == ()
+
+
+def test_a_refreshed_profile_is_rebound_through_caam_and_reads_verified(*, tmp_path: Path):
+    """overseer-jd42r2: the revive copy writes a new credential into caam's vault.
+
+    caam 0.1.25 keeps an identity fingerprint, so after that copy the profile read
+    `credential_changed` and a switch onto it could be refused. The warm now
+    re-binds the profile through `caam verify identity --repair` after the copy.
+    """
+    module = caam_warm_module()
+    _ = write_snapshot(home=tmp_path, name="idle", credential="old", expires_at_s=1000.0)
+    write_creds(path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=9000.0)
+    caam = IdentityCaam(home=tmp_path)
+    caam.bound["idle"] = "old"
+    logs: list[str] = []
+
+    result = module.warm_profile(
+        name="idle",
+        home=tmp_path,
+        now=2000.0,
+        agent_runner=Agent(refreshed_credential="new", after_expires_at_s=30_000.0),
+        caam_runner=caam,
+        logger=logs.append,
+    )
+
+    assert result.ok is True
+    assert caam.calls == [("verify", "identity", "claude", "idle", "--repair", "--json")]
+    check = caam(args=("verify", "identity", "claude", "idle", "--json"))
+    assert json.loads(check.stdout)["state"] == "verified"  # pyright: ignore[reportAttributeAccessIssue]
+    assert logs == []
+
+
+def test_a_profile_caam_cannot_rebind_is_reported_with_the_state_caam_gave(*, tmp_path: Path):
+    module = caam_warm_module()
+    _ = write_snapshot(home=tmp_path, name="idle", credential="old", expires_at_s=1000.0)
+    write_creds(path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=9000.0)
+    logs: list[str] = []
+
+    result = module.warm_profile(
+        name="idle",
+        home=tmp_path,
+        now=2000.0,
+        agent_runner=Agent(refreshed_credential="new", after_expires_at_s=30_000.0),
+        caam_runner=IdentityCaam(home=tmp_path, repairable=False),
+        logger=logs.append,
+    )
+
+    assert result.ok is True
+    assert logs == [
+        "FAIL warm: idle was refreshed but caam reads its identity as credential_changed; "
+        "a switch onto it may be refused until it is re-bound"
+    ]
+
+
+def test_an_unreadable_or_failed_rebind_is_reported_not_raised(*, tmp_path: Path):
+    module = caam_warm_module()
+    _ = write_snapshot(home=tmp_path, name="idle", credential="old", expires_at_s=1000.0)
+    write_creds(path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=9000.0)
+
+    def raising(*, args: tuple[str, ...]) -> object:
+        del args
+        raise OSError("no caam")
+
+    def replying(stdout: str) -> object:
+        def runner(*, args: tuple[str, ...]) -> object:
+            del args
+            return type("Process", (), {"returncode": 3, "stdout": stdout, "stderr": "boom"})()
+
+        return runner
+
+    seen: list[str] = []
+    for runner in (raising, replying("not json"), replying("[]\n"), replying('{"state": ""}')):
+        _ = write_snapshot(home=tmp_path, name="idle", credential="old", expires_at_s=1000.0)
+        logs: list[str] = []
+        result = module.warm_profile(
+            name="idle",
+            home=tmp_path,
+            now=2000.0,
+            agent_runner=Agent(refreshed_credential="new", after_expires_at_s=30_000.0),
+            caam_runner=runner,
+            logger=logs.append,
+        )
+        assert result.ok is True
+        seen.extend(logs)
+    states = [line.split("identity as ")[1].split(";")[0] for line in seen]
+    assert states == [
+        "unchecked (OSError)",
+        "unreadable (exit 3)",
+        "unreadable (exit 3)",
+        "unreadable (exit 3)",
+    ]
+
+
+def test_a_revived_dark_profile_is_rebound_through_caam_and_reads_verified(*, tmp_path: Path):
+    """overseer-jd42r2: the dark-profile revive reaches the same copy, so it re-binds too."""
+    revive = importlib.import_module("caam_anthropic_revive")
+    decision = importlib.import_module("caam_decision")
+    _ = write_snapshot(home=tmp_path, name="idle", credential="old", expires_at_s=1000.0)
+    write_creds(path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=9000.0)
+    caam = IdentityCaam(home=tmp_path)
+    caam.bound["idle"] = "old"
+    record = decision.UsageRecord(
+        five_hour_remaining=95.0,
+        seven_day_remaining=95.0,
+        five_hour_resets_at="2026-08-22T12:00:00Z",
+        seven_day_resets_at="2026-08-24T00:00:00Z",
+        fable_remaining=90.0,
+        fable_resets_at="2026-08-24T00:00:00Z",
+    )
+
+    def fetcher(*, creds_path: Path, now: float | None = None) -> tuple[object, str | None]:
+        del creds_path, now
+        return record, None
+
+    dark = decision.ProfileUsage(
+        name="idle", source="cached 0.3h", usage=record, credential_expired=True
+    )
+    context = revive.ReviveContext(
+        active_name="active",
+        state={},
+        home=tmp_path,
+        now=2000.0,
+        fetcher=fetcher,
+        agent_runner=Agent(refreshed_credential="new", after_expires_at_s=1_000_000.0),
+        caam_runner=caam,
+        logger=ignore_log,
+    )
+
+    _ = revive.revive_dark_profiles(context=context, profiles=(dark,))
+
+    assert ("verify", "identity", "claude", "idle", "--repair", "--json") in caam.calls
+    check = caam(args=("verify", "identity", "claude", "idle", "--json"))
+    assert json.loads(check.stdout)["state"] == "verified"  # pyright: ignore[reportAttributeAccessIssue]

@@ -157,6 +157,9 @@ def test_revive_fires_on_a_credential_expired_cached_row(*, tmp_path: Path):
         now=2000.0,
         fetcher=fetcher,
         agent_runner=agent,
+        caam_runner=lambda *, args: type(
+            "Process", (), {"returncode": 0, "stdout": '{"state": "verified"}', "stderr": ""}
+        )(),
         logger=logged.append,
     )
 

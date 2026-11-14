@@ -9,7 +9,7 @@ from typing import Protocol
 import jsonio
 from caam_decision import ProfileUsage, UsageRecord
 from caam_profile_state import caam_vault
-from caam_warm import AgentRunner, Logger, warm_profile
+from caam_warm import AgentRunner, Logger, ResnapshotRunner, warm_profile
 
 __all__: list[str] = [
     "ReviveContext",
@@ -55,6 +55,9 @@ class RevivePassSeams(Protocol):
     @property
     def agent_runner(self) -> AgentRunner: ...
 
+    @property
+    def caam_runner(self) -> ResnapshotRunner: ...
+
 
 @dataclass(frozen=True, kw_only=True)
 class ReviveContext:
@@ -64,6 +67,7 @@ class ReviveContext:
     now: float
     fetcher: UsageFetcher
     agent_runner: AgentRunner
+    caam_runner: ResnapshotRunner
     logger: Logger
 
 
@@ -82,6 +86,7 @@ def revive_pass_profiles(
             now=context.now,
             fetcher=seams.fetcher,
             agent_runner=seams.agent_runner,
+            caam_runner=seams.caam_runner,
             logger=_LineLogger(writer=context.stdout),
         ),
         profiles=profiles,
@@ -106,6 +111,7 @@ def _revive_dark_profile(*, context: ReviveContext, profile: ProfileUsage) -> Pr
             home=context.home,
             now=context.now,
             agent_runner=context.agent_runner,
+            caam_runner=context.caam_runner,
             logger=context.logger,
         )
         context.logger(f"revive: {profile.name} {result.detail}")
