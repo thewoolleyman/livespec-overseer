@@ -204,7 +204,7 @@ def test_controller_records_the_first_unfinishable_stage_when_claude_never_idles
             "HOME": str(home),
             "PATH": f"{binaries}{os.pathsep}{environment['PATH']}",
             "STUB_CLAUDE_NEVER_IDLE": "1",
-            "OVERSEER_EXERCISE_CLAUDE_READY_TIMEOUT": "4",
+            "OVERSEER_EXERCISE_CLAUDE_IDLE_TIMEOUT": "4",
             "OVERSEER_EXERCISE_BACKEND": "tmux",
             "OVERSEER_EXERCISE_INSTANCE": instance,
             "OVERSEER_EXERCISE_ENDPOINT": str(socket),
@@ -263,3 +263,118 @@ def test_trust_gate_writes_claude_profile_shape_not_codex_settings(tmp_path: Pat
     assert value["userID"] == "keep"
     assert value["projects"]["/other"] == {"x": 1}
     assert not (home / ".claude" / "settings.json").exists()
+
+
+def _controller_functions(*names: str) -> str:
+    """Return the named controller functions verbatim, so a test runs the shipped bodies."""
+    source = CONTROLLER.read_text(encoding="utf-8")
+    bodies = []
+    for name in names:
+        start = source.index(f"\n{name}() {{\n") + 1
+        bodies.append(source[start : source.index("\n}\n", start) + 3])
+    return "".join(bodies)
+
+
+def _observe(*, state_file: Path, since: float) -> subprocess.CompletedProcess[str]:
+    script = (
+        f"state_file={state_file}\ndeclaration_since={since}\n"
+        + _controller_functions("observe_declaration")
+        + "observe_declaration\n"
+    )
+    return subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=False)
+
+
+def test_idle_input_and_declaration_waits_have_separate_bounds() -> None:
+    """The bootstrap idle wait and the declaration wait no longer share one bound."""
+    source = CONTROLLER.read_text(encoding="utf-8")
+    assert "CLAUDE_READY_TIMEOUT" not in source
+    assert 'wait_until "$CLAUDE_IDLE_TIMEOUT" claude_pane_is_idle' in source
+    assert 'wait_until "$DECLARATION_TIMEOUT" declaration_is_observed' in source
+
+
+def test_a_fresh_ready_line_is_observed_as_declared(tmp_path: Path) -> None:
+    """A `ready` written after the submit is this declaration."""
+    state_file = tmp_path / ".overseer-state"
+    state_file.write_text("ready\n", encoding="utf-8")
+    observed = _observe(state_file=state_file, since=state_file.stat().st_mtime - 5)
+    assert observed.returncode == 0
+    assert observed.stdout.startswith("declared\t")
+
+
+def test_a_declaration_the_daemon_already_consumed_is_observed(tmp_path: Path) -> None:
+    """The restart overwrites `ready` with `restarted:`; that still proves the declaration."""
+    state_file = tmp_path / ".overseer-state"
+    state_file.write_text(
+        "restarted: restart completed; consumed ready declaration\n", encoding="utf-8"
+    )
+    observed = _observe(state_file=state_file, since=state_file.stat().st_mtime - 5)
+    assert observed.returncode == 0
+    assert observed.stdout.startswith("consumed\t")
+
+
+def test_a_state_written_before_the_submit_is_never_this_declaration(tmp_path: Path) -> None:
+    """A `ready` left by an earlier run in a reused scratch repository does not count."""
+    state_file = tmp_path / ".overseer-state"
+    state_file.write_text("ready\n", encoding="utf-8")
+    observed = _observe(state_file=state_file, since=state_file.stat().st_mtime + 60)
+    assert observed.returncode == 1
+    assert observed.stdout.startswith("pending\tstale 'ready'")
+
+
+def test_an_absent_or_unrelated_state_is_still_pending(tmp_path: Path) -> None:
+    """No file, or a value other than the declaration, keeps the stage waiting."""
+    state_file = tmp_path / ".overseer-state"
+    absent = _observe(state_file=state_file, since=0)
+    assert (absent.returncode, absent.stdout) == (1, "pending\tabsent\n")
+    state_file.write_text("winding-down\n", encoding="utf-8")
+    other = _observe(state_file=state_file, since=0)
+    assert (other.returncode, other.stdout) == (1, "pending\t'winding-down'\n")
+
+
+def _run_declaration_stage(*, tmp_path: Path, on_submit: str) -> subprocess.CompletedProcess[str]:
+    """Run the shipped declaration stage against stand-in pane and lifecycle helpers."""
+    state_file = tmp_path / "tmp" / "overseer" / "topic" / ".overseer-state"
+    state_file.parent.mkdir(parents=True)
+    script = "\n".join(
+        (
+            f"state_file={state_file}",
+            f"repo={tmp_path}",
+            f"package={tmp_path}",
+            "agent_target=%1",
+            "POLL_SECONDS=1",
+            "WRAPUP_TIMEOUT=2",
+            "DECLARATION_TIMEOUT=3",
+            "claude_pane_is_idle() { return 0; }",
+            f"pane_submit() {{ {on_submit} return 0; }}",
+            'pass_stage() { echo "passed: $2"; }',
+            'fail_stage() { echo "failed: $2" >&2; exit 1; }',
+            _controller_functions(
+                "wait_until", "observe_declaration", "declaration_is_observed", "stage_declaration"
+            ),
+            "stage_declaration",
+        )
+    )
+    return subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=False)
+
+
+def test_declaration_consumed_before_the_first_poll_passes_the_stage(tmp_path: Path) -> None:
+    """A daemon that restarts the session between two polls no longer fails the stage."""
+    completed = _run_declaration_stage(
+        tmp_path=tmp_path,
+        on_submit=(
+            'echo "restarted: restart completed; consumed ready declaration" > "$state_file";'
+        ),
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert "already consumed" in completed.stdout
+
+
+def test_declaration_timeout_names_elapsed_seconds_and_the_last_state(tmp_path: Path) -> None:
+    """The failure line says how long it waited and what the state file last held."""
+    completed = _run_declaration_stage(
+        tmp_path=tmp_path, on_submit='echo winding-down > "$state_file";'
+    )
+    assert completed.returncode == 1
+    assert "s after the declaration was submitted (bound 3s)" in completed.stderr
+    assert "last state observed" in completed.stderr
+    assert "'winding-down'" in completed.stderr

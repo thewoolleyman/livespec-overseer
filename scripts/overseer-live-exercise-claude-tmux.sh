@@ -31,8 +31,15 @@ state_file="$repo/tmp/overseer/$topic/.overseer-state"
 agent_target=""
 
 readonly POLL_SECONDS=2
-# Overridable so a proof of the never-idle refusal need not wait out a full minute.
-readonly CLAUDE_READY_TIMEOUT="${OVERSEER_EXERCISE_CLAUDE_READY_TIMEOUT:-60}"
+# Bounds the bootstrap wait for Claude's first idle input. Overridable so a proof of
+# the never-idle refusal need not wait out a full minute.
+readonly CLAUDE_IDLE_TIMEOUT="${OVERSEER_EXERCISE_CLAUDE_IDLE_TIMEOUT:-60}"
+# Bounds the declaration stage, which this does NOT share with the idle wait. The
+# declaration is observed either as `ready` or, once the daemon's next tick has
+# consumed it with an atomic restart, as `restarted:`. So the bound must cover a
+# full daemon tick plus that restart. The wait ends the moment either one is seen,
+# so an unloaded host never waits it out.
+readonly DECLARATION_TIMEOUT=180
 readonly DAEMON_TIMEOUT=600
 readonly ADOPTION_TIMEOUT=120
 readonly WRAPUP_TIMEOUT=180
@@ -244,8 +251,8 @@ stage_bootstrap() {
     fail_stage bootstrap "could not open the Claude window on the private server"
   [[ "$agent_target" == %* ]] || fail_stage bootstrap \
     "private exercise server returned no pane id for the Claude window"
-  wait_until "$CLAUDE_READY_TIMEOUT" claude_pane_is_idle || fail_stage bootstrap \
-    "no idle Claude input in retained pane $agent_target within ${CLAUDE_READY_TIMEOUT}s (shipped is_idle_input never held)"
+  wait_until "$CLAUDE_IDLE_TIMEOUT" claude_pane_is_idle || fail_stage bootstrap \
+    "no idle Claude input in retained pane $agent_target within ${CLAUDE_IDLE_TIMEOUT}s (shipped is_idle_input never held)"
   predecessor="$(live_identity)"
   [[ -n "$predecessor" ]] || fail_stage bootstrap \
     "no live named Claude registry identity for '$topic' after its input became idle"
@@ -288,16 +295,72 @@ stage_wrapup() {
     "the daemon injected its wind-down after the controller opened a round at ${threshold}% just above live ${remaining}% remaining context"
 }
 
-session_declared_ready() {
-  [[ -f "$state_file" ]] && [[ "$(head -n 1 -- "$state_file")" == ready ]]
+# Prints "<verdict><TAB><last state>" and succeeds only once THIS declaration is
+# observed. The daemon consumes a `ready` the moment it restarts the session,
+# overwriting it with `restarted: ...`. So that record proves the declaration too:
+# a controller that only looks for `ready` misses any restart landing between two
+# polls. Either line counts only when written at or after the submit
+# (`declaration_since` already allows for the filesystem's coarse timestamp clock),
+# so a state left in a reused scratch repository never passes this stage.
+observe_declaration() {
+  python3 -c '
+import sys
+from pathlib import Path
+
+path, since = Path(sys.argv[1]), float(sys.argv[2])
+try:
+    written = path.stat().st_mtime
+    lines = path.read_text(encoding="utf-8").splitlines()
+except FileNotFoundError:
+    print("pending\tabsent")
+    sys.exit(1)
+except OSError as error:
+    print(f"pending\tunreadable ({type(error).__name__})")
+    sys.exit(1)
+first = lines[0].strip() if lines else ""
+shown = repr(first) if first else "an empty file"
+if written < since:
+    print(f"pending\tstale {shown}, written before this declaration was submitted")
+    sys.exit(1)
+if first == "ready":
+    print(f"declared\t{shown}")
+    sys.exit(0)
+if first.partition(":")[0].strip() == "restarted":
+    print(f"consumed\t{shown}")
+    sys.exit(0)
+print(f"pending\t{shown}")
+sys.exit(1)
+' "$state_file" "$declaration_since"
+}
+
+declaration_is_observed() {
+  declaration_observation="$(observe_declaration)"
 }
 
 stage_declaration() {
+  local submitted
+  # The daemon stamps a round open BEFORE it delivers the wind-down, and retries a
+  # delivery it could not confirm. Typing the declaration the moment the round
+  # opens can interleave the two pastes and submit neither, so wait for an empty
+  # idle composer first.
+  wait_until "$WRAPUP_TIMEOUT" claude_pane_is_idle || fail_stage declaration \
+    "Claude pane $agent_target showed no empty idle composer within ${WRAPUP_TIMEOUT}s of the wrap-up round opening, so the declaration was never typed"
+  # One second earlier than now: file timestamps come from the kernel's coarse clock,
+  # which can trail the wall clock read here.
+  declaration_since="$(python3 -c 'import time; print(time.time() - 1.0)')"
+  submitted=$SECONDS
   pane_submit "!cd $(printf %q "$repo") && PYTHONPATH=$(printf %q "$package") python3 $(printf %q "$package/declare.py") ready" ||
     fail_stage declaration "could not submit the shipped ready declaration"
-  wait_until "$CLAUDE_READY_TIMEOUT" session_declared_ready || fail_stage declaration \
-    "the session never declared ready through overseer-declare within ${CLAUDE_READY_TIMEOUT}s"
-  pass_stage declaration "the session declared ready through shipped overseer-declare at $state_file"
+  if ! wait_until "$DECLARATION_TIMEOUT" declaration_is_observed; then
+    fail_stage declaration \
+      "the session never declared ready through overseer-declare: $((SECONDS - submitted))s after the declaration was submitted (bound ${DECLARATION_TIMEOUT}s), the last state observed in $state_file was ${declaration_observation#*$'\t'}"
+  fi
+  if [[ "${declaration_observation%%$'\t'*}" == consumed ]]; then
+    pass_stage declaration \
+      "the session declared ready through shipped overseer-declare at $state_file; the daemon had already consumed it with a restart when the controller looked (the file read ${declaration_observation#*$'\t'})"
+  else
+    pass_stage declaration "the session declared ready through shipped overseer-declare at $state_file"
+  fi
 }
 
 successor_is_bound() {
@@ -331,6 +394,8 @@ stage_continuation() {
 
 predecessor=""
 successor=""
+declaration_since=""
+declaration_observation=$'pending\tnot yet read'
 : "${OVERSEER_EXERCISE_EPIC:=overseer-exercise-epic}"
 
 stage_bootstrap
