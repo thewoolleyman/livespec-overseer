@@ -108,7 +108,13 @@ gate_check_suite = [
 # a throwaway project (work-item `overseer-2tx6us`). The defect lives in the
 # combine step of a real pytest-cov session whose test subprocesses lack a
 # pyproject in view, so only a real child pytest process can exhibit it.
+#
+# `test_claude_tmux_live_exercise_controller.py` starts the controller in a real
+# private tmux server. The released daemon verifies a session by its live `/proc`
+# identity and atomically replaces that PID in the retained pane, so an in-process
+# stand-in cannot exercise either the registry join or the respawn.
 subprocess_spawn_allowlist = [
+    "tests/test_claude_tmux_live_exercise_controller.py",
     "tests/test_codex_herdr_live_exercise_controller.py",
     "tests/test_herdr_operator_delivery.py",
     "tests/test_pytest_cov_bare_spelling.py",
@@ -434,6 +440,14 @@ ban-relative-imports = "all"
 "tests/**/*.py" = [
     "S101", "PLR2004", "PT018", "S105", "S108", "TRY003",
     "SLF001", "ARG001", "ARG002", "ARG005",
+]
+# This test owns the fixed controller, fixture preparer and private tmux server
+# arguments above. The process boundary is the behavior under test, not an
+# untrusted command surface; its matching no-subprocess allowance records why it
+# cannot use the ordinary in-process CLI pattern.
+"tests/test_claude_tmux_live_exercise_controller.py" = [
+    "S101", "PLR2004", "PT018", "S105", "S108", "TRY003",
+    "SLF001", "ARG001", "ARG002", "ARG005", "S603", "S607",
 ]
 
 # ---------------------------------------------------------------------------
