@@ -12,11 +12,22 @@ from pathlib import Path
 
 import pytest
 
+from overseer import runtime_prefix
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CONTROLLER = REPO_ROOT / "scripts" / "overseer-live-exercise-claude-tmux.sh"
 STUB = REPO_ROOT / "tests" / "stub_claude.py"
 STUB_SHIM_PREPARER = REPO_ROOT / "scripts" / "overseer-live-exercise-stub-shims.sh"
 VERIFIER = REPO_ROOT / "scripts" / "overseer_live_exercise_evidence.py"
+
+
+def _provision_daemon_runtime(*, home: Path) -> None:
+    """Give the isolated HOME the installed daemon `overseer-start` requires."""
+    daemon = runtime_prefix.ensure_runtime(
+        prefix=runtime_prefix.runtime_prefix(home=home),
+        install_source=str(REPO_ROOT),
+    )
+    assert daemon is not None, f"could not provision isolated daemon runtime at {home}"
 
 
 def test_controller_is_checked_in_executable_and_uses_only_the_exercise_socket() -> None:
@@ -48,6 +59,7 @@ def test_controller_keeps_a_stable_pane_and_private_server_path_for_replacement(
     source = CONTROLLER.read_text(encoding="utf-8")
     assert "agent_target=\"$(tx new-window -d -P -F '#{pane_id}'" in source
     assert 'tx set-environment -g PATH "$PATH"' in source
+    assert "tx set-environment -gu PYTHONHOME" in source
     assert "env -u PYTHONHOME" in source
 
 
@@ -67,6 +79,7 @@ def test_controller_drives_the_committed_idle_claude_stub_on_a_private_tmux_serv
         pytest.skip("tmux is unavailable")
     home = tmp_path / "home"
     home.mkdir()
+    _provision_daemon_runtime(home=home)
     evidence = tmp_path / "evidence"
     evidence.mkdir()
     binaries = tmp_path / "bin"
