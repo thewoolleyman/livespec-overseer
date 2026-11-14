@@ -209,6 +209,38 @@ def test_styled_codex_placeholder_is_empty_only_when_its_glyphs_are_dim():
     )
 
 
+def test_codex_composer_evidence_is_anchored_to_the_live_statusline_at_the_capture_tail():
+    composer_empty = signals.codex_composer_placeholder_empty
+    statusline = "  gpt-5.5 high · /x/repo · Context 40% left · topic"
+
+    # A dim quoted composer + a quoted statusline in scrollback, then the live typed
+    # composer with no statusline below it: the quote is never evidence.
+    assert (
+        composer_empty(
+            capture_text=(f"{_CODEX_EMPTY_COMPOSER}\n{statusline}\n{_CODEX_TYPED_COMPOSER}\n")
+        )
+        is False
+    )
+    # Trailing prose below an otherwise well-formed block means it is not the tail.
+    assert (
+        composer_empty(
+            capture_text=f"{_CODEX_EMPTY_COMPOSER}\n{statusline}\ntranscript text below\n"
+        )
+        is False
+    )
+    # The live shape, with the quoted block above it, stays accepted.
+    assert (
+        composer_empty(
+            capture_text=(
+                f"{_CODEX_EMPTY_COMPOSER}\n{statusline}\n"
+                f"{_CODEX_EMPTY_COMPOSER}\n{statusline}\n"
+            )
+        )
+        is True
+    )
+    assert composer_empty(capture_text="") is False
+
+
 # ## Scenario: A busy session with an empty input box receives the wrap-up
 @pytest.mark.parametrize(
     ("capture", "claude_status"),

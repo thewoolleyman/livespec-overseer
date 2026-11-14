@@ -76,21 +76,18 @@ def _codex_composer_block(*, capture_text: str) -> str | None:
 
     A styled capture includes scrollback as well as the visible composer.  A dim
     ``›`` quoted in transcript is therefore never evidence about input; only the
-    block anchored at the final row carrying Codex's own ``Context N% left``
-    statusline reading can authorize a busy wrap-up.  Any other row, even one with
-    a ``·`` separator, is transcript text and never an anchor.
+    block anchored at the capture's LAST non-empty row, which must itself carry
+    Codex's own ``Context N% left`` reading, can authorize a busy wrap-up.  A
+    ``Context N% left`` string anywhere above the tail is transcript text, and a
+    capture whose final row is anything else fails closed.
     """
     raw_lines = capture_text.splitlines()
     plain_lines = [strip_ansi(text=line) for line in raw_lines]
     statusline = next(
-        (
-            index
-            for index in range(len(plain_lines) - 1, -1, -1)
-            if _CTX_RE.search(plain_lines[index]) is not None
-        ),
+        (index for index in range(len(plain_lines) - 1, -1, -1) if plain_lines[index].strip()),
         None,
     )
-    if statusline is None:
+    if statusline is None or _CTX_RE.search(plain_lines[statusline]) is None:
         return None
     last_content = statusline - 1
     while last_content >= 0 and not plain_lines[last_content].strip():
