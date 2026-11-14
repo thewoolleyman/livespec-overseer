@@ -5105,6 +5105,36 @@ When a pass renders the account table
 
 Then in every row, each cell of each column ends where that column's right-aligned header ends, or starts where its left-aligned header starts
 
+## Scenario: A pass names each rotation threshold set away from its default
+
+Given the weekly reserve is set to 2 for a scheduled pass, and its default is 10
+
+And every other rotation-decision threshold is at its default
+
+When the pass runs
+
+Then the pass MUST print, before its account table, one line naming the weekly reserve, the value 2 and the default 10
+
+And that line MUST NOT name any threshold that is at its default
+
+Given every rotation-decision threshold is at its default
+
+When a scheduled pass runs
+
+Then the pass MUST NOT print a non-default-threshold line
+
+## Scenario: A threshold override tied to an account's reset lapses once the reset is used
+
+Given the maintainer set the weekly reserve to 2 until account A's quota reset is used, and its default is 10
+
+And account A's quota reset has now been used
+
+When the next scheduled pass runs
+
+Then that pass MUST run with the weekly reserve at its default of 10
+
+And the pass MUST NOT print a non-default-threshold line for the weekly reserve
+
 ## Scenario: A reset reading declined for the requesting client is unreadable, not empty
 
 Given the provider answers an account's reset read as ineligible for a reason concerning the requesting client

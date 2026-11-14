@@ -4785,5 +4785,21 @@
     "test": "TODO",
     "work_item": "overseer-bluagz",
     "reason": "An integration-tier test is owed for this heading, ratified in SPECIFICATION v107 (scenarios.md, under spec.md 'Supervision across machines', proposal session-start-respects-live-seat-record, plan herdr-overseer, epic overseer-uzvcbn); work item overseer-bluagz owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A pass names each rotation threshold set away from its default",
+    "test": "TODO",
+    "work_item": "overseer-gzjv4s",
+    "reason": "An integration-tier test is owed for this heading, ratified in SPECIFICATION v109 (scenarios.md, under contracts.md 'The account-rotation operation', proposal caam-anthropic-loop-every-pass, plan caam-quota-resets, epic overseer-pv53ri); work item overseer-gzjv4s owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A threshold override tied to an account's reset lapses once the reset is used",
+    "test": "TODO",
+    "work_item": "overseer-gzjv4s",
+    "reason": "An integration-tier test is owed for this heading, ratified in SPECIFICATION v109 (scenarios.md, under contracts.md 'The account-rotation operation', proposal caam-anthropic-loop-every-pass, plan caam-quota-resets, epic overseer-pv53ri); work item overseer-gzjv4s owns landing it."
   }
 ]

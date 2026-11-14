@@ -2497,5 +2497,19 @@
     "heading": "## Scenario: A session-starting surface does not launch while another machine holds the topic's live seat",
     "work_item": "overseer-bluagz",
     "first_seen": "2026-11-14"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A pass names each rotation threshold set away from its default",
+    "work_item": "overseer-gzjv4s",
+    "first_seen": "2026-11-14"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A threshold override tied to an account's reset lapses once the reset is used",
+    "work_item": "overseer-gzjv4s",
+    "first_seen": "2026-11-14"
   }
 ]
