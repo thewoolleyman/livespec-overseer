@@ -158,9 +158,12 @@ lived in.
   messaging, asking, directing or answering another agent session on any host,
   and before running `herdr pane send-text`, `herdr pane run`,
   `herdr agent prompt` or `tmux send-keys` against a pane you did not create.
-  Claude sessions talk through `SendMessage` (across machines via Remote
-  Control), never by typing into each other's panes; a managed hook on the
-  interactive hosts denies it (maintainer ruling 2026-11-14).
+  Prefer `SendMessage` (across machines via Remote Control) to message another
+  Claude session, because text typed into its pane can interrupt the
+  maintainer (maintainer ruling 2026-11-14). Typing into a pane is still
+  allowed and nothing blocks it; use it when necessary, such as for a slash
+  command, a picker, a session `SendMessage` cannot reach, or a Codex or pi
+  seat.
 - **`.ai/supervisor-protocol.md`** — read BEFORE driving a worker as supervisor.
   The shared role-level contract that every generated per-plan binder is read
   TOGETHER with; a binder alone is intentionally incomplete and this file alone

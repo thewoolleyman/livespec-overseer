@@ -173,22 +173,19 @@ picker whose answer is already recorded is sanctioned behavior here; the channel
 must stay usable while the answerer is made legible when the protocol is
 followed.
 
-**The tmux typing recipes below are retired history (superseded 2026-11-14).**
-On the interactive hosts (vps, hetzner-xubuntu, gamingpc-xubuntu) a managed
-hook denies literal-text tmux input — `tmux send-keys` carrying text, and
-`tmux paste-buffer` — into EVERY pane, because tmux is a retired transport
-there. Send a Claude worker its instructions with `SendMessage`, per the
-fleet's distributed SendMessage protocol
-(https://github.com/thewoolleyman/livespec-dev-tooling/blob/master/%2Eai/distributed-sendmessage-protocol.md).
-Drive a Codex or pi worker, which cannot receive `SendMessage`, with
-`herdr pane send-text <pane> "<text>"` and then, in a separate call,
-`herdr pane send-keys <pane> Enter`. Key-only input (Escape, Enter, a picker
-digit) to unblock a picker or dialog stays allowed for any worker. The two
-tmux recipes that follow are kept as history; their verify-before-Enter rule
-still applies to a `herdr pane send-text` delivery.
+**Prefer `SendMessage` for a Claude worker (maintainer ruling 2026-11-14).**
+Send a Claude worker its instructions with `SendMessage` (across machines via
+Remote Control), per the fleet's distributed SendMessage protocol
+(https://github.com/thewoolleyman/livespec-dev-tooling/blob/master/%2Eai/distributed-sendmessage-protocol.md),
+because text typed into its pane can interrupt the maintainer. Typing into a
+pane is still allowed and nothing blocks it; use it when necessary, such as
+for a slash command, a picker, a session `SendMessage` cannot reach, or a
+Codex or pi worker. When you do type, use the recipes below, or
+`herdr pane send-text <pane> "<text>"` followed by a separate
+`herdr pane send-keys <pane> Enter` with the same verify-before-Enter rule.
 
-Short instruction: RETIRED TMUX HISTORY, formerly CLAUDE CODE-SPECIFIC (see the
-note above): send the text, VERIFY it landed, then send Enter SEPARATELY. Before typing into any pane you do not own, identify the harness from its footer and confirm that harness's submit idiom:
+Short instruction: CLAUDE CODE-SPECIFIC: send the text, VERIFY it landed, then
+send Enter SEPARATELY. Before typing into any pane you do not own, identify the harness from its footer and confirm that harness's submit idiom:
 
 ```sh
 tmux send-keys -t "$WORKER_TARGET" -- '<condition-command>'
@@ -200,8 +197,8 @@ Do NOT emit the one-shot `... -- '<line>' Enter` form. The trailing `Enter`
 argument lands the text in the prompt but does NOT submit it. Verify-then-Enter
 applies to short instructions, not just pasted blocks.
 
-Longer text: RETIRED TMUX HISTORY, formerly CLAUDE CODE-SPECIFIC (see the note
-above): load from a file, paste, VERIFY it landed, then send Enter separately:
+Longer text: CLAUDE CODE-SPECIFIC: load from a file, paste, VERIFY it landed,
+then send Enter as a separate step:
 
 ```sh
 WORKER_TARGET='=<worker-session>:'
@@ -213,11 +210,7 @@ tmux send-keys -t "$WORKER_TARGET" Enter             # only after verifying
 
 For a peer-injected picker answer, the raw `tmux send-keys` and
 `tmux paste-buffer` idioms above are deprecated because they omit provenance.
-The provenance-recording Python surface below is scoped to a Codex or pi
-worker, or to a single-key picker answer (a digit) for any worker. A Claude
-worker that needs a picker answered with text, or any instruction, gets it
-through `SendMessage` per the distributed SendMessage protocol, never through
-this surface. Within that scope, use it instead of the raw idioms:
+Use the provenance-recording Python surface instead:
 
 ```text
 export WORKER_SESSION='worker-session'
@@ -237,8 +230,8 @@ raise SystemExit(0 if ok else 1)
 PY
 ```
 
-Verify the paste landed; then send Enter separately as a key-only input,
-checked against the receiving harness's submit idiom. Before treating an answer as
+Verify the paste landed; then send Enter separately with the same Claude
+Code-specific, harness-checked submit idiom above. Before treating an answer as
 maintainer-originated, read the receiving row's `latest_input_provenance` in
 `~/.livespec-overseer-status.json`; `peer_injected=true` establishes a recorded
 peer injection and names the claimed sending seat, while `peer_injected=false`
