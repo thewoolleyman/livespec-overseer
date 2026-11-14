@@ -20,7 +20,7 @@ __all__: list[str] = [
 ]
 
 _PROJECT_NAME = "livespec-overseer"
-_PROJECT_GIT_URL = "https://github.com/thewoolleyman/livespec-overseer.git"
+_PROJECT_GIT_URL = "https://github.com/livespec-ai/livespec-overseer.git"
 
 
 def runtime_prefix(*, home: Path | None = None) -> Path:

@@ -8,7 +8,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/thewoolleyman/livespec-overseer.git"
+    "url": "git+https://github.com/livespec-ai/livespec-overseer.git"
   },
   "pi": {
     "skills": [

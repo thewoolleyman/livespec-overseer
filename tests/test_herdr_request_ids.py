@@ -9,7 +9,7 @@ for two reasons, both about coverage rather than about a new claim:
      the wire. The one suite that takes the default is
      `tests/test_herdr_live_observation.py`, which SKIPS wherever herdr is
      absent — and this repository's CI container
-     (`ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.64.1`) does not
+     (`ghcr.io/livespec-ai/livespec-fabro-sandbox:python-v1.64.1`) does not
      ship herdr. So on the CI lane the shipped default was executed by nothing,
      while the coverage gate stayed at 100%.
   2. The invariant is worth stating on its own terms. `herdr_transport` refuses

@@ -154,7 +154,7 @@ lived in.
   daemon's own output and reconcile each attention row before acting on a
   handoff. Close an item only on behavior observed on the fleet daemon, never
   on a merge or a green CI run.
-- **The fleet's distributed SendMessage protocol** (https://github.com/thewoolleyman/livespec-dev-tooling/blob/master/%2Eai/distributed-sendmessage-protocol.md) — read BEFORE
+- **The fleet's distributed SendMessage protocol** (https://github.com/livespec-ai/livespec-dev-tooling/blob/master/%2Eai/distributed-sendmessage-protocol.md) — read BEFORE
   messaging, asking, directing or answering another agent session on any host,
   and before running `herdr pane send-text`, `herdr pane run`,
   `herdr agent prompt` or `tmux send-keys` against a pane you did not create.

@@ -39,7 +39,7 @@ exactly why the same Fabro image was green under docker and red in a pod.
 
 The fix is in `livespec-dev-tooling`
 (`ci-runner/k3s/phase2/apparmor/ci-runner-workflow`,
-https://github.com/thewoolleyman/livespec-dev-tooling/pull/1531): a node-loaded
+https://github.com/livespec-ai/livespec-dev-tooling/pull/1531): a node-loaded
 profile keeping every containerd deny rule and widening only the
 `ptrace`/`signal` peer expressions, applied to hook-generated workflow pods via
 `ACTIONS_RUNNER_CONTAINER_HOOK_TEMPLATE`. AppArmor stays in enforce mode; no

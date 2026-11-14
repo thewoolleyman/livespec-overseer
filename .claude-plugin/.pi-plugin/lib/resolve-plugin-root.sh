@@ -11,9 +11,9 @@
 #   2. <project-root>/.claude-plugin when that checkout IS this plugin
 #      (dogfooding) - identity confirmed from its plugin manifest name, never
 #      from the path alone.
-#   3. <project-root>/.pi/git/github.com/thewoolleyman/livespec-overseer/.claude-plugin
+#   3. <project-root>/.pi/git/github.com/livespec-ai/livespec-overseer/.claude-plugin
 #      - the PROJECT-scope pi package clone (`pi install ... -l`).
-#   4. ~/.pi/agent/git/github.com/thewoolleyman/livespec-overseer/.claude-plugin
+#   4. ~/.pi/agent/git/github.com/livespec-ai/livespec-overseer/.claude-plugin
 #      - the USER-scope pi package clone.
 #
 # A candidate counts as resolved ONLY when it carries the shared prose directory
