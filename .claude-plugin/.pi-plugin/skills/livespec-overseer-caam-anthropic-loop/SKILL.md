@@ -45,8 +45,8 @@ echo "$PLUGIN_ROOT"
 The resolver searches, in order: the `LIVESPEC_OVERSEER_PLUGIN_ROOT` override;
 the governed project's own plugin directory when that checkout IS this plugin
 (dogfooding); the project-scope pi package clone under
-`.pi/git/github.com/thewoolleyman/livespec-overseer/`; and the user-scope clone
-under `~/.pi/agent/git/github.com/thewoolleyman/livespec-overseer/`.
+`.pi/git/github.com/livespec-ai/livespec-overseer/`; and the user-scope clone
+under `~/.pi/agent/git/github.com/livespec-ai/livespec-overseer/`.
 
 On failure the resolver writes its own diagnostic to stderr and exits 1. STOP
 and surface that diagnostic verbatim. Do not improvise a path, and do not run an

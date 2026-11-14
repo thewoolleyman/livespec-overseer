@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 __all__: list[str] = ["ReleaseRuntimeAdapter", "release_runtime_adapter"]
 
-_REPO = "thewoolleyman/livespec-overseer"
+_REPO = "livespec-ai/livespec-overseer"
 SubprocessRun = Callable[..., subprocess.CompletedProcess[str]]
 EnsureReleaseRuntime = Callable[..., Path | None]
 

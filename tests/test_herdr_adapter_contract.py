@@ -3,7 +3,7 @@
 The companion to `tests/test_herdr_live_observation.py`, and the reason both
 exist. That file proves the adapter against a real herdr server and SKIPS where
 herdr is absent; this repository's CI container
-(`ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.64.1`,
+(`ghcr.io/livespec-ai/livespec-fabro-sandbox:python-v1.64.1`,
 `.github/workflows/ci.yml`) does not ship herdr, so on that lane the live file
 contributes nothing at all. The coverage gate is unchanged there and must still
 be met, so EVERY line and branch of the adapter and its pure call layer is

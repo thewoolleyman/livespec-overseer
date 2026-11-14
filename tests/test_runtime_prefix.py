@@ -50,7 +50,7 @@ def test_ensure_runtime_installs_the_released_distribution_not_the_checkout(*, t
     assert "pip" not in install[4:]
     assert mod.runtime_install_source() in install
     assert mod.runtime_install_source().endswith(f"@v{APP_VERSION}")
-    assert "git+https://github.com/thewoolleyman/livespec-overseer.git" in (
+    assert "git+https://github.com/livespec-ai/livespec-overseer.git" in (
         mod.runtime_install_source()
     )
     assert all(str(Path.cwd()) not in arg for arg in install)

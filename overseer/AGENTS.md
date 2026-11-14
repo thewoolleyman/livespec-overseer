@@ -2123,7 +2123,7 @@ three ways:
 - **Through `SendMessage`**, once the restored track appears in `ListAgents`, after
   reading its pane and confirming it is in none of those states — per the fleet's
   distributed SendMessage protocol
-  (https://github.com/thewoolleyman/livespec-dev-tooling/blob/master/%2Eai/distributed-sendmessage-protocol.md).
+  (https://github.com/livespec-ai/livespec-dev-tooling/blob/master/%2Eai/distributed-sendmessage-protocol.md).
 - **By pasting it into the pane**, when the first two are not available: paste the
   kick and submit it (`load-buffer -` + `paste-buffer -p`, then `Enter` — the same
   atomic-paste discipline the daemon uses; never type it key-by-key).

@@ -101,7 +101,7 @@ if [ -z "$PLUGIN_ROOT" ] || [ ! -f "$PLUGIN_ROOT/prose/llm-provider-manager.md" 
     printf "%b\n" "$PLUGIN_ROOT_DIAGNOSTICS" >&2
   fi
   echo "Install it first:" >&2
-  echo "  codex plugin marketplace add thewoolleyman/livespec-overseer" >&2
+  echo "  codex plugin marketplace add livespec-ai/livespec-overseer" >&2
   echo "  codex plugin add livespec-overseer@livespec-overseer" >&2
   exit 1
 fi
