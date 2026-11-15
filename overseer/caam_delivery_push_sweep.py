@@ -141,7 +141,8 @@ def _sweep_host(
 
 
 def _report_line(*, host: str, report: dict[str, object]) -> str:
-    parts = ("actions", "off_rc", "unknown")
+    optional = tuple(part for part in ("refused_name",) if part in report)
+    parts = ("actions", "off_rc", "unknown", *optional)
     return f"remote-control sweep {host}: " + " ".join(
         f"{part}={_strings(value=report.get(part))}" for part in parts
     )
