@@ -172,7 +172,8 @@ def test_scenario_restart_reasserts_an_explicitly_recorded_model(*, tmp_path):
             "respawn",
             session,
             str(repo),
-            f"claude --model claude-opus-4-1-20250805 --dangerously-skip-permissions -n {topic}",
+            f"claude --model claude-opus-4-1-20250805 --dangerously-skip-permissions "
+            f"--remote-control {topic} -n {topic}",
             {
                 "ANTHROPIC_MODEL": None,
                 "ANTHROPIC_SMALL_FAST_MODEL": None,
@@ -207,7 +208,7 @@ def test_scenario_restart_reasserts_a_local_llm_wrapper_and_env(*, tmp_path):
             "respawn",
             session,
             str(repo),
-            f"{wrapper} --dangerously-skip-permissions -n {topic}",
+            f"{wrapper} --dangerously-skip-permissions --remote-control {topic} -n {topic}",
             {
                 "ANTHROPIC_MODEL": "macmini/qwen3-coder-next",
                 "ANTHROPIC_SMALL_FAST_MODEL": None,
@@ -287,7 +288,7 @@ def test_scenario_track_without_recorded_launch_profile_restarts_unaffected(*, t
             "respawn",
             session,
             str(repo),
-            f"claude --dangerously-skip-permissions -n {topic}",
+            f"claude --dangerously-skip-permissions --remote-control {topic} -n {topic}",
             {
                 "ANTHROPIC_MODEL": None,
                 "ANTHROPIC_SMALL_FAST_MODEL": None,

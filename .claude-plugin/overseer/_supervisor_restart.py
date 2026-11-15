@@ -120,7 +120,11 @@ def _record_failed_resume(
 def _do_claude_restart(
     *, sup: Supervisor, track: registry.Track, target: str
 ) -> _supervisor_herdr_replacement.ReplacementFailure | None:
-    launch = _supervisor_launch.claude_launch_plan(track=track, daemon_restart=True)
+    launch = _supervisor_launch.claude_launch_plan(
+        track=track,
+        daemon_restart=True,
+        remote_control=True,
+    )
     if not isinstance(launch, ClaudeLaunchPlan):
         sup.alert(
             repo=track.repo,
