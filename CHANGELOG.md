@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.59.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.59.1...v5.59.2) (2026-11-15)
+
+
+### Bug Fixes
+
+* **prose:** use installed credential wrapper and clarify migration scope ([9441288](https://github.com/thewoolleyman/livespec-overseer/commit/94412888f933258cdb47de23f359b3dcf64b3e6d))
+
 ## [5.59.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.59.0...v5.59.1) (2026-11-15)
 
 
