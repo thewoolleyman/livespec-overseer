@@ -52,6 +52,13 @@ The panes are re-scanned every _RESCAN_S seconds over a window of _WINDOW_S
 (the script's one optional argument; 0 makes one scan), because a host is
 scanned as soon as it applies the delivery and Claude Code may not have drawn
 the notice yet. A pane is sent to at most once per run.
+
+A herdr pane gets `/remote-control <name>`, the `name` of the session record
+(`~/.claude/sessions/<pid>.json`) of its foreground Claude Code process, so the
+seat comes back under the name other seats address it by; the bare command when
+there is no matching named record, or for a tmux pane. A name that is not a
+string, is empty, exceeds _NAME_MAX or holds a control character is never typed:
+its pane gets the bare command and is listed under `refused_name`.
 """
 
 # livespec-lloc-soft-band-owner: overseer-2a7cml
@@ -84,6 +91,8 @@ NOTICE = (
 )
 FORMS = ("Remote Control disconnected — ", "/rc failed")
 _COMMAND = "/remote-control"
+# REFUSED: the panes of this run whose session name was refused; main() resets it.
+_NAME_MAX, _CONTROL, REFUSED = 200, frozenset(map(chr, [*range(0x20), 0x7F])), set[str]()
 _CLAUDE_BASENAME = "claude"
 _VERSIONS_DIR = Path(".local", "share", "claude", "versions")
 _PROMPT = "❯"
@@ -290,15 +299,36 @@ def _herdr_viewports(*, herdr: Herdr, session: str) -> list[tuple[str, int]]:
     return found
 
 
+def _herdr_claude_pids(*, herdr: Herdr, session: str, pane: str) -> list[object]:
+    """The pids herdr reports for the pane's foreground processes running Claude Code."""
+    info = herdr("--session", session, "pane", "process-info", "--pane", pane)
+    procs = _items(text=info, path=("result", "process_info", "foreground_processes"))
+    return [
+        _at(value=p, path=("pid",))
+        for p in procs
+        if _is_claude(executable=str(next(iter(_list(value=_at(value=p, path=("argv",)))), "")))
+    ]
+
+
 def _herdr_foreground_is_claude(*, herdr: Herdr, session: str, pane: str) -> bool:
     """Whether a process in the pane's foreground group runs Claude Code's executable."""
-    info = herdr("--session", session, "pane", "process-info", "--pane", pane)
-    path = ("result", "process_info", "foreground_processes")
-    heads = [
-        next(iter(_list(value=_at(value=p, path=("argv",)))), None)
-        for p in _items(text=info, path=path)
-    ]
-    return any(isinstance(head, str) and _is_claude(executable=head) for head in heads)
+    return bool(_herdr_claude_pids(herdr=herdr, session=session, pane=pane))
+
+
+def _command(*, herdr: Herdr, session: str, pane: str) -> str:
+    """The reconnect command for this herdr pane; a refused session name is added to REFUSED."""
+    pids = _herdr_claude_pids(herdr=herdr, session=session, pane=pane)
+    try:
+        record = json.loads((Path.home() / ".claude" / "sessions" / f"{pids[0]}.json").read_text())
+    except (IndexError, OSError, ValueError):
+        return _COMMAND
+    fields = cast("dict[str, object]", record) if isinstance(record, dict) else {}
+    name = fields.get("name") if fields.get("pid") == pids[0] else None
+    if isinstance(name, str) and 0 < len(name) <= _NAME_MAX and _CONTROL.isdisjoint(name):
+        return f"{_COMMAND} {name}"
+    if name is not None:
+        REFUSED.add(f"herdr:{session}:{pane}")
+    return _COMMAND
 
 
 def _herdr_qualifies(*, herdr: Herdr, session: str, pane: str, rows: int) -> bool:
@@ -330,11 +360,12 @@ def _send_tmux(*, tmux: Tmux, pane: str) -> bool:
 
 
 def _send_herdr(*, herdr: Herdr, session: str, pane: str, rows: int) -> bool:
-    """Re-check the herdr pane right before typing, then send."""
+    """Re-check the herdr pane right before typing, then send its reconnect command."""
     target = ("--session", session, "pane")
+    command = _command(herdr=herdr, session=session, pane=pane)
     return (
         _herdr_qualifies(herdr=herdr, session=session, pane=pane, rows=rows)
-        and herdr(*target, "send-text", pane, _COMMAND) is not None
+        and herdr(*target, "send-text", pane, command) is not None
         and herdr(*target, "send-keys", pane, _ENTER) is not None
     )
 
@@ -359,7 +390,7 @@ def reissue(
     sleep: Callable[[float], None] = time.sleep,
     clock: Callable[[], float] = time.monotonic,
 ) -> list[str]:
-    """Send `/remote-control` and Enter to every qualifying pane over the window; return them."""
+    """Send the reconnect command and Enter to each qualifying pane over the window; return them."""
     deadline = clock() + window_s
     sent: list[str] = []
     _sweep(tmux=tmux, ps=ps, herdr=herdr, done=sent)
@@ -377,9 +408,9 @@ def main(
     herdr: Herdr = _run_herdr,
 ) -> int:
     """Re-issue over the window named by the one optional argument, default _WINDOW_S."""
-    window_s = float(argv[0]) if argv else _WINDOW_S
-    sent = reissue(tmux=tmux, ps=ps, herdr=herdr, window_s=window_s)
-    print(json.dumps({"reissued": sent}))  # noqa: T201 -- the script's one output line
+    window_s, _ = float(argv[0]) if argv else _WINDOW_S, REFUSED.clear()
+    out = {"reissued": reissue(tmux=tmux, ps=ps, herdr=herdr, window_s=window_s)}
+    print(json.dumps(out | ({"refused_name": sorted(REFUSED)} if REFUSED else {})))  # noqa: T201
     return 0
 
 
