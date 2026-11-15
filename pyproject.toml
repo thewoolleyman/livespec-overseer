@@ -47,6 +47,10 @@ overseer-start = "overseer.start:main"
 dev = [
     "ruff==0.8.6",
     "pyright==1.1.391",
+    # pyright's node comes from this pinned wheel, never from nodeenv: on a cold
+    # cache nodeenv resolves the head of nodejs.org/dist/index.json, which
+    # broke check-types on runners on 2026-11-15 (v27 alpha; igjtqq).
+    "nodejs-wheel-binaries==24.19.0",
     "pytest==8.3.4",
     "pytest-cov==6.0.0",
     "pytest-rerunfailures==14.0",
