@@ -107,6 +107,28 @@ would otherwise live in.
   `non-functional-requirements.md` §"Shared content sync — copier template"
   and MUST NOT be restated here; this repository's copy MUST be byte-identical
   to livespec's root `.github/workflows/disarm-on-hold-label.yml`.
+- This repository's `.github/workflows/adopter-release-dispatch.yml` MUST
+  resolve each adopter's repository from livespec core's fleet manifest as
+  `<adopter.owner or adopter_owner or owner>/<repo>`: the adopter entry's own
+  `owner` when it carries one, else the manifest's top-level `adopter_owner`
+  when the manifest carries one, else the manifest's top-level `owner`. This is
+  the fleet-wide adopter resolution rule livespec ratified in its v247
+  (livespec#3242). The workflow MUST dispatch `sibling-released` to that
+  resolved repository, and MUST NOT dispatch it to the repository's own owner
+  joined with the adopter's `repo`.
+- The workflow MUST authenticate each dispatch per resolved owner, with a
+  GitHub App installation token minted from the App already installed on that
+  owner. For an adopter whose resolved owner is `thewoolleyman`, that App is
+  `thewoolleyman-factory-bot`, whose credential the workflow reads from a
+  second secret pair, `ADOPTER_APP_ID_THEWOOLLEYMAN` and
+  `ADOPTER_APP_PRIVATE_KEY_THEWOOLLEYMAN`. For an adopter whose resolved owner
+  is `livespec-ai`, it is the repository's own App, read from `APP_ID` and
+  `APP_PRIVATE_KEY`.
+- An adopter whose resolved owner has no installed App that the workflow
+  holds a credential for MUST be reported in the run log as not authorized,
+  naming the adopter, and MUST be counted in the run summary; such an adopter
+  MUST NOT be skipped silently. A dispatch that fails for any other reason
+  MUST fail the run, naming the adopter.
 
 ## Constraints
 
