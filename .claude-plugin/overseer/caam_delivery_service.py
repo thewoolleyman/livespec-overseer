@@ -9,6 +9,7 @@ the atomic replace that swaps the sequence file's inode.
 from __future__ import annotations
 
 import fcntl
+import hashlib
 import json
 import os
 from collections.abc import Callable, Iterator
@@ -18,8 +19,9 @@ from pathlib import Path
 
 import jsonio
 from caam_profile_state import live_creds_path
+from caam_profiles import account_uuid
 
-__all__: list[str] = ["Delivery", "issue_delivery", "write_private_json"]
+__all__: list[str] = ["Delivery", "issue_delivery", "live_marker", "write_private_json"]
 
 _STATE = ".local/state/caam-usage-rotate"
 _SEQUENCE_LOCK = "delivery-sequence.lock"
@@ -39,8 +41,14 @@ def issue_delivery(
     now: float,
     confirm_account: Callable[..., str | None],
     last: Delivery | None = None,
+    above: int = 0,
 ) -> Delivery | None:
-    """Persist a greater sequence, then return a refresh-token-free delivery held in memory."""
+    """Persist a greater sequence, then return a refresh-token-free delivery held in memory.
+
+    `above` is the greatest sequence a host ahead of the counter reported: the
+    counter moves past it, so the next delivery is greater than anything any
+    host holds and never moves one back.
+    """
     _path(home=home, name="current-delivery.json").unlink(missing_ok=True)
     credential = _object(path=live_creds_path(home=home))
     state = _object(path=home / ".claude.json")
@@ -63,7 +71,7 @@ def issue_delivery(
     if not isinstance(token, str) or confirm_account(access_token=token) != account_id:
         return None
     with _sequence_lock(home=home):
-        sequence = _sequence(home=home) + 1
+        sequence = max(_sequence(home=home), above) + 1
         delivery = Delivery(
             sequence=sequence,
             account_id=account_id,
@@ -74,6 +82,20 @@ def issue_delivery(
             path=_path(home=home, name="delivery-sequence.json"), value={"sequence": sequence}
         )
     return delivery
+
+
+def live_marker(*, home: Path) -> tuple[str, str] | None:
+    """A fingerprint of the live access token plus the live account id, read locally."""
+    try:
+        cred = json.loads(live_creds_path(home=home).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    oauth = jsonio.as_object(value=jsonio.as_object(value=cred) and cred.get("claudeAiOauth"))
+    token = None if oauth is None else oauth.get("accessToken")
+    account = account_uuid(claude_json_path=home / ".claude.json")
+    if not isinstance(token, str) or account is None:
+        return None
+    return hashlib.sha256(token.encode()).hexdigest()[:12], account
 
 
 def _identity(*, state: dict[str, object]) -> dict[str, object] | None:
