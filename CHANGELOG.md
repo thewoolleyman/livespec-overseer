@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.59.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.59.0...v5.59.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* the keep-alive sweep reads the input box, not a slash menu drawn below it, before submitting /remote-control ([c62b1b6](https://github.com/thewoolleyman/livespec-overseer/commit/c62b1b63d1eaed242bc8c46ed8011426bee0aa10))
+
 ## [5.59.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.58.3...v5.59.0) (2026-11-15)
 
 
