@@ -18,14 +18,21 @@ Per Claude Code pane at the bottom of its scroll, re-reading before every key:
   directory it names, real-pathed, is the pane's herdr cwd and lies strictly
   below `~/workspace` or `~/.worktrees`;
 - a session whose record exists without a `bridgeSessionId`, whose status is
-  `idle` and whose input box is empty gets `/remote-control` + Enter, then its
-  enable dialog answered, unless the service lists the pane in BLOCKED_INPUT
-  (sent within its ten-minute cap).
+  `idle` and whose input box is empty gets the reconnect command + Enter, then
+  its enable dialog answered, unless the service lists the pane in BLOCKED_INPUT
+  (sent within its ten-minute cap). The reconnect command is
+  `/remote-control <name>` with the record's own `name`, so the seat comes back
+  under the name other seats address it by; it is the bare `/remote-control`
+  when the record has no name, and when the name is refused: not a string,
+  empty, over _NAME_MAX characters, or holding a control character.
 
 It prints one JSON line: `actions` (what it sent), `reissued`, `off_rc`,
-`unknown` (no readable record) and `sessions` (pane label -> session id).
+`unknown` (no readable record) and `sessions` (pane label -> session id), plus
+`refused_name` (panes whose record name was refused) when there is one.
 Dialog wording was pinned from real captures of Claude Code _CLAUDE_CODE_VERSION.
 """
+
+# livespec-lloc-soft-band-owner: overseer-4z97.2
 
 from __future__ import annotations
 
@@ -38,7 +45,14 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
-__all__: list[str] = ["BLOCKED_INPUT", "dialog_kind", "main", "sweep", "trust_allowed"]
+__all__: list[str] = [
+    "BLOCKED_INPUT",
+    "dialog_kind",
+    "main",
+    "reconnect_command",
+    "sweep",
+    "trust_allowed",
+]
 
 _CLAUDE_CODE_VERSION = "2.1.325"
 # The service replaces this list with the pane labels sent `/remote-control`
@@ -51,7 +65,9 @@ _PANEL_OPTIONS = ("Disconnect this session", "Show QR code", "Continue")
 _TRUST_YES, _TRUST_HEADER = "Yes, I trust this folder", "Accessing workspace:"
 _TRUST_HINT, _TRUST_NO = "Enter to confirm · Esc to cancel", "No, exit"
 _ROOTS, _VERSIONS = ("workspace", ".worktrees"), ".local/share/claude/versions/"
-_SETTLE_S, _DIALOG_WAIT_S, _TIMEOUT_S = 0.8, 3.0, 10
+_SETTLE_S, _DIALOG_WAIT_S, _TIMEOUT_S, _NAME_MAX = 0.8, 3.0, 10, 200
+# Code points a typed name must not hold: C0 controls (newline, tab, escape) and DEL.
+_CONTROL = frozenset(map(chr, [*range(0x20), 0x7F]))
 
 Herdr = Callable[..., str | None]
 # (herdr session, pane id, viewport rows, cwd, Claude Code pid)
@@ -210,16 +226,31 @@ def _answer(
     return _answer_trust(herdr=herdr, pane=pane, sleep=sleep) if kind == "trust" else ""
 
 
-def _reissue(*, herdr: Herdr, pane: Pane, sleep: Callable[[float], None]) -> bool:
+def reconnect_command(*, record: dict[str, object]) -> tuple[str, bool]:
+    """The text to type for this record, and whether its name was refused."""
+    if "name" not in record:
+        return _COMMAND, False
+    name = record["name"]
+    if (
+        not isinstance(name, str)
+        or not name
+        or len(name) > _NAME_MAX
+        or not _CONTROL.isdisjoint(name)
+    ):
+        return _COMMAND, True
+    return f"{_COMMAND} {name}", False
+
+
+def _reissue(*, herdr: Herdr, pane: Pane, command: str, sleep: Callable[[float], None]) -> bool:
     if not _empty_box(screen=_read(herdr=herdr, pane=pane)):
         return False
     target = ("--session", pane[0], "pane")
-    if herdr(*target, "send-text", pane[1], _COMMAND) is None:
+    if herdr(*target, "send-text", pane[1], command) is None:
         return False
     sleep(_SETTLE_S)
     lines = _read(herdr=herdr, pane=pane).splitlines()
     typed = next((line for line in reversed(lines) if line.startswith(_PROMPT)), "")
-    return typed[len(_PROMPT) :].strip() == _COMMAND and _keys(
+    return typed[len(_PROMPT) :].strip() == command and _keys(
         herdr=herdr, pane=pane, keys=("Enter",)
     )
 
@@ -236,6 +267,7 @@ def sweep(
     reissued: list[str] = []
     off: list[str] = []
     unknown: list[str] = []
+    refused: list[str] = []
     sessions: dict[str, object] = {}
     for pane in _panes(herdr=herdr):
         label, record = f"herdr:{pane[0]}:{pane[1]}", record_of(pid=pane[4])
@@ -250,18 +282,21 @@ def sweep(
             continue
         if record.get("status") != "idle" or label in blocked:
             continue
-        if _reissue(herdr=herdr, pane=pane, sleep=sleep):
+        command, was_refused = reconnect_command(record=record)
+        refused += [label] if was_refused else []
+        if _reissue(herdr=herdr, pane=pane, command=command, sleep=sleep):
             reissued.append(label)
             sleep(_DIALOG_WAIT_S)
             followed = _answer(herdr=herdr, pane=pane, record=record, sleep=sleep)
-            actions += [f"{label} {_COMMAND}"] + ([f"{label} {followed}"] if followed else [])
-    return {
+            actions += [f"{label} {command}"] + ([f"{label} {followed}"] if followed else [])
+    report: dict[str, object] = {
         "actions": actions,
         "reissued": reissued,
         "off_rc": off,
         "unknown": unknown,
         "sessions": sessions,
     }
+    return {**report, "refused_name": refused} if refused else report
 
 
 def main(

@@ -31,7 +31,10 @@ PANEL = (SWEEP_FIX / "status-panel-2.1.325.txt").read_text(encoding="utf-8")
 TRUST = (SWEEP_FIX / "trust-prompt-2.1.325.txt").read_text(encoding="utf-8")
 EMPTY = (FIX / "claude_2.1.323_herdr_input_empty.txt").read_text(encoding="utf-8")
 DRAFT = EMPTY.replace("❯\u00a0\n", "❯\u00a0half written draft\n")
-TYPED = EMPTY.replace("❯\u00a0\n", "❯\u00a0/remote-control\n")
+# The fixture record's `name` is `rc-fixture`, so the sweep types the named command.
+NAMED = "/remote-control rc-fixture"
+TYPED = EMPTY.replace("❯\u00a0\n", f"❯\u00a0{NAMED}\n")
+BARE_TYPED = EMPTY.replace("❯\u00a0\n", "❯\u00a0/remote-control\n")
 # The slash menu as hetzner-xubuntu drew it on 2026-11-15, BELOW the box of a
 # disconnected 2.1.325 seat: an indented `❯` row after the closing rule.
 MENU_BELOW = TYPED.rstrip("\n") + "\n  ❯ /remote-control                    Control this session\n"
@@ -214,17 +217,17 @@ def test_a_trust_prompt_that_never_selects_yes_gets_no_enter(
 
 def test_an_idle_disconnected_seat_is_reissued_and_its_dialog_answered() -> None:
     report, sent = _run(screens=[EMPTY, TYPED, ENABLE, EMPTY], record=DISCONNECTED)
-    assert sent == [("p", "/remote-control"), ("p", "Enter"), ("p", "Enter")]
+    assert sent == [("p", NAMED), ("p", "Enter"), ("p", "Enter")]
     assert report["reissued"] == ["herdr:s:p"]
     assert report["off_rc"] == ["herdr:s:p"]
-    assert report["actions"] == ["herdr:s:p /remote-control", "herdr:s:p enable:Enter"]
+    assert report["actions"] == [f"herdr:s:p {NAMED}", "herdr:s:p enable:Enter"]
     assert report["sessions"] == {"herdr:s:p": DISCONNECTED["sessionId"]}
 
 
 def test_a_reissue_that_reconnects_without_a_dialog_reports_only_the_command() -> None:
     report, sent = _run(screens=[EMPTY, TYPED, EMPTY], record=DISCONNECTED)
-    assert sent == [("p", "/remote-control"), ("p", "Enter")]
-    assert report["actions"] == ["herdr:s:p /remote-control"]
+    assert sent == [("p", NAMED), ("p", "Enter")]
+    assert report["actions"] == [f"herdr:s:p {NAMED}"]
 
 
 @pytest.mark.parametrize(
@@ -244,15 +247,51 @@ def test_a_disconnected_seat_that_is_busy_drafted_or_capped_is_not_typed_into(
     assert report["off_rc"] == ["herdr:s:p"]
 
 
+def test_a_reconnected_seat_keeps_the_name_it_is_addressed_by() -> None:
+    """Scenario: A reconnected seat keeps the name it is addressed by."""
+    record = {**DISCONNECTED, "name": "caam-anthropic-loop-runner"}
+    typed = EMPTY.replace("❯\u00a0\n", "❯\u00a0/remote-control caam-anthropic-loop-runner\n")
+    report, sent = _run(screens=[EMPTY, typed, EMPTY], record=record)
+    assert sent == [("p", "/remote-control caam-anthropic-loop-runner"), ("p", "Enter")]
+    assert report["actions"] == ["herdr:s:p /remote-control caam-anthropic-loop-runner"]
+    assert "refused_name" not in report
+
+
+def test_a_seat_with_no_name_is_reconnected_with_the_bare_command() -> None:
+    """Scenario: A seat with no usable name is reconnected with the bare command."""
+    record = {k: v for k, v in DISCONNECTED.items() if k != "name"}
+    report, sent = _run(screens=[EMPTY, BARE_TYPED, EMPTY], record=record)
+    assert sent == [("p", "/remote-control"), ("p", "Enter")]
+    assert report["reissued"] == ["herdr:s:p"]
+    assert "refused_name" not in report
+
+
+@pytest.mark.parametrize(
+    "name", ["seat\nrm -rf", "seat\tx", "seat\x1b[2J", "seat\x7f", "", 7, "x" * 201]
+)
+def test_a_session_name_holding_a_control_character_is_never_typed(*, name: object) -> None:
+    """Scenario: A session name holding a control character is never typed."""
+    report, sent = _run(screens=[EMPTY, BARE_TYPED, EMPTY], record={**DISCONNECTED, "name": name})
+    assert sent == [("p", "/remote-control"), ("p", "Enter")]
+    assert report["refused_name"] == ["herdr:s:p"]
+
+
+def test_a_name_of_exactly_the_limit_is_typed() -> None:
+    name = "x" * 200
+    typed = EMPTY.replace("❯\u00a0\n", f"❯\u00a0/remote-control {name}\n")
+    _, sent = _run(screens=[EMPTY, typed, EMPTY], record={**DISCONNECTED, "name": name})
+    assert sent[0] == ("p", f"/remote-control {name}")
+
+
 def test_a_slash_menu_drawn_below_the_box_does_not_strand_the_typed_command() -> None:
     report, sent = _run(screens=[EMPTY, MENU_BELOW, EMPTY], record=DISCONNECTED)
-    assert sent == [("p", "/remote-control"), ("p", "Enter")]
+    assert sent == [("p", NAMED), ("p", "Enter")]
     assert report["reissued"] == ["herdr:s:p"]
 
 
 def test_text_typed_over_the_command_before_enter_is_never_submitted() -> None:
     report, sent = _run(screens=[EMPTY, DRAFT], record=DISCONNECTED)
-    assert sent == [("p", "/remote-control")]
+    assert sent == [("p", NAMED)]
     assert report["reissued"] == []
 
 
