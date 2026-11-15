@@ -16,6 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import _supervisor_claude_identity
 import _supervisor_compaction
 import _supervisor_ready
 import claude_sessions
@@ -199,18 +200,13 @@ def pane_is_managed_claude(
     ``target`` is the resolved pane id (RB3), so the identity read is of the
     exact pane, never a prefix-matched sibling.
     """
-    if not signals.pane_is_claude(
-        pane_current_command=sup.tmux.pane_current_command(session=target)
-    ):
-        return False
-    if not signals.path_in_repo(
-        pane_current_path=sup.tmux.pane_current_path(session=target), repo=repo
-    ):
-        return False
-    names = sup.claude_names_by_session.get(session or "")
-    if not names or topic in names:
-        return True
-    return signals.topic_reserved_for_supervisor(topic=topic) and session == topic
+    return _supervisor_claude_identity.is_managed_claude(
+        sup=sup,
+        target=target,
+        repo=repo,
+        topic=topic,
+        session=session,
+    )
 
 
 def observe(

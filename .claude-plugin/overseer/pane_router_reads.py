@@ -118,6 +118,15 @@ class PaneRoutingReads:
             )
         return None if decoded.error else self.tmux.pane_current_path(session=session)
 
+    def pane_claude_cwds(self, *, session: str) -> tuple[str, ...]:
+        """The exact Herdr foreground group's Claude member directories."""
+        decoded = self.decode(value=session)
+        if decoded.herdr is None:
+            return ()
+        reading = self.herdr_cycle_cache.foreground(observer=self.herdr, target=decoded.herdr)
+        process = reading.process
+        return () if process is None else process.claude_cwds
+
     def session_exists(self, *, session: str) -> bool:
         decoded = self.decode(value=session)
         if decoded.herdr is not None:
