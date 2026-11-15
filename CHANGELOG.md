@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.62.0](https://github.com/livespec-ai/livespec-overseer/compare/v5.61.0...v5.62.0) (2026-11-15)
+
+
+### Features
+
+* **config:** route petri runs and host mints through the livespec-ai org App ([b9e491b](https://github.com/livespec-ai/livespec-overseer/commit/b9e491b9aa3e0c6758500839ad6793e3af9bc674))
+
+
+### Bug Fixes
+
+* **org-move:** point livespec-overseer at the livespec-ai organization (livespec-dev-tooling-nwzkto) ([cbeda34](https://github.com/livespec-ai/livespec-overseer/commit/cbeda3449dd7022305e552dc60ce928a761ee100))
+
 ## [5.61.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.60.1...v5.61.0) (2026-11-15)
 
 
