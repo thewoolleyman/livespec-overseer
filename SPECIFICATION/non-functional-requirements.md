@@ -114,8 +114,9 @@ would otherwise live in.
   when the manifest carries one, else the manifest's top-level `owner`. This is
   the fleet-wide adopter resolution rule livespec ratified in its v247
   (livespec#3242). The workflow MUST dispatch `sibling-released` to that
-  resolved repository, and MUST NOT dispatch it to the repository's own owner
-  joined with the adopter's `repo`.
+  resolved repository. The workflow MUST take the target's owner only from that
+  resolution, never from the repository's own owner, even when the two name the
+  same owner.
 - The workflow MUST authenticate each dispatch per resolved owner, with a
   GitHub App installation token minted from the App already installed on that
   owner. For an adopter whose resolved owner is `thewoolleyman`, that App is
