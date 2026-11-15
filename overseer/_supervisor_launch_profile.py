@@ -82,10 +82,14 @@ def _with_unattended_restart_env(
     return MappingProxyType(merged)
 
 
-def _claude_command(*, topic: str, model: str | None) -> str:
-    """The Claude launch command, with an explicit model only when one is given."""
+def _claude_command(*, topic: str, model: str | None, remote_control: bool) -> str:
+    """The Claude launch command, with optional model and Remote Control name."""
     model_arg = "" if model is None else f"--model {shlex.quote(model)} "
-    return f"claude {model_arg}--dangerously-skip-permissions -n {shlex.quote(topic)}"
+    remote_control_arg = "" if not remote_control else f"--remote-control {shlex.quote(topic)} "
+    return (
+        f"claude {model_arg}--dangerously-skip-permissions {remote_control_arg}"
+        f"-n {shlex.quote(topic)}"
+    )
 
 
 def _launch_search_path() -> str:
@@ -158,7 +162,11 @@ def _claude_launch_plan(
 
 
 def claude_launch_plan(
-    *, track: registry.Track, start: bool = False, daemon_restart: bool = False
+    *,
+    track: registry.Track,
+    start: bool = False,
+    daemon_restart: bool = False,
+    remote_control: bool = False,
 ) -> ClaudeLaunchPlan | LaunchProfileProblem:
     """Plan a Claude launch. ``start`` marks a brand-new track rather than a relaunch.
 
@@ -172,7 +180,9 @@ def claude_launch_plan(
     if profile is None:
         return _claude_launch_plan(
             command=_claude_command(
-                topic=track.topic, model=DEFAULT_START_MODEL if start else None
+                topic=track.topic,
+                model=DEFAULT_START_MODEL if start else None,
+                remote_control=remote_control,
             ),
             env=_scrubbed_env(),
             daemon_restart=daemon_restart,
@@ -188,7 +198,7 @@ def claude_launch_plan(
     wrapper = profile["wrapper"]
     if wrapper is None:
         return _claude_launch_plan(
-            command=_claude_command(topic=track.topic, model=model),
+            command=_claude_command(topic=track.topic, model=model, remote_control=remote_control),
             env=MappingProxyType(env),
             daemon_restart=daemon_restart,
             preflight=False,
@@ -200,7 +210,9 @@ def claude_launch_plan(
     return _claude_launch_plan(
         command=(
             f"{shlex.quote(wrapper)} "
-            f"--dangerously-skip-permissions -n {shlex.quote(track.topic)}"
+            f"--dangerously-skip-permissions "
+            f"{'--remote-control ' + shlex.quote(track.topic) + ' ' if remote_control else ''}"
+            f"-n {shlex.quote(track.topic)}"
         ),
         env=MappingProxyType(env),
         daemon_restart=daemon_restart,
