@@ -1,5 +1,18 @@
 # Changelog
 
+## [5.61.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.60.1...v5.61.0) (2026-11-15)
+
+
+### Features
+
+* strip refresh tokens on the old role holder (role move step 3) ([2840b12](https://github.com/thewoolleyman/livespec-overseer/commit/2840b1267706536f00a7ff8d4ef2a135f595e85e))
+
+
+### Bug Fixes
+
+* recognize Claude under launch shells ([9d589dc](https://github.com/thewoolleyman/livespec-overseer/commit/9d589dc95d219e29724fb0f9afdee3bfb716ceb7))
+* **test:** cite the archived quota-percentages-say-remaining plan in three caam quota test docstrings (overseer-5v2ajq) ([17fad4d](https://github.com/thewoolleyman/livespec-overseer/commit/17fad4d5953c0981fec1f6d27946ca74c3f10286))
+
 ## [5.60.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.60.0...v5.60.1) (2026-11-15)
 
 
