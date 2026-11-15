@@ -2518,5 +2518,26 @@
     "heading": "## Scenario: A write to the plan epic leaves the topic's live-seat record intact",
     "work_item": "overseer-fnu5gl",
     "first_seen": "2026-11-14"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A Claude seat started under a launch shell is read as the track's live seat",
+    "work_item": "overseer-aw336m",
+    "first_seen": "2026-11-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A launch shell with no Claude process for the topic stays session-gone",
+    "work_item": "overseer-aw336m",
+    "first_seen": "2026-11-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready-gated restart of a Claude seat keeps its Remote Control name",
+    "work_item": "overseer-m3p2ei",
+    "first_seen": "2026-11-15"
   }
 ]

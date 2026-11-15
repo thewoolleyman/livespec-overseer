@@ -483,6 +483,16 @@ downgrades a hand-picked model and, for a track launched through an
 env-wrapper, silently converts it from a local runtime back onto the
 cloud API.
 
+For a Claude-harness track, every launch the daemon or the sanctioned relaunch
+entrypoint performs MUST pass `--remote-control <seat-name>` to the runtime,
+where `<seat-name>` is EXACTLY the name the same launch passes to `-n`, the
+track's derived session name under §"Session-name derivation". This is part of
+re-asserting the launch: a restart or relaunch MUST NOT leave a seat without
+the Remote Control name its successor needs to be reached from another
+machine. The flag is not a fourth launch-profile field and MUST NOT be read
+from or written to the recorded profile; it is derived from the session name
+on every launch. A Codex launch is unaffected.
+
 The daemon MUST read the profile from `/proc/<pid>/environ` and
 argv/parent-chain as the primary source, and MAY use the statusline's
 rendered model name only as a mismatch-detection verification signal,
@@ -670,9 +680,10 @@ record or sending any input when any of the following holds:
 
 Otherwise it MUST launch that profile's runtime by submitting its launch
 command at the target pane's shell prompt, setting or scrubbing the launch
-environment exactly as §"The launch profile" requires of a daemon relaunch. It
-MUST NOT terminate any process, and MUST NOT write, consume or clear a
-state-file declaration.
+environment exactly as §"The launch profile" requires of a daemon relaunch.
+For a Claude-harness launch the submitted command MUST carry `--remote-control
+<seat-name>` as §"The launch profile" requires. It MUST NOT terminate any
+process, and MUST NOT write, consume or clear a state-file declaration.
 
 When the launched runtime is Codex, the entrypoint MUST then submit
 `/rename <name>` in the launched session, where `<name>` is the track's derived session
@@ -1367,6 +1378,24 @@ refusing condition (ambiguous repository sessions, or no live candidate); per
 the track, so a change of refusing condition or carrier process alone does not
 re-emit it, and it re-arms when the condition clears. An unidentified track is
 ambiguous evidence: it receives no adoption, wrap-up, nudge or restart.
+
+For a Claude-harness track, the daemon MUST evaluate the recorded pane's
+identity against EVERY process in that pane's foreground process group, not
+only the group's leader. When the leader is an interactive or script-running
+shell (a launch shell) and the group contains a live `claude` process whose
+session name is the track's derived session name under §"Session-name
+derivation" and whose working directory is inside the track's repository, that
+`claude` process MUST be treated as the track's live supervised session: the
+track MUST be read with a live status and its context percentage, and it
+receives adoption, wrap-up, nudge and restart exactly as a session that leads
+its own group. The existing name, repository and per-carrier evidence
+requirements MUST still hold for that member; being in the group grants
+nothing on its own. When the foreground group contains no `claude` process for
+the track's topic, the outcome MUST be exactly what it is today (session-gone,
+`unidentified-session`, or misnamed under this section), so the gate stays
+fail-closed. A restart of such a seat MUST launch the runtime as the pane's
+foreground group leader, so a seat leaves the launch-shell shape at its next
+restart.
 
 A carrier in the recorded pane is identified only by exact per-carrier
 evidence that also ties the session to THIS track: a session identifier the
