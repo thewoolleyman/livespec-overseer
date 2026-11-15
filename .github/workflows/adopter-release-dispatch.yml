@@ -56,8 +56,12 @@
 #         transfer that is the `livespec-ai` route);
 #   (iii) otherwise no token: that owner's adopters are reported "not
 #         authorized", named and counted, and the run does not fail.
-# A mint that fails is treated like an absent pair. `mi-homelab` has no App
-# this workflow holds a credential for, so it always falls to (iii).
+# A mint step SKIPPED because its secret pair is absent falls through these
+# rules as above. A mint step that RUNS (its pair is present) and FAILS (bad
+# key, App not installed, API error) is a fault, not a boundary: the run fails
+# with "token mint failed for <owner>", and that owner's adopters are counted
+# as failed. `mi-homelab` has no App this workflow holds a credential for, so
+# it always falls to (iii).
 #
 # The TARGET owner comes only from the manifest resolution
 # `<adopter.owner or adopter_owner or owner>/<repo>` (livespec v247,
@@ -148,6 +152,9 @@ jobs:
           OWN_OWNER: ${{ github.repository_owner }}
           TOKEN_THEWOOLLEYMAN: ${{ steps.token-thewoolleyman.outputs.token }}
           TOKEN_OWN: ${{ steps.token-own.outputs.token }}
+          # skipped = pair absent; failure = pair present and the mint failed.
+          MINT_THEWOOLLEYMAN_OUTCOME: ${{ steps.token-thewoolleyman.outcome }}
+          MINT_OWN_OUTCOME: ${{ steps.token-own.outcome }}
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
           RELEASE_URL: ${{ github.event.release.html_url }}
         run: |
@@ -156,13 +163,28 @@ jobs:
             url="https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG"
           fi
           # The token for a resolved owner, by rules (i)-(iii) in the header.
+          # Prints the token, or the word MINT_FAILED when the rule that applies
+          # names a mint step that ran and failed, or nothing for rule (iii).
           token_for() {
-            if [ "$1" = thewoolleyman ] && [ -n "$TOKEN_THEWOOLLEYMAN" ]; then
+            if [ "$1" = thewoolleyman ] && [ "$MINT_THEWOOLLEYMAN_OUTCOME" = failure ]; then
+              printf 'MINT_FAILED'
+            elif [ "$1" = thewoolleyman ] && [ -n "$TOKEN_THEWOOLLEYMAN" ]; then
               printf '%s' "$TOKEN_THEWOOLLEYMAN"
+            elif [ "$1" = "$OWN_OWNER" ] && [ "$MINT_OWN_OUTCOME" = failure ]; then
+              printf 'MINT_FAILED'
             elif [ "$1" = "$OWN_OWNER" ] && [ -n "$TOKEN_OWN" ]; then
               printf '%s' "$TOKEN_OWN"
             fi
           }
+          mint_failed=""
+          if [ "$MINT_THEWOOLLEYMAN_OUTCOME" = failure ]; then
+            echo "::error::token mint failed for thewoolleyman (ADOPTER_APP_ID_THEWOOLLEYMAN / ADOPTER_APP_PRIVATE_KEY_THEWOOLLEYMAN are set but the mint step failed)"
+            mint_failed="$mint_failed thewoolleyman"
+          fi
+          if [ "$MINT_OWN_OUTCOME" = failure ]; then
+            echo "::error::token mint failed for $OWN_OWNER (APP_ID / APP_PRIVATE_KEY are set but the mint step failed)"
+            mint_failed="$mint_failed $OWN_OWNER"
+          fi
           delivered=0
           unauthorized=0
           failed=0
@@ -171,10 +193,16 @@ jobs:
           while IFS=$'\t' read -r owner repo; do
             target="$owner/$repo"
             token=$(token_for "$owner")
+            if [ "$token" = MINT_FAILED ]; then
+              echo "::error::$target was not dispatched: token mint failed for $owner"
+              failed=$((failed + 1))
+              failed_names="$failed_names $target (token mint failed for $owner)"
+              continue
+            fi
             if [ -z "$token" ]; then
-              echo "::warning::$target is not authorized: this workflow holds no App credential for owner $owner"
+              echo "::warning::$target is not authorized (no credential): this workflow holds no App credential for owner $owner"
               unauthorized=$((unauthorized + 1))
-              unauthorized_names="$unauthorized_names $target"
+              unauthorized_names="$unauthorized_names $target (no credential)"
               continue
             fi
             # An adopter with no receiving lane simply ignores the event, so
@@ -186,13 +214,14 @@ jobs:
                        -F "client_payload[release_url]=$url" 2>&1); then
               echo "::notice::dispatched $TAG to $target"
               delivered=$((delivered + 1))
-            elif printf '%s' "$err" | grep -qE '"status": *"40[34]"'; then
+            elif status=$(printf '%s' "$err" | grep -oE '"status": *"40[34]"' | grep -oE '40[34]' | head -1) \
+                 && [ -n "$status" ]; then
               # 404 = App not installed on that repo; 403 = installed without
               # dispatch permission. Both are the unauthorized boundary, not a
               # fault in this lane.
-              echo "::warning::$target is not authorized: the $owner App token cannot dispatch to it"
+              echo "::warning::$target is not authorized (HTTP $status): the $owner App token cannot dispatch to it"
               unauthorized=$((unauthorized + 1))
-              unauthorized_names="$unauthorized_names $target"
+              unauthorized_names="$unauthorized_names $target (HTTP $status)"
             else
               echo "::error::dispatch to $target failed: $err"
               failed=$((failed + 1))
@@ -205,9 +234,15 @@ jobs:
             echo "- delivered: $delivered"
             echo "- unauthorized (no App credential or access for the resolved owner): $unauthorized${unauthorized_names:+ —$unauthorized_names}"
             echo "- failed: $failed${failed_names:+ —$failed_names}"
+            echo "- token mint failed for:${mint_failed:- none}"
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "$failed" -gt 0 ]; then
             echo "::error::$failed adopter dispatch(es) failed for a reason other than authorization:$failed_names" >&2
+          fi
+          if [ -n "$mint_failed" ]; then
+            echo "::error::token mint failed for:$mint_failed" >&2
+          fi
+          if [ "$failed" -gt 0 ] || [ -n "$mint_failed" ]; then
             exit 1
           fi
           if [ "$delivered" -eq 0 ] && [ "$unauthorized" -gt 0 ]; then
