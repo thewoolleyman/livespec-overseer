@@ -115,6 +115,8 @@ if op == "process-info":
     if pane["argvs"] is None:
         sys.exit(1)
     procs = [{"argv": argv, "name": "2.1.323"} for argv in pane["argvs"]]
+    if "pid" in pane:
+        procs[0]["pid"] = pane["pid"]
     print(json.dumps({"result": {"process_info": {"foreground_processes": procs}}}))
 elif op == "read":
     lines = str(pane["row"]["scroll"]["viewport_rows"])
@@ -203,6 +205,21 @@ def _run_all(
     *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str, state: dict
 ) -> tuple[list[str], list[list[str]], list[list[str]]]:
     """The reported panes, the tmux sends and the herdr sends of one run."""
+    out, sent, herdr_sent = _run_out(
+        tmp_path=tmp_path, monkeypatch=monkeypatch, mode=mode, state=state
+    )
+    return out["reissued"], sent, herdr_sent
+
+
+def _run_out(
+    *,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+    state: dict,
+    home: Path | None = None,
+) -> tuple[dict, list[list[str]], list[list[str]]]:
+    """The printed report, the tmux sends and the herdr sends of one run."""
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir(exist_ok=True)
     for name, body in (("tmux", STUB), ("ps", PS_STUB), ("herdr", HERDR_STUB)):
@@ -218,6 +235,8 @@ def _run_all(
         "STUB_TMUX_LOG": str(log),
         "STUB_HERDR_LOG": str(herdr_log),
     }
+    if home is not None:
+        env["HOME"] = str(home)
     if mode == "subprocess":
         done = subprocess.run(  # noqa: S603 -- the push loop's own invocation
             [sys.executable, "-", "0"],
@@ -235,7 +254,7 @@ def _run_all(
         with contextlib.redirect_stdout(printed):
             assert _rc().main(argv=["0"]) == 0
         out = printed.getvalue()
-    return json.loads(out)["reissued"], _read_log(path=log), _read_log(path=herdr_log)
+    return json.loads(out), _read_log(path=log), _read_log(path=herdr_log)
 
 
 def _run(
@@ -736,6 +755,77 @@ def test_herdr_reissue_scenarios(
         for session, pane in [target.removeprefix("herdr:").split(":", 1)]
         for step in (["send-text", pane, "/remote-control"], ["send-keys", pane, "Enter"])
     ]
+
+
+def _named_seat(*, tmp_path: Path, name: object) -> tuple[dict, Path]:
+    """A herdr seat showing the notice whose Claude Code pid 4242 has a record named `name`."""
+    home = tmp_path / "home"
+    sessions = home / ".claude" / "sessions"
+    sessions.mkdir(parents=True)
+    _ = (sessions / "4242.json").write_text(
+        json.dumps({"pid": 4242, "name": name, "sessionId": "s-1"}), encoding="utf-8"
+    )
+    pane = {**_herdr_pane(pane="w1:p1", screen=H_NOTICE), "pid": 4242}
+    return {"no_server": True, "panes": [], "herdr": _herdr({"default": [pane]})}, home
+
+
+@pytest.mark.parametrize("mode", ["subprocess", "inprocess"])
+def test_a_reissued_seat_keeps_the_name_it_is_addressed_by(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
+) -> None:
+    """Scenario: A reconnected seat keeps the name it is addressed by."""
+    state, home = _named_seat(tmp_path=tmp_path, name="caam-anthropic-loop-runner")
+    out, _, herdr_sent = _run_out(
+        tmp_path=tmp_path, monkeypatch=monkeypatch, mode=mode, state=state, home=home
+    )
+    assert out == {"reissued": ["herdr:default:w1:p1"]}
+    assert herdr_sent[0] == [
+        "--session",
+        "default",
+        "pane",
+        "send-text",
+        "w1:p1",
+        "/remote-control caam-anthropic-loop-runner",
+    ]
+
+
+@pytest.mark.parametrize("mode", ["subprocess", "inprocess"])
+@pytest.mark.parametrize("name", ["seat\nrm -rf ~", "seat\x1b[2J", "", "x" * 201, 7])
+def test_a_reissued_seat_whose_name_is_unsafe_gets_the_bare_command(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str, name: object
+) -> None:
+    """Scenario: A session name holding a control character is never typed."""
+    state, home = _named_seat(tmp_path=tmp_path, name=name)
+    out, _, herdr_sent = _run_out(
+        tmp_path=tmp_path, monkeypatch=monkeypatch, mode=mode, state=state, home=home
+    )
+    assert out == {"reissued": ["herdr:default:w1:p1"], "refused_name": ["herdr:default:w1:p1"]}
+    assert herdr_sent[0][-1] == "/remote-control"
+
+
+@pytest.mark.parametrize("mode", ["subprocess", "inprocess"])
+@pytest.mark.parametrize("record", ["missing", "other-pid", "not-json", "no-name"])
+def test_a_reissued_seat_without_a_matching_named_record_gets_the_bare_command(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str, record: str
+) -> None:
+    """Scenario: A seat with no usable name is reconnected with the bare command."""
+    state, home = _named_seat(tmp_path=tmp_path, name="seat")
+    path = home / ".claude" / "sessions" / "4242.json"
+    body = {
+        "missing": None,
+        "other-pid": json.dumps({"pid": 99, "name": "seat"}),
+        "not-json": "{",
+        "no-name": json.dumps({"pid": 4242}),
+    }[record]
+    if body is None:
+        path.unlink()
+    else:
+        _ = path.write_text(body, encoding="utf-8")
+    out, _, herdr_sent = _run_out(
+        tmp_path=tmp_path, monkeypatch=monkeypatch, mode=mode, state=state, home=home
+    )
+    assert out == {"reissued": ["herdr:default:w1:p1"]}
+    assert herdr_sent[0][-1] == "/remote-control"
 
 
 @pytest.mark.parametrize("mode", ["subprocess", "inprocess"])
