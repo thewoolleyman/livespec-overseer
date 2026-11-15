@@ -103,6 +103,14 @@ install-caam-delivery-push:
 uninstall-caam-delivery-push:
     scripts/caam-delivery-push-install.sh uninstall
 
+# Role move step 3 (contracts.md "Moving the role"): on the OLD holder, after
+# the stores are copied, strip every managed account's refresh token from the
+# live credential and every caam snapshot. Refuses while anything that could
+# refresh still runs; `--dry-run` only reports. Prints no credential value.
+[positional-arguments]
+caam-strip-refresh-tokens *args:
+    uv run caam-strip-refresh-tokens "$@"
+
 # The standard shared derive-from-settings wrapper: reads the committed
 # `.claude/settings.json` (`extraKnownMarketplaces` incl. `ref`, `enabledPlugins`)
 # at runtime and issues the marketplace add / install / update commands for
