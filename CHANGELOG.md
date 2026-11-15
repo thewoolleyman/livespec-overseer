@@ -1,5 +1,18 @@
 # Changelog
 
+## [5.59.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.58.3...v5.59.0) (2026-11-15)
+
+
+### Features
+
+* caam-delivery-push runs the keep-alive sweep every 30 s and alerts after five minutes off Remote Control ([e398161](https://github.com/thewoolleyman/livespec-overseer/commit/e398161141bd98f570d9ea96a011bae5d729fee8))
+* keep-alive sweep answers Remote Control dialogs and re-issues /remote-control in idle disconnected seats ([8340e51](https://github.com/thewoolleyman/livespec-overseer/commit/8340e51e9272e659e9f88580e24dcefb7137123a))
+
+
+### Bug Fixes
+
+* the keep-alive sweep answers only a dialog at the bottom of the pane and re-reads the typed command before Enter ([81307f3](https://github.com/thewoolleyman/livespec-overseer/commit/81307f3468875b3eddbc4881583cc0cdac158ff4))
+
 ## [5.58.3](https://github.com/thewoolleyman/livespec-overseer/compare/v5.58.2...v5.58.3) (2026-11-14)
 
 
