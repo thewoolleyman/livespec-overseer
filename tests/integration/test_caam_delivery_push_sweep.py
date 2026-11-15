@@ -320,3 +320,15 @@ def test_run_here_returns_the_whole_last_line_or_the_failure(
 
     monkeypatch.setattr(sw.subprocess, "run", hang)
     assert sw.run_here(program="p") == "failed TimeoutExpired"
+
+
+def test_a_refused_session_name_is_named_in_the_journal_and_absent_otherwise() -> None:
+    """Scenario: A session name holding a control character is never typed."""
+    state, rec = sw.SweepState(), Recorder()
+    refused = json.loads(_report(reissued=(P,)))
+    refused["refused_name"] = [P]
+    host = Host(replies=[json.dumps(refused), _report()])
+    _sweep(host=host, state=state, now=0.0, rec=rec)
+    _sweep(host=host, state=state, now=40.0, rec=rec)
+    assert rec.lines[0].endswith(f" refused_name=['{P}']")
+    assert "refused_name" not in rec.lines[1]
