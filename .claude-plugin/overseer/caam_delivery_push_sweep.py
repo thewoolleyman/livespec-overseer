@@ -9,8 +9,13 @@ service):
   re-issue", so no pane gets it twice in REISSUE_CAP_S;
 - the hosts with a re-issue run in progress, which the sweep skips;
 - when each pane was first read off Remote Control, so one ntfy push goes out
-  after ALERT_AFTER_S, and again only after it was seen back on.
+  after ALERT_AFTER_S, and again only after it was seen back on;
+- how many times each pane was released from REISSUE_CAP_S because the sweep
+  found it at the not-connected Remote Control panel (`offline`), at most
+  OFFLINE_RETRIES until it is seen back on Remote Control.
 """
+
+# livespec-lloc-soft-band-owner: overseer-4z97.2
 
 from __future__ import annotations
 
@@ -32,6 +37,7 @@ from caam_delivery_push_state import HOSTS_FILE, load_hosts
 __all__: list[str] = [
     "ALERT_AFTER_S",
     "LOCAL",
+    "OFFLINE_RETRIES",
     "REISSUE_CAP_S",
     "SWEEP_INTERVAL_S",
     "SWEEP_TIMEOUT_S",
@@ -49,6 +55,7 @@ __all__: list[str] = [
 SWEEP_INTERVAL_S = 30.0
 REISSUE_CAP_S = 600.0
 ALERT_AFTER_S = 300.0
+OFFLINE_RETRIES = 4
 LOCAL = "role-holder"
 SWEEP_TIMEOUT_S = 60.0
 _BLOCKED_LINE = 'BLOCKED_INPUT = "[]"'
@@ -73,6 +80,7 @@ class SweepState:
     off_since: dict[str, float] = field(default_factory=dict[str, float])
     alerted: set[str] = field(default_factory=set[str])
     session_of: dict[str, object] = field(default_factory=dict[str, object])
+    retried: dict[str, int] = field(default_factory=dict[str, int])
 
 
 def reissue_started(*, host: str) -> None:
@@ -125,11 +133,17 @@ def _sweep_host(
     with _LOCK:
         for pane in _strings(value=report.get("reissued")):
             _SENT[f"{host}|{pane}"] = now
+        for pane in _strings(value=report.get("offline")):
+            key = f"{host}|{pane}"
+            if state.retried.get(key, 0) < OFFLINE_RETRIES:
+                state.retried[key] = state.retried.get(key, 0) + 1
+                _ = _SENT.pop(key, None)
     lines = [_report_line(host=host, report=report)]
     for pane, session in sessions.items():
         key = f"{host}|{pane}"
         if state.session_of.get(key, session) != session or pane not in off:
             _ = state.off_since.pop(key, None)
+            _ = state.retried.pop(key, None)
             state.alerted.discard(key)
         state.session_of[key] = session
         since = state.off_since.setdefault(key, now) if pane in off else now
@@ -141,7 +155,7 @@ def _sweep_host(
 
 
 def _report_line(*, host: str, report: dict[str, object]) -> str:
-    optional = tuple(part for part in ("refused_name",) if part in report)
+    optional = tuple(part for part in ("refused_name", "offline") if part in report)
     parts = ("actions", "off_rc", "unknown", *optional)
     return f"remote-control sweep {host}: " + " ".join(
         f"{part}={_strings(value=report.get(part))}" for part in parts

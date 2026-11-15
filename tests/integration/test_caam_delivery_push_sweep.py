@@ -332,3 +332,41 @@ def test_a_refused_session_name_is_named_in_the_journal_and_absent_otherwise() -
     _sweep(host=host, state=state, now=40.0, rec=rec)
     assert rec.lines[0].endswith(f" refused_name=['{P}']")
     assert "refused_name" not in rec.lines[1]
+
+
+def _offline(*, reissued: list[str] = ()) -> str:
+    report = json.loads(_report(off=(P,), reissued=reissued))
+    report["actions"] += [f"{P} offline:Escape"]
+    report["offline"] = [P]
+    return json.dumps(report)
+
+
+def test_a_seat_whose_reissue_met_the_not_connected_panel_is_retried_before_its_cap() -> None:
+    """A pane the sweep found at the not-connected panel is released from the ten-minute cap.
+
+    At the 2026-11-15T16:47:30Z rotation each such seat waited out the whole cap
+    (about 12 minutes off Remote Control); the release lets the next sweep retry it.
+    """
+    state, rec = sw.SweepState(), Recorder()
+    host = Host(replies=[_report(off=(P,), reissued=(P,)), _offline(), _report(off=(P,))])
+    _sweep(host=host, state=state, now=0.0, rec=rec)
+    _sweep(host=host, state=state, now=30.0, rec=rec)
+    assert 'BLOCKED_INPUT = "[\\"herdr:default:w1:p1\\"]"' in host.programs[1]
+    _sweep(host=host, state=state, now=60.0, rec=rec)
+    assert 'BLOCKED_INPUT = "[]"' in host.programs[2]
+    assert rec.lines[1].endswith(f" offline=['{P}']")
+    assert "offline" not in rec.lines[0]
+
+
+def test_the_early_retry_is_bounded_and_resets_once_the_seat_is_back() -> None:
+    state, rec = sw.SweepState(), Recorder()
+    replies = [_offline(reissued=(P,)) for _ in range(sw.OFFLINE_RETRIES + 1)]
+    host = Host(replies=[*replies, _report(off=(P,)), _report(), _offline(reissued=(P,)), "x"])
+    for step in range(sw.OFFLINE_RETRIES + 2):
+        _sweep(host=host, state=state, now=30.0 * step, rec=rec)
+    assert 'BLOCKED_INPUT = "[]"' in host.programs[sw.OFFLINE_RETRIES]
+    assert 'BLOCKED_INPUT = "[\\"herdr:default:w1:p1\\"]"' in host.programs[-1]
+    _sweep(host=host, state=state, now=300.0, rec=rec)
+    _sweep(host=host, state=state, now=330.0, rec=rec)
+    _sweep(host=host, state=state, now=360.0, rec=rec)
+    assert 'BLOCKED_INPUT = "[]"' in host.programs[-1]
