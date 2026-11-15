@@ -39,6 +39,8 @@ __all__: list[str] = [
     "register_coordinates",
 ]
 
+# livespec-lloc-soft-band-owner: overseer-aw336m
+
 PROCESS_PID: Callable[[], int] = os.getpid
 PROCESS_PPID = claude_sessions.proc_ppid
 OWNERSHIP_PROBES: Callable[[], tuple[terminal_ownership.TerminalProbe, ...]] = partial(
@@ -91,6 +93,7 @@ class MixedPaneDriver:
     pane_id = pane_router_read_facade.pane_id
     pane_pid = pane_router_read_facade.pane_pid
     pane_current_command = pane_router_read_facade.pane_current_command
+    pane_claude_cwds = pane_router_read_facade.pane_claude_cwds
     pane_current_path = pane_router_read_facade.pane_current_path
     pane_agent_session = pane_router_read_facade.pane_agent_session
     session_exists = pane_router_read_facade.session_exists
@@ -218,9 +221,7 @@ def default_pane_driver() -> PaneDriver:
     return cast(PaneDriver, MixedPaneDriver())
 
 
-def register_coordinates(*, driver: PaneDriver, coordinates: Iterable[str]) -> None:
-    if isinstance(driver, MixedPaneDriver):
-        driver.register_coordinates(coordinates=coordinates)
+register_coordinates = pane_router_read_facade.register_driver_coordinates
 
 
 def current_process_coordinate() -> str | None:

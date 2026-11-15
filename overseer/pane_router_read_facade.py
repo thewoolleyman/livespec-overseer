@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 import pane_router_cycle
 import pane_router_reads
@@ -15,6 +15,7 @@ __all__: list[str] = [
     "capture_pane",
     "pane_agent_session",
     "pane_by_title",
+    "pane_claude_cwds",
     "pane_current_command",
     "pane_current_path",
     "pane_id",
@@ -22,6 +23,7 @@ __all__: list[str] = [
     "pane_pid_sessions",
     "reads",
     "register_coordinates",
+    "register_driver_coordinates",
     "renumbered_herdr_coordinate",
     "session_exists",
 ]
@@ -34,6 +36,13 @@ class ReadRouteHost(Protocol):
     tmux_run: tmux_process.TextProcessRun
     coordinates: set[str]
     herdr_cycle_cache: pane_router_cycle.HerdrCycleCache
+
+
+@runtime_checkable
+class CoordinateRegisteringDriver(Protocol):
+    """A pane driver that accepts qualified coordinates for routed reads."""
+
+    def register_coordinates(self, *, coordinates: Iterable[str]) -> None: ...
 
 
 def reads(*, driver: ReadRouteHost) -> pane_router_reads.PaneRoutingReads:
@@ -49,6 +58,12 @@ def reads(*, driver: ReadRouteHost) -> pane_router_reads.PaneRoutingReads:
 
 def register_coordinates(self: ReadRouteHost, *, coordinates: Iterable[str]) -> None:
     self.coordinates.update(coordinates)
+
+
+def register_driver_coordinates(*, driver: PaneDriver, coordinates: Iterable[str]) -> None:
+    """Register qualified coordinates when this driver supports routed reads."""
+    if isinstance(driver, CoordinateRegisteringDriver):
+        driver.register_coordinates(coordinates=coordinates)
 
 
 def capture_pane(self: ReadRouteHost, *, session: str) -> str:
@@ -69,6 +84,10 @@ def pane_current_command(self: ReadRouteHost, *, session: str) -> str | None:
 
 def pane_current_path(self: ReadRouteHost, *, session: str) -> str | None:
     return reads(driver=self).pane_current_path(session=session)
+
+
+def pane_claude_cwds(self: ReadRouteHost, *, session: str) -> tuple[str, ...]:
+    return reads(driver=self).pane_claude_cwds(session=session)
 
 
 def pane_agent_session(self: ReadRouteHost, *, session: str) -> str | None:

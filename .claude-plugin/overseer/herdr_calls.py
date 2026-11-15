@@ -37,6 +37,7 @@ evidence is unavailable — not a guess at the first entry.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 
 import herdr_protocol
 import jsonio
@@ -132,6 +133,7 @@ class ForegroundProcess:
     name: str
     cmdline: str
     cwd: str
+    claude_cwds: tuple[str, ...] = ()
 
 
 def read_params(*, pane_id: str, retain_ansi: bool) -> dict[str, object]:
@@ -326,6 +328,20 @@ def _group_leader(*, processes: list[object], group_id: int) -> dict[str, object
     return leader
 
 
+def _claude_cwds(*, processes: list[object]) -> tuple[str, ...]:
+    """Every readable Claude member's working directory in one foreground group."""
+    paths: list[str] = []
+    for raw in processes:
+        # _group_leader already rejected a malformed process member before this
+        # companion read is reached.
+        entry = cast(dict[str, object], jsonio.as_object(value=raw))
+        name = _text_at(obj=entry, name="name")
+        cwd = _text_at(obj=entry, name="cwd")
+        if name is not None and name.strip().lower() == "claude" and cwd is not None:
+            paths.append(cwd)
+    return tuple(paths)
+
+
 def foreground_process(*, result: dict[str, object]) -> ForegroundProcess | None:
     """The pane's shell plus its foreground group leader, or None if unreadable.
 
@@ -354,4 +370,5 @@ def foreground_process(*, result: dict[str, object]) -> ForegroundProcess | None
         name=name,
         cmdline=_text_at(obj=leader, name="cmdline") or "",
         cwd=_text_at(obj=leader, name="cwd") or "",
+        claude_cwds=_claude_cwds(processes=processes),
     )
