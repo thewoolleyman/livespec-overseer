@@ -1,6 +1,6 @@
 """The five-hour rotation knob says REMAINING too, and the spent-direction name is gone.
 
-`plan/quota-percentages-say-remaining/research/used-versus-remaining.md` records the
+`plan/archive/quota-percentages-say-remaining/research/used-versus-remaining.md` records the
 maintainer ruling that these percentages must say REMAINING in labels AND in keys.
 The representation flip that preceded this change left exactly one knob still
 published in the spent direction -- `CAAM_ROTATE_FIVE_HOUR_THRESHOLD`, default 85 --
