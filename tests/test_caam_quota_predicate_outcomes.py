@@ -1,6 +1,6 @@
 """Outcome-level pins for the quota predicates the "remaining everywhere" flip rewrote.
 
-`plan/quota-percentages-say-remaining/research/used-versus-remaining.md` records the
+`plan/archive/quota-percentages-say-remaining/research/used-versus-remaining.md` records the
 maintainer ruling that these percentages must say REMAINING in labels and in keys,
 and names option (b) -- store remaining -- as what that literally asks for. Option
 (b) inverted every comparison in the selection path at once: `can_serve_scoped_model`,
@@ -35,6 +35,8 @@ threshold's own NUMBER moves with the representation, so a test pressed against 
 boundary would be pinning the constant rather than the outcome. The exhaustion boundary
 IS pinned, because "nothing left" is zero remaining under either representation.
 """
+
+# EXPEDITED_INCIDENT_RESPONSE flag: overseer-5v2ajq
 
 from __future__ import annotations
 
