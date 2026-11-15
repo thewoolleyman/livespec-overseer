@@ -1,4 +1,2 @@
-work_item=overseer-qaahly
-reason=Bullet 3 of overseer-qaahly (ruling R301): check-per-file-coverage uploads tmp/exercise-failure-evidence as a workflow artifact when the job fails, so a timed-out Claude tmux exercise keeps the daemon log and evidence that show which side never moved. One added `if: failure()` actions/upload-artifact@v4 step; no existing line changes.
-change=additive
-ci_runtime=no-significant-increase
+work_item=overseer-j4ejek
+reason=overseer-j4ejek (SPECIFICATION/non-functional-requirements.md Contracts, v115): adopter-release-dispatch.yml resolves each adopter as <adopter.owner or adopter_owner or owner>/<repo> from the fleet manifest and dispatches sibling-released there, minting one App installation token per resolved owner (dedicated ADOPTER_APP_*_THEWOOLLEYMAN pair, else APP_ID/APP_PRIVATE_KEY when the owner is the repository owner, else not authorized). Modifies existing workflow lines, so MAINTAINER tier under approval:workflow-edit, applied by legacy-coordinator-agent under the maintainer 2026-11-04 ruling.
