@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.60.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.59.2...v5.60.0) (2026-11-15)
+
+
+### Features
+
+* preserve Remote Control name on relaunch ([32f8c91](https://github.com/thewoolleyman/livespec-overseer/commit/32f8c91b0d2f0824c1c333bd41e79bfc527893ba))
+* retain Remote Control name on daemon restart ([9fef4df](https://github.com/thewoolleyman/livespec-overseer/commit/9fef4df4b5021dc4b5034d29129b01a24c5d7693))
+
 ## [5.59.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.59.1...v5.59.2) (2026-11-15)
 
 
