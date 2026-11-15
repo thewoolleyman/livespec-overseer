@@ -144,3 +144,7 @@ skill is proven, THEN is deprecated.
 - **Reliability of agent-driven browser flows** — resilient BY DESIGN (no brittle scripts)
   but needs good general instructions + web search + retries + human CAPTCHA/2FA handoff.
 - **SecretStore first** — 1Password now (confirmed); AWS SM/Parameter Store later.
+
+## Scope note — 2026-11-15
+
+The seven setup-token slots were copied from the livespec Environment into Parameter Store; this does not establish publication from the manager values vault. The acquisition/metadata vault and SecretStore design remain unchanged. Whether a manager values-vault generation and an SSM slot create two writable authorities for the same token is OPEN on overseer-3evlnu (change-plan-v4 O06). No backend rewrite or automatic publication is authorized.

@@ -149,3 +149,7 @@ the plan is groomed into children.
 6. **Chrome — REAL INSTALLED Google Chrome via Playwright, NOT bundled Chromium, NOT the
    Claude extension.** (Recorded in 001; re-confirmed here as a hard requirement — attach
    Playwright over CDP to the real installed Chrome, persistent user-data-dir per account.)
+
+## Scope note — 2026-11-15
+
+Rulings B/C migrate the livespec Environment, not the manager values vault. Manager-to-SSM publication and its writable-authority implications remain an open design question on overseer-3evlnu (change-plan-v4 O06). No specification revision is presumed; the historical manager-adoption review above is preserved.

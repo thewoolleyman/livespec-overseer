@@ -84,3 +84,7 @@ for kind, count in kinds.most_common():
   homelab, not filed from this seat.
 - The `CLAUDE_CODE_OAUTH_TOKEN__ANTHROPIC_0..6` Environment copies and the unread `CLAUDE_CODE_OAUTH_TOKEN_0` exposure.
   Both stay deferred to P2 (research 005, remedy item 4).
+
+## Scope clarification — 2026-11-15
+
+AWS Parameter Store writes are agent-driven under rulings (a) and (B). Who performs 1Password-side removals is not ruled.
