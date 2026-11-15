@@ -4836,64 +4836,56 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A reconnected seat keeps the name it is addressed by",
-    "test": "TODO",
-    "work_item": "overseer-fdwat6",
-    "reason": "Ratified ahead of its implementation under plan central-credential-service (epic overseer-iyfjbo), proposal remote-control-reissue-preserves-session-name; overseer-fdwat6 owes an integration-tier test for this heading and MUST replace this TODO when livespec-overseer#3099 lands."
+    "test": "tests.integration.test_remote_control_sweep.test_a_reconnected_seat_keeps_the_name_it_is_addressed_by",
+    "reason": "Integration-tier: runs the keep-alive sweep against a fake herdr pane whose session record names `caam-anthropic-loop-runner`; the text typed is `/remote-control caam-anthropic-loop-runner` and Enter, and the report names that command. test_remote_control_reissue's named-reconnect cases pin the same for the re-issue."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A seat with no usable name is reconnected with the bare command",
-    "test": "TODO",
-    "work_item": "overseer-fdwat6",
-    "reason": "Ratified ahead of its implementation under plan central-credential-service (epic overseer-iyfjbo), proposal remote-control-reissue-preserves-session-name; overseer-fdwat6 owes an integration-tier test for this heading and MUST replace this TODO when livespec-overseer#3099 lands."
+    "test": "tests.integration.test_remote_control_sweep.test_a_seat_with_no_name_is_reconnected_with_the_bare_command",
+    "reason": "Integration-tier: a record with no `name` gets the bare `/remote-control` and Enter, with no name refused; test_a_null_session_name_is_treated_as_absent pins the null case."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A session name holding a control character is never typed",
-    "test": "TODO",
-    "work_item": "overseer-fdwat6",
-    "reason": "Ratified ahead of its implementation under plan central-credential-service (epic overseer-iyfjbo), proposal remote-control-reissue-preserves-session-name; overseer-fdwat6 owes an integration-tier test for this heading and MUST replace this TODO when livespec-overseer#3099 lands."
+    "test": "tests.integration.test_remote_control_sweep.test_a_session_name_holding_a_control_character_is_never_typed",
+    "reason": "Integration-tier: names holding a newline, tab, escape or DEL, an empty or non-string name, and a 201-character name each get the bare command, and the report names the pane under refused_name; no part of the name is typed."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A seat that meets the not-connected panel after an account switch is retried at the next sweep",
-    "test": "TODO",
-    "work_item": "overseer-fdwat6",
-    "reason": "Ratified ahead of its implementation under plan central-credential-service (epic overseer-iyfjbo), proposal remote-control-reissue-preserves-session-name; overseer-fdwat6 owes an integration-tier test for this heading and MUST replace this TODO when livespec-overseer#3099 lands."
+    "test": "tests.integration.test_caam_delivery_push_sweep.test_a_seat_whose_reissue_met_the_not_connected_panel_is_retried_before_its_cap",
+    "reason": "Integration-tier: drives the push service's sweep_all with sweep reports; a pane reported `offline` after its re-issue is released from the ten-minute cap, so the next sweep's BLOCKED_INPUT omits it, and the journal line names it under offline. test_remote_control_sweep's offline tests pin the sweep side: Escape on the panel of a seat whose record is off Remote Control, reported offline."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The not-connected retry is bounded",
-    "test": "TODO",
-    "work_item": "overseer-fdwat6",
-    "reason": "Ratified ahead of its implementation under plan central-credential-service (epic overseer-iyfjbo), proposal remote-control-reissue-preserves-session-name; overseer-fdwat6 owes an integration-tier test for this heading and MUST replace this TODO when livespec-overseer#3099 lands."
+    "test": "tests.integration.test_caam_delivery_push_sweep.test_the_early_retry_is_bounded_and_resets_once_the_seat_is_back",
+    "reason": "Integration-tier: after OFFLINE_RETRIES releases the pane stays capped; once a sweep reads it back on Remote Control the count resets and the next offline report releases it again."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A mid-turn seat at the not-connected panel gets no key",
-    "test": "TODO",
-    "work_item": "overseer-fdwat6",
-    "reason": "Ratified ahead of its implementation under plan central-credential-service (epic overseer-iyfjbo), proposal remote-control-reissue-preserves-session-name; overseer-fdwat6 owes an integration-tier test for this heading and MUST replace this TODO when livespec-overseer#3099 lands."
+    "test": "tests.integration.test_remote_control_sweep.test_a_mid_turn_seat_at_the_panel_while_off_remote_control_gets_no_key",
+    "reason": "Integration-tier: a pane showing the real 2.1.325 status panel whose record is off Remote Control with status `busy` is sent no key and no text, and is still named off Remote Control."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A sweep that runs out of time leaves the remaining seats to the next sweep",
-    "test": "TODO",
-    "work_item": "overseer-fdwat6",
-    "reason": "Ratified ahead of its implementation under plan central-credential-service (epic overseer-iyfjbo), proposal remote-control-reissue-preserves-session-name; overseer-fdwat6 owes an integration-tier test for this heading and MUST replace this TODO when livespec-overseer#3099 lands."
+    "test": "tests.integration.test_remote_control_sweep.test_a_sweep_stops_typing_once_its_reissue_budget_is_spent",
+    "reason": "Integration-tier: with a fake clock, a sweep 39 s into its run types the reconnect command and one 40 s in types nothing, leaving the pane off Remote Control for the next sweep."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A seat that starts a turn after its reconnect command gets no key",
-    "test": "TODO",
-    "work_item": "overseer-fdwat6",
-    "reason": "Ratified ahead of its implementation under plan central-credential-service (epic overseer-iyfjbo), proposal remote-control-reissue-preserves-session-name; overseer-fdwat6 owes an integration-tier test for this heading and MUST replace this TODO when livespec-overseer#3099 lands."
+    "test": "tests.integration.test_remote_control_sweep.test_the_dialog_after_a_reissue_is_answered_on_a_fresh_record",
+    "reason": "Integration-tier: the record reads idle before the command and busy after it; the status panel that opens gets no Escape, and nothing is reported offline."
   }
 ]
