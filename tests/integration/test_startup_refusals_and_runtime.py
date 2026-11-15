@@ -465,7 +465,9 @@ def test_scenario_a_restart_never_switches_a_tracks_runtime(*, tmp_path):
 
     claude_topic, claude = _claude_restart_commands(tmp_path=tmp_path)
     assert len(claude) == 1
-    assert claude[0] == f"claude --dangerously-skip-permissions -n {claude_topic}"
+    assert claude[0] == (
+        f"claude --dangerously-skip-permissions --remote-control {claude_topic} -n {claude_topic}"
+    )
     assert "codex" not in claude[0]
 
 

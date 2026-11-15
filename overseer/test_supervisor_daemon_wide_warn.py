@@ -127,7 +127,7 @@ def test_restart_fires_when_marker_valid_notbusy_idle(*, tmp_path):
         "respawn",
         session,
         str(repo),
-        f"claude --dangerously-skip-permissions -n {topic}",
+        f"claude --dangerously-skip-permissions --remote-control {topic} -n {topic}",
         {
             "ANTHROPIC_MODEL": None,
             "ANTHROPIC_SMALL_FAST_MODEL": None,
@@ -249,7 +249,7 @@ def test_no_bg_shell_allows_restart(*, tmp_path):
         "respawn",
         session,
         str(repo),
-        f"claude --dangerously-skip-permissions -n {topic}",
+        f"claude --dangerously-skip-permissions --remote-control {topic} -n {topic}",
         {
             "ANTHROPIC_MODEL": None,
             "ANTHROPIC_SMALL_FAST_MODEL": None,

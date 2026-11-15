@@ -158,7 +158,9 @@ def test_scenario_a_fresh_ready_declaration_triggers_the_atomic_restart(*, tmp_p
     assert len(_respawns(fake=fake)) == 1  # ONE atomic op...
     assert not fake.has(method="new")  # ...not a teardown and a re-create
     assert not any(call[0] == "keys" and "exit" in str(call[2]).lower() for call in fake.calls)
-    assert _respawns(fake=fake)[0][3] == f"claude --dangerously-skip-permissions -n {topic}"
+    assert _respawns(fake=fake)[0][3] == (
+        f"claude --dangerously-skip-permissions --remote-control {topic} -n {topic}"
+    )
 
     pastes = fake.paste_texts()
     assert len(pastes) == 2  # the wrap-up that opened the round, then ONE resume prompt
