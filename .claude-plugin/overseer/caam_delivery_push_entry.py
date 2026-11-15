@@ -20,6 +20,7 @@ from pathlib import Path
 import caam_delivery_push
 import caam_delivery_push_state
 import caam_delivery_push_status
+import caam_delivery_push_sweep
 import caam_delivery_service
 import jsonio
 import streams
@@ -40,6 +41,7 @@ __all__: list[str] = [
 
 POLL_INTERVAL_S = 5.0
 _REISSUE_PATH = Path(__file__).with_name("remote_control_reissue.py")
+_SWEEP_PATH = Path(__file__).with_name("remote_control_sweep.py")
 
 
 @dataclass(kw_only=True)
@@ -105,8 +107,14 @@ def start_local(*, script: str) -> str:
     host's delivery back by as long.
     """
 
+    caam_delivery_push_sweep.reissue_started(host=caam_delivery_push_sweep.LOCAL)
+
     def report() -> None:
-        streams.write_stdout(text=f"remote-control role holder: {run_local(script=script)}\n")
+        line = run_local(script=script)
+        caam_delivery_push_sweep.reissue_finished(
+            host=caam_delivery_push_sweep.LOCAL, line=line, now=time.monotonic()
+        )
+        streams.write_stdout(text=f"remote-control role holder: {line}\n")
 
     threading.Thread(target=report, name="remote-control-reissue", daemon=True).start()
     return "started"
@@ -188,6 +196,36 @@ def _live_pair(*, home: Path) -> tuple[str, str] | None:
     return hashlib.sha256(token.encode()).hexdigest()[:12], account
 
 
+def _sweep_remote(*, home: Path) -> Callable[..., Callable[..., str]]:
+    """A runner per listed host that feeds the sweep program to it over the push's ssh."""
+    settings = caam_delivery_push.load_config(home=home)
+
+    def remote(*, host: caam_delivery_push.Host) -> Callable[..., str]:
+        def run(*, program: str) -> str:
+            return caam_delivery_push.run_ssh(
+                target=host.target,
+                program=program,
+                key=str(settings["ssh_key"]),
+                known_hosts=str(home / caam_delivery_push.KNOWN_HOSTS),
+                timeout=caam_delivery_push_sweep.SWEEP_TIMEOUT_S,
+            )[1]
+
+        return run
+
+    return remote
+
+
+def _journal(*, line: str) -> None:
+    streams.write_stdout(text=line + "\n")
+
+
+def _notifier(*, home: Path) -> Callable[..., str]:
+    def notify(*, message: str) -> str:
+        return caam_delivery_push_sweep.ntfy_push(home=home, message=message)
+
+    return notify
+
+
 def main(
     *,
     argv: list[str] | None = None,
@@ -204,11 +242,25 @@ def main(
         for line in lines:
             streams.write_stdout(text=line + "\n")
         return 0
-    loop = PushLoop()
+    loop, sweep = PushLoop(), caam_delivery_push_sweep.SweepState()
     done = 0
     while passes is None or done < passes:
         script = caam_delivery_push.reissue_script(path=_REISSUE_PATH)
-        run_once(home=home, now=time.time(), loop=loop, reissue=script)
+        run = caam_delivery_push_sweep.tracking(
+            run=caam_delivery_push.run_ssh, home=home, script=script
+        )
+        run_once(home=home, now=time.time(), loop=loop, reissue=script, run=run)
+        _ = caam_delivery_push_sweep.maybe_start(
+            state=sweep,
+            now=time.monotonic(),
+            targets=caam_delivery_push_sweep.targets(
+                home=home, local=caam_delivery_push_sweep.run_here, remote=_sweep_remote(home=home)
+            ),
+            script=caam_delivery_push.reissue_script(path=_SWEEP_PATH),
+            notify=_notifier(home=home),
+            write=_journal,
+            start=caam_delivery_push.start_in_background,
+        )
         done += 1
         sleep(POLL_INTERVAL_S)
     return 0
