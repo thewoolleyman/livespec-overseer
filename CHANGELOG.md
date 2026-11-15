@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.60.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.60.0...v5.60.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* **ci:** a token mint that runs and fails fails the adopter dispatch (overseer-j4ejek) ([d438ed7](https://github.com/thewoolleyman/livespec-overseer/commit/d438ed7131fce8368f32b345c7ddccb6263a7442))
+* **ci:** adopter-release-dispatch resolves each adopter's owner and authenticates per owner (overseer-j4ejek) ([c67fa51](https://github.com/thewoolleyman/livespec-overseer/commit/c67fa51e27db6a110441f9e5d6662bd9eeff72d9))
+
 ## [5.60.0](https://github.com/thewoolleyman/livespec-overseer/compare/v5.59.2...v5.60.0) (2026-11-15)
 
 
