@@ -1,6 +1,6 @@
 """The representation contract itself: quota percentages say REMAINING, once.
 
-`plan/quota-percentages-say-remaining/research/used-versus-remaining.md` records
+`plan/archive/quota-percentages-say-remaining/research/used-versus-remaining.md` records
 the maintainer ruling and names option (b) -- STORE remaining -- as what it
 literally asks for. Its sibling `test_caam_quota_predicate_outcomes.py` pins that
 the flip preserved every DECISION; this file pins the property that made the flip
