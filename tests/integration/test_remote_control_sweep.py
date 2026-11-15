@@ -31,6 +31,7 @@ PANEL = (SWEEP_FIX / "status-panel-2.1.325.txt").read_text(encoding="utf-8")
 TRUST = (SWEEP_FIX / "trust-prompt-2.1.325.txt").read_text(encoding="utf-8")
 EMPTY = (FIX / "claude_2.1.323_herdr_input_empty.txt").read_text(encoding="utf-8")
 DRAFT = EMPTY.replace("❯\u00a0\n", "❯\u00a0half written draft\n")
+TYPED = EMPTY.replace("❯\u00a0\n", "❯\u00a0/remote-control\n")
 STALE = "● Remote Control disconnected — signed-in claude.ai account changed\n" + EMPTY
 CONNECTED = json.loads((SWEEP_FIX / "record-connected-2.1.325.json").read_text(encoding="utf-8"))
 DISCONNECTED = json.loads(
@@ -209,7 +210,7 @@ def test_a_trust_prompt_that_never_selects_yes_gets_no_enter(
 
 
 def test_an_idle_disconnected_seat_is_reissued_and_its_dialog_answered() -> None:
-    report, sent = _run(screens=[EMPTY, EMPTY, ENABLE, EMPTY], record=DISCONNECTED)
+    report, sent = _run(screens=[EMPTY, TYPED, ENABLE, EMPTY], record=DISCONNECTED)
     assert sent == [("p", "/remote-control"), ("p", "Enter"), ("p", "Enter")]
     assert report["reissued"] == ["herdr:s:p"]
     assert report["off_rc"] == ["herdr:s:p"]
@@ -218,7 +219,7 @@ def test_an_idle_disconnected_seat_is_reissued_and_its_dialog_answered() -> None
 
 
 def test_a_reissue_that_reconnects_without_a_dialog_reports_only_the_command() -> None:
-    report, sent = _run(screens=[EMPTY, EMPTY, EMPTY], record=DISCONNECTED)
+    report, sent = _run(screens=[EMPTY, TYPED, EMPTY], record=DISCONNECTED)
     assert sent == [("p", "/remote-control"), ("p", "Enter")]
     assert report["actions"] == ["herdr:s:p /remote-control"]
 
@@ -238,6 +239,24 @@ def test_a_disconnected_seat_that_is_busy_drafted_or_capped_is_not_typed_into(
     report, sent = _run(screens=screens, record=record, blocked=blocked)
     assert sent == []
     assert report["off_rc"] == ["herdr:s:p"]
+
+
+def test_text_typed_over_the_command_before_enter_is_never_submitted() -> None:
+    report, sent = _run(screens=[EMPTY, DRAFT], record=DISCONNECTED)
+    assert sent == [("p", "/remote-control")]
+    assert report["reissued"] == []
+
+
+def test_a_stale_dialog_above_a_live_input_box_is_not_answered() -> None:
+    for stale in (ENABLE, PANEL, TRUST):
+        assert SWEEP.dialog_kind(screen=stale + EMPTY) == ""
+        assert _run(screens=[stale + EMPTY], record=CONNECTED)[1] == []
+
+
+def test_an_answered_seat_off_remote_control_is_still_named_off() -> None:
+    report, _ = _run(screens=[ENABLE, EMPTY], record=DISCONNECTED)
+    assert report["off_rc"] == ["herdr:s:p"]
+    assert report["actions"] == ["herdr:s:p enable:Enter"]
 
 
 def test_a_connected_seat_showing_a_stale_notice_is_left_alone() -> None:
@@ -262,7 +281,7 @@ def test_scrolled_back_and_non_claude_panes_are_not_reached() -> None:
     [
         ("send-keys", [ENABLE], {}),
         ("send-keys", [PANEL], CONNECTED),
-        ("send-keys", [EMPTY], DISCONNECTED),
+        ("send-keys", [EMPTY, TYPED], DISCONNECTED),
         ("send-text", [EMPTY], DISCONNECTED),
     ],
 )
