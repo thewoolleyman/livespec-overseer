@@ -104,6 +104,29 @@ def test_profile_selection_and_intent_are_explicit_and_durable(*, tmp_path: Path
     assert json.loads(intent.read_text(encoding="utf-8"))["outcome"] == "succeeded"
 
 
+def test_sanctioned_relaunch_launches_claude_with_the_topic_remote_control_name(
+    *, tmp_path: Path
+) -> None:
+    """The attended relaunch leaves its replacement reachable by Remote Control."""
+    entrypoint = importlib.import_module("out_of_band_relaunch")
+    track = _track(tmp_path=tmp_path)
+    sup = SimpleNamespace(
+        tmux=SimpleNamespace(
+            pane_id=lambda *, session: session,
+            pane_current_command=lambda *, session: "zsh",
+        ),
+        store_path=tmp_path / "store",
+    )
+
+    validated = entrypoint._validated_launch(
+        request=_request(target="old-pane"), sup=sup, tracks=[track]
+    )
+
+    assert not isinstance(validated, entrypoint.RelaunchResult)
+    _matched_track, _profile_track, plan = validated
+    assert plan.command == ("claude --dangerously-skip-permissions --remote-control alpha -n alpha")
+
+
 def test_low_level_launch_identity_and_rebind_are_nondestructive(
     *, monkeypatch, tmp_path: Path
 ) -> None:
