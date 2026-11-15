@@ -31,6 +31,7 @@ as a `ModuleNotFoundError` at collection time.
 
 from __future__ import annotations
 
+import contextlib
 import importlib
 import json
 import os
@@ -118,7 +119,13 @@ def _serve(*, address: Path, respond: Callable[[Any], None]) -> list[bytes]:
                 buffered = b""
             if buffered:
                 received.append(buffered)
-            respond(conn)
+            # A client that refuses the peer (or gives up) closes WITHOUT reading,
+            # so the reply can meet EPIPE/ECONNRESET. That is the client's
+            # behaviour under test, not a server fault — an unhandled exception
+            # here would surface as a PytestUnhandledThreadExceptionWarning against
+            # whichever test happens to be running when the thread dies.
+            with contextlib.suppress(BrokenPipeError, ConnectionResetError):
+                respond(conn)
         listener.close()
 
     threading.Thread(target=run, daemon=True).start()
