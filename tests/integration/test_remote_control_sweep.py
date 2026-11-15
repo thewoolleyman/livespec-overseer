@@ -32,6 +32,9 @@ TRUST = (SWEEP_FIX / "trust-prompt-2.1.325.txt").read_text(encoding="utf-8")
 EMPTY = (FIX / "claude_2.1.323_herdr_input_empty.txt").read_text(encoding="utf-8")
 DRAFT = EMPTY.replace("❯\u00a0\n", "❯\u00a0half written draft\n")
 TYPED = EMPTY.replace("❯\u00a0\n", "❯\u00a0/remote-control\n")
+# The slash menu as hetzner-xubuntu drew it on 2026-11-15, BELOW the box of a
+# disconnected 2.1.325 seat: an indented `❯` row after the closing rule.
+MENU_BELOW = TYPED.rstrip("\n") + "\n  ❯ /remote-control                    Control this session\n"
 STALE = "● Remote Control disconnected — signed-in claude.ai account changed\n" + EMPTY
 CONNECTED = json.loads((SWEEP_FIX / "record-connected-2.1.325.json").read_text(encoding="utf-8"))
 DISCONNECTED = json.loads(
@@ -239,6 +242,12 @@ def test_a_disconnected_seat_that_is_busy_drafted_or_capped_is_not_typed_into(
     report, sent = _run(screens=screens, record=record, blocked=blocked)
     assert sent == []
     assert report["off_rc"] == ["herdr:s:p"]
+
+
+def test_a_slash_menu_drawn_below_the_box_does_not_strand_the_typed_command() -> None:
+    report, sent = _run(screens=[EMPTY, MENU_BELOW, EMPTY], record=DISCONNECTED)
+    assert sent == [("p", "/remote-control"), ("p", "Enter")]
+    assert report["reissued"] == ["herdr:s:p"]
 
 
 def test_text_typed_over_the_command_before_enter_is_never_submitted() -> None:

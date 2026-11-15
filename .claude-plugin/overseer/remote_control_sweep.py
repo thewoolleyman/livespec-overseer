@@ -217,7 +217,8 @@ def _reissue(*, herdr: Herdr, pane: Pane, sleep: Callable[[float], None]) -> boo
     if herdr(*target, "send-text", pane[1], _COMMAND) is None:
         return False
     sleep(_SETTLE_S)
-    typed = _last_prompt(lines=_read(herdr=herdr, pane=pane).splitlines()).strip()
+    lines = _read(herdr=herdr, pane=pane).splitlines()
+    typed = next((line for line in reversed(lines) if line.startswith(_PROMPT)), "")
     return typed[len(_PROMPT) :].strip() == _COMMAND and _keys(
         herdr=herdr, pane=pane, keys=("Enter",)
     )
