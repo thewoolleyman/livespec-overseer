@@ -775,7 +775,7 @@ under `$PLUGIN_ROOT` as a setup failure.
 - Repo mutations go `worktree → PR → rebase-merge`; never commit on the primary
   checkout; never `--no-verify` (`mise exec -- git …` so the hooks fire).
 - Beads via the env wrapper:
-  `source "$HOME/workspace/1password-env-wrapper/with-livespec-env.sh" bd -C <repo> <args>`.
+  `/usr/local/bin/with-livespec-env.sh -- bd -C <repo> <args>`.
 - Secrets are probe-only (`printenv NAME | wc -c`); never echo values.
 - Scratch under `tmp/overseer/` (never the `tmp/` root; it is maintainer-owned).
 
