@@ -44,15 +44,13 @@ _CLAUDE_CODE_VERSION = "2.1.325"
 # The service replaces this list with the pane labels sent `/remote-control`
 # within the last ten minutes.
 BLOCKED_INPUT = "[]"
-_COMMAND = "/remote-control"
-_PROMPT, _RULE = "❯", "─"
+_COMMAND, _PROMPT, _RULE = "/remote-control", "❯", "─"
 _ENABLE, _NEVER = "1. Enable Remote Control", "2. Never mind"
 _PANEL = ("Disconnect this session", "Esc to continue")
+_PANEL_OPTIONS = ("Disconnect this session", "Show QR code", "Continue")
 _TRUST_YES, _TRUST_HEADER = "Yes, I trust this folder", "Accessing workspace:"
-_TRUST_HINT = "Enter to confirm · Esc to cancel"
-_ROOTS = ("workspace", ".worktrees")
-_VERSIONS = ".local/share/claude/versions/"
-_MODAL_LINES = 30
+_TRUST_HINT, _TRUST_NO = "Enter to confirm · Esc to cancel", "No, exit"
+_ROOTS, _VERSIONS = ("workspace", ".worktrees"), ".local/share/claude/versions/"
 _SETTLE_S, _DIALOG_WAIT_S, _TIMEOUT_S = 0.8, 3.0, 10
 
 Herdr = Callable[..., str | None]
@@ -104,24 +102,24 @@ def _rows(*, value: object, path: tuple[str, ...]) -> list[object]:
 
 
 def _modal(*, screen: str) -> list[str]:
-    return screen.splitlines()[-_MODAL_LINES:]
+    return screen.splitlines()[-30:]  # a dialog fills at most the bottom 30 rows
 
 
-def _selected(*, lines: list[str], text: str) -> bool:
-    return any(line.strip().startswith(_PROMPT) and text in line for line in lines)
+def _last_prompt(*, lines: list[str]) -> str:
+    """The bottom-most `❯` line: a dialog's selected option, or the input box below a stale one."""
+    return next((line for line in reversed(lines) if line.strip().startswith(_PROMPT)), "")
 
 
 def dialog_kind(*, screen: str) -> str:
     """`enable`, `enable-other`, `panel`, `trust` or `` for the dialog at the pane's bottom."""
     lines = _modal(screen=screen)
-    body = "\n".join(lines)
-    if _NEVER in body and "Enable Remote Control" in body:
-        return "enable" if _selected(lines=lines, text=_ENABLE) else "enable-other"
-    if all(marker in body for marker in _PANEL):
+    body, last = "\n".join(lines), _last_prompt(lines=lines)
+    if _NEVER in body and _ENABLE in body and (_ENABLE in last or _NEVER in last):
+        return "enable" if _ENABLE in last else "enable-other"
+    if all(marker in body for marker in _PANEL) and any(o in last for o in _PANEL_OPTIONS):
         return "panel"
-    if _TRUST_YES in body and _TRUST_HINT in body:
-        return "trust"
-    return ""
+    trust = _TRUST_YES in body and _TRUST_HINT in body
+    return "trust" if trust and (_TRUST_YES in last or _TRUST_NO in last) else ""
 
 
 def trust_allowed(*, screen: str, cwd: str, home: Path) -> bool:
@@ -192,7 +190,7 @@ def _answer_trust(*, herdr: Herdr, pane: Pane, sleep: Callable[[float], None]) -
         allowed = dialog_kind(screen=screen) == "trust" and trust_allowed(
             screen=screen, cwd=pane[3], home=Path.home()
         )
-        if allowed and _selected(lines=_modal(screen=screen), text=_TRUST_YES):
+        if allowed and _TRUST_YES in _last_prompt(lines=_modal(screen=screen)):
             return "trust:Enter" if _keys(herdr=herdr, pane=pane, keys=("Enter",)) else ""
         if not allowed or not _keys(herdr=herdr, pane=pane, keys=("down",)):
             return ""
@@ -216,10 +214,13 @@ def _reissue(*, herdr: Herdr, pane: Pane, sleep: Callable[[float], None]) -> boo
     if not _empty_box(screen=_read(herdr=herdr, pane=pane)):
         return False
     target = ("--session", pane[0], "pane")
-    sent = herdr(*target, "send-text", pane[1], _COMMAND) is not None
-    if sent:
-        sleep(_SETTLE_S)
-    return sent and _keys(herdr=herdr, pane=pane, keys=("Enter",))
+    if herdr(*target, "send-text", pane[1], _COMMAND) is None:
+        return False
+    sleep(_SETTLE_S)
+    typed = _last_prompt(lines=_read(herdr=herdr, pane=pane).splitlines()).strip()
+    return typed[len(_PROMPT) :].strip() == _COMMAND and _keys(
+        herdr=herdr, pane=pane, keys=("Enter",)
+    )
 
 
 def sweep(
@@ -240,11 +241,12 @@ def sweep(
         answered = _answer(herdr=herdr, pane=pane, record=record, sleep=sleep)
         if record:
             sessions[label] = record.get("sessionId")
+        if record and not record.get("bridgeSessionId"):
+            off.append(label)
         if answered or not record or record.get("bridgeSessionId"):
             actions += [f"{label} {answered}"] if answered else []
             unknown += [] if answered or record else [label]
             continue
-        off.append(label)
         if record.get("status") != "idle" or label in blocked:
             continue
         if _reissue(herdr=herdr, pane=pane, sleep=sleep):
