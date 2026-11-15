@@ -26,7 +26,7 @@ Per Claude Code pane at the bottom of its scroll, re-reading before every key:
   (sent within its ten-minute cap). The reconnect command is
   `/remote-control <name>` with the record's own `name`, so the seat comes back
   under the name other seats address it by; it is the bare `/remote-control`
-  when the record has no name, and when the name is refused: not a string,
+  when the record has no name (or a null one), and when the name is refused: not a string,
   empty, over _NAME_MAX characters, or holding a control character.
 
 It prints one JSON line: `actions` (what it sent), `reissued`, `off_rc`,
@@ -70,6 +70,10 @@ _TRUST_YES, _TRUST_HEADER = "Yes, I trust this folder", "Accessing workspace:"
 _TRUST_HINT, _TRUST_NO = "Enter to confirm · Esc to cancel", "No, exit"
 _ROOTS, _VERSIONS = ("workspace", ".worktrees"), ".local/share/claude/versions/"
 _SETTLE_S, _DIALOG_WAIT_S, _TIMEOUT_S, _NAME_MAX = 0.8, 3.0, 10, 200
+# A sweep stops typing once this much of its run is spent, well inside the
+# service's 60 s SWEEP_TIMEOUT_S: a sweep that times out loses its report, and
+# with it the cap on every pane it typed into.
+_REISSUE_BUDGET_S = 40.0
 # Code points a typed name must not hold: C0 controls (newline, tab, escape) and DEL.
 _CONTROL = frozenset(map(chr, [*range(0x20), 0x7F]))
 
@@ -233,7 +237,7 @@ def _answer(
 
 def reconnect_command(*, record: dict[str, object]) -> tuple[str, bool]:
     """The text to type for this record, and whether its name was refused."""
-    if "name" not in record:
+    if record.get("name") is None:  # absent, or JSON null
         return _COMMAND, False
     name = record["name"]
     if (
@@ -260,14 +264,36 @@ def _reissue(*, herdr: Herdr, pane: Pane, command: str, sleep: Callable[[float],
     )
 
 
+def _reconnect(
+    *,
+    herdr: Herdr,
+    pane: Pane,
+    command: str,
+    record_of: Callable[..., dict[str, object]],
+    sleep: Callable[[float], None],
+) -> list[str]:
+    """Type `command` and answer the dialog it opens; the actions taken, `[]` if not typed.
+
+    The dialog is answered on the record read again AFTER the command, since the
+    seat may have started a turn in the seconds since the sweep first read it.
+    """
+    if not _reissue(herdr=herdr, pane=pane, command=command, sleep=sleep):
+        return []
+    sleep(_DIALOG_WAIT_S)
+    followed = _answer(herdr=herdr, pane=pane, record=record_of(pid=pane[4]), sleep=sleep)
+    return [command, *([followed] if followed else [])]
+
+
 def sweep(
     *,
     blocked: list[str],
     herdr: Herdr = _run_herdr,
     record_of: Callable[..., dict[str, object]] = _read_record,
     sleep: Callable[[float], None] = time.sleep,
+    clock: Callable[[], float] = time.monotonic,
 ) -> dict[str, object]:
     """One sweep of every Claude Code pane on this host; the report the service journals."""
+    start = clock()
     actions: list[str] = []
     reissued: list[str] = []
     off: list[str] = []
@@ -287,13 +313,13 @@ def sweep(
             continue
         if record.get("status") != "idle" or label in blocked:
             continue
+        if clock() - start >= _REISSUE_BUDGET_S:
+            continue
         command, was_refused = reconnect_command(record=record)
         refused += [label] if was_refused else []
-        if _reissue(herdr=herdr, pane=pane, command=command, sleep=sleep):
-            reissued.append(label)
-            sleep(_DIALOG_WAIT_S)
-            followed = _answer(herdr=herdr, pane=pane, record=record, sleep=sleep)
-            actions += [f"{label} {command}"] + ([f"{label} {followed}"] if followed else [])
+        done = _reconnect(herdr=herdr, pane=pane, command=command, record_of=record_of, sleep=sleep)
+        reissued += [label] if done else []
+        actions += [f"{label} {action}" for action in done]
     report: dict[str, object] = {
         "actions": actions,
         "reissued": reissued,

@@ -499,3 +499,51 @@ def test_a_status_panel_on_a_connected_seat_is_not_reported_offline() -> None:
     assert sent == [("p", "esc")]
     assert report["actions"] == ["herdr:s:p panel:Escape"]
     assert "offline" not in report
+
+
+def _clock(*, readings: list[float]) -> Callable[[], float]:
+    """A clock stand-in returning `readings` in turn, then the last one forever."""
+    queue = list(readings)
+
+    def now() -> float:
+        return queue.pop(0) if len(queue) > 1 else queue[0]
+
+    return now
+
+
+@pytest.mark.parametrize(("elapsed", "typed"), [(39.0, True), (40.0, False)])
+def test_a_sweep_stops_typing_once_its_reissue_budget_is_spent(
+    *, elapsed: float, typed: bool
+) -> None:
+    """A sweep that ran past its budget would lose its report, and so the pane's cap."""
+    herdr = FakeHerdr(panes={"p": _pane(screens=[EMPTY, TYPED, EMPTY])})
+    report = SWEEP.sweep(
+        blocked=[],
+        herdr=herdr,
+        record_of=records(value=DISCONNECTED),
+        sleep=no_sleep,
+        clock=_clock(readings=[0.0, elapsed]),
+    )
+    assert bool(herdr.sent) is typed
+    assert report["off_rc"] == ["herdr:s:p"]
+    assert report["reissued"] == (["herdr:s:p"] if typed else [])
+
+
+def test_the_dialog_after_a_reissue_is_answered_on_a_fresh_record() -> None:
+    """The record is read again before the follow-up key: a seat that went busy gets none."""
+    reads = [DISCONNECTED, {**DISCONNECTED, "status": "busy"}]
+
+    def record_of(*, pid: int) -> dict[str, object]:
+        assert pid == PID
+        return reads.pop(0) if len(reads) > 1 else reads[0]
+
+    herdr = FakeHerdr(panes={"p": _pane(screens=[EMPTY, TYPED, PANEL])})
+    report = SWEEP.sweep(blocked=[], herdr=herdr, record_of=record_of, sleep=no_sleep)
+    assert herdr.sent == [("p", NAMED), ("p", "Enter")]
+    assert "offline" not in report
+
+
+def test_a_null_session_name_is_treated_as_absent() -> None:
+    report, sent = _run(screens=[EMPTY, BARE_TYPED, EMPTY], record={**DISCONNECTED, "name": None})
+    assert sent == [("p", "/remote-control"), ("p", "Enter")]
+    assert "refused_name" not in report
