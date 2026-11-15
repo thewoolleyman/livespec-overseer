@@ -6702,9 +6702,21 @@ When the operator runs the sanctioned relaunch entrypoint for that topic and tar
 
 Then the recorded runtime is launched under its recorded launch profile and no rename is submitted
 
+And for a Claude-harness profile the launch command carries `--remote-control` with the same name it passes to `-n`
+
 And the resume prompt naming the track's repository and epic is delivered
 
 And the track's mapping row binds the target pane, the launched session's identity and that launch profile
+
+## Scenario: A ready-gated restart of a Claude seat keeps its Remote Control name
+
+Given a mapped Claude-harness track that has declared a certifiable `ready`
+
+When the daemon restarts the track
+
+Then the launch command carries `-n <seat-name>` and `--remote-control <seat-name>` with the same `<seat-name>`
+
+And the recorded launch profile is unchanged by the flag
 
 ## Scenario: An unconfirmed rename leaves the relaunched seat's row unchanged
 
@@ -6757,6 +6769,28 @@ Then the track reads `unidentified-session`, not session-gone and not misnamed
 And exactly one event names the pane, the carrier's process identifier and the ambiguous-repository-sessions condition
 
 And the carrier is not adopted, wrapped up, nudged or restarted
+
+## Scenario: A Claude seat started under a launch shell is read as the track's live seat
+
+Given a mapped Claude-harness track whose recorded pane's foreground process group is led by a shell running a launch script
+
+And that group contains a live `claude` process named for the track's topic with its working directory inside the track's repository
+
+When the daemon evaluates the track
+
+Then the track reads a live status with its context percentage, not session-gone
+
+And the track is eligible for wrap-up, nudge and ready-gated restart
+
+## Scenario: A launch shell with no Claude process for the topic stays session-gone
+
+Given a mapped Claude-harness track whose recorded pane's foreground process group is led by a shell
+
+And that group contains no `claude` process named for the track's topic
+
+When the daemon evaluates the track
+
+Then the track reads exactly as it would without this rule, and no act is taken on the pane
 
 ## Scenario: A Codex session held by a helper a worker thread spawned is adopted like any other
 

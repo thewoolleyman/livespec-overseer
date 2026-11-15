@@ -4155,7 +4155,7 @@
     "heading": "## Scenario: A sanctioned relaunch of a non-Codex seat submits no rename",
     "test": "TODO",
     "work_item": "overseer-a3ymdg",
-    "reason": "overseer-a3ymdg owes an integration-tier test for this heading through the shipped surface. Successor test owner to closed overseer-uzvcbn.7."
+    "reason": "overseer-a3ymdg owes an integration-tier test for this heading through the shipped surface. Successor test owner to closed overseer-uzvcbn.7. SPECIFICATION v114 (proposal relaunch-keeps-remote-control-name) extended this scenario with the Claude-harness --remote-control And line; overseer-m3p2ei owns the test for that extension, and overseer-a3ymdg still owns the rest."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4807,5 +4807,29 @@
     "test": "TODO",
     "work_item": "overseer-fnu5gl",
     "reason": "An integration-tier test is owed for this heading, ratified in SPECIFICATION v110 (scenarios.md, under spec.md 'Supervision across machines', proposal live-seat-record-survives-epic-writes, plan herdr-overseer, epic overseer-uzvcbn); work item overseer-fnu5gl owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A Claude seat started under a launch shell is read as the track's live seat",
+    "test": "TODO",
+    "work_item": "overseer-aw336m",
+    "reason": "An integration-tier test is owed for this heading, ratified in SPECIFICATION v113 (scenarios.md, under spec.md 'Supervised runtimes', proposal claude-seat-under-a-launch-shell); work item overseer-aw336m owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A launch shell with no Claude process for the topic stays session-gone",
+    "test": "TODO",
+    "work_item": "overseer-aw336m",
+    "reason": "An integration-tier test is owed for this heading, ratified in SPECIFICATION v113 (scenarios.md, under spec.md 'Supervised runtimes', proposal claude-seat-under-a-launch-shell); work item overseer-aw336m owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready-gated restart of a Claude seat keeps its Remote Control name",
+    "test": "TODO",
+    "work_item": "overseer-m3p2ei",
+    "reason": "An integration-tier test is owed for this heading, ratified in SPECIFICATION v114 (scenarios.md, under spec.md 'The restart' / 'The launch profile', proposal relaunch-keeps-remote-control-name); work item overseer-m3p2ei owns landing it."
   }
 ]
