@@ -43,24 +43,35 @@
 # family's own `~/.livespec-overseer-repos.json`, and nothing in this workflow
 # becomes an input to it.
 #
-# Auth: mints the livespec GitHub App installation token, mirroring
-# release-please.yml — cross-repo `repository_dispatch` needs an identity with
-# access to the target repositories, which `GITHUB_TOKEN` does not have.
+# Auth: cross-repo `repository_dispatch` needs an identity with access to the
+# target repository, which `GITHUB_TOKEN` does not have, so each dispatch is
+# authenticated with a GitHub App installation token minted for the target's
+# RESOLVED OWNER (SPECIFICATION/non-functional-requirements.md §"Contracts",
+# overseer-j4ejek). One token per distinct resolved owner, by this rule:
+#   (i)   the owner's dedicated secret pair, when present. For `thewoolleyman`
+#         that is ADOPTER_APP_ID_THEWOOLLEYMAN / ADOPTER_APP_PRIVATE_KEY_THEWOOLLEYMAN
+#         (thewoolleyman-factory-bot, the App installed on that account);
+#   (ii)  otherwise, when the owner equals this repository's own owner, the
+#         repository's own App pair, APP_ID / APP_PRIVATE_KEY (after the org
+#         transfer that is the `livespec-ai` route);
+#   (iii) otherwise no token: that owner's adopters are reported "not
+#         authorized", named and counted, and the run does not fail.
+# A mint that fails is treated like an absent pair. `mi-homelab` has no App
+# this workflow holds a credential for, so it always falls to (iii).
 #
-# AND THE LIVESPEC APP DOES NOT CURRENTLY HAVE THAT ACCESS. Measured against all
-# three adopters: 404 for two (App not installed) and 403 "Resource not
-# accessible by integration" for the third. That is expected rather than
-# accidental — the fleet manifest records that adopters bring their OWN GitHub
-# App and credential wrapper, so they are deliberately not under fleet
-# credentials. Granting the livespec App dispatch access on an adopter is a
-# maintainer decision about that boundary, not a wiring detail.
+# The TARGET owner comes only from the manifest resolution
+# `<adopter.owner or adopter_owner or owner>/<repo>` (livespec v247,
+# livespec#3242), never from this repository's own owner; the repository's own
+# owner only selects which credential rule (ii) may use.
 #
-# So this job distinguishes two outcomes, because conflating them is how a real
+# So this job distinguishes outcomes, because conflating them is how a real
 # misconfiguration would hide behind an expected one:
-#   - NO adopter is reachable -> the precondition is unmet. Emit a prominent
-#     notice and a job-summary line, and exit 0. A published release must not be
-#     reported as failed because a boundary has not been authorized yet.
-#   - SOME are reachable and a dispatch fails -> that is a fault. Fail loudly.
+#   - An adopter with no credential for its owner, or a 403/404 from the
+#     dispatch (App not installed on that repo, or installed without dispatch
+#     permission) -> "not authorized": named in the log, counted in the summary,
+#     and the run exits 0. A published release must not be reported as failed
+#     because a boundary has not been authorized yet.
+#   - Any other dispatch failure -> a fault. Fail the run, naming the adopter.
 
 name: Adopter release dispatch (fan-out to adopters)
 
@@ -79,81 +90,126 @@ permissions:
 jobs:
   dispatch:
     runs-on: ubuntu-latest
+    env:
+      # Presence flags only; the secret values never reach a step's env here.
+      HAS_THEWOOLLEYMAN_PAIR: ${{ secrets.ADOPTER_APP_ID_THEWOOLLEYMAN != '' && secrets.ADOPTER_APP_PRIVATE_KEY_THEWOOLLEYMAN != '' }}
+      HAS_OWN_PAIR: ${{ secrets.APP_ID != '' && secrets.APP_PRIVATE_KEY != '' }}
     steps:
-      - name: Mint App installation token
-        id: app-token
+      - name: Mint token for thewoolleyman (dedicated pair, rule i)
+        id: token-thewoolleyman
+        if: env.HAS_THEWOOLLEYMAN_PAIR == 'true'
+        continue-on-error: true
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.ADOPTER_APP_ID_THEWOOLLEYMAN }}
+          private-key: ${{ secrets.ADOPTER_APP_PRIVATE_KEY_THEWOOLLEYMAN }}
+          owner: thewoolleyman
+
+      - name: Mint token for this repository's own owner (APP_ID, rule ii)
+        id: token-own
+        if: env.HAS_OWN_PAIR == 'true'
+        continue-on-error: true
         uses: actions/create-github-app-token@v1
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
-      - name: Read the adopter list from the fleet manifest
+      - name: Read and resolve the adopter list from the fleet manifest
         id: adopters
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          OWNER: ${{ github.repository_owner }}
+          # livespec core is public, so the job token reads the manifest when
+          # the own-owner mint is unavailable.
+          GH_TOKEN: ${{ steps.token-own.outputs.token || github.token }}
+          MANIFEST_OWNER: ${{ github.repository_owner }}
         run: |
           # livespec core owns fleet-level facts; the manifest is fetched from
           # its default branch at run time, the same source the fleet lane uses.
           manifest=$(gh api \
-            "repos/$OWNER/livespec/contents/.livespec-fleet-manifest.jsonc" \
+            "repos/$MANIFEST_OWNER/livespec/contents/.livespec-fleet-manifest.jsonc" \
             --jq '.content' | base64 -d | sed 's|^[[:space:]]*//.*$||')
-          if ! adopters=$(printf '%s' "$manifest" | jq -ce '[.adopters[].repo]'); then
-            echo "::error::fleet manifest did not parse into an adopters array" >&2
+          # Resolve each adopter as <adopter.owner or adopter_owner or owner>/<repo>.
+          if ! adopters=$(printf '%s' "$manifest" | jq -ce '
+                (.adopter_owner // .owner) as $default
+                | [.adopters[] | {owner: (.owner // $default), repo: .repo}]
+                | if all(.[]; (.owner | type) == "string" and .owner != ""
+                              and (.repo | type) == "string" and .repo != "")
+                  then . else error("an adopter has no resolvable owner or repo") end'); then
+            echo "::error::fleet manifest did not resolve into an adopters array of <owner>/<repo>" >&2
             printf '%s' "$manifest" | head -20 >&2
             exit 1
           fi
           echo "adopters=$adopters" >> "$GITHUB_OUTPUT"
-          echo "::notice::manifest lists $(printf '%s' "$adopters" | jq 'length') adopter(s)"
+          echo "::notice::manifest lists $(printf '%s' "$adopters" | jq 'length') adopter(s): $(printf '%s' "$adopters" | jq -r 'map(.owner + "/" + .repo) | join(", ")')"
 
       - name: Dispatch sibling-released to each adopter
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          OWNER: ${{ github.repository_owner }}
           ADOPTERS: ${{ steps.adopters.outputs.adopters }}
+          OWN_OWNER: ${{ github.repository_owner }}
+          TOKEN_THEWOOLLEYMAN: ${{ steps.token-thewoolleyman.outputs.token }}
+          TOKEN_OWN: ${{ steps.token-own.outputs.token }}
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
           RELEASE_URL: ${{ github.event.release.html_url }}
         run: |
           url="$RELEASE_URL"
           if [ -z "$url" ]; then
-            url="https://github.com/$OWNER/${GITHUB_REPOSITORY#*/}/releases/tag/$TAG"
+            url="https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG"
           fi
+          # The token for a resolved owner, by rules (i)-(iii) in the header.
+          token_for() {
+            if [ "$1" = thewoolleyman ] && [ -n "$TOKEN_THEWOOLLEYMAN" ]; then
+              printf '%s' "$TOKEN_THEWOOLLEYMAN"
+            elif [ "$1" = "$OWN_OWNER" ] && [ -n "$TOKEN_OWN" ]; then
+              printf '%s' "$TOKEN_OWN"
+            fi
+          }
           delivered=0
           unauthorized=0
           failed=0
-          for repo in $(printf '%s' "$ADOPTERS" | jq -r '.[]'); do
+          unauthorized_names=""
+          failed_names=""
+          while IFS=$'\t' read -r owner repo; do
+            target="$owner/$repo"
+            token=$(token_for "$owner")
+            if [ -z "$token" ]; then
+              echo "::warning::$target is not authorized: this workflow holds no App credential for owner $owner"
+              unauthorized=$((unauthorized + 1))
+              unauthorized_names="$unauthorized_names $target"
+              continue
+            fi
             # An adopter with no receiving lane simply ignores the event, so
             # dispatching to every adopter is safe and needs no per-repo config.
-            if err=$(gh api -X POST "repos/$OWNER/$repo/dispatches" \
+            if err=$(GH_TOKEN="$token" gh api -X POST "repos/$target/dispatches" \
                        -f event_type=sibling-released \
                        -F "client_payload[source_repo]=${GITHUB_REPOSITORY#*/}" \
                        -F "client_payload[tag]=$TAG" \
                        -F "client_payload[release_url]=$url" 2>&1); then
-              echo "::notice::dispatched $TAG to $repo"
+              echo "::notice::dispatched $TAG to $target"
               delivered=$((delivered + 1))
             elif printf '%s' "$err" | grep -qE '"status": *"40[34]"'; then
               # 404 = App not installed on that repo; 403 = installed without
               # dispatch permission. Both are the unauthorized boundary, not a
               # fault in this lane.
-              echo "::warning::$repo is not reachable by the livespec App (not authorized)"
+              echo "::warning::$target is not authorized: the $owner App token cannot dispatch to it"
               unauthorized=$((unauthorized + 1))
+              unauthorized_names="$unauthorized_names $target"
             else
-              echo "::warning::dispatch to $repo failed: $err"
+              echo "::error::dispatch to $target failed: $err"
               failed=$((failed + 1))
+              failed_names="$failed_names $target"
             fi
-          done
+          done < <(printf '%s' "$ADOPTERS" | jq -r '.[] | [.owner, .repo] | @tsv')
           {
             echo "### Adopter release dispatch — $TAG"
             echo ""
             echo "- delivered: $delivered"
-            echo "- unauthorized (livespec App has no access): $unauthorized"
-            echo "- failed: $failed"
+            echo "- unauthorized (no App credential or access for the resolved owner): $unauthorized${unauthorized_names:+ —$unauthorized_names}"
+            echo "- failed: $failed${failed_names:+ —$failed_names}"
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "$failed" -gt 0 ]; then
-            echo "::error::$failed adopter dispatch(es) failed for a reason other than authorization" >&2
+            echo "::error::$failed adopter dispatch(es) failed for a reason other than authorization:$failed_names" >&2
             exit 1
           fi
           if [ "$delivered" -eq 0 ] && [ "$unauthorized" -gt 0 ]; then
-            echo "::notice title=Adopter delivery not authorized::No adopter is reachable by the livespec GitHub App, so no pinned adopter was notified of $TAG. Their receiving lanes work; only this delivery hop is unauthorized. Grant the App dispatch access on the adopter repositories, or have each adopter pull with its own credentials."
+            echo "::notice title=Adopter delivery not authorized::No adopter was reachable, so no pinned adopter was notified of $TAG. Their receiving lanes work; only this delivery hop is unauthorized. Set the App secret pair for each resolved owner, or have each adopter pull with its own credentials."
           fi
