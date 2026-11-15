@@ -4831,5 +4831,69 @@
     "test": "TODO",
     "work_item": "overseer-m3p2ei",
     "reason": "An integration-tier test is owed for this heading, ratified in SPECIFICATION v114 (scenarios.md, under spec.md 'The restart' / 'The launch profile', proposal relaunch-keeps-remote-control-name); work item overseer-m3p2ei owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reconnected seat keeps the name it is addressed by",
+    "test": "TODO",
+    "work_item": "overseer-fdwat6",
+    "reason": "Ratified ahead of its implementation under plan central-credential-service (epic overseer-iyfjbo), proposal remote-control-reissue-preserves-session-name; overseer-fdwat6 owes an integration-tier test for this heading and MUST replace this TODO when livespec-overseer#3099 lands."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A seat with no usable name is reconnected with the bare command",
+    "test": "TODO",
+    "work_item": "overseer-fdwat6",
+    "reason": "Ratified ahead of its implementation under plan central-credential-service (epic overseer-iyfjbo), proposal remote-control-reissue-preserves-session-name; overseer-fdwat6 owes an integration-tier test for this heading and MUST replace this TODO when livespec-overseer#3099 lands."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A session name holding a control character is never typed",
+    "test": "TODO",
+    "work_item": "overseer-fdwat6",
+    "reason": "Ratified ahead of its implementation under plan central-credential-service (epic overseer-iyfjbo), proposal remote-control-reissue-preserves-session-name; overseer-fdwat6 owes an integration-tier test for this heading and MUST replace this TODO when livespec-overseer#3099 lands."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A seat that meets the not-connected panel after an account switch is retried at the next sweep",
+    "test": "TODO",
+    "work_item": "overseer-fdwat6",
+    "reason": "Ratified ahead of its implementation under plan central-credential-service (epic overseer-iyfjbo), proposal remote-control-reissue-preserves-session-name; overseer-fdwat6 owes an integration-tier test for this heading and MUST replace this TODO when livespec-overseer#3099 lands."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The not-connected retry is bounded",
+    "test": "TODO",
+    "work_item": "overseer-fdwat6",
+    "reason": "Ratified ahead of its implementation under plan central-credential-service (epic overseer-iyfjbo), proposal remote-control-reissue-preserves-session-name; overseer-fdwat6 owes an integration-tier test for this heading and MUST replace this TODO when livespec-overseer#3099 lands."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A mid-turn seat at the not-connected panel gets no key",
+    "test": "TODO",
+    "work_item": "overseer-fdwat6",
+    "reason": "Ratified ahead of its implementation under plan central-credential-service (epic overseer-iyfjbo), proposal remote-control-reissue-preserves-session-name; overseer-fdwat6 owes an integration-tier test for this heading and MUST replace this TODO when livespec-overseer#3099 lands."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A sweep that runs out of time leaves the remaining seats to the next sweep",
+    "test": "TODO",
+    "work_item": "overseer-fdwat6",
+    "reason": "Ratified ahead of its implementation under plan central-credential-service (epic overseer-iyfjbo), proposal remote-control-reissue-preserves-session-name; overseer-fdwat6 owes an integration-tier test for this heading and MUST replace this TODO when livespec-overseer#3099 lands."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A seat that starts a turn after its reconnect command gets no key",
+    "test": "TODO",
+    "work_item": "overseer-fdwat6",
+    "reason": "Ratified ahead of its implementation under plan central-credential-service (epic overseer-iyfjbo), proposal remote-control-reissue-preserves-session-name; overseer-fdwat6 owes an integration-tier test for this heading and MUST replace this TODO when livespec-overseer#3099 lands."
   }
 ]
