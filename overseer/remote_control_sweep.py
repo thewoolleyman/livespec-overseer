@@ -13,7 +13,10 @@ reconnected. The text is read only to recognise a dialog and the input box.
 Per Claude Code pane at the bottom of its scroll, re-reading before every key:
 - the enable dialog with `1. Enable Remote Control` selected gets Enter;
 - the status panel (`Disconnect this session` + `Esc to continue`) gets Escape,
-  never Enter, and only while the record's status is not `busy`;
+  never Enter, and only while the record's status is not `busy`; on a session
+  whose record has no `bridgeSessionId` it is the not-connected case (what
+  `/remote-control` opens right after an account switch), reported as
+  `offline` so the service can retry that pane before its cap runs out;
 - the folder-trust prompt is answered `Yes, I trust this folder` only when the
   directory it names, real-pathed, is the pane's herdr cwd and lies strictly
   below `~/workspace` or `~/.worktrees`;
@@ -28,7 +31,8 @@ Per Claude Code pane at the bottom of its scroll, re-reading before every key:
 
 It prints one JSON line: `actions` (what it sent), `reissued`, `off_rc`,
 `unknown` (no readable record) and `sessions` (pane label -> session id), plus
-`refused_name` (panes whose record name was refused) when there is one.
+`refused_name` (panes whose record name was refused) and `offline` (panes whose
+not-connected panel it dismissed) when there is one.
 Dialog wording was pinned from real captures of Claude Code _CLAUDE_CODE_VERSION.
 """
 
@@ -222,7 +226,8 @@ def _answer(
     if kind == "enable":
         return "enable:Enter" if _keys(herdr=herdr, pane=pane, keys=("Enter",)) else ""
     if kind == "panel" and record and record.get("status") != "busy":
-        return "panel:Escape" if _keys(herdr=herdr, pane=pane, keys=("esc",)) else ""
+        panel = "panel" if record.get("bridgeSessionId") else "offline"
+        return f"{panel}:Escape" if _keys(herdr=herdr, pane=pane, keys=("esc",)) else ""
     return _answer_trust(herdr=herdr, pane=pane, sleep=sleep) if kind == "trust" else ""
 
 
@@ -296,7 +301,9 @@ def sweep(
         "unknown": unknown,
         "sessions": sessions,
     }
-    return {**report, "refused_name": refused} if refused else report
+    offline = [action.split(" ", 1)[0] for action in actions if action.endswith(" offline:Escape")]
+    extra = {"refused_name": refused, "offline": offline}
+    return {**report, **{key: value for key, value in extra.items() if value}}
 
 
 def main(

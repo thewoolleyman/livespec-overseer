@@ -461,3 +461,41 @@ def test_run_herdr_maps_a_missing_binary_or_failure_to_none(
     _ = (tmp_path / ".local" / "bin" / "herdr").write_text("", encoding="utf-8")
     monkeypatch.setattr(SWEEP.shutil, "which", _which_none)
     assert SWEEP._run_herdr("x") is None
+
+
+def test_a_status_panel_on_a_seat_off_remote_control_is_reported_offline() -> None:
+    """After an account switch, `/remote-control` opens the panel on a seat still off.
+
+    Measured on the role holder's journal at the 2026-11-15T16:47:30Z rotation: the
+    panel the re-issue opened was dismissed as an ordinary status panel, and the seat
+    then sat out the ten-minute cap. The record, not the text, says it is not connected.
+    """
+    report, sent = _run(screens=[PANEL, EMPTY], record=DISCONNECTED)
+    assert sent == [("p", "esc")]
+    assert report["actions"] == ["herdr:s:p offline:Escape"]
+    assert report["offline"] == ["herdr:s:p"]
+    assert report["off_rc"] == ["herdr:s:p"]
+    assert report["reissued"] == []
+
+
+def test_a_reissue_that_opens_the_panel_on_a_seat_still_off_is_reported_offline() -> None:
+    report, sent = _run(screens=[EMPTY, TYPED, PANEL, EMPTY], record=DISCONNECTED)
+    assert sent == [("p", NAMED), ("p", "Enter"), ("p", "esc")]
+    assert report["reissued"] == ["herdr:s:p"]
+    assert report["actions"] == [f"herdr:s:p {NAMED}", "herdr:s:p offline:Escape"]
+    assert report["offline"] == ["herdr:s:p"]
+
+
+def test_a_mid_turn_seat_at_the_panel_while_off_remote_control_gets_no_key() -> None:
+    """The not-connected handling never sends a key to a pane whose session is mid-turn."""
+    report, sent = _run(screens=[PANEL], record={**DISCONNECTED, "status": "busy"})
+    assert sent == []
+    assert "offline" not in report
+    assert report["off_rc"] == ["herdr:s:p"]
+
+
+def test_a_status_panel_on_a_connected_seat_is_not_reported_offline() -> None:
+    report, sent = _run(screens=[PANEL, EMPTY], record=CONNECTED)
+    assert sent == [("p", "esc")]
+    assert report["actions"] == ["herdr:s:p panel:Escape"]
+    assert "offline" not in report
