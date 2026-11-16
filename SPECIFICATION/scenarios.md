@@ -6199,6 +6199,20 @@ And it sends nothing to the second pane or to the pager pane
 
 And it sends nothing to a pane showing that notice whose input box holds unsubmitted text
 
+## Scenario: An idle seat showing only a prompt suggestion is re-issued, and a seat with typed text is not
+
+Given a herdr pane runs Claude Code whose session record has no `bridgeSessionId` and status `idle`, and whose input box shows only a greyed prompt suggestion after the prompt mark, rendered as dim text, carrying SGR 2 or a foreground colour that differs from the input box's default foreground such as `38;2;136;136;136`
+
+And a second such pane whose input box holds text a person typed, rendered in the input box's default foreground with neither
+
+When the keep-alive sweep runs
+
+Then the sweep sends the reconnect command followed by Enter to the first pane and names it in the journal
+
+And it sends nothing to the second pane
+
+And a pane read that carries no colour attributes, a tmux pane included, or that cannot tell dim text from typed text, is treated as holding unsubmitted text and is sent nothing
+
 ## Scenario: An account switch re-issues Remote Control on the role holder's own sessions
 
 Given the role holder runs an agent session in a herdr or tmux pane that was using Remote Control
