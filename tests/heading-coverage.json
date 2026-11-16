@@ -4887,5 +4887,61 @@
     "heading": "## Scenario: A seat that starts a turn after its reconnect command gets no key",
     "test": "tests.integration.test_remote_control_sweep.test_the_dialog_after_a_reissue_is_answered_on_a_fresh_record",
     "reason": "Integration-tier: the record reads idle before the command and busy after it; the status panel that opens gets no Escape, and nothing is reported offline."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The factory selection never names the interactive account",
+    "test": "TODO",
+    "work_item": "overseer-shojan",
+    "reason": "Ratified ahead of its implementation in SPECIFICATION v117 under plan central-credential-service (epic overseer-iyfjbo), proposal central-factory-selection; overseer-shojan owes an integration-tier test for this heading and MUST replace this TODO when the central factory selection lands."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A factory account at its protection floor is replaced on the next pass",
+    "test": "TODO",
+    "work_item": "overseer-shojan",
+    "reason": "Ratified ahead of its implementation in SPECIFICATION v117 under plan central-credential-service (epic overseer-iyfjbo), proposal central-factory-selection; overseer-shojan owes an integration-tier test for this heading and MUST replace this TODO when the central factory selection lands."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A qualifying factory account is kept rather than moved",
+    "test": "TODO",
+    "work_item": "overseer-shojan",
+    "reason": "Ratified ahead of its implementation in SPECIFICATION v117 under plan central-credential-service (epic overseer-iyfjbo), proposal central-factory-selection; overseer-shojan owes an integration-tier test for this heading and MUST replace this TODO when the central factory selection lands."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: No qualifying factory account publishes a reason instead of a stale account",
+    "test": "TODO",
+    "work_item": "overseer-shojan",
+    "reason": "Ratified ahead of its implementation in SPECIFICATION v117 under plan central-credential-service (epic overseer-iyfjbo), proposal central-factory-selection; overseer-shojan owes an integration-tier test for this heading and MUST replace this TODO when the central factory selection lands."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unresolved interactive identity suppresses both selection records",
+    "test": "TODO",
+    "work_item": "overseer-shojan",
+    "reason": "Ratified ahead of its implementation in SPECIFICATION v117 under plan central-credential-service (epic overseer-iyfjbo), proposal central-factory-selection; overseer-shojan owes an integration-tier test for this heading and MUST replace this TODO when the central factory selection lands."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The interactive selection is unchanged by the factory decision",
+    "test": "TODO",
+    "work_item": "overseer-shojan",
+    "reason": "Ratified ahead of its implementation in SPECIFICATION v117 under plan central-credential-service (epic overseer-iyfjbo), proposal central-factory-selection; overseer-shojan owes an integration-tier test for this heading and MUST replace this TODO when the central factory selection lands."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The factory selection reaches every listed host",
+    "test": "TODO",
+    "work_item": "overseer-shojan",
+    "reason": "Ratified ahead of its implementation in SPECIFICATION v117 under plan central-credential-service (epic overseer-iyfjbo), proposal central-factory-selection; overseer-shojan owes an integration-tier test for this heading and MUST replace this TODO when the central factory selection lands."
   }
 ]

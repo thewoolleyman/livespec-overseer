@@ -2036,6 +2036,78 @@ Then the published account record remains limited to profile name, stable accoun
 
 And the manager provisions from its provisionable-token store without treating that record as credential material
 
+## Scenario: The factory selection never names the interactive account
+
+```gherkin
+Given anthropic-4 and anthropic-5 both qualify under every protection rule
+And the pass selects anthropic-4 for interactive use
+When the pass decides the factory selection
+Then the factory selection record names anthropic-5
+And it MUST NOT name anthropic-4
+```
+
+## Scenario: A factory account at its protection floor is replaced on the next pass
+
+```gherkin
+Given anthropic-0 is protected with a floor of 10 percent of its weekly allowance
+And the previous pass published anthropic-0 as the factory account
+And anthropic-0 now holds 10 percent weekly remaining
+And anthropic-6 qualifies under every protection rule and is not the interactive account
+When the next pass runs
+Then the factory selection record names anthropic-6
+And no operator action was taken
+```
+
+## Scenario: A qualifying factory account is kept rather than moved
+
+```gherkin
+Given the previous pass published anthropic-5 as the factory account
+And anthropic-5 still qualifies under every protection rule and is not the interactive account
+And anthropic-6 qualifies and resets sooner
+When the next pass runs
+Then the factory selection record still names anthropic-5
+```
+
+## Scenario: No qualifying factory account publishes a reason instead of a stale account
+
+```gherkin
+Given the previous pass published anthropic-5 as the factory account
+And every managed account other than the interactive account is at or below its protection floor or the weekly reserve
+When the next pass runs
+Then the factory selection record names no account
+And its profile and account_uuid are both null
+And its reason is a non-empty string stating that no account qualifies
+And no protection floor was released
+```
+
+## Scenario: An unresolved interactive identity suppresses both selection records
+
+```gherkin
+Given the previous pass published anthropic-4 as the interactive account and anthropic-5 as the factory account
+And the pass cannot resolve the active account's stable account identifier
+When the pass runs
+Then the published selection record still names anthropic-4
+And the factory selection record still names anthropic-5
+And the pass reports the unresolved identity
+```
+
+## Scenario: The interactive selection is unchanged by the factory decision
+
+```gherkin
+Given a set of managed accounts and readings
+When one pass runs with the factory decision and another runs on the same readings without it
+Then both passes MUST select the same interactive account
+```
+
+## Scenario: The factory selection reaches every listed host
+
+```gherkin
+Given the role holder publishes a factory selection naming anthropic-5
+When the delivery service pushes to a listed host
+Then that host holds factory-selected-account.json naming anthropic-5, identical to the role holder's record
+And the record carries no credential material
+```
+
 ## Scenario: Consume-first selection preserves capacity reserved for another purpose
 
 Given multiple valid accounts satisfy a factory-purpose request

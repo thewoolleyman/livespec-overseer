@@ -2539,5 +2539,54 @@
     "heading": "## Scenario: A ready-gated restart of a Claude seat keeps its Remote Control name",
     "work_item": "overseer-m3p2ei",
     "first_seen": "2026-11-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The factory selection never names the interactive account",
+    "work_item": "overseer-shojan",
+    "first_seen": "2026-11-16"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A factory account at its protection floor is replaced on the next pass",
+    "work_item": "overseer-shojan",
+    "first_seen": "2026-11-16"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A qualifying factory account is kept rather than moved",
+    "work_item": "overseer-shojan",
+    "first_seen": "2026-11-16"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: No qualifying factory account publishes a reason instead of a stale account",
+    "work_item": "overseer-shojan",
+    "first_seen": "2026-11-16"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unresolved interactive identity suppresses both selection records",
+    "work_item": "overseer-shojan",
+    "first_seen": "2026-11-16"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The interactive selection is unchanged by the factory decision",
+    "work_item": "overseer-shojan",
+    "first_seen": "2026-11-16"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The factory selection reaches every listed host",
+    "work_item": "overseer-shojan",
+    "first_seen": "2026-11-16"
   }
 ]
