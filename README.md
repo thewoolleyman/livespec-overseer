@@ -132,3 +132,5 @@ be interpreted: an assignment-time anchor lookup falls back to it when a topic h
 no `epic.md`, and a stored resume override still naming that retired path is
 rewritten to the ledger-epic resume. A third party can run the tool with no
 livespec install at all.
+
+Pull requests land on master through the livespec-ai merge queue (ruleset master-incident-recovery-bypass); ci-green is the required check.
