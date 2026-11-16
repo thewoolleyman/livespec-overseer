@@ -51,15 +51,18 @@ from typing import Final
 
 from caam_anthropic_finish import LineWriter
 from caam_decide_context import DecisionContext
+from caam_decision import ProfileUsage
+from caam_factory_selection import factory_selection, publish_factory_selection
 from caam_profile_state import caam_vault
 from caam_profiles import ActiveIdentity, account_uuid, unresolved_identity_note
 from caam_selection_record import publish_selection
 
-__all__: list[str] = ["PassPublication", "pass_publication", "pass_stamp"]
+__all__: list[str] = ["PassPublication", "complete_publications", "pass_publication", "pass_stamp"]
 
 # `FAIL` because that is the prefix the operator contract keys on: a pass whose
 # publication failed IS a failed pass, however complete the rest of its work.
 _FAIL_PUBLISH: Final = "FAIL could not publish the selected account record"
+_FAIL_FACTORY_PUBLISH: Final = "FAIL could not publish the factory selection record"
 
 
 def pass_stamp(*, now: float) -> str:
@@ -77,6 +80,7 @@ class PassPublication:
     stdout: LineWriter
     settled: bool = False
     failed: bool = False
+    published: bool = False
 
     def suppress(self) -> None:
         """Forfeit this pass's write, without recording a failure.
@@ -110,7 +114,7 @@ class PassPublication:
             return
         self.settled = True
         try:
-            _ = publish_selection(
+            self.published = publish_selection(
                 profile=profile,
                 account_uuid=uuid,
                 written_at=pass_stamp(now=self.now),
@@ -122,6 +126,38 @@ class PassPublication:
             # would cost more than the failure it reports.
             self.failed = True
             self.stdout(f"{_FAIL_PUBLISH}: {exc}")
+
+
+def complete_publications(
+    *,
+    publication: PassPublication,
+    code: int,
+    profiles: tuple[ProfileUsage, ...],
+    interactive_name: str,
+    state: dict[str, object],
+    protection_floors: dict[str, float],
+) -> int:
+    """Publish factory selection only after the interactive output is final."""
+    code = publication.publish(code=code)
+    if not publication.published:
+        return code
+    try:
+        publish_factory_selection(
+            home=publication.home,
+            selection=factory_selection(
+                home=publication.home,
+                profiles=profiles,
+                interactive_name=interactive_name,
+                state=state,
+                protection_floors=protection_floors,
+                now=publication.now,
+            ),
+            written_at=pass_stamp(now=publication.now),
+        )
+    except OSError as exc:
+        publication.stdout(f"{_FAIL_FACTORY_PUBLISH}: {exc}")
+        return 2
+    return code
 
 
 def pass_publication(*, context: DecisionContext, active: ActiveIdentity) -> PassPublication:
