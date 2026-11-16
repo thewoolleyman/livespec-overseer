@@ -69,10 +69,19 @@ livespec-dev-tooling = { git = "https://github.com/thewoolleyman/livespec-dev-to
 livespec-runtime = { git = "https://github.com/thewoolleyman/livespec-runtime.git", tag = "v0.31.0" }
 
 [tool.livespec_dev_tooling]
+# Authors whose pull requests may ride a merge group on self-hosted capacity;
+# read by ci.yml's merge-group-guard from this file AT THE GROUP'S BASE COMMIT.
+merge_queue_author_allowlist = ["thewoolleyman", "thewoolleyman-factory-bot", "livespec-ai-factory-bot", "livespec-ai-factory-bot[bot]"]
 # Opts this repository in to the delegated pre-push gate (spec v069,
 # non-functional-requirements.md Constraints): a push from a host that can read
 # the gates kubeconfig is gated as a k3s cluster Job; any other host gates locally.
 delegated_gate = true
+# Gate Job size, matched to measured draw (plan gate-job-resources, livespec-dev-tooling-ukoeah):
+# Honeycomb k8s.pod.cpu.usage / k8s.pod.memory.working_set over the 24 h to 2026-11-16 19:0xZ, pods
+# gate-<this repo>-*: cpu P95 2.51 (max 3.90), memory max 1.05 GiB. The values add headroom.
+# Revert trigger: a gate CPU-throttled into a timeout, or gate wall-time p50 up over 25 % in 2 h.
+gate_cpu = 4
+gate_memory = "2Gi"
 # The dev host delegates this commit-time aggregate when it can submit a gates
 # Job; sandbox and credentialless hosts retain the local pre-commit gate.
 delegated_pre_commit = true
