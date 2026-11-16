@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import caam_delivery_push
+import caam_delivery_push_local
 import caam_delivery_push_state
 import caam_delivery_push_status
 import caam_delivery_push_sweep
@@ -52,6 +53,7 @@ class PushLoop:
     last: caam_delivery_service.Delivery | None = None
     retry_at: float | None = None
     reissued_for: str | None = None
+    factory_record: bytes | None = None
 
 
 def confirm_live_account(*, access_token: str) -> str | None:
@@ -80,22 +82,8 @@ def confirm_live_account(*, access_token: str) -> str | None:
 
 def run_local(*, script: str, timeout: float = caam_delivery_push_state.REISSUE_TIMEOUT_S) -> str:
     """Run the re-issue script on this host's own panes, fed on stdin; return its last line."""
-    try:
-        done = subprocess.run(  # noqa: S603 - fixed interpreter, repo-shipped script
-            [sys.executable, "-"],
-            input=script,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
-    except (subprocess.TimeoutExpired, OSError) as error:
-        return f"failed {type(error).__name__}"
-    lines = done.stdout.strip().splitlines()
-    return (
-        caam_delivery_push_state.scrubbed(text=lines[-1])
-        if lines
-        else f"failed exit {done.returncode}"
+    return caam_delivery_push_local.run_reissue_script(
+        script=script, timeout=timeout, run=subprocess.run, executable=sys.executable
     )
 
 
@@ -132,6 +120,8 @@ def run_once(  # noqa: PLR0913 - each argument is an independent seam
     start: caam_delivery_push.Starter = caam_delivery_push.start_in_background,
 ) -> None:
     """One pass: issue a delivery when the live file changed, then push to hosts behind it."""
+    factory_record = caam_delivery_push.factory_selection_bytes(home=home)
+    factory_changed = factory_record != loop.factory_record
     marker = _live_pair(home=home)
     if marker is not None:
         _reissue_on_switch(loop=loop, account=marker[1], reissue=reissue, local=local)
@@ -162,6 +152,15 @@ def run_once(  # noqa: PLR0913 - each argument is an independent seam
         )
         for label, outcome in outcomes.items():
             streams.write_stdout(text=f"push {label} sequence {loop.last.sequence}: {outcome}\n")
+    else:
+        outcomes = {}
+    if factory_record is not None and (factory_changed or outcomes):
+        factory_outcomes = caam_delivery_push.push_factory_selection(
+            home=home, now=now, run=run, record_bytes=factory_record
+        )
+        for label, outcome in factory_outcomes.items():
+            streams.write_stdout(text=f"factory selection {label}: {outcome}\n")
+    loop.factory_record = factory_record
 
 
 def _reissue_on_switch(

@@ -107,7 +107,45 @@ def test_factory_selection_apply_writes_an_atomic_private_newer_copy(
     copied = tmp_path / ".local/state/caam-usage-rotate/factory-selected-account.json"
     assert copied.read_bytes() == json.dumps(role_record, sort_keys=True).encode()
     assert copied.stat().st_mode & 0o777 == 0o600
-    assert capsys.readouterr().out.strip() == "factory-selection applied"
+    assert capsys.readouterr().out.strip() == "factory-selection applied 2026-11-16T18:00:00Z"
+
+
+def test_factory_selection_pushes_every_host_without_a_delivery_sequence(*, tmp_path: Path) -> None:
+    """Factory-record replication is independent of credential delivery and reaches all hosts."""
+    push = importlib.import_module("caam_delivery_push")
+    assert hasattr(push, "push_factory_selection")
+
+    record = {
+        "account_uuid": "factory-account",
+        "profile": "anthropic-5",
+        "reason": None,
+        "written_at": "2026-11-16T18:00:00Z",
+    }
+    record_path = tmp_path / ".local/state/caam-usage-rotate/factory-selected-account.json"
+    record_path.parent.mkdir(parents=True)
+    record_bytes = json.dumps(record, sort_keys=True).encode()
+    _ = record_path.write_bytes(record_bytes)
+    hosts = tmp_path / push.HOSTS_FILE
+    _ = hosts.write_text("one u@one linux\ntwo u@two macos\n", encoding="utf-8")
+    sent: dict[str, str] = {}
+
+    def fake_run(*, target: str, program: str, **_: object) -> tuple[int, str]:
+        sent[target] = program
+        return 0, "factory-selection applied 2026-11-16T18:00:00Z"
+
+    assert push.push_factory_selection(home=tmp_path, run=fake_run) == {
+        "one": "factory-selection applied 2026-11-16T18:00:00Z",
+        "two": "factory-selection applied 2026-11-16T18:00:00Z",
+    }
+    assert set(sent) == {"u@one", "u@two"}
+    assert all(
+        "factory-account" in program and "accessToken" not in program for program in sent.values()
+    )
+    assert not (tmp_path / ".local/state/caam-usage-rotate/delivery-sequence.json").exists()
+    state = push.load_state(home=tmp_path)
+    assert {entry["factory_record_written_at"] for entry in state.values()} == {
+        "2026-11-16T18:00:00Z"
+    }
 
 
 def test_apply_step_result_lines_carry_the_sequence_and_change_only_owned_keys(

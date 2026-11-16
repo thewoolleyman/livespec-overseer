@@ -17,8 +17,10 @@ import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
+from functools import partial
 from pathlib import Path
 
+import caam_delivery_push_reissue
 import caam_delivery_service
 import streams
 from caam_delivery_apply_script import APPLY_SCRIPT, apply_program
@@ -38,6 +40,7 @@ from caam_delivery_push_state import (
     scrubbed,
     seconds,
 )
+from caam_factory_selection_push import factory_selection_bytes, push_factory_selection
 
 __all__: list[str] = [
     "APPLY_SCRIPT",
@@ -50,10 +53,12 @@ __all__: list[str] = [
     "Host",
     "Starter",
     "apply_program",
+    "factory_selection_bytes",
     "load_config",
     "load_hosts",
     "load_state",
     "push_due",
+    "push_factory_selection",
     "reissue_script",
     "run_ssh",
     "start_in_background",
@@ -174,42 +179,15 @@ def push_due(  # noqa: PLR0913 - each argument is an independent seam
         streams.write_stderr(text=f"FAIL push state not written: {type(error).__name__}\n")
     for host in switched:
         start(
-            task=_reissue_task(
-                host=host, script=reissue, run=run, settings=settings, home=home, token=token
+            task=caam_delivery_push_reissue.reissue_task(
+                host=host,
+                perform=partial(
+                    _reissue, host=host, script=reissue, run=run, settings=settings, home=home
+                ),
+                token=token,
             )
         )
     return outcomes
-
-
-def _reissue_task(
-    *,
-    host: Host,
-    script: str | None,
-    run: Runner,
-    settings: dict[str, object],
-    home: Path,
-    token: str,
-) -> Callable[[], None]:
-    """The host's re-issue, printing its one result line, redacted, when it finishes.
-
-    The task runs on a daemon thread, so a failure there is reported as that
-    host's line rather than ending the thread with a bare traceback. The caught
-    types are the ones its steps raise: OSError from ssh, the subprocess or a
-    broken stdout pipe, and RuntimeError from Path.expanduser with no home.
-    """
-
-    def task() -> None:
-        try:
-            line = _reissue(host=host, script=script, run=run, settings=settings, home=home)
-            streams.write_stdout(
-                text=f"remote-control {host.label}: {scrubbed(text=line, token=token)}\n"
-            )
-        except (OSError, RuntimeError) as error:
-            streams.write_stdout(
-                text=f"remote-control {host.label}: failed {type(error).__name__}\n"
-            )
-
-    return task
 
 
 def _bounded(

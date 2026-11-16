@@ -7,7 +7,6 @@ separate, identity-only replication channel.
 
 from __future__ import annotations
 
-import base64
 from pathlib import Path
 
 __all__: list[str] = ["FACTORY_SELECTION_REL", "apply_program"]
@@ -21,15 +20,13 @@ def apply_program(*, record_bytes: bytes) -> str:
     The encoded bytes are written unchanged after shape validation, making the
     receiving host's record byte-for-byte equal to the role holder's record.
     """
-    encoded = base64.b64encode(record_bytes).decode("ascii")
-    return f"""import base64
-import json
+    return f"""import json
 import os
 import tempfile
 from datetime import datetime
 from pathlib import Path
 
-PAYLOAD = base64.b64decode({encoded!r})
+PAYLOAD = {record_bytes!r}
 TARGET = Path.home() / {str(FACTORY_SELECTION_REL)!r}
 
 def parsed_record(raw):
@@ -68,7 +65,7 @@ if TARGET.exists():
         print("factory-selection failed invalid-existing-record")
         raise SystemExit(2)
     if candidate[1] <= existing[1]:
-        print("factory-selection not-newer")
+        print("factory-selection not-newer " + existing[0]["written_at"])
         raise SystemExit(0)
 descriptor, temporary = tempfile.mkstemp(prefix=TARGET.name + ".", dir=TARGET.parent)
 try:
@@ -84,5 +81,5 @@ except OSError:
     except OSError:
         pass
     raise
-print("factory-selection applied")
+print("factory-selection applied " + candidate[0]["written_at"])
 """
