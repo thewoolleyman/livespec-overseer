@@ -86,6 +86,30 @@ def _read(*, path: Path) -> object:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def test_factory_selection_apply_writes_an_atomic_private_newer_copy(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A receiving host advances its factory record without handling a credential delivery."""
+    module_path = Path("overseer/caam_factory_selection_delivery.py")
+    assert module_path.is_file()
+
+    delivery = importlib.import_module("caam_factory_selection_delivery")
+    role_record = {
+        "account_uuid": "factory-account",
+        "profile": "anthropic-5",
+        "reason": None,
+        "written_at": "2026-11-16T18:00:00Z",
+    }
+    program = delivery.apply_program(record_bytes=json.dumps(role_record, sort_keys=True).encode())
+    monkeypatch.setenv("HOME", str(tmp_path))
+    exec(compile(program, "<factory-selection-apply>", "exec"), {"__name__": "__main__"})  # noqa: S102
+
+    copied = tmp_path / ".local/state/caam-usage-rotate/factory-selected-account.json"
+    assert copied.read_bytes() == json.dumps(role_record, sort_keys=True).encode()
+    assert copied.stat().st_mode & 0o777 == 0o600
+    assert capsys.readouterr().out.strip() == "factory-selection applied"
+
+
 def test_apply_step_result_lines_carry_the_sequence_and_change_only_owned_keys(
     *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
