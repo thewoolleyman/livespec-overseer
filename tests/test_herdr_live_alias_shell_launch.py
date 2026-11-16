@@ -171,7 +171,7 @@ from test_herdr_live_observations import (
     raw_request,
     read_foreground,
     registered_login_shells,
-    startup_transient,
+    rendezvous_transient,
 )
 
 __all__: list[str] = []
@@ -301,6 +301,7 @@ class _Readiness:
     socket_path: str
     transient: str
     registered: tuple[RegisteredShell, ...]
+    release: Path | None = None
     seconds: float = READY_SECONDS
     coherence_seconds: float = READY_SECONDS
     # Real, OWNED unavailability, for the control below: the fixture closes the
@@ -345,6 +346,7 @@ class _Readiness:
             socket_path=self.socket_path,
             startup_transient=self.transient,
             transient_name=TRANSIENT_NAME,
+            release=self.release,
             seconds=self.seconds,
         )
         self.gate = gate
@@ -1058,9 +1060,12 @@ def test_concurrent_alias_fixtures_have_distinct_sessions_and_exact_cleanup(
 
 def _readiness_for(*, server: LiveServer, scratch: Path, **overrides: Any) -> _Readiness:
     """One establishment's worth of state, with the host's real register read fresh."""
+    seconds = float(overrides.get("seconds", READY_SECONDS))
+    release = scratch / f"release-alias-startup-transient-{len(tuple(scratch.glob('release-*')))}"
     return _Readiness(
         socket_path=server.socket_path,
-        transient=startup_transient(scratch=scratch),
+        transient=rendezvous_transient(scratch=scratch, release=release, guard_seconds=seconds),
+        release=release,
         registered=registered_login_shells(),
         **overrides,
     )
@@ -1543,27 +1548,26 @@ def _refused_premise(*, server: LiveServer, readiness: _Readiness) -> str:
     return message
 
 
-def test_unavailable_or_expired_readiness_fails_before_alias_authorization_is_graded(
+def test_unavailable_or_incoherent_readiness_fails_before_alias_authorization_is_graded(
     *, alias_server: LiveServer, tmp_path: Path
 ):
-    """Three real ways the premise fails, each a NAMED bounded fixture refusal.
+    """Two real failures refuse before alias authorization, while a rendezvous survives.
 
     Every leg runs the same empty-register exercise the test above does, on the
-    same live server, through the same public facade — and every one must fail as
-    a FIXTURE assertion naming what it saw, before any alias verdict is graded.
-    Without this control, that exercise's refusal could be a pane that was merely
-    unready, and it would read identically.
+    same live server, through the same public facade. The unavailable and
+    incoherent legs must fail as a FIXTURE assertion naming what they saw before
+    any alias verdict is graded. The short-bound leg proves the rendezvous has
+    replaced the old fixed-lifetime timing failure.
 
     The legs, and what is real in each:
 
       1. **Unavailable.** The fixture CLOSES the pane it is about to establish —
          an owned resource, closed over the real socket — so the server genuinely
          has no reading to give for it. The refusal names the unusable reading.
-      2. **Expired.** The bound is cut to one second while the staged child really
-         runs for two, so one of the gate's OWN waits expires. Which one is a race
-         this control does not pretend to settle — either the child is not
-         observed within the bound, or it is observed and does not exit within it
-         — so both are accepted, and what is asserted is the BOUND.
+      2. **Rendezvous.** The bound is cut to one second. The staged child remains
+         alive until the gate pins its shell and writes the release, so this prompt
+         observation establishes rather than failing because a former two-second
+         lifetime happened to win.
       3. **Incoherent identity, expired.** The pane really reports `sh` against a
          kernel executable of `dash`. With the FIXTURE's own mediation table
          narrowed to nothing — its instrument, never the adapter's register, which
@@ -1585,18 +1589,18 @@ def test_unavailable_or_expired_readiness_fails_before_alias_authorization_is_gr
     assert unavailable.panes, "the readiness step must still have named the pane it was given"
     assert unavailable.panes[0] in unavailable_refusal, unavailable_refusal
 
-    expired = _readiness_for(
+    rendezvous = _readiness_for(
         server=alias_server,
         scratch=tmp_path,
         seconds=IMPATIENT_SECONDS,
         coherence_seconds=IMPATIENT_SECONDS,
     )
-    expired_refusal = _refused_premise(server=alias_server, readiness=expired)
-    assert TRANSIENT_SECONDS > IMPATIENT_SECONDS, "the staged child must outlive the cut bound"
-    assert f"within {IMPATIENT_SECONDS}s" in expired_refusal, expired_refusal
-    assert (
-        "was never observed" in expired_refusal or "never exited" in expired_refusal
-    ), expired_refusal
+    _outcome, _coherence = _graded_launch(
+        server=alias_server, readiness=rendezvous, shell_aliases=frozenset()
+    )
+    assert TRANSIENT_SECONDS > IMPATIENT_SECONDS, "the fixed control must outlive the cut bound"
+    assert rendezvous.refusal() == "", rendezvous.refusal()
+    assert rendezvous.release is not None and rendezvous.release.exists()
 
     incoherent = _readiness_for(
         server=alias_server, scratch=tmp_path, coherence_seconds=IMPATIENT_SECONDS

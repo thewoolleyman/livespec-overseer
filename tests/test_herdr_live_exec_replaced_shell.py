@@ -85,7 +85,7 @@ from test_herdr_live_observations import (
     owned_environment,
     parent_pid_of,
     registered_login_shells,
-    startup_transient,
+    rendezvous_transient,
 )
 
 __all__: list[str] = []
@@ -295,11 +295,15 @@ def _build(
         params={"cwd": PANE_CWD, "label": session, "focus": False},
     )
     assert "result" in created, f"workspace.create failed: {created}"
+    release = scratch / f"release-exec-replaced-shell-{inject_at}"
     state = ProxyState(
         inject_at=inject_at,
         readiness=PaneReadiness(
             socket_path=real_socket,
-            transient=startup_transient(scratch=scratch),
+            transient=rendezvous_transient(
+                scratch=scratch, release=release, guard_seconds=INITIAL_READY_TIMEOUT
+            ),
+            release=release,
             registered=registered_login_shells(),
             seconds=INITIAL_READY_TIMEOUT,
             coherence_seconds=coherence_seconds,

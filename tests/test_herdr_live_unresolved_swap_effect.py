@@ -94,13 +94,14 @@ from typing import Any
 
 import pytest
 from test_herdr_live_observations import (
+    READY_TIMEOUT,
     OwnedServer,
     PaneReadiness,
     ReadyWriter,
     parent_pid_of,
     registered_login_shells,
+    rendezvous_transient,
     start_owned_server,
-    startup_transient,
     stop_owned_server,
 )
 
@@ -154,6 +155,7 @@ class LiveProxiedTab:
     proxy_socket: str
     original: str
     transient: str
+    release: Path
     state: ProxyState
 
 
@@ -312,11 +314,15 @@ def _build(
     owned.listeners.append(listener)
     owned.threads.append(relay)
     relay.start()
+    release = scratch / f"release-unresolved-swap-{fault}"
     return LiveProxiedTab(
         real_socket=real_socket,
         proxy_socket=str(proxy_socket),
         original=original,
-        transient=startup_transient(scratch=scratch),
+        transient=rendezvous_transient(
+            scratch=scratch, release=release, guard_seconds=READY_TIMEOUT
+        ),
+        release=release,
         state=state,
     )
 
@@ -375,6 +381,7 @@ def _split_top(*, live: LiveProxiedTab) -> tuple[Any, PaneReadiness]:
     readiness = PaneReadiness(
         socket_path=live.real_socket,
         transient=live.transient,
+        release=live.release,
         registered=registered_login_shells(),
     )
     outcome = ReadyWriter(readiness=readiness, timeout_seconds=10.0).split_window_top(

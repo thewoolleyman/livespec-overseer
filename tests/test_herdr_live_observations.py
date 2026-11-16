@@ -274,6 +274,9 @@ if sys.argv[1] == "{_RENDEZVOUS_FLAG}":
     _guard = time.monotonic() + float(sys.argv[3])
     while not _release.exists():
         if time.monotonic() >= _guard:
+            _release.with_name(f"{{_release.name}}.hang-guard-expired").write_text(
+                "expired", encoding="utf-8"
+            )
             raise SystemExit(f"{{_release}} was never written; ended by the hang guard")
         time.sleep({_RENDEZVOUS_POLL_SECONDS})
 else:
@@ -328,6 +331,7 @@ def rendezvous_transient(*, scratch: Path, release: Path, guard_seconds: float) 
     writes `release`. `guard_seconds` is only a hang guard for a test that dies
     before releasing it; expiring it exits non-zero and says so.
     """
+    release.with_name(f"{release.name}.hang-guard-expired").unlink(missing_ok=True)
     return _transient_command(
         scratch=scratch,
         arguments=(_RENDEZVOUS_FLAG, str(release), str(guard_seconds)),
@@ -635,12 +639,18 @@ def await_occupying_child(
     poll: BoundedPoll,
     parent_of: PidReader = parent_pid_of,
     group_of: PidReader = process_group_of,
+    abandoned: Callable[[], str] = lambda: "",
 ) -> ChildObservation:
     """Poll real readings until the requested child is observed, or report why not.
 
     The expiry is REPORTED. The predecessor returned silently at its deadline,
     which left the caller unable to tell a setup timeout from an established
     precondition — and the caller stamped the precondition either way.
+
+    `abandoned` names a reason the child can never be observed, so polling STOPS
+    at the first reading after it turns non-empty rather than retrying a known-dead
+    observation for the rest of the bound. It is checked after a reading, so a child
+    the reading does show still wins over it.
     """
     deadline = poll.monotonic() + poll.seconds
     reason = "no process reading was taken before the deadline"
@@ -655,6 +665,9 @@ def await_occupying_child(
             if observed.pid is not None:
                 return observed
             reason = observed.reason
+        gone = abandoned()
+        if gone:
+            return ChildObservation(pid=None, reason=f"no {name!r} child was observed: {gone}")
         poll.sleep(POLL_SECONDS)
     return ChildObservation(
         pid=None,
@@ -1165,6 +1178,7 @@ class ReadyShellGate:
     socket_path: str
     startup_transient: str = ""
     transient_name: str = ""
+    release: Path | None = None
     seconds: float = READY_TIMEOUT
     methods: list[str] = field(default_factory=list)
     gated: list[str] = field(default_factory=list)
@@ -1256,6 +1270,8 @@ class ReadyShellGate:
         """
         if not self.startup_transient:
             return ""
+        if self._guard_expired():
+            return "the controlled startup transient ended by hang-guard expiry"
         if self.transient is None or self.transient.pid is None:
             observed = "" if self.transient is None else self.transient.reason
             return f"the controlled startup transient was never observed: {observed}"
@@ -1268,9 +1284,19 @@ class ReadyShellGate:
             return f"the controlled startup transient never exited: {self.departed}"
         return ""
 
+    def _guard_expired(self) -> bool:
+        """Whether the staged transient reported that its hang guard, not a release, ended it."""
+        return (
+            self.release is not None
+            and self.release.with_name(f"{self.release.name}.hang-guard-expired").exists()
+        )
+
     def _establish(self, *, pane_id: str) -> None:
         def read() -> Mapping[str, Any]:
             return process_info_reply(socket_path=self.socket_path, pane_id=pane_id)
+
+        def abandoned() -> str:
+            return "the hang guard ended the staged transient" if self._guard_expired() else ""
 
         if self.startup_transient:
             _ = raw_request(
@@ -1283,9 +1309,14 @@ class ReadyShellGate:
                 },
             )
             self.transient = await_occupying_child(
-                read=read, name=self.transient_name, poll=BoundedPoll(seconds=self.seconds)
+                read=read,
+                name=self.transient_name,
+                poll=BoundedPoll(seconds=self.seconds),
+                abandoned=abandoned,
             )
             self._clear_transient(child=self.transient.pid)
+            if self._guard_expired():
+                return
         self.established = await_idle_shell(
             read=read,
             pane_id=pane_id,
@@ -1301,12 +1332,18 @@ class ReadyShellGate:
         the pane's `shell_pid` — re-reading it would only introduce a second
         answer that could disagree.
         """
+        try:
+            if child is None:
+                return
+            shell = parent_pid_of(pid=child)
+            shell_starttime = None if shell is None else starttime_of(pid=shell)
+            if shell is not None and shell_starttime is not None:
+                self.retained = ShellIdentityPin(pid=shell, starttime=shell_starttime)
+        finally:
+            if self.release is not None:
+                _ = self.release.write_text("", encoding="utf-8")
         if child is None:
             return
-        shell = parent_pid_of(pid=child)
-        shell_starttime = None if shell is None else starttime_of(pid=shell)
-        if shell is not None and shell_starttime is not None:
-            self.retained = ShellIdentityPin(pid=shell, starttime=shell_starttime)
         self.departed = await_child_gone(
             pid=child, starttime=starttime_of(pid=child), poll=BoundedPoll(seconds=self.seconds)
         )
@@ -1551,6 +1588,7 @@ class PaneReadiness:
 
     socket_path: str
     transient: str
+    release: Path | None = None
     registered: tuple[RegisteredShell, ...] = field(default_factory=registered_login_shells)
     seconds: float = READY_TIMEOUT
     coherence_seconds: float = READY_TIMEOUT
@@ -1608,6 +1646,7 @@ class PaneReadiness:
             socket_path=self.socket_path,
             startup_transient=self.transient,
             transient_name=TRANSIENT_NAME,
+            release=self.release,
             seconds=self.seconds,
         )
         self.gate = gate
@@ -2388,6 +2427,82 @@ def test_an_unreleased_rendezvous_transient_ends_by_its_hang_guard(*, tmp_path: 
     assert "hang guard" in run.output, run.output
 
 
+def test_a_gate_releases_its_rendezvous_only_after_pinning_the_retained_shell(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The release rendezvous is ordered after the pin and survives no observation.
+
+    This is deliberately a no-herdr control.  The injected readers make the
+    gate's ordering observable without claiming a server reply was available,
+    including the branch where the staged child was never seen.
+    """
+    assert (
+        "release" in ReadyShellGate.__dataclass_fields__
+    ), "a staged startup transient has no release rendezvous for the gate to own"
+    release = tmp_path / "release-after-pin"
+    events: list[str] = []
+    shell_starttime = 24680
+    module = sys.modules[__name__]
+    monkeypatch.setattr(module, "parent_pid_of", lambda *, pid: HOST_SHELL_PID)
+    monkeypatch.setattr(module, "starttime_of", lambda *, pid: shell_starttime)
+
+    def child_gone(*, pid: int, starttime: int | None, poll: BoundedPoll) -> str:
+        assert gate.retained == ShellIdentityPin(pid=HOST_SHELL_PID, starttime=shell_starttime)
+        assert release.exists(), "the rendezvous must release before waiting for child exit"
+        events.append("child-gone")
+        return ""
+
+    monkeypatch.setattr(module, "await_child_gone", child_gone)
+    gate = ReadyShellGate(inner=None, socket_path="unused", release=release)
+    gate._clear_transient(child=HOST_SLEEP_PID)
+
+    assert events == ["child-gone"]
+    assert release.exists(), "the observed transient was never released"
+
+    unobserved_release = tmp_path / "release-without-observation"
+    unobserved = ReadyShellGate(inner=None, socket_path="unused", release=unobserved_release)
+    unobserved._clear_transient(child=None)
+
+    assert unobserved_release.exists(), "an unobserved transient must not wait for its hang guard"
+
+
+def test_a_hang_guard_expiry_is_a_named_gate_refusal(*, tmp_path: Path) -> None:
+    """A rendezvous that reaches its guard cannot look like a quiet observation retry."""
+    release = tmp_path / "release"
+    expired = release.with_name(f"{release.name}.hang-guard-expired")
+    _ = expired.write_text("expired", encoding="utf-8")
+    gate = ReadyShellGate(
+        inner=None,
+        socket_path="unused",
+        startup_transient="controlled transient",
+        release=release,
+    )
+    gate.gated.append(PANE)
+    gate.transient = ChildObservation(pid=None, reason="the process was not observed")
+
+    assert "hang-guard expiry" in gate.refusal()
+
+
+def test_an_abandoned_observation_stops_polling_at_the_first_reading_after_it() -> None:
+    """A known-dead observation is not retried for the rest of the bound."""
+    reads: list[int] = []
+
+    def read() -> Mapping[str, Any]:
+        reads.append(1)
+        return {}
+
+    observed = await_occupying_child(
+        read=read,
+        name="transient",
+        poll=BoundedPoll(seconds=100.0, sleep=lambda _seconds: None),
+        abandoned=lambda: "the hang guard ended the staged transient",
+    )
+
+    assert observed.pid is None
+    assert "hang guard" in observed.reason, observed.reason
+    assert len(reads) == 1, f"polling continued after the observation was abandoned: {len(reads)}"
+
+
 # ------------------------- the exact created pane's INITIAL setup, as a premise
 #
 # The two controls below are the accepted behavioural regression for work-item
@@ -2640,11 +2755,16 @@ def test_the_shared_readiness_establishes_the_exact_raw_split_pane(*, tmp_path: 
     """
     session = unique_session(label="raw-split")
     server = start_owned_server(session=session, scratch=tmp_path, log_name="rawsplit.log")
+    release = tmp_path / "release-raw-split-transient"
     try:
         pane_id = split_pane(socket_path=server.socket_path, pane_id=server.root, direction="down")
         before = pane_ids(socket_path=server.socket_path)
         readiness = PaneReadiness(
-            socket_path=server.socket_path, transient=startup_transient(scratch=tmp_path)
+            socket_path=server.socket_path,
+            transient=rendezvous_transient(
+                scratch=tmp_path, release=release, guard_seconds=READY_TIMEOUT
+            ),
+            release=release,
         )
         readiness.establish(pane_id=pane_id)
         gate = readiness.gate
@@ -2697,11 +2817,13 @@ def test_a_closed_exact_pane_is_a_bounded_fixture_refusal_with_its_server_cleane
     """
     session = unique_session(label="closed-pane")
     server = start_owned_server(session=session, scratch=tmp_path, log_name="closed.log")
+    release = tmp_path / "release-closed-pane-transient"
     try:
         pane_id = split_pane(socket_path=server.socket_path, pane_id=server.root, direction="down")
         readiness = PaneReadiness(
             socket_path=server.socket_path,
-            transient=startup_transient(scratch=tmp_path),
+            transient=rendezvous_transient(scratch=tmp_path, release=release, guard_seconds=1.0),
+            release=release,
             seconds=1.0,
             coherence_seconds=1.0,
             close_before_establishing=True,

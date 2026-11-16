@@ -72,6 +72,7 @@ from typing import Any
 import pytest
 from herdr_live_server import create_workspace, raw_request, require_herdr, unique_session
 from test_herdr_live_observations import (
+    READY_TIMEOUT,
     BoundedPoll,
     ForegroundReading,
     PaneIdentity,
@@ -82,9 +83,9 @@ from test_herdr_live_observations import (
     process_info_reply,
     read_foreground,
     registered_login_shells,
+    rendezvous_transient,
     split_pane,
     start_owned_server,
-    startup_transient,
     stop_owned_server,
 )
 
@@ -114,6 +115,7 @@ class LiveTab:
     original: str
     unrelated: str
     transient: str
+    release: Path
 
 
 def _geometry(*, live: LiveTab) -> tuple[dict[str, tuple[int, int]], str]:
@@ -195,12 +197,16 @@ def _start_live_tab(*, session: str, scratch: Path) -> LiveTab:
     except BaseException:
         _stop_live_herdr(session=session)
         raise
+    release = scratch / "release-live-layout-startup-transient"
     return LiveTab(
         socket_path=owned.socket_path,
         server_pid=owned.server_pid,
         original=owned.root,
         unrelated=unrelated,
-        transient=startup_transient(scratch=scratch),
+        transient=rendezvous_transient(
+            scratch=scratch, release=release, guard_seconds=READY_TIMEOUT
+        ),
+        release=release,
     )
 
 
@@ -250,12 +256,16 @@ def _live(*, layout_server: _SharedLayoutServer, tmp_path: Path) -> LiveTab:
     unrelated = split_pane(
         socket_path=shared.socket_path, pane_id=original, direction="right", cwd=PANE_CWD
     )
+    release = tmp_path / "release-live-layout-exercise-startup-transient"
     return LiveTab(
         socket_path=shared.socket_path,
         server_pid=shared.server_pid,
         original=original,
         unrelated=unrelated,
-        transient=startup_transient(scratch=tmp_path),
+        transient=rendezvous_transient(
+            scratch=tmp_path, release=release, guard_seconds=READY_TIMEOUT
+        ),
+        release=release,
     )
 
 
@@ -309,6 +319,7 @@ def _split_top(*, live: LiveTab) -> tuple[Any, PaneReadiness]:
     readiness = PaneReadiness(
         socket_path=live.socket_path,
         transient=live.transient,
+        release=live.release,
         registered=registered_login_shells(),
     )
     outcome = ReadyWriter(readiness=readiness).split_window_top(
