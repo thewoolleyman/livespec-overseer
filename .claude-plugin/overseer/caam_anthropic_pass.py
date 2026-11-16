@@ -18,7 +18,7 @@ from caam_anthropic_revive import revive_pass_profiles
 from caam_anthropic_status import write_status
 from caam_pass_capacity import observe_pass_capacity
 from caam_pass_probe import probe_snapshotless_profiles
-from caam_pass_publish import pass_publication, pass_stamp
+from caam_pass_publish import complete_publications, pass_publication, pass_stamp
 from caam_pass_refusals import observe_pass_refusals
 from caam_pass_resets import observe_pass_resets
 from caam_pass_seams import AgentRunner, PassSeams, line_logger, pass_seams
@@ -225,7 +225,14 @@ def _pass_with_active(
                 f"FAIL cannot read usage for active profile {active_name}",
             ),
         )
-        return publication.publish(code=code)
+        return complete_publications(
+            publication=publication,
+            code=code,
+            profiles=profiles,
+            interactive_name=active_name,
+            state=context.state,
+            protection_floors=protected_accounts.values,
+        )
     # Observed BEFORE the decision and after the readings, because a refusal is
     # evidence about the account those readings describe: the operation reads the
     # refusal records tracked sessions have already written -- sending no request
@@ -277,6 +284,12 @@ def _pass_with_active(
         # pass polled. It records NO second span -- see `run_warm_stage`.
         _ = warm_idle(stage=warm, active_name=active_name)
 
+    final_active_name = [active_name]
+
+    def _after_final_switch(*, active_name: str) -> None:
+        final_active_name[0] = active_name
+        _after_switch(active_name=active_name)
+
     code = decide(
         context=context,
         profiles=profiles,
@@ -288,7 +301,7 @@ def _pass_with_active(
             save_state=seams.save_state,
             switch_account=seams.switch_account,
             scheduled=scheduled_pass(flags=context.flags),
-            after_switch=_after_switch,
+            after_switch=_after_final_switch,
             lock_contended=publication.suppress,
             emit_rotation=rotation_sink(span=context.span, at=context.now),
         ),
@@ -297,4 +310,11 @@ def _pass_with_active(
     # a hold, a dry run, an unsatisfiable pin, an empty candidate set, and every
     # failed switch that DID hold the lock. A switch that moved the credential
     # and a contended lock both settled it above, so this is a no-op for them.
-    return publication.publish(code=code)
+    return complete_publications(
+        publication=publication,
+        code=code,
+        profiles=profiles,
+        interactive_name=final_active_name[0],
+        state=context.state,
+        protection_floors=protected_accounts.values,
+    )
