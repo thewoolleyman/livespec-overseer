@@ -73,6 +73,12 @@ livespec-runtime = { git = "https://github.com/thewoolleyman/livespec-runtime.gi
 # non-functional-requirements.md Constraints): a push from a host that can read
 # the gates kubeconfig is gated as a k3s cluster Job; any other host gates locally.
 delegated_gate = true
+# Gate Job size, matched to measured draw (plan gate-job-resources, livespec-dev-tooling-ukoeah):
+# Honeycomb k8s.pod.cpu.usage / k8s.pod.memory.working_set over the 24 h to 2026-11-16 19:0xZ, pods
+# gate-<this repo>-*: cpu P95 2.51 (max 3.90), memory max 1.05 GiB. The values add headroom.
+# Revert trigger: a gate CPU-throttled into a timeout, or gate wall-time p50 up over 25 % in 2 h.
+gate_cpu = 4
+gate_memory = "2Gi"
 # The dev host delegates this commit-time aggregate when it can submit a gates
 # Job; sandbox and credentialless hosts retain the local pre-commit gate.
 delegated_pre_commit = true
