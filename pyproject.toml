@@ -501,6 +501,12 @@ reportUnnecessaryIsInstance = "error"
 
 [tool.pytest.ini_options]
 testpaths = ["overseer", "tests"]
+# A suite run writes many files under pytest's basetemp on /tmp; kept pytest-N
+# directories exhausted a seat host's tmpfs inodes (2026-11-16,
+# livespec-dev-tooling-jxhi63). Keep only a failed test's tmp_path directory,
+# and only the latest run's basetemp.
+tmp_path_retention_policy = "failed"
+tmp_path_retention_count = 1
 # `--cov-config=pyproject.toml` is inert without `--cov`. With the bare
 # `pytest --cov=<pkg>` spelling pytest-cov hands its test subprocesses the
 # coverage config by path only when `--cov-config` names an existing file; the
