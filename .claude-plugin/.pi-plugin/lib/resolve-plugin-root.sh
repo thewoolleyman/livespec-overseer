@@ -16,6 +16,9 @@
 #   4. ~/.pi/agent/git/github.com/livespec-ai/livespec-overseer/.claude-plugin
 #      - the USER-scope pi package clone.
 #
+# Steps 3 and 4 try the livespec-ai clone FIRST, then the legacy thewoolleyman
+# clone as a fallback so installs made before the owner move still resolve.
+#
 # A candidate counts as resolved ONLY when it carries the shared prose directory
 # and its plugin.json names this plugin. On success, writes the resolved
 # absolute path to stdout. On failure, writes an install diagnostic to stderr.
@@ -31,15 +34,22 @@ if ! project_root="$(cd "$project_root" 2>/dev/null && pwd)"; then
     exit 1
 fi
 
-clone_suffix="git/github.com/thewoolleyman/$plugin_name/.claude-plugin"
+clone_suffixes=(
+    "git/github.com/livespec-ai/$plugin_name/.claude-plugin"
+    "git/github.com/thewoolleyman/$plugin_name/.claude-plugin"
+)
 
 candidates=()
 if [ -n "${LIVESPEC_OVERSEER_PLUGIN_ROOT:-}" ]; then
     candidates+=("$LIVESPEC_OVERSEER_PLUGIN_ROOT")
 fi
 candidates+=("$project_root/.claude-plugin")
-candidates+=("$project_root/.pi/$clone_suffix")
-candidates+=("${HOME:-}/.pi/agent/$clone_suffix")
+for clone_suffix in "${clone_suffixes[@]}"; do
+    candidates+=("$project_root/.pi/$clone_suffix")
+done
+for clone_suffix in "${clone_suffixes[@]}"; do
+    candidates+=("${HOME:-}/.pi/agent/$clone_suffix")
+done
 
 is_this_plugin() {
     manifest="$1/plugin.json"
@@ -79,7 +89,7 @@ done
         printf 'a missing install - fix or unset it before installing anything.\n\n'
     fi
     printf 'Install this plugin as a project-scope pi package from the repo root:\n'
-    printf '    pi install git:github.com/thewoolleyman/%s@release -l\n\n' "$plugin_name"
+    printf '    pi install git:github.com/livespec-ai/%s@release -l\n\n' "$plugin_name"
     printf 'pi resolves project packages only after the project is TRUSTED, so a\n'
     printf 'non-interactive run (-p, --mode json, --mode rpc) in an untrusted\n'
     printf 'project silently loads nothing. Establish trust before driving\n'
