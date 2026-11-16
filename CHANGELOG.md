@@ -1,5 +1,18 @@
 # Changelog
 
+## [5.63.0](https://github.com/livespec-ai/livespec-overseer/compare/v5.62.1...v5.63.0) (2026-11-16)
+
+
+### Features
+
+* publish factory selection record ([f60b673](https://github.com/livespec-ai/livespec-overseer/commit/f60b6730349f0b52323ea798de8d99455bff8634))
+
+
+### Bug Fixes
+
+* **pi:** resolve the livespec-ai plugin clone first, keep thewoolleyman as fallback (stale-base-merge-options DoD 7) ([a3c1a45](https://github.com/livespec-ai/livespec-overseer/commit/a3c1a45419b849410b985fcedd24ab7d5170de09))
+* **pytest:** a passing test's tmp_path and tmp_path_factory files are removed so a suite run cannot exhaust a host's /tmp inodes (livespec-dev-tooling-jxhi63) ([f5af839](https://github.com/livespec-ai/livespec-overseer/commit/f5af839b33e5ac21cb9acb5caf06356f45daf10e))
+
 ## [5.62.1](https://github.com/livespec-ai/livespec-overseer/compare/v5.62.0...v5.62.1) (2026-11-16)
 
 
