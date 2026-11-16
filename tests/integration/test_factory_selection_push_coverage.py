@@ -79,3 +79,32 @@ def test_push_loop_replicates_a_changed_factory_record_without_a_credential_deli
     assert loop.factory_record == _record()
     expected = "factory selection h: factory-selection applied 2026-11-16T18:00:00Z"
     assert expected in capsys.readouterr().out
+
+
+def test_push_loop_retries_a_factory_record_a_host_did_not_accept(*, tmp_path: Path) -> None:
+    """An unreachable host keeps the record pending, so the next pass pushes it again."""
+    entry = importlib.import_module("caam_delivery_push_entry")
+    record_path = tmp_path / ".local/state/caam-usage-rotate/factory-selected-account.json"
+    record_path.parent.mkdir(parents=True)
+    _ = record_path.write_bytes(_record())
+    hosts = tmp_path / ".local/state/caam-usage-rotate/delivery-hosts"
+    _ = hosts.write_text("up u@up linux\ndown u@down linux\n", encoding="utf-8")
+    loop = entry.PushLoop()
+    replies = {"u@up": "factory-selection applied 2026-11-16T18:00:00Z", "u@down": "unreachable"}
+    pushed: list[str] = []
+
+    def flaky_run(*, target: str, **_: object) -> tuple[int, str]:
+        pushed.append(target)
+        return 0, replies[target]
+
+    entry.run_once(home=tmp_path, now=5.0, loop=loop, run=flaky_run)
+    assert loop.factory_record != _record()
+
+    replies["u@down"] = "factory-selection applied 2026-11-16T18:00:00Z"
+    entry.run_once(home=tmp_path, now=10.0, loop=loop, run=flaky_run)
+
+    assert sorted(pushed) == ["u@down", "u@down", "u@up", "u@up"]
+    assert loop.factory_record == _record()
+    pushed.clear()
+    entry.run_once(home=tmp_path, now=15.0, loop=loop, run=flaky_run)
+    assert pushed == []

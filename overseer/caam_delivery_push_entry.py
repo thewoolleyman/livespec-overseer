@@ -7,8 +7,6 @@ memory. `caam-delivery-push status` prints one secret-free line per host.
 
 from __future__ import annotations
 
-import hashlib
-import json
 import subprocess
 import sys
 import threading
@@ -17,18 +15,18 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+import _caam_live_pair
 import caam_delivery_push
 import caam_delivery_push_local
 import caam_delivery_push_state
 import caam_delivery_push_status
 import caam_delivery_push_sweep
 import caam_delivery_service
+import caam_factory_selection_push
 import jsonio
 import streams
 from caam_capacity_source import OAUTH_BETA_HEADER, PROFILE_URL
 from caam_oauth_get import OAuthRequest, get_json
-from caam_profile_state import live_creds_path
-from caam_profiles import account_uuid
 
 __all__: list[str] = [
     "POLL_INTERVAL_S",
@@ -122,7 +120,7 @@ def run_once(  # noqa: PLR0913 - each argument is an independent seam
     """One pass: issue a delivery when the live file changed, then push to hosts behind it."""
     factory_record = caam_delivery_push.factory_selection_bytes(home=home)
     factory_changed = factory_record != loop.factory_record
-    marker = _live_pair(home=home)
+    marker = _caam_live_pair.live_pair(home=home)
     if marker is not None:
         _reissue_on_switch(loop=loop, account=marker[1], reissue=reissue, local=local)
     retry_due = loop.retry_at is not None and now >= loop.retry_at
@@ -154,12 +152,16 @@ def run_once(  # noqa: PLR0913 - each argument is an independent seam
             streams.write_stdout(text=f"push {label} sequence {loop.last.sequence}: {outcome}\n")
     else:
         outcomes = {}
-    if factory_record is not None and (factory_changed or outcomes):
-        factory_outcomes = caam_delivery_push.push_factory_selection(
-            home=home, now=now, run=run, record_bytes=factory_record
-        )
-        for label, outcome in factory_outcomes.items():
-            streams.write_stdout(text=f"factory selection {label}: {outcome}\n")
+    if caam_factory_selection_push.factory_selection_pending(
+        home=home,
+        now=now,
+        run=run,
+        record=factory_record,
+        due=factory_changed or bool(outcomes),
+    ):
+        # A host that did not take the record keeps it pending: the next
+        # pass sees a changed record again and retries every host.
+        return
     loop.factory_record = factory_record
 
 
@@ -179,20 +181,6 @@ def _reissue_on_switch(
         return
     line = "re-issue unavailable" if reissue is None else local(script=reissue)
     streams.write_stdout(text=f"remote-control role holder: {line}\n")
-
-
-def _live_pair(*, home: Path) -> tuple[str, str] | None:
-    """A fingerprint of the live access token plus the live account id, read locally."""
-    try:
-        cred = json.loads(live_creds_path(home=home).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    oauth = jsonio.as_object(value=jsonio.as_object(value=cred) and cred.get("claudeAiOauth"))
-    token = None if oauth is None else oauth.get("accessToken")
-    account = account_uuid(claude_json_path=home / ".claude.json")
-    if not isinstance(token, str) or account is None:
-        return None
-    return hashlib.sha256(token.encode()).hexdigest()[:12], account
 
 
 def _sweep_remote(*, home: Path) -> Callable[..., Callable[..., str]]:

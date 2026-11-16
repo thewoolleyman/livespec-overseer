@@ -20,7 +20,12 @@ from caam_delivery_push_state import (
     seconds,
 )
 
-__all__: list[str] = ["factory_selection_bytes", "push_factory_selection"]
+__all__: list[str] = [
+    "factory_selection_accepted",
+    "factory_selection_bytes",
+    "factory_selection_pending",
+    "push_factory_selection",
+]
 
 Runner = Callable[..., tuple[int, str]]
 _FACTORY_REPLY_WORDS = 3
@@ -72,15 +77,32 @@ def factory_selection_bytes(*, home: Path) -> bytes | None:
         return None
 
 
-def _record_result(*, entry: dict[str, object], line: str, now: float) -> None:
+def factory_selection_accepted(*, line: str) -> bool:
+    """Whether a host's reply says it now holds this record or one at least as new."""
     words = line.split()
-    success = words[:2] in (
+    return len(words) == _FACTORY_REPLY_WORDS and words[:2] in (
         ["factory-selection", "applied"],
         ["factory-selection", "not-newer"],
     )
-    if success and len(words) == _FACTORY_REPLY_WORDS:
+
+
+def _record_result(*, entry: dict[str, object], line: str, now: float) -> None:
+    if factory_selection_accepted(line=line):
+        words = line.split()
         entry["factory_record_written_at"] = words[2]
         entry["factory_last_success"] = now
         return
     entry["factory_last_error"] = scrubbed(text=line)
     entry["factory_last_error_at"] = now
+
+
+def factory_selection_pending(
+    *, home: Path, now: float, run: Runner, record: bytes | None, due: bool
+) -> bool:
+    """Push the factory selection when due; whether some listed host still lacks it."""
+    if record is None or not due:
+        return False
+    outcomes = push_factory_selection(home=home, now=now, run=run, record_bytes=record)
+    for label, outcome in outcomes.items():
+        streams.write_stdout(text=f"factory selection {label}: {outcome}\n")
+    return not all(factory_selection_accepted(line=outcome) for outcome in outcomes.values())
