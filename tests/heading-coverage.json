@@ -3993,7 +3993,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An account with no short-window limit is not reported unreadable",
-    "test": "tests/integration/test_caam_generic_limit_windows.py::test_scenario_a_scheduled_pass_evaluates_an_active_account_with_no_short_window_limit",
+    "test": "tests.integration.test_caam_generic_limit_windows.test_scenario_an_account_with_no_short_window_limit_is_not_reported_unreadable",
     "work_item": "overseer-yizu3e"
   },
   {

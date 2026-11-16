@@ -171,6 +171,45 @@ def test_scenario_a_scheduled_pass_evaluates_an_active_account_with_no_short_win
     assert any("no short-window limit" in line for line in lines)
 
 
+def test_scenario_an_account_with_no_short_window_limit_is_not_reported_unreadable(
+    *, tmp_path: Path
+) -> None:
+    active = no_short_window_usage(tmp_path=tmp_path)
+    harness = RotationHarness(
+        home=tmp_path / "pass",
+        active="active",
+        usages={
+            "active": active,
+            "weekly-reserve": usage(five_hour_remaining=90.0, seven_day_remaining=80.0),
+        },
+        live_plans={"active": LARGE_PLAN, "weekly-reserve": LARGE_PLAN},
+    )
+
+    code, lines = harness.run(at=NOW, scheduled=True)
+
+    row = next(line for line in lines if line.startswith("active "))
+    assert code == 0
+    assert "5%" in row
+    assert "no short-window limit" in row
+    assert "unreadable" not in row
+
+    coverage = json.loads(
+        (Path(__file__).parents[1] / "heading-coverage.json").read_text(encoding="utf-8")
+    )
+    entry = next(
+        entry
+        for entry in coverage
+        if entry["spec_root"] == "SPECIFICATION"
+        and entry["spec_file"] == "scenarios.md"
+        and entry["heading"]
+        == "## Scenario: An account with no short-window limit is not reported unreadable"
+    )
+    assert entry["test"] == (
+        "tests.integration.test_caam_generic_limit_windows."
+        "test_scenario_an_account_with_no_short_window_limit_is_not_reported_unreadable"
+    )
+
+
 def test_scenario_an_account_with_no_short_window_limit_is_selected_on_short_window_rotation(
     *, tmp_path: Path
 ) -> None:
