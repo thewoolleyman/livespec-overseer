@@ -162,8 +162,8 @@ jobs:
   # every gating job below to the hosted literal: the batch still runs the
   # full job graph and still reports ci-green, it only loses self-hosted
   # capacity. Every self-hosted-capable job needs this job, carries
-  # `!cancelled()` so a failed guard still runs it (hosted), and ci-green's
-  # required-leg reader fails any batch whose leg did not run.
+  # `!cancelled()` so a failed guard still runs it (hosted), and ci-green
+  # needs it, so a failed guard fails the batch.
   merge-group-guard:
     name: merge-group-guard
     runs-on: ubuntu-latest
@@ -446,7 +446,7 @@ jobs:
   check-coverage:
     name: ${{ matrix.target }}
     needs: [merge-group-guard, check-per-file-coverage]
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && needs.check-per-file-coverage.result == 'success' }}
     runs-on: ${{ needs.merge-group-guard.outputs.trusted == 'true' && fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') || 'ubuntu-latest' }}
     container:
       image: ghcr.io/livespec-ai/livespec-fabro-sandbox:python-v1.214.0
