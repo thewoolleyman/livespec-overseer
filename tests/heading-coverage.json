@@ -4943,5 +4943,13 @@
     "test": "TODO",
     "work_item": "overseer-shojan",
     "reason": "Ratified ahead of its implementation in SPECIFICATION v117 under plan central-credential-service (epic overseer-iyfjbo), proposal central-factory-selection; overseer-shojan owes an integration-tier test for this heading and MUST replace this TODO when the central factory selection lands."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An idle seat showing only a prompt suggestion is re-issued, and a seat with typed text is not",
+    "test": "TODO",
+    "work_item": "overseer-klzawj",
+    "reason": "Ratified ahead of its implementation in SPECIFICATION under plan central-credential-service (epic overseer-iyfjbo), proposal sweep-greyed-suggestion-is-not-input; overseer-klzawj owes an integration-tier or above test for this heading and MUST replace this TODO when the sweep and the re-issue read the input box with colour attributes."
   }
 ]
