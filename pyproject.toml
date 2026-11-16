@@ -69,6 +69,9 @@ livespec-dev-tooling = { git = "https://github.com/thewoolleyman/livespec-dev-to
 livespec-runtime = { git = "https://github.com/thewoolleyman/livespec-runtime.git", tag = "v0.31.0" }
 
 [tool.livespec_dev_tooling]
+# Authors whose pull requests may ride a merge group on self-hosted capacity;
+# read by ci.yml's merge-group-guard from this file AT THE GROUP'S BASE COMMIT.
+merge_queue_author_allowlist = ["thewoolleyman", "thewoolleyman-factory-bot", "livespec-ai-factory-bot", "livespec-ai-factory-bot[bot]"]
 # Opts this repository in to the delegated pre-push gate (spec v069,
 # non-functional-requirements.md Constraints): a push from a host that can read
 # the gates kubeconfig is gated as a k3s cluster Job; any other host gates locally.
