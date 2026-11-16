@@ -183,7 +183,7 @@ wheels = [
 [[package]]
 name = "livespec-dev-tooling"
 version = "1.214.0"
-source = { git = "https://github.com/thewoolleyman/livespec-dev-tooling.git?tag=v1.214.0#da53a1f65ee2bfe53320ff6860cf2a39dd7f49ef" }
+source = { git = "https://github.com/livespec-ai/livespec-dev-tooling.git?tag=v1.214.0#da53a1f65ee2bfe53320ff6860cf2a39dd7f49ef" }
 dependencies = [
     { name = "anyio" },
     { name = "typing-extensions" },
@@ -211,11 +211,11 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "livespec-runtime", git = "https://github.com/thewoolleyman/livespec-runtime.git?tag=v0.31.0" }]
+requires-dist = [{ name = "livespec-runtime", git = "https://github.com/livespec-ai/livespec-runtime.git?tag=v0.31.0" }]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "livespec-dev-tooling", git = "https://github.com/thewoolleyman/livespec-dev-tooling.git?tag=v1.214.0" },
+    { name = "livespec-dev-tooling", git = "https://github.com/livespec-ai/livespec-dev-tooling.git?tag=v1.214.0" },
     { name = "nodejs-wheel-binaries", specifier = "==24.19.0" },
     { name = "pyright", specifier = "==1.1.391" },
     { name = "pytest", specifier = "==8.3.4" },
@@ -229,7 +229,7 @@ dev = [
 [[package]]
 name = "livespec-runtime"
 version = "0.31.0"
-source = { git = "https://github.com/thewoolleyman/livespec-runtime.git?tag=v0.31.0#4213dd65857fec23d37aedf0d5f10798fc78cb34" }
+source = { git = "https://github.com/livespec-ai/livespec-runtime.git?tag=v0.31.0#4213dd65857fec23d37aedf0d5f10798fc78cb34" }
 dependencies = [
     { name = "returns", version = "0.26.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "returns", version = "0.29.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
