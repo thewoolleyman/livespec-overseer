@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.62.1](https://github.com/livespec-ai/livespec-overseer/compare/v5.62.0...v5.62.1) (2026-11-16)
+
+
+### Bug Fixes
+
+* **caam-delivery:** the keep-alive sweep keeps inside its timeout, answers on a fresh record, and treats a null name as absent (overseer-fdwat6) ([a47e9d0](https://github.com/livespec-ai/livespec-overseer/commit/a47e9d04c6107c9d3fa3f8b82115538177797c6d))
+* **caam-delivery:** the keep-alive sweep reconnects a seat under its own name (overseer-fdwat6) ([f91af89](https://github.com/livespec-ai/livespec-overseer/commit/f91af89568cc5a6bd2cc0ba500f5d59f7af27bb2))
+* **caam-delivery:** the keep-alive sweep reports a seat whose re-issue met the not-connected panel (overseer-fdwat6) ([9f63ee0](https://github.com/livespec-ai/livespec-overseer/commit/9f63ee07847bfec35a549678b0261a38c73d9185))
+* **caam-delivery:** the push service retries a seat at the not-connected panel before its cap (overseer-fdwat6) ([f31aefb](https://github.com/livespec-ai/livespec-overseer/commit/f31aefb95204c29a401b6a7e3ae4ab38fea04fec))
+* **caam-delivery:** the Remote Control re-issue reconnects a herdr seat under its own name (overseer-fdwat6) ([ebef3e6](https://github.com/livespec-ai/livespec-overseer/commit/ebef3e68362cc52150446d6cbdbc733457ed1c41))
+* **caam-delivery:** the sweep journal names a refused session name (overseer-fdwat6) ([2568fd3](https://github.com/livespec-ai/livespec-overseer/commit/2568fd3ec53d70973c20ed7c34fa2b34fa9def6c))
+
 ## [5.62.0](https://github.com/livespec-ai/livespec-overseer/compare/v5.61.0...v5.62.0) (2026-11-15)
 
 
