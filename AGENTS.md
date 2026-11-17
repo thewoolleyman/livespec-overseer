@@ -734,8 +734,7 @@ remain absolutely prohibited here.
 
 **As of 2026-08-19 `CI_RUNNER_LABELS` is
 `["livespec-overseer-k3s"]`** — re-cut once the root cause was found and fixed.
-The rollback history is kept because its triage lesson outlives it; both are in
-`.ai/ci-runner-routing-history.md`.
+The rollback history is kept because its triage lesson outlives it.
 
 The rollback history, the AppArmor root cause, the runner-pod-is-not-the-workflow-pod
 lesson and the triage lesson are in `.ai/ci-runner-routing-history.md`. Read it
