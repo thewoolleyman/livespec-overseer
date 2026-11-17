@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -76,6 +77,10 @@ _SETTLE_S, _DIALOG_WAIT_S, _TIMEOUT_S, _NAME_MAX = 0.8, 3.0, 10, 200
 _REISSUE_BUDGET_S = 40.0
 # Code points a typed name must not hold: C0 controls (newline, tab, escape) and DEL.
 _CONTROL = frozenset(map(chr, [*range(0x20), 0x7F]))
+_SUGGESTION = re.compile(
+    r"^(?:[ \xa0]|\x1b\[[0-9;]*m)*(?:\x1b\[2m|\x1b\[38;2;(?P<grey>\d+);"
+    r"(?P=grey);(?P=grey)m)[^\x1b\r\n]+(?:\x1b\[[0-9;]*m)*$"
+)
 
 Herdr = Callable[..., str | None]
 # (herdr session, pane id, viewport rows, cwd, Claude Code pid)
@@ -161,7 +166,8 @@ def trust_allowed(*, screen: str, cwd: str, home: Path) -> bool:
 def _empty_box(*, screen: str) -> bool:
     lines = screen.splitlines()
     prompts = [i for i, line in enumerate(lines) if line.startswith(_PROMPT)]
-    if not prompts or lines[prompts[-1]][len(_PROMPT) :].strip():
+    text = lines[prompts[-1]][len(_PROMPT) :] if prompts else ""
+    if not prompts or (text.strip() and _SUGGESTION.fullmatch(text) is None):
         return False
     if not any(line.startswith(_RULE) for line in lines[: prompts[-1]]):
         return False
@@ -200,7 +206,7 @@ def _panes(*, herdr: Herdr) -> list[Pane]:
 
 def _read(*, herdr: Herdr, pane: Pane) -> str:
     read = ("pane", "read", pane[1], "--source", "recent-unwrapped", "--lines", str(pane[2]))
-    return herdr("--session", pane[0], *read) or ""
+    return herdr("--session", pane[0], *(*read, "--format", "ansi")) or ""
 
 
 def _keys(*, herdr: Herdr, pane: Pane, keys: tuple[str, ...]) -> bool:

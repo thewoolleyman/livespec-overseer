@@ -29,6 +29,7 @@ SWEEP_FIX = FIX / "remote_control_sweep"
 ENABLE = (SWEEP_FIX / "enable-dialog-2.1.325.txt").read_text(encoding="utf-8")
 PANEL = (SWEEP_FIX / "status-panel-2.1.325.txt").read_text(encoding="utf-8")
 TRUST = (SWEEP_FIX / "trust-prompt-2.1.325.txt").read_text(encoding="utf-8")
+SUGGESTION = (SWEEP_FIX / "greyed-prompt-suggestion-2.1.325.ansi.txt").read_text(encoding="utf-8")
 EMPTY = (FIX / "claude_2.1.323_herdr_input_empty.txt").read_text(encoding="utf-8")
 DRAFT = EMPTY.replace("❯\u00a0\n", "❯\u00a0half written draft\n")
 # The fixture record's `name` is `rc-fixture`, so the sweep types the named command.
@@ -222,6 +223,14 @@ def test_an_idle_disconnected_seat_is_reissued_and_its_dialog_answered() -> None
     assert report["off_rc"] == ["herdr:s:p"]
     assert report["actions"] == [f"herdr:s:p {NAMED}", "herdr:s:p enable:Enter"]
     assert report["sessions"] == {"herdr:s:p": DISCONNECTED["sessionId"]}
+
+
+def test_an_idle_seat_showing_only_a_greyed_prompt_suggestion_is_reissued() -> None:
+    """Scenario: An idle seat showing only a prompt suggestion is re-issued."""
+    report, sent = _run(screens=[SUGGESTION, TYPED, EMPTY], record=DISCONNECTED)
+    assert sent == [("p", NAMED), ("p", "Enter")]
+    assert report["off_rc"] == ["herdr:s:p"]
+    assert report["reissued"] == ["herdr:s:p"]
 
 
 def test_a_reissue_that_reconnects_without_a_dialog_reports_only_the_command() -> None:
