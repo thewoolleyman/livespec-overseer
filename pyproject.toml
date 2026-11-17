@@ -69,6 +69,13 @@ livespec-dev-tooling = { git = "https://github.com/livespec-ai/livespec-dev-tool
 livespec-runtime = { git = "https://github.com/livespec-ai/livespec-runtime.git", tag = "v0.32.0" }
 
 [tool.livespec_dev_tooling]
+# Org merge-queue cutover (plan stale-base-merge-options, epic
+# livespec-dev-tooling-xowhol). The incident recovery principal's GitHub App
+# id, the ONLY bypass actor branch_protection_alignment admits on a
+# queue-required repository's default-branch rulesets: the
+# livespec-ai-incident-recovery org App's Integration id. An App id is not a
+# secret.
+recovery_bypass_integration_id = 5761967
 # Authors whose pull requests may ride a merge group on self-hosted capacity;
 # read by ci.yml's merge-group-guard from this file AT THE GROUP'S BASE COMMIT.
 merge_queue_author_allowlist = ["thewoolleyman", "thewoolleyman-factory-bot", "livespec-ai-factory-bot", "livespec-ai-factory-bot[bot]"]

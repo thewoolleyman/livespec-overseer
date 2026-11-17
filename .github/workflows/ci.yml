@@ -169,10 +169,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
+      actions: read
+      checks: read
       contents: read
       pull-requests: read
     outputs:
       trusted: ${{ steps.guard.outputs.trusted }}
+      skip: ${{ steps.skip.outputs.skip || 'false' }}
     steps:
       - name: Resolve the merge group's pull requests against the allowlist
         id: guard
@@ -249,6 +252,58 @@ jobs:
           fi
           echo "trusted=true" >> "$GITHUB_OUTPUT"
 
+      # THE TREE-EQUALITY SKIP (livespec-dev-tooling-ymog6r rollout; plan
+      # stale-base-merge-options, epic livespec-dev-tooling-xowhol, maintainer ruling
+      # 2026-11-16). `skip` is true ONLY for a one-entry merge group whose head tree equals
+      # its pull request head's tree, on a base the head contains, whose head's required
+      # Actions check runs ALL read success on the forge and whose head ci-green reported no
+      # incident-omitted set; every other case, any error included, is false and the whole
+      # job graph runs. The decision code is NOT in this repo's tree: it is fetched from the
+      # livespec-dev-tooling release tarball at the tag this repo pins in pyproject.toml
+      # [tool.uv.sources], read AT THE GROUP'S BASE COMMIT, never the enqueued tree, so a
+      # pull request cannot change how its own group is judged. A pinned release that does
+      # not carry the module (or any unreadable pin or tarball) answers false. The step is
+      # best-effort (`continue-on-error`) and event-guarded in the SHELL, as the allowlist
+      # step above is. The kill switch is the repository variable
+      # LIVESPEC_MERGE_GROUP_SKIP_DISABLED=true, which forces skip=false.
+      - name: Decide the tree-equality skip from the forge (merge_group only)
+        id: skip
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MG_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
+          MG_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          MG_BASE_REF: ${{ github.event.merge_group.base_ref }}
+          LIVESPEC_MERGE_GROUP_SKIP_DISABLED: ${{ vars.LIVESPEC_MERGE_GROUP_SKIP_DISABLED }}
+        run: |
+          skip=false
+          if [ "$GITHUB_EVENT_NAME" = "merge_group" ]; then
+            base_dir="${RUNNER_TEMP}/skip-base"
+            mkdir -p "$base_dir"
+            tag="$(gh api -H 'Accept: application/vnd.github.raw' "repos/${GITHUB_REPOSITORY}/contents/pyproject.toml?ref=${MG_BASE_SHA}" | python3 -c 'import sys, tomllib; print(tomllib.loads(sys.stdin.read())["tool"]["uv"]["sources"]["livespec-dev-tooling"]["tag"])' || true)"
+            case "$tag" in
+              v[0-9]*) ;;
+              *) tag="" ;;
+            esac
+            if [ -n "$tag" ] && gh api "repos/livespec-ai/livespec-dev-tooling/tarball/${tag}" | tar -xz --strip-components=1 -C "$base_dir" --wildcards '*/livespec_dev_tooling/*'; then
+              pythonpath="$base_dir"
+              if ! python3 -c 'import typing_extensions' 2>/dev/null; then
+                if python3 -m pip install --quiet --disable-pip-version-check --target "${RUNNER_TEMP}/skip-deps" 'typing_extensions==4.15.0'; then
+                  pythonpath="${pythonpath}:${RUNNER_TEMP}/skip-deps"
+                fi
+              fi
+              out="$(PYTHONPATH="$pythonpath" python3 -m livespec_dev_tooling.merge_group_skip || true)"
+              printf '%s\n' "$out" | sed 's/^/merge_group_skip: /' || true
+              printf '%s\n' "$out"
+              if printf '%s\n' "$out" | grep -qx 'skip=true'; then
+                skip=true
+              fi
+            else
+              echo "::warning::merge-group-guard: the pinned dev-tooling release's decision code was unreadable; running the full suite"
+            fi
+          fi
+          echo "skip=${skip}" >> "$GITHUB_OUTPUT"
+
   check-python:
     name: ${{ matrix.target }}
     # Hosted by default; set the CI_RUNNER_LABELS repo variable to a conforming
@@ -283,6 +338,7 @@ jobs:
           - check-types
     steps:
       - name: Checkout
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         uses: actions/checkout@v4
         with:
           # fetch-depth 0: this job runs the pytest suite, and
@@ -305,6 +361,7 @@ jobs:
       # global gitconfig ($HOME/.gitconfig, HOME=/github/home) instead so EVERY
       # git call — including the env-scrubbed resolve_repo_root — reads it.
       - name: Trust workspace for git (hosted container root-vs-checkout uid)
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         run: git config --global --add safe.directory '*'
 
       # Tools are baked into the image; `mise install` is a near-no-op that just
@@ -313,14 +370,17 @@ jobs:
       # (Replaces the mise-action install + the actions/cache uv restore — the
       # local runner's persistent ~/.cache/uv is the cache now.)
       - name: mise trust + install (baked tools — install is a near-no-op)
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         run: |
           mise trust
           mise install
 
       - name: Install Python dev deps via uv
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         run: uv sync --all-groups
 
       - name: just ${{ matrix.target }}
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         run: |
           # pyright (check-types) shells out to `npm`; under the container-hooks
           # HOME the mise npm shim busy-loops (no node registered for that HOME).
@@ -361,6 +421,7 @@ jobs:
       # here as well would create a second source of truth for one value.
     steps:
       - name: Checkout
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         uses: actions/checkout@v4
         with:
           # fetch-depth 0: this job runs the pytest suite, and
@@ -374,17 +435,21 @@ jobs:
           fetch-depth: 0
 
       - name: Trust workspace for git (hosted container root-vs-checkout uid)
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         run: git config --global --add safe.directory '*'
 
       - name: mise trust + install (baked tools — install is a near-no-op)
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         run: |
           mise trust
           mise install
 
       - name: Install Python dev deps via uv
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         run: uv sync --all-groups
 
       - name: just check-per-file-coverage
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         run: |
           # The full suite spawns `node` in some tests; under the
           # container-hooks HOME the mise node/npm shims busy-loop or miss (no
@@ -399,7 +464,7 @@ jobs:
           just check-per-file-coverage
 
       - name: Publish the flake-retry records for the host-side reader
-        if: ${{ !cancelled() }}
+        if: ${{ (!cancelled()) && needs.merge-group-guard.outputs.skip != 'true' }}
         uses: livespec-ai/livespec-dev-tooling/.github/actions/publish-flake-retries@v1.216.0
 
       # When the isolated Claude tmux exercise's fixture test fails, it copies its
@@ -422,6 +487,7 @@ jobs:
       # silently ships nothing and the consumer falls back to a full duplicate
       # suite run.
       - name: Publish coverage data and provenance marker for the check-coverage consumer
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: coverage-data
@@ -464,25 +530,31 @@ jobs:
           - check-coverage
     steps:
       - name: Checkout
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         uses: actions/checkout@v4
 
       - name: Trust workspace for git (hosted container root-vs-checkout uid)
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         run: git config --global --add safe.directory '*'
 
       - name: mise trust + install (baked tools — install is a near-no-op)
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         run: |
           mise trust
           mise install
 
       - name: Install Python dev deps via uv
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         run: uv sync --all-groups
 
       - name: Download the producer's coverage data and provenance marker
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         uses: actions/download-artifact@v4
         with:
           name: coverage-data
 
       - name: just ${{ matrix.target }}
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         run: |
           # Node-PATH shim for the standalone-fallback branch only: the normal
           # path reads the downloaded `.coverage` without spawning anything,
@@ -524,7 +596,7 @@ jobs:
   check-python-batch:
     name: check-python-batch
     needs: [merge-group-guard]
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && needs.merge-group-guard.outputs.skip != 'true' }}
     runs-on: ${{ needs.merge-group-guard.outputs.trusted == 'true' && fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') || 'ubuntu-latest' }}
     container:
       image: ghcr.io/livespec-ai/livespec-fabro-sandbox:python-v1.216.0
@@ -615,6 +687,7 @@ jobs:
           - check-check-coverage-incremental
     steps:
       - name: Checkout
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         uses: actions/checkout@v4
         with:
           # Full history for ALL matrix entries: the
@@ -632,6 +705,7 @@ jobs:
       # even resolve_repo_root() — which strips all GIT_* env before shelling
       # git (config.py) — reads it. See check-python for the full rationale.
       - name: Trust workspace for git (hosted container root-vs-checkout uid)
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         run: git config --global --add safe.directory '*'
 
       # Self-hosted lane only: the self-hosted runner reuses a persistent
@@ -677,7 +751,7 @@ jobs:
       # PR #437 (livespec plan/fleet-ci-runner-pool epic livespec-s43svm.1),
       # where it was proven live 2026-08-13.
       - name: Ensure full history is available (self-hosted reused _work dir)
-        if: env.LIVESPEC_CI_LANE == 'local'
+        if: ${{ (env.LIVESPEC_CI_LANE == 'local') && needs.merge-group-guard.outputs.skip != 'true' }}
         run: |
           if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
             git fetch --unshallow origin
@@ -685,14 +759,17 @@ jobs:
           git fetch origin master:refs/remotes/origin/master
 
       - name: mise trust + install (baked tools — install is a near-no-op)
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         run: |
           mise trust
           mise install
 
       - name: Install Python dev deps via uv
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         run: uv sync --all-groups
 
       - name: just ${{ matrix.target }}
+        if: ${{ needs.merge-group-guard.outputs.skip != 'true' }}
         env:
           # Arm the CI-matrix drift guard (epic livespec-cf4bcu slice 5):
           # now that this repo's matrix + ci-green are complete, flip
@@ -717,7 +794,7 @@ jobs:
     # fresh PUBLIC clone INSIDE the container (no host mount — containment
     # preserved).
     needs: [merge-group-guard]
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && needs.merge-group-guard.outputs.skip != 'true' }}
     runs-on: ${{ needs.merge-group-guard.outputs.trusted == 'true' && fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') || 'ubuntu-latest' }}
     container:
       image: ghcr.io/livespec-ai/livespec-fabro-sandbox:python-v1.216.0
@@ -784,7 +861,7 @@ jobs:
   check-metadata-batch:
     name: check-metadata-batch
     needs: [merge-group-guard]
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && needs.merge-group-guard.outputs.skip != 'true' }}
     runs-on: ${{ needs.merge-group-guard.outputs.trusted == 'true' && fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') || 'ubuntu-latest' }}
     container:
       image: ghcr.io/livespec-ai/livespec-fabro-sandbox:python-v1.216.0
@@ -929,6 +1006,9 @@ jobs:
       pull-requests: read
     outputs:
       omitted: ${{ steps.entrance.outputs.omitted }}
+      # The merge-group guard's skip output, relayed so ci-green (which needs this job) can hand it
+      # to a required-leg reader without joining the incident leaf universe itself.
+      guard_skip: ${{ needs.merge-group-guard.outputs.skip }}
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -1114,6 +1194,17 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
+      # The required aggregate names every member an expedited incident PR omitted, as the released
+      # incident controller's passed aggregate published them. Silent on every other run. The
+      # tree-equality skip reads this step's conclusion on a PR head's ci-green: `skipped` means no
+      # incident-omitted set; its name matches livespec-dev-tooling's merge_group_skip._OMITTED_STEP.
+      - name: Report members omitted-by-incident-policy
+        if: ${{ needs.incident-ci.result == 'success' && needs.incident-ci.outputs.omitted != '' }}
+        env:
+          OMITTED: ${{ needs.incident-ci.outputs.omitted }}
+        run: |
+          echo "ci-green: omitted-by-incident-policy ${OMITTED}. These members were not executed; the released incident controller's passed aggregate (job incident-ci) defers them for this pull request head. Every other required job ran in full." | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: All required checks passed
         if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
         run: exit 1
