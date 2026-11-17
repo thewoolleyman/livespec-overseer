@@ -133,4 +133,4 @@ no `epic.md`, and a stored resume override still naming that retired path is
 rewritten to the ledger-epic resume. A third party can run the tool with no
 livespec install at all.
 
-Pull requests land on master through the livespec-ai merge queue (ruleset master-incident-recovery-bypass); ci-green is the required check.
+Pull requests land on master through the livespec-ai merge queue (ruleset master-incident-recovery-bypass); the required checks are the contexts the master ruleset lists, ending in `ci-green`.
