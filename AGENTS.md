@@ -1,7 +1,7 @@
 # livespec-overseer — repo orientation
 
 livespec-overseer is the Control-Plane operator tool for livespec. It ships
-exactly THREE operator surfaces, and nothing else:
+exactly FOUR operator surfaces, and nothing else:
 
 - **`overseer`** — the two-pane overseer daemon (`overseerd`), which watches
   every tracked agent session's remaining context headroom, injects an
@@ -13,6 +13,9 @@ exactly THREE operator surfaces, and nothing else:
   repository's open scope, triages it in ruled batches, dispatches it through
   detached probe-gated engines, and loops on outcomes until every item is
   closed or dispositioned.
+- **`llm-provider-manager`** — acquires, validates, stores and replaces the
+  configured LLM provider credentials (`README.md` lists it as the fourth
+  shipped command).
 
 **That count was TWO until 2026-09-09, and the third entry deliberately
 REVERSES console plan decision D5** (the "bucket-2 trim", maintainer ruling
