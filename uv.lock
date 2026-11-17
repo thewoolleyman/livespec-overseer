@@ -182,8 +182,8 @@ wheels = [
 
 [[package]]
 name = "livespec-dev-tooling"
-version = "1.218.0"
-source = { git = "https://github.com/livespec-ai/livespec-dev-tooling.git?tag=v1.218.0#00cc04ba18360cb30d3f0599ac3c33506300ad27" }
+version = "1.219.1"
+source = { git = "https://github.com/livespec-ai/livespec-dev-tooling.git?tag=v1.219.1#fdb0913697d6786673a8a48cbd3fafac840fcc8c" }
 dependencies = [
     { name = "anyio" },
     { name = "typing-extensions" },
@@ -215,7 +215,7 @@ requires-dist = [{ name = "livespec-runtime", git = "https://github.com/livespec
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "livespec-dev-tooling", git = "https://github.com/livespec-ai/livespec-dev-tooling.git?tag=v1.218.0" },
+    { name = "livespec-dev-tooling", git = "https://github.com/livespec-ai/livespec-dev-tooling.git?tag=v1.219.1" },
     { name = "nodejs-wheel-binaries", specifier = "==24.19.0" },
     { name = "pyright", specifier = "==1.1.391" },
     { name = "pytest", specifier = "==8.3.4" },
