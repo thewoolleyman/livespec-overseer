@@ -1,4 +1,4 @@
-"""The pi plugin-root resolver tries the livespec-ai clone first, thewoolleyman second."""
+"""The pi plugin-root resolver resolves only the livespec-ai clone, never the old owner's."""
 
 from __future__ import annotations
 
@@ -40,11 +40,13 @@ def test_a_livespec_ai_clone_resolves(tmp_path: pathlib.Path) -> None:
     assert result.stdout.strip() == str(clone)
 
 
-def test_a_legacy_thewoolleyman_clone_still_resolves(tmp_path: pathlib.Path) -> None:
-    clone = _make_clone(project=tmp_path, owner="thewoolleyman")
+def test_a_legacy_thewoolleyman_clone_alone_does_not_resolve(tmp_path: pathlib.Path) -> None:
+    _make_clone(project=tmp_path, owner="thewoolleyman")
     result = _resolve(project=tmp_path)
-    assert result.returncode == 0
-    assert result.stdout.strip() == str(clone)
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert "livespec-overseer plugin root could not be resolved." in result.stderr
+    assert "pi install git:github.com/livespec-ai/livespec-overseer@release -l" in result.stderr
 
 
 def test_the_livespec_ai_clone_wins_when_both_exist(tmp_path: pathlib.Path) -> None:
