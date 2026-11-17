@@ -21,6 +21,7 @@ from tests.integration.test_caam_capacity_reporting import (
     LARGE_PLAN,
     NOW,
     CapacityHarness,
+    reset_at,
     usage,
 )
 
@@ -179,3 +180,47 @@ def test_a_reading_the_provider_declines_is_recorded_unreadable_not_empty(
     assert observed["silent"] == ResetReading(resets=(), unreadable_reason="reset reading failed")
     assert observed["empty"] is not None and observed["empty"].unreadable_reason is None
     assert observed["recurring"] == ResetReading(resets=(RECURRING,))
+
+
+def test_scenario_the_account_table_shows_each_accounts_resets(*, tmp_path: Path) -> None:
+    """Two available reset uses render once, with the earliest lapse rounded down.
+
+    This drives the shipped pass because the account table is its operator-facing
+    report.  The two resets deliberately lapse at different times: counting reset
+    records rather than their remaining uses, or selecting the later lapse, cannot
+    satisfy the row assertion.
+    """
+    resets = (
+        QuotaReset(
+            program="cedar_ember",
+            reset_id="first",
+            clears=("five_hour",),
+            uses_left=1,
+            uses_total=1,
+            lapses_at=reset_at(seconds_from_now=5 * 86_400 + 4 * 3_600 + 59 * 60),
+            usable_now=True,
+            requires_limit=False,
+        ),
+        QuotaReset(
+            program="juniper_tide",
+            reset_id="second",
+            clears=("seven_day",),
+            uses_left=1,
+            uses_total=1,
+            lapses_at=reset_at(seconds_from_now=8 * 86_400),
+            usable_now=True,
+            requires_limit=False,
+        ),
+    )
+    harness = harness_with(
+        home=tmp_path,
+        live_resets={"anthropic-0": ResetReading(resets=resets)},
+    )
+
+    code, lines = harness.run()
+
+    assert code == 0
+    header = next(line for line in lines if line.startswith("PROFILE"))
+    row = next(line for line in lines if line.startswith("anthropic-0"))
+    assert "QUOTA RESETS" in header
+    assert "2, next expires in 5d 4h" in row
