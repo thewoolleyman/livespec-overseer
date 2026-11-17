@@ -1,2 +1,2 @@
-work_item=overseer-mco6yk
-reason=Add the guarded merge_group trigger and merge-group-guard job to ci.yml so the org merge queue can run (livespec-dev-tooling-frkuef); maintainer ruling 2026-11-16, coordinator-authorized.
+work_item=overseer-e4bpgv
+reason=CI reads the PR body via the issues endpoint and the head sha via GraphQL so a transient 422 after a force-push cannot fail the step.
