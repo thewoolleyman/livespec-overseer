@@ -30,6 +30,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A Claude seat started under a launch shell is read as the track's live seat",
+    "work_item": "overseer-aw336m",
+    "first_seen": "2026-11-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A Codex session held by a helper a worker thread spawned is adopted like any other",
     "work_item": "overseer-uzvcbn.21",
     "first_seen": "2026-11-13"
@@ -275,9 +282,23 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A factory account at its protection floor is replaced on the next pass",
+    "work_item": "overseer-shojan",
+    "first_seen": "2026-11-16"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed alert delivery is reported and does not block rotation",
     "work_item": "overseer-meryyx",
     "first_seen": "2026-11-10"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A failed apply leaves the host on its previous delivery",
+    "work_item": "overseer-aj577z",
+    "first_seen": "2026-11-13"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -387,6 +408,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A host that was unreachable receives the current delivery when it returns",
+    "work_item": "overseer-aj577z",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A keep-going nudge is delivered through a session-bound channel",
     "work_item": "overseer-uepcr6",
     "first_seen": "2026-10-15"
@@ -450,6 +478,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A launch shell with no Claude process for the topic stays session-gone",
+    "work_item": "overseer-aw336m",
+    "first_seen": "2026-11-15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A launcher death before release leaves no provider action",
     "work_item": "overseer-psqcmg",
     "first_seen": "2026-09-12"
@@ -460,6 +495,20 @@
     "heading": "## Scenario: A live Codex carrier with no exact session evidence reads unidentified, never gone",
     "work_item": "overseer-a3ymdg",
     "first_seen": "2026-10-26"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A live herdr test releases its staged startup transient only after the shell pin, and always releases it",
+    "work_item": "overseer-wbrvxm",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A live herdr test's staged startup transient outlives a slow first reading",
+    "work_item": "overseer-wbrvxm",
+    "first_seen": "2026-11-13"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -499,6 +548,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A macOS host applies a delivery from its inbox and its result is recorded",
+    "work_item": "overseer-7m6wu6",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A malformed consumer failure report changes no credential state",
     "work_item": "overseer-cct6gv",
     "first_seen": "2026-09-12"
@@ -523,6 +579,13 @@
     "heading": "## Scenario: A nonconsecutive completion starts a new dated soak",
     "work_item": "overseer-fkgrsf",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A pass names each rotation threshold set away from its default",
+    "work_item": "overseer-gzjv4s",
+    "first_seen": "2026-11-14"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -583,6 +646,20 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A push refuses to overwrite a host's own login",
+    "work_item": "overseer-aj577z",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A qualifying factory account is kept rather than moved",
+    "work_item": "overseer-shojan",
+    "first_seen": "2026-11-16"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A rate-limited probe is inconclusive and not alerted",
     "work_item": "overseer-wh4sh2",
     "first_seen": "2026-11-10"
@@ -625,9 +702,30 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready seat is held while its live-seat record cannot be verified",
+    "work_item": "overseer-xncthh",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready seat is held, not replaced, while the host is below its memory floor",
+    "work_item": "overseer-uzvcbn.23",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A ready track held from replacement past the hold window logs a hold event",
     "work_item": "overseer-tzi4y6",
     "first_seen": "2026-11-05"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready-gated restart of a Claude seat keeps its Remote Control name",
+    "work_item": "overseer-m3p2ei",
+    "first_seen": "2026-11-15"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -842,9 +940,23 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A seat moved between machines is bound only after the old seat releases",
+    "work_item": "overseer-xncthh",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A session that reinstates the previous identity reads as a switch that did not take effect",
     "work_item": "overseer-a3ymdg",
     "first_seen": "2026-10-26"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A session-starting surface does not launch while another machine holds the topic's live seat",
+    "work_item": "overseer-bluagz",
+    "first_seen": "2026-11-14"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -870,6 +982,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A staged startup transient ended by its hang guard fails the exercise loudly",
+    "work_item": "overseer-wbrvxm",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A stale delivery cannot move a host back",
     "work_item": "overseer-cpngcd",
     "first_seen": "2026-11-08"
@@ -880,6 +999,13 @@
     "heading": "## Scenario: A stopped delivery service does not affect a rotation pass",
     "work_item": "overseer-tzi4y6",
     "first_seen": "2026-11-08"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A stopped machine's live-seat record is not taken over by time",
+    "work_item": "overseer-xncthh",
+    "first_seen": "2026-11-13"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -898,9 +1024,23 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A threshold override tied to an account's reset lapses once the reset is used",
+    "work_item": "overseer-gzjv4s",
+    "first_seen": "2026-11-14"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A token-store write invalidates cache and appends a secret-free audit entry",
     "work_item": "overseer-eg3iex",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A topic live on one machine is not bound on another",
+    "work_item": "overseer-xncthh",
+    "first_seen": "2026-11-13"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -922,6 +1062,13 @@
     "heading": "## Scenario: A worker spawn failure is an internal bug",
     "work_item": "overseer-psqcmg",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A write to the plan epic leaves the topic's live-seat record intact",
+    "work_item": "overseer-fnu5gl",
+    "first_seen": "2026-11-14"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -1209,6 +1356,13 @@
     "heading": "## Scenario: An unreachable enrolled host does not affect a rotation pass",
     "work_item": "overseer-cpngcd",
     "first_seen": "2026-11-08"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unresolved interactive identity suppresses both selection records",
+    "work_item": "overseer-shojan",
+    "first_seen": "2026-11-16"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -1787,6 +1941,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: No qualifying factory account publishes a reason instead of a stale account",
+    "work_item": "overseer-shojan",
+    "first_seen": "2026-11-16"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: Non-qualifying completion evidence cannot advance coexistence proof",
     "work_item": "overseer-l4mtlv",
     "first_seen": "2026-09-12"
@@ -2158,6 +2319,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: The account table's columns align on every kind of row",
+    "work_item": "overseer-fr3hnj",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: The capacity cell shows the plan display name without wrapping",
     "work_item": "overseer-zmkkef",
     "first_seen": "2026-11-05"
@@ -2214,9 +2382,44 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: The factory selection never names the interactive account",
+    "work_item": "overseer-shojan",
+    "first_seen": "2026-11-16"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The factory selection reaches every listed host",
+    "work_item": "overseer-shojan",
+    "first_seen": "2026-11-16"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The host list and the service stores hold no credential material",
+    "work_item": "overseer-aj577z",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The interactive selection is unchanged by the factory decision",
+    "work_item": "overseer-shojan",
+    "first_seen": "2026-11-16"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: The lifecycle table determines every credential state transition",
     "work_item": "overseer-gjiflf",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The live login is delivered when it diverges from the selected account",
+    "work_item": "overseer-aj577z",
+    "first_seen": "2026-11-13"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -2263,6 +2466,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: The role key is readable only by the role holder's operating user",
+    "work_item": "overseer-aj577z",
+    "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: The rotation pass runs while every agent session's login is dark",
     "work_item": "overseer-meryyx",
     "first_seen": "2026-11-10"
@@ -2280,6 +2490,13 @@
     "heading": "## Scenario: The selection brain reads metadata but no secret value",
     "work_item": "overseer-cct6gv",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The service refuses to push to a host whose host key it cannot verify",
+    "work_item": "overseer-aj577z",
+    "first_seen": "2026-11-13"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -2367,226 +2584,9 @@
   },
   {
     "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A live herdr test releases its staged startup transient only after the shell pin, and always releases it",
-    "work_item": "overseer-wbrvxm",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A live herdr test's staged startup transient outlives a slow first reading",
-    "work_item": "overseer-wbrvxm",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A staged startup transient ended by its hang guard fails the exercise loudly",
-    "work_item": "overseer-wbrvxm",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A failed apply leaves the host on its previous delivery",
-    "work_item": "overseer-aj577z",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A host that was unreachable receives the current delivery when it returns",
-    "work_item": "overseer-aj577z",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A macOS host applies a delivery from its inbox and its result is recorded",
-    "work_item": "overseer-7m6wu6",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The host list and the service stores hold no credential material",
-    "work_item": "overseer-aj577z",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The role key is readable only by the role holder's operating user",
-    "work_item": "overseer-aj577z",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A push refuses to overwrite a host's own login",
-    "work_item": "overseer-aj577z",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The live login is delivered when it diverges from the selected account",
-    "work_item": "overseer-aj577z",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The service refuses to push to a host whose host key it cannot verify",
-    "work_item": "overseer-aj577z",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A ready seat is held, not replaced, while the host is below its memory floor",
-    "work_item": "overseer-uzvcbn.23",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The account table's columns align on every kind of row",
-    "work_item": "overseer-fr3hnj",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Supervision across machines",
     "work_item": "overseer-fnu5gl",
     "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A topic live on one machine is not bound on another",
-    "work_item": "overseer-xncthh",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A stopped machine's live-seat record is not taken over by time",
-    "work_item": "overseer-xncthh",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A ready seat is held while its live-seat record cannot be verified",
-    "work_item": "overseer-xncthh",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A seat moved between machines is bound only after the old seat releases",
-    "work_item": "overseer-xncthh",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A session-starting surface does not launch while another machine holds the topic's live seat",
-    "work_item": "overseer-bluagz",
-    "first_seen": "2026-11-14"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A pass names each rotation threshold set away from its default",
-    "work_item": "overseer-gzjv4s",
-    "first_seen": "2026-11-14"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A threshold override tied to an account's reset lapses once the reset is used",
-    "work_item": "overseer-gzjv4s",
-    "first_seen": "2026-11-14"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A write to the plan epic leaves the topic's live-seat record intact",
-    "work_item": "overseer-fnu5gl",
-    "first_seen": "2026-11-14"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A Claude seat started under a launch shell is read as the track's live seat",
-    "work_item": "overseer-aw336m",
-    "first_seen": "2026-11-15"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A launch shell with no Claude process for the topic stays session-gone",
-    "work_item": "overseer-aw336m",
-    "first_seen": "2026-11-15"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A ready-gated restart of a Claude seat keeps its Remote Control name",
-    "work_item": "overseer-m3p2ei",
-    "first_seen": "2026-11-15"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The factory selection never names the interactive account",
-    "work_item": "overseer-shojan",
-    "first_seen": "2026-11-16"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A factory account at its protection floor is replaced on the next pass",
-    "work_item": "overseer-shojan",
-    "first_seen": "2026-11-16"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A qualifying factory account is kept rather than moved",
-    "work_item": "overseer-shojan",
-    "first_seen": "2026-11-16"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: No qualifying factory account publishes a reason instead of a stale account",
-    "work_item": "overseer-shojan",
-    "first_seen": "2026-11-16"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: An unresolved interactive identity suppresses both selection records",
-    "work_item": "overseer-shojan",
-    "first_seen": "2026-11-16"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The interactive selection is unchanged by the factory decision",
-    "work_item": "overseer-shojan",
-    "first_seen": "2026-11-16"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The factory selection reaches every listed host",
-    "work_item": "overseer-shojan",
-    "first_seen": "2026-11-16"
   }
 ]
