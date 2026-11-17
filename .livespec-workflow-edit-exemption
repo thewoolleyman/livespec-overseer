@@ -1,2 +1,2 @@
-work_item=overseer-e4bpgv
-reason=CI reads the PR body via the issues endpoint and the head sha via GraphQL so a transient 422 after a force-push cannot fail the step.
+work_item=overseer-44vfvc
+reason=Merge-group tree-equality skip rollout (guard skip output plus the skip term gating each job (job-level if for plain and ci-green-only jobs, per-step if for matrix and per-file jobs), and ci-green's omitted-by-incident-policy report step), ratified by the maintainer 2026-11-16 on epic livespec-dev-tooling-xowhol (carrier livespec-dev-tooling-ymog6r); tier is maintainer.
