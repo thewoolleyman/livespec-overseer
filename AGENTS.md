@@ -47,7 +47,7 @@ gates come from the pinned `livespec-dev-tooling` release).
 | Path | Purpose |
 |---|---|
 | `SPECIFICATION/` | The live livespec specification governing the supervision contract (maintained via the `/livespec:*` lifecycle) |
-| `overseer/` | The supervision package: eight stdlib-only modules, the `overseerd` daemon and `overseer-start` bootstrap executables, their beside-tests, and the deep maintenance docs |
+| `overseer/` | The supervision package: the stdlib-only supervision modules (`ls overseer/_*.py` enumerates the private ones), the `overseerd` daemon and `overseer-start` bootstrap executables, their beside-tests, and the deep maintenance docs |
 | `tests/` | Repo-level test fixtures (`heading-coverage.json`) |
 | `justfile`, `pyproject.toml`, `lefthook.yml`, `.mise.toml`, `.livespec.jsonc`, `.beads/` | Fleet-standard toolchain, livespec, and work-items configuration |
 
