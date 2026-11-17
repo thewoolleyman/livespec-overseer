@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import importlib
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 
+import caam_rendering
 import pytest
 from caam_anthropic_loop import Flags
 from caam_anthropic_pass import run_pass
@@ -126,7 +128,7 @@ def test_a_reset_reading_that_fails_or_is_unreadable_changes_neither_report_nor_
     *, tmp_path: Path
 ) -> None:
     """The quota report and the rotation decision ignore what the reset read returned."""
-    outcomes: list[tuple[int, tuple[str, ...], list[str]]] = []
+    outcomes: list[tuple[int, list[str]]] = []
     for index, live_resets in enumerate(
         (
             {},
@@ -138,10 +140,10 @@ def test_a_reset_reading_that_fails_or_is_unreadable_changes_neither_report_nor_
         )
     ):
         harness = harness_with(home=tmp_path / str(index), live_resets=live_resets)
-        code, lines = harness.run()
-        outcomes.append((code, lines, harness.switches))
+        code, _ = harness.run()
+        outcomes.append((code, harness.switches))
 
-    assert outcomes[0][2] == ["anthropic-1"], "the baseline pass did not rotate"
+    assert outcomes[0][1] == ["anthropic-1"], "the baseline pass did not rotate"
     assert outcomes[1] == outcomes[0]
     assert outcomes[2] == outcomes[0]
 
@@ -224,3 +226,167 @@ def test_scenario_the_account_table_shows_each_accounts_resets(*, tmp_path: Path
     row = next(line for line in lines if line.startswith("anthropic-0"))
     assert "QUOTA RESETS" in header
     assert "2, next expires in 5d 4h" in row
+
+
+def test_scenario_a_reset_reading_declined_for_the_requesting_client_is_unreadable_not_empty(
+    *, tmp_path: Path
+) -> None:
+    """A declined pass read renders `unreadable`, not the empty-reading `0`."""
+    harness = harness_with(
+        home=tmp_path,
+        live_resets={
+            "anthropic-0": ResetReading(resets=(), unreadable_reason="client surface is ineligible")
+        },
+    )
+
+    code, lines = harness.run()
+
+    assert code == 0
+    header = next(line for line in lines if line.startswith("PROFILE"))
+    row = next(line for line in lines if line.startswith("anthropic-0"))
+    quota_start = _terminal_column(line=header, text="QUOTA RESETS")
+    assert _terminal_column(line=row, text="unreadable") == quota_start
+    assert "unreadable" in _field(line=row, start=quota_start, width=28)
+
+
+def test_a_reset_with_no_lapse_contributes_uses_but_not_a_next_expiry() -> None:
+    cell = caam_rendering.quota_resets_cell(
+        reading=ResetReading(resets=(RECURRING,)),
+        now=datetime.fromtimestamp(NOW, tz=timezone.utc),
+    )
+
+    assert cell == "1"
+
+
+def test_scenario_the_account_tables_columns_align_on_every_kind_of_row() -> None:
+    """The table's fixed-width cells stay aligned across every row shape."""
+    now = datetime.fromtimestamp(NOW, tz=timezone.utc)
+    readable = ProfileUsage(
+        name="readable",
+        source="live",
+        usage=UsageRecord(
+            five_hour_remaining=81.0,
+            seven_day_remaining=73.0,
+            five_hour_resets_at=reset_at(seconds_from_now=2 * 3_600 + 30 * 60),
+            seven_day_resets_at=reset_at(seconds_from_now=2 * 86_400 + 3 * 3_600 + 12 * 60),
+            fable_remaining=59.0,
+            fable_resets_at=reset_at(seconds_from_now=86_400 + 5 * 60),
+            unrecognised_limits=(("other", 64.0, reset_at(seconds_from_now=2 * 3_600)),),
+        ),
+        reset_reading=ResetReading(resets=()),
+    )
+    rows = (
+        ProfileUsage(
+            name="active",
+            source="live",
+            usage=readable.usage,
+            reset_reading=ResetReading(
+                resets=(
+                    QuotaReset(
+                        program="cedar_ember",
+                        reset_id="available",
+                        clears=("five_hour",),
+                        uses_left=2,
+                        uses_total=2,
+                        lapses_at=reset_at(seconds_from_now=5 * 86_400 + 4 * 3_600),
+                        usable_now=True,
+                        requires_limit=False,
+                    ),
+                )
+            ),
+        ),
+        readable,
+        ProfileUsage(
+            name="no-short",
+            source="live",
+            usage=UsageRecord(
+                five_hour_remaining=0.0,
+                seven_day_remaining=73.0,
+                five_hour_resets_at=None,
+                seven_day_resets_at=reset_at(seconds_from_now=2 * 86_400),
+                fable_remaining=59.0,
+                fable_resets_at=reset_at(seconds_from_now=86_400),
+                short_window_present=False,
+                unrecognised_limits=(),
+            ),
+            reset_reading=ResetReading(resets=()),
+        ),
+        ProfileUsage(name="no-usage", source="dark: no token", usage=None),
+        ProfileUsage(
+            name="stale",
+            source="cached 1.0h",
+            usage=UsageRecord(
+                five_hour_remaining=81.0,
+                seven_day_remaining=73.0,
+                five_hour_resets_at=reset_at(seconds_from_now=-60),
+                seven_day_resets_at=reset_at(seconds_from_now=2 * 86_400),
+                fable_remaining=59.0,
+                fable_resets_at=reset_at(seconds_from_now=86_400),
+            ),
+        ),
+    )
+
+    header, *rendered = caam_rendering.render_table(
+        rows=rows, active_name="active", now=now
+    ).splitlines()[1:]
+    columns = (
+        ("PROFILE", 13, "left", 1),
+        ("CURRENT", 8, "left", 1),
+        ("5H LEFT", 7, "right", 1),
+        ("5H RESET", 13, "right", 1),
+        ("WEEK LEFT", 9, "right", 1),
+        ("WEEK RESET", 13, "right", 1),
+        ("FABLE LEFT", 10, "right", 1),
+        ("FABLE RESET", 13, "right", 1),
+        ("OTHER LIMITS", 29, "left", 1),
+        ("QUOTA RESETS", 28, "left", 1),
+        ("EXTRA", 7, "right", 1),
+        ("$ LEFT", 8, "right", 2),
+        ("CAPACITY", 30, "left", 2),
+    )
+    start = 0
+    for title, width, alignment, spacing in columns:
+        assert _field(line=header, start=start, width=width).strip() == title
+        for line in rendered:
+            field = _field(line=line, start=start, width=width)
+            value = field.strip()
+            if value:
+                assert field.startswith(value) if alignment == "left" else field.endswith(value), (
+                    title,
+                    repr(field),
+                    repr(value),
+                    repr(line),
+                )
+        start += width + spacing
+    assert _field(line=rendered[0], start=0, width=13).strip() == "active"
+    assert _field(line=rendered[0], start=14, width=8).startswith("✅")
+    assert _field(line=rendered[0], start=124, width=28).strip() == "2, next expires in 5d 4h"
+    assert _field(line=rendered[1], start=124, width=28).strip() == "0"
+    assert _field(line=rendered[2], start=124, width=28).strip() == "0"
+    assert _field(line=rendered[3], start=124, width=28).strip() == "-"
+    assert _field(line=rendered[4], start=124, width=28).strip() == "?"
+    five_hour_start, five_hour_width = 23, 7
+    reset_end = five_hour_start + five_hour_width + 1 + 13
+    no_short_window = _field(
+        line=rendered[2], start=five_hour_start, width=reset_end - five_hour_start
+    ).strip()
+    assert no_short_window == "no short-window limit"
+
+
+def _terminal_column(*, line: str, text: str) -> int:
+    return _terminal_width(text=line[: line.index(text)])
+
+
+def _field(*, line: str, start: int, width: int) -> str:
+    output = ""
+    column = 0
+    for character in line:
+        character_width = 2 if character == "✅" else 1
+        if start <= column and column + character_width <= start + width:
+            output += character
+        column += character_width
+    return output
+
+
+def _terminal_width(*, text: str) -> int:
+    return sum(2 if character == "✅" else 1 for character in text)

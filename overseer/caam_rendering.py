@@ -10,12 +10,15 @@ from typing import Protocol
 
 from caam_capacity import AccountCapacity, capacity_cell
 from caam_decision_models import ExtraUsage
+from caam_resets import ResetReading
 from caam_scoped_model import SCOPED_MODEL
 from caam_spend_report import extra_usage_cells
+from caam_table_cells import quota_resets_cell, unrecognised_limits_cell
 
 __all__: list[str] = [
     "CAPACITY_COL",
     "CURRENT_COL",
+    "QUOTA_RESETS_COL",
     "RenderableProfileUsage",
     "RenderableUsageRecord",
     "SwitchTargetSummary",
@@ -54,6 +57,7 @@ class RenderableProfileUsage(Protocol):
     source: str
     usage: RenderableUsageRecord | None
     capacity: AccountCapacity | None
+    reset_reading: ResetReading | None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -66,6 +70,7 @@ class SwitchTargetSummary:
 
 
 CURRENT_COL = 8
+QUOTA_RESETS_COL = 28
 # Wide enough for the longest class-plus-detail Anthropic produces,
 # `large (default_claude_max_20x)`, so SOURCE stays in one column.
 CAPACITY_COL = 30
@@ -110,7 +115,10 @@ def render_table(
     )
     if show_unrecognised_limits:
         header += f"{'OTHER LIMITS':<29} "
-    header += f"{'EXTRA':>7} {'$ LEFT':>8}  {'CAPACITY':<{CAPACITY_COL}}  SOURCE"
+    header += (
+        f"{'QUOTA RESETS':<{QUOTA_RESETS_COL}} "
+        f"{'EXTRA':>7} {'$ LEFT':>8}  {'CAPACITY':<{CAPACITY_COL}}  SOURCE"
+    )
     lines = [
         "",
         header,
@@ -266,6 +274,7 @@ def row_line(
             f"{row.name:<13} {current_cell(is_active=is_active)} "
             f"{'-':>7} {'-':>13} {'-':>9} {'-':>13} {'-':>10} {'-':>13} "
             f"{unrecognised}"
+            f"{'-':<{QUOTA_RESETS_COL}} "
             f"{'-':>7} {'-':>8}  {capacity:<{CAPACITY_COL}}  {source}"
         )
     if stale_past_reset(usage=row.usage, source=row.source, now=now, is_active=is_active):
@@ -274,6 +283,7 @@ def row_line(
             f"{row.name:<13} {current_cell(is_active=is_active)} "
             f"{'?':>7} {'reset':>13} {'?':>9} {'reset':>13} {'?':>10} {'reset':>13} "
             f"{unrecognised}"
+            f"{'?':<{QUOTA_RESETS_COL}} "
             f"{'?':>7} {'?':>8}  {capacity:<{CAPACITY_COL}}  {source}, stale"
         )
     # Every cell is the stored figure printed as it stands: the record already
@@ -287,7 +297,7 @@ def row_line(
     )
     fable = f"{row.usage.fable_remaining:.0f}%" if row.usage.fable_remaining is not None else "-"
     unrecognised = (
-        f"{_unrecognised_limits_cell(limits=row.usage.unrecognised_limits, now=now):<29} "
+        f"{unrecognised_limits_cell(limits=row.usage.unrecognised_limits, now=now):<29} "
         if show_unrecognised_limits
         else ""
     )
@@ -297,22 +307,10 @@ def row_line(
         f"{short_window}"
         f"{row.usage.seven_day_remaining:8.0f}% "
         f"{until(timestamp=row.usage.seven_day_resets_at, now=now):>13} "
-        f"{fable:>9} {until(timestamp=row.usage.fable_resets_at, now=now):>13} "
+        f"{fable:>10} {until(timestamp=row.usage.fable_resets_at, now=now):>13} "
         f"{unrecognised}"
+        f"{quota_resets_cell(reading=row.reset_reading, now=now):<{QUOTA_RESETS_COL}} "
         f"{extra_state:>7} {extra_left:>8}  {capacity:<{CAPACITY_COL}}  {source}"
-    )
-
-
-def _unrecognised_limits_cell(
-    *, limits: tuple[tuple[str, float, str | None], ...], now: datetime
-) -> str:
-    return (
-        ", ".join(
-            f"{kind} {remaining:.0f}%"
-            + (f" (reset {until(timestamp=reset_at, now=now)})" if reset_at is not None else "")
-            for kind, remaining, reset_at in limits
-        )
-        or "-"
     )
 
 

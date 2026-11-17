@@ -786,13 +786,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A reset reading declined for the requesting client is unreadable, not empty",
-    "work_item": "overseer-fr3hnj",
-    "first_seen": "2026-10-15"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: A retried claim reuses its identifier",
     "work_item": "overseer-fecnyt",
     "first_seen": "2026-10-15"
@@ -2151,13 +2144,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: The account table shows each account's resets",
-    "work_item": "overseer-fr3hnj",
-    "first_seen": "2026-10-15"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: The capacity cell shows the plan display name without wrapping",
     "work_item": "overseer-zmkkef",
     "first_seen": "2026-11-05"
@@ -2447,13 +2433,6 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A ready seat is held, not replaced, while the host is below its memory floor",
     "work_item": "overseer-uzvcbn.23",
-    "first_seen": "2026-11-13"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: The account table's columns align on every kind of row",
-    "work_item": "overseer-fr3hnj",
     "first_seen": "2026-11-13"
   },
   {

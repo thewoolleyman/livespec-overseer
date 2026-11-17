@@ -3408,17 +3408,15 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The account table shows each account's resets",
-    "test": "TODO",
-    "work_item": "overseer-fr3hnj",
-    "reason": "An integration-tier test over the rendered account table is owed for this heading, ratified for spec.md 'Account rotation and quota supervision' (the QUOTA RESETS column, SPECIFICATION v105); work item overseer-fr3hnj owns landing it, re-pointed from overseer-zelcaq when zelcaq was narrowed to the reset reading layer."
+    "test": "tests.integration.test_caam_reset_observation.test_scenario_the_account_table_shows_each_accounts_resets",
+    "reason": "Integration-tier: drives the shipped rotation pass with two reset records carrying one use each, verifies their summed uses and the earliest lapse rounded down in the QUOTA RESETS cell."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A reset reading declined for the requesting client is unreadable, not empty",
-    "test": "TODO",
-    "work_item": "overseer-fr3hnj",
-    "reason": "An integration-tier test over the rendered account table is owed for this heading, ratified for spec.md 'Account rotation and quota supervision' (the QUOTA RESETS column, SPECIFICATION v105); work item overseer-fr3hnj owns landing it, re-pointed from overseer-zelcaq when zelcaq was narrowed to the reset reading layer."
+    "test": "tests.integration.test_caam_reset_observation.test_scenario_a_reset_reading_declined_for_the_requesting_client_is_unreadable_not_empty",
+    "reason": "Integration-tier: drives a declined reset read through the shipped pass and asserts its QUOTA RESETS cell is unreadable rather than the empty-reading value."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4732,9 +4730,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The account table's columns align on every kind of row",
-    "test": "TODO",
-    "work_item": "overseer-fr3hnj",
-    "reason": "An integration-tier test over the rendered account table is owed for this heading, ratified for spec.md 'Account rotation and quota supervision' (the QUOTA RESETS column and aligned columns) under proposal account-table-quota-resets-column, plan caam-quota-resets, epic overseer-pv53ri; work item overseer-fr3hnj owns landing it."
+    "test": "tests.integration.test_caam_reset_observation.test_scenario_the_account_tables_columns_align_on_every_kind_of_row",
+    "reason": "Integration-tier: checks terminal-width field boundaries for readable, no-short-window, no-usage and stale rows with OTHER LIMITS shown, including the two-column-wide active marker."
   },
   {
     "spec_root": "SPECIFICATION",

@@ -813,19 +813,23 @@ def test_protected_accounts_summary_reports_floors_and_table_is_unchanged(*, tmp
     assert result == 0
     assert "protected-accounts: main=12%, backup=5%" in out
     # Carrier R12's trigger header now leads every pass (overseer-54k2za.38), so the
-    # table starts one line later. The rows themselves are unchanged, which is what
-    # this test is actually about.
+    # table starts one line later. The account rows retain their existing quota values
+    # and add the unreadable reset-reading cell required by the account-table contract.
     assert "  triggers: " in out[0]
     assert out[1:6] == [
         "",
         "PROFILE       CURRENT  5H LEFT      5H RESET WEEK LEFT    WEEK RESET "
-        "FABLE LEFT   FABLE RESET   EXTRA   $ LEFT  CAPACITY                        SOURCE",
+        "FABLE LEFT   FABLE RESET QUOTA RESETS                   EXTRA   $ LEFT  "
+        "CAPACITY                        SOURCE",
         "active        ✅           90%        1h 20m       80%    1d 13h 20m       "
-        "90%    1d 13h 20m       -        -  unknown                         live",
+        " 90%    1d 13h 20m unreadable                         -        -  unknown "
+        "                        live",
         "backup                     90%        1h 20m       80%    1d 13h 20m       "
-        "90%    1d 13h 20m       -        -  unknown                         snapshot",
+        " 90%    1d 13h 20m unreadable                         -        -  unknown "
+        "                        snapshot",
         "main                       90%        1h 20m       80%    1d 13h 20m       "
-        "90%    1d 13h 20m       -        -  unknown                         snapshot",
+        " 90%    1d 13h 20m unreadable                         -        -  unknown "
+        "                        snapshot",
     ]
 
 

@@ -660,13 +660,17 @@ def test_table_renders_remaining_quota_reset_durations_and_source_text():
     assert caam_rendering.render_table(rows=rows, active_name="active", now=now) == (
         "\n"
         "PROFILE       CURRENT  5H LEFT      5H RESET WEEK LEFT    WEEK RESET "
-        "FABLE LEFT   FABLE RESET   EXTRA   $ LEFT  CAPACITY                        SOURCE\n"
+        "FABLE LEFT   FABLE RESET QUOTA RESETS                   EXTRA   $ LEFT  "
+        "CAPACITY                        SOURCE\n"
         "active        ✅           80%        2h 30m       70%     2d 3h 12m       "
-        "60%      1d 0h 5m       -        -  unknown                         live\n"
+        " 60%      1d 0h 5m unreadable                         -        -  unknown "
+        "                        live\n"
         "dark                         -             -         -             -          -"
-        "             -       -        -  unknown                         dark: no token\n"
-        "nofable                    10%            1m        5%         1h 0m         -"
-        "             -       -        -  unknown                         snapshot\n"
+        "             - -                                  -        -  unknown "
+        "                        dark: no token\n"
+        "nofable                    10%            1m        5%         1h 0m          -"
+        "             - unreadable                         -        -  unknown "
+        "                        snapshot\n"
         "\n"
     )
 
@@ -708,9 +712,11 @@ def test_cached_row_past_reset_renders_unknown_and_stale_source():
     assert caam_rendering.render_table(rows=(row,), active_name="active", now=now) == (
         "\n"
         "PROFILE       CURRENT  5H LEFT      5H RESET WEEK LEFT    WEEK RESET "
-        "FABLE LEFT   FABLE RESET   EXTRA   $ LEFT  CAPACITY                        SOURCE\n"
+        "FABLE LEFT   FABLE RESET QUOTA RESETS                   EXTRA   $ LEFT  "
+        "CAPACITY                        SOURCE\n"
         "cached                       ?         reset         ?         reset          ?"
-        "         reset       ?        ?  unknown                         cached 1.0h, stale\n"
+        "         reset ?                                  ?        ?  unknown "
+        "                        cached 1.0h, stale\n"
         "\n"
     )
 
