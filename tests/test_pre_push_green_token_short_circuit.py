@@ -108,15 +108,15 @@ def _just_invocations(*, just_log: Path) -> list[str]:
     return [line for line in just_log.read_text(encoding="utf-8").splitlines() if line]
 
 
-def test_matching_green_token_skips_the_full_aggregate(tmp_path: Path) -> None:
+def test_matching_green_token_still_runs_the_full_aggregate(tmp_path: Path) -> None:
+    """A token match must not skip members that read state outside the tree."""
     completed, just_log = _run_pre_push(tmp_path=tmp_path, green_token_matches=True)
 
     assert completed.returncode == 0
-    assert "green token matched" in completed.stdout
+    assert "NOT skipping the aggregate" in completed.stdout
     invocations = _just_invocations(just_log=just_log)
-    # The plan-anchor check still runs; the full aggregate does NOT.
     assert "check-plan-anchor-metadata" in invocations
-    assert "check" not in invocations
+    assert "check" in invocations
 
 
 def test_missing_green_token_runs_the_full_aggregate(tmp_path: Path) -> None:

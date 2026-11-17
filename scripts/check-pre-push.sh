@@ -36,8 +36,11 @@ run_plan_anchor_metadata_check
 # is deliberately left OUTSIDE this skip: it is cheap and ledger-dependent (its
 # verdict can change with no tree change), so it must keep running every push.
 if uv run python -m livespec_dev_tooling.green_token check 2>&1; then
-  echo ":: pre-push: green token matched - tree byte-identical to last green check; skipping full aggregate (CI is authoritative)"
-  exit 0
+  # A token match no longer skips the aggregate: the token memoizes a tree, and members that read
+  # state outside the tree (master CI, branch protection, the ledger, the workflow-edit exemption)
+  # can answer differently for the same tree, so a refused or partial earlier run must not
+  # stand in for this push (livespec-dev-tooling-mj37jk; dev-tooling fdd0ea878).
+  echo ":: pre-push: green token matched - NOT skipping the aggregate; members that read state outside the tree must run on this push"
 fi
 
 # Delegated gate (overseer-cakxxq): on a host that can read the gates kubeconfig
