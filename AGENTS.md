@@ -111,6 +111,10 @@ is its own small lesson: **grep for the string, do not navigate to the cited lin
 A line number is a measurement too, and this one aged in eighteen days while the
 claim it points at stayed true.
 
+**FIFTH RE-MEASURE, 2026-11-17:** `ls overseer/_supervisor_*.py` returns **162**
+and `ls overseer/_*.py` returns **363**. Treat every inventory figure above as
+historical and enumerate from the tree.
+
 **And note precisely what is and is not gated**, because the sentence above is
 narrower than it reads: `tests/test_module_docs_match_the_repo.py` gates exactly
 ONE premise — that no authoritative doc denies `.ai/` exists in the present tense.
