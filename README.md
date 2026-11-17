@@ -47,6 +47,8 @@ Released-code lifecycle exercises use
 run private stores, watch roots, terminal instances and cleanup, and fails closed
 when any required lifecycle stage is missing or failed.
 
+Maintainers: start from `AGENTS.md`, which indexes the topic guides under `.ai/`.
+
 ## Installation For An Adopter Family
 
 Install the shipped surfaces for the family that will run the overseer:
