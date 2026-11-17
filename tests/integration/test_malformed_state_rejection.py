@@ -63,3 +63,23 @@ def test_malformed_state_is_left_when_a_valid_rewrite_wins_the_guard(*, tmp_path
 
     assert state.read_text(encoding="utf-8") == "ready\n"
     assert not state.with_name(".overseer-state.rejected").exists()
+
+
+def test_malformed_state_recovery_line_names_all_session_writable_values(*, tmp_path):
+    """The recovery instruction lists every value a tracked session may declare."""
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    declare(repo=repo, topic=topic, value="not-a-state", mtime=1001.0)
+
+    _ = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    recovery = next(
+        line
+        for text in fake.paste_texts()
+        for line in text.splitlines()
+        if line.startswith("RECOVERY:")
+    )
+    assert all(value in recovery for value in ("winding-down", "ready", "blocked", "done"))
