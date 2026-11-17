@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.64.1](https://github.com/livespec-ai/livespec-overseer/compare/v5.64.0...v5.64.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* **pi:** resolve only the livespec-ai plugin clone, dropping the old-owner fallback (livespec-dev-tooling-xowhol) ([2870c94](https://github.com/livespec-ai/livespec-overseer/commit/2870c945234accb3055d4d6ae975eb86058cbd49))
+
 ## [5.64.0](https://github.com/livespec-ai/livespec-overseer/compare/v5.63.0...v5.64.0) (2026-11-17)
 
 
