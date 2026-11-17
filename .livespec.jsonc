@@ -299,9 +299,12 @@
       // Committed-only and variable names only.
       "claude_credential_policy": {
         "mode": "numbered-slots",
+        // 2026-11-17: widened to anthropic-2 (reset to 100% at 00:00Z, nothing booked;
+        // legacy-coordinator-agent ruling 6tgd2z). anthropic-5 is OUT: at 5% weekly it
+        // sits below the 10% reserve, so falling over to it is not real capacity.
         "slots": [
           "CLAUDE_CODE_OAUTH_TOKEN__ANTHROPIC_4",
-          "CLAUDE_CODE_OAUTH_TOKEN__ANTHROPIC_5"
+          "CLAUDE_CODE_OAUTH_TOKEN__ANTHROPIC_2"
         ]
       },
       "implement": { "mechanical_targets": ["check-check-coverage-incremental", "check-coverage", "check-file-lloc", "check-format", "check-keyword-only-args", "check-lint", "check-no-lloc-soft-warnings", "check-per-file-coverage"] },
