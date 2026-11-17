@@ -1,2 +1,2 @@
-work_item=overseer-44vfvc
-reason=Merge-group tree-equality skip rollout (guard skip output plus the skip term gating each job (job-level if for plain and ci-green-only jobs, per-step if for matrix and per-file jobs), and ci-green's omitted-by-incident-policy report step), ratified by the maintainer 2026-11-16 on epic livespec-dev-tooling-xowhol (carrier livespec-dev-tooling-ymog6r); tier is maintainer.
+work_item=overseer-2rad5e
+reason=The export-telemetry job condition also admits merge_group so merge_group runs emit ci.run spans to Honeycomb (maintainer ruling 2026-11-17; reference livespec-dev-tooling-pixkgb); one modified condition line, so the tier is maintainer.
