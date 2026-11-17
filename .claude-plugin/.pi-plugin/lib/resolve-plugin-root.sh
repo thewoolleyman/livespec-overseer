@@ -16,8 +16,9 @@
 #   4. ~/.pi/agent/git/github.com/livespec-ai/livespec-overseer/.claude-plugin
 #      - the USER-scope pi package clone.
 #
-# Steps 3 and 4 try the livespec-ai clone FIRST, then the legacy thewoolleyman
-# clone as a fallback so installs made before the owner move still resolve.
+# Steps 3 and 4 resolve only the livespec-ai clone. The legacy pre-move owner's
+# clone path is no longer a fallback (no fleet host holds such a clone); an
+# install under it gets the install diagnostic below.
 #
 # A candidate counts as resolved ONLY when it carries the shared prose directory
 # and its plugin.json names this plugin. On success, writes the resolved
@@ -36,7 +37,6 @@ fi
 
 clone_suffixes=(
     "git/github.com/livespec-ai/$plugin_name/.claude-plugin"
-    "git/github.com/thewoolleyman/$plugin_name/.claude-plugin"
 )
 
 candidates=()
