@@ -17,6 +17,7 @@ import pytest
 
 TOKEN = "tok-" + "secret-a"
 _REAL_REPLACE = os.replace
+FACTORY_RECORD_REL = Path(".local/state/caam-usage-rotate/factory-selected-account.json")
 
 
 def _at_once(*, task: Callable[[], None]) -> None:
@@ -293,6 +294,55 @@ def test_push_treats_a_host_already_holding_the_sequence_as_reached(*, tmp_path:
     assert state["ahead"]["last_error"] == "stale-sequence 3 host-applied 7"
     assert state["ahead"]["last_error_at"] == 50.0
     assert "last_success" not in state["ahead"]
+
+
+def test_push_writes_the_current_factory_selection_record_to_every_listed_host(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    push = importlib.import_module("caam_delivery_push")
+    service = importlib.import_module("caam_delivery_service")
+    holder = tmp_path / "holder"
+    source_record = holder / FACTORY_RECORD_REL
+    _write(
+        path=source_record,
+        body={
+            "account_uuid": "factory-account",
+            "profile": "anthropic-5",
+            "reason": None,
+            "written_at": "2026-11-18T12:00:00Z",
+        },
+    )
+    (holder / push.HOSTS_FILE).parent.mkdir(parents=True, exist_ok=True)
+    _ = (holder / push.HOSTS_FILE).write_text(
+        "one user@one linux\ntwo user@two linux\n", encoding="utf-8"
+    )
+    receivers = {"user@one": tmp_path / "one", "user@two": tmp_path / "two"}
+
+    def run(*, target: str, program: str, **_: object) -> tuple[int, str]:
+        monkeypatch.setenv("HOME", str(receivers[target]))
+        code = 0
+        try:
+            exec(compile(program, "<push>", "exec"), {"__name__": "__main__"})  # noqa: S102
+        except SystemExit as stop:
+            code = int(stop.code or 0)
+        return code, capsys.readouterr().out.strip()
+
+    delivery = service.Delivery(
+        sequence=1,
+        account_id="interactive-account",
+        identity={"oauthAccount": {"accountUuid": "interactive-account"}},
+        oauth={"accessToken": TOKEN, "expiresAt": 9},
+    )
+    assert push.push_due(home=holder, delivery=delivery, now=1.0, run=run) == {
+        "one": "applied 1",
+        "two": "applied 1",
+    }
+    expected = source_record.read_bytes()
+    for receiver in receivers.values():
+        record = receiver / FACTORY_RECORD_REL
+        assert record.is_file()
+        assert record.read_bytes() == expected
+        assert record.stat().st_mode & 0o777 == 0o600
 
 
 def test_push_state_write_failure_is_logged_and_the_pass_continues(

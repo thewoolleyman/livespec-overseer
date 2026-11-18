@@ -6,7 +6,10 @@ The step takes an exclusive lock, refuses a delivered object carrying a refresh
 token, refuses a host whose own login still holds one (`not-converted`),
 refuses a sequence that is not greater than the applied one (`stale-sequence`),
 then writes the credential, the global state file and the applied sequence
-temp-then-rename at 0600 and verifies them. On any failure it attempts BOTH
+temp-then-rename at 0600 and verifies them. A separately-carried factory
+selection record is validated and written before that delivery; it has no
+delivery sequence and is replaced only when its written_at is later than the
+copy on the host. On any credential-delivery failure it attempts BOTH
 restores, credential first, and names each one that failed. It always prints
 exactly one result line naming applied, stale-sequence, not-converted or
 failed, with the sequence.
@@ -17,7 +20,7 @@ from __future__ import annotations
 __all__: list[str] = ["APPLY_SCRIPT", "apply_program"]
 
 APPLY_SCRIPT = r"""
-import fcntl, json, os, sys, tempfile
+import datetime, fcntl, json, os, sys, tempfile
 def out(line, code):
     print(line)
     sys.stdout.flush()
@@ -46,6 +49,45 @@ def restore(p, data):
             os.remove(p)
     else:
         put(p, data)
+def factory_time(data):
+    try:
+        value = json.loads(data)
+        if set(value) != {"profile", "account_uuid", "written_at", "reason"}:
+            raise ValueError("fields")
+        profile = value["profile"]
+        account = value["account_uuid"]
+        reason = value["reason"]
+        if (profile is None) != (account is None):
+            raise ValueError("identity")
+        if profile is not None and (not isinstance(profile, str) or not isinstance(account, str)):
+            raise ValueError("identity")
+        bad_reason = profile is None and (not isinstance(reason, str) or not reason)
+        if bad_reason or (profile is not None and reason is not None):
+            raise ValueError("reason")
+        written = value["written_at"]
+        if not isinstance(written, str):
+            raise ValueError("written_at")
+        instant = datetime.datetime.fromisoformat(written.replace("Z", "+00:00"))
+        if instant.tzinfo is None:
+            raise ValueError("written_at")
+        return instant.astimezone(datetime.timezone.utc)
+    except Exception:
+        raise ValueError("factory-record") from None
+def apply_factory(data):
+    incoming = factory_time(data)
+    home = os.path.expanduser("~")
+    path = os.path.join(
+        home, ".local", "state", "caam-usage-rotate", "factory-selected-account.json"
+    )
+    os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
+    prior = raw(path)
+    if prior is not None:
+        try:
+            if incoming <= factory_time(prior):
+                return
+        except ValueError:
+            pass
+    put(path, data.encode())
 def apply(seq, oauth, identity):
     home = os.path.expanduser("~")
     cp = os.path.join(home, ".claude", ".credentials.json")
@@ -98,6 +140,14 @@ def main(text):
             raise ValueError("shape")
     except Exception:
         out("failed - bad-delivery", 5)
+    factory = d.get("factory_record")
+    if factory is not None:
+        if not isinstance(factory, str):
+            out("failed - bad-factory-record", 5)
+        try:
+            apply_factory(factory)
+        except Exception:
+            out("failed - bad-factory-record", 5)
     if "refreshToken" in oauth:
         out("failed %d delivered-refresh-token" % seq, 4)
     try:

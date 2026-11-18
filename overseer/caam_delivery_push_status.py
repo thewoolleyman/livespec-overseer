@@ -61,7 +61,10 @@ def status_lines(*, home: Path, now: float, reissue_available: bool) -> list[str
     counter = _object(path=home / caam_delivery_push.STATE_DIR / "delivery-sequence.json") or {}
     current = counter.get("sequence")
     sequence = current if isinstance(current, int) else 0
-    lines = ["label  target  platform  state  account  sequence  applied  last-success  last-error"]
+    lines = [
+        "label  target  platform  state  account  sequence  applied  last-success  "
+        "last-error  factory-written-at"
+    ]
     for host in caam_delivery_push.load_hosts(home=home):
         entry = state.get(host.label, {})
         account = entry.get("account_id")
@@ -72,7 +75,8 @@ def status_lines(*, home: Path, now: float, reissue_available: bool) -> list[str
             f" profile {profile_name(home=home, account=account)}  "
             f"sequence {entry.get('sequence', '-')} applied {_when(value=entry.get('applied_at'))}"
             f"  last-success {_when(value=entry.get('last_success'))}  "
-            f"last-error {_error(entry=entry)}"
+            f"last-error {_error(entry=entry)}  "
+            f"factory-written-at {entry.get('factory_written_at', 'never')}"
         )
     live = account_uuid(claude_json_path=home / ".claude.json")
     selection = _object(path=selection_record_path(home=home)) or {}
