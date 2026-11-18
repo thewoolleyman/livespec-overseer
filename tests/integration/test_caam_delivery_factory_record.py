@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 
 import pytest
@@ -103,3 +104,33 @@ def test_receiver_writes_the_exact_newer_record_but_rejects_a_delayed_one(
     assert path.stat().st_mode & 0o777 == 0o600
     assert apply(sequence=2, record=delayed) == "applied 2"
     assert path.read_bytes() == newest.encode()
+
+
+def test_concurrent_receivers_never_let_an_older_record_overwrite_a_newer_one(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = tmp_path / "receiver"
+    monkeypatch.setenv("HOME", str(home))
+    older = json.dumps(_record(written_at="2026-11-18T11:00:00Z"), separators=(",", ":"))
+    newer = json.dumps(_record(written_at="2026-11-18T12:00:00Z"), separators=(",", ":"))
+    namespace: dict[str, object] = {"__name__": "not-main"}
+    program = apply_program(payload="{}").rsplit("main(", 1)[0]
+    exec(compile(program, "<receiver>", "exec"), namespace)  # noqa: S102
+    real_raw = namespace["raw"]
+    competitor: list[threading.Thread] = []
+
+    def racing_raw(path: str) -> bytes | None:
+        prior = real_raw(path)  # type: ignore[operator]
+        if path.endswith("factory-selected-account.json") and not competitor:
+            thread = threading.Thread(target=namespace["apply_factory"], args=(newer,))
+            competitor.append(thread)
+            thread.start()
+            thread.join(timeout=0.5)
+        return prior
+
+    namespace["raw"] = racing_raw
+    namespace["apply_factory"](older)  # type: ignore[operator]
+    competitor[0].join(timeout=10)
+
+    path = home / ".local/state/caam-usage-rotate/factory-selected-account.json"
+    assert path.read_bytes() == newer.encode()

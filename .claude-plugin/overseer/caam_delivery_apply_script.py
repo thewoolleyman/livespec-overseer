@@ -9,8 +9,9 @@ then writes the credential, the global state file and the applied sequence
 temp-then-rename at 0600 and verifies them. A separately-carried factory
 selection record is validated and written before that delivery; it has no
 delivery sequence and is replaced only when its written_at is later than the
-copy on the host. On any credential-delivery failure it attempts BOTH
-restores, credential first, and names each one that failed. It always prints
+copy on the host, the read, compare and write all under one exclusive lock so
+concurrent pushes cannot move it backward. On any credential-delivery failure
+it attempts BOTH restores, credential first, and names each one that failed. It always prints
 exactly one result line naming applied, stale-sequence, not-converted or
 failed, with the sequence.
 """
@@ -80,14 +81,16 @@ def apply_factory(data):
         home, ".local", "state", "caam-usage-rotate", "factory-selected-account.json"
     )
     os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
-    prior = raw(path)
-    if prior is not None:
-        try:
-            if incoming <= factory_time(prior):
-                return
-        except ValueError:
-            pass
-    put(path, data.encode())
+    with open(path + ".lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        prior = raw(path)
+        if prior is not None:
+            try:
+                if incoming <= factory_time(prior):
+                    return
+            except ValueError:
+                pass
+        put(path, data.encode())
 def apply(seq, oauth, identity):
     home = os.path.expanduser("~")
     cp = os.path.join(home, ".claude", ".credentials.json")
