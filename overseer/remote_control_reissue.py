@@ -87,21 +87,30 @@ __all__: list[str] = [
 ]
 
 CLAUDE_CODE_VERSION = "2.1.323"
-NOTICE = "signed-in claude.ai account or organization changed on this machine — run /remote-control"
+NOTICE = (
+    "signed-in claude.ai account or organization changed on this machine" " — run /remote-control"
+)
 FORMS = ("Remote Control disconnected — ", "/rc failed")
 _COMMAND = "/remote-control"
 # REFUSED: the panes of this run whose session name was refused; main() resets it.
 _NAME_MAX, _CONTROL, REFUSED = 200, frozenset(map(chr, [*range(0x20), 0x7F])), set[str]()
-_CLAUDE_BASENAME, _VERSIONS_DIR = "claude", Path(".local", "share", "claude", "versions")
-_PROMPT, _RULE = "❯", "─"
+_CLAUDE_BASENAME = "claude"
+_VERSIONS_DIR = Path(".local", "share", "claude", "versions")
+_PROMPT = "❯"
 _TRANSCRIPT_MARKS = ("●", "⎿")
 _FOOTER_STATUS = re.compile(r"(?:^|\s)" + re.escape(FORMS[1]) + r"(?:\s|$)")
-_TIMEOUT_S, _WINDOW_S, _RESCAN_S = 10, 90.0, 10.0
-_HERDR, _HERDR_SOURCE = "herdr", "recent-unwrapped"
+_RULE = "─"
+_TIMEOUT_S = 10
+_HERDR = "herdr"
 _HERDR_FALLBACK = Path(".local", "bin", _HERDR)
+_HERDR_SOURCE = "recent-unwrapped"
 _ENTER = "Enter"
+_WINDOW_S = 90.0
+_RESCAN_S = 10.0
 
-Tmux = Ps = Herdr = Callable[..., str | None]
+Tmux = Callable[..., str | None]
+Ps = Callable[..., str | None]
+Herdr = Callable[..., str | None]
 
 
 def _run(*, argv: list[str]) -> str | None:
