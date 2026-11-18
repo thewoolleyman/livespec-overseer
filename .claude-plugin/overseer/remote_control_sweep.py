@@ -243,13 +243,17 @@ def _answer(*, herdr: Herdr, pane: Pane, record: Record, sleep: Sleep) -> str:
 
     The status panel of a CONNECTED session gets Escape unless the seat is busy. On a record
     with no `bridgeSessionId` it is the NOT-CONNECTED panel: Enter once a re-read shows
-    `Continue` selected, whatever the status, since Continue cannot disconnect or interrupt.
+    the selected row is exactly `❯ Continue` (never a typed draft that starts with the word),
+    whatever the status, since Continue cannot disconnect or interrupt.
     """
     screen = _read(herdr=herdr, pane=pane)
     kind = dialog_kind(screen=screen)
     if kind == "panel" and record:
         bridged, busy = record.get("bridgeSessionId"), record.get("status") == "busy"
-        go = _CONTINUE in _last_prompt(lines=_modal(screen=screen)) and not bridged
+        go = (
+            _last_prompt(lines=_modal(screen=screen)).strip() == f"{_PROMPT} {_CONTINUE}"
+            and not bridged
+        )
         key = "esc" if bridged and not busy else "Enter" if go else ""
         done = bool(key) and _keys(herdr=herdr, pane=pane, keys=(key,))
         return ("panel:Escape" if bridged else _CONTINUED) if done else ""
