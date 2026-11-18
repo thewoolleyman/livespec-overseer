@@ -2570,6 +2570,13 @@
   },
   {
     "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A fresh session that starts disconnected after an account switch is reconnected by the next sweep",
+    "work_item": "overseer-fdwat6",
+    "first_seen": "2026-11-18"
+  },
+  {
+    "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Enrolled-host credential delivery",
     "work_item": "overseer-xnpfsc",

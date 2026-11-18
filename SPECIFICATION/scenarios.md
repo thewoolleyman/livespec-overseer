@@ -6265,7 +6265,9 @@ And the pane then shows the Remote Control status panel
 
 When the keep-alive sweep reads the pane while its record's status is not `busy`
 
-Then the sweep presses Escape and names the pane as dismissed while not connected
+Then the sweep presses Enter on its `Continue` option and names the pane as continued while not connected
+
+And once the pane is idle the sweep waits at least 12 seconds and sends the reconnect command followed by Enter
 
 And the next sweep may send the reconnect command to that pane again, without waiting ten minutes
 
@@ -6277,15 +6279,29 @@ When the sweep finds it at the not-connected panel again
 
 Then the service sends that pane the reconnect command at most once in the next ten minutes
 
-## Scenario: A mid-turn seat at the not-connected panel gets no key
+## Scenario: A mid-turn seat at the not-connected panel is continued and typed nothing
 
-Given a herdr pane showing the Remote Control status panel whose session record shows it is not on Remote Control and has status `busy`
+Given a herdr pane showing the Remote Control NOT-CONNECTED panel with its `Continue` option selected, whose session record shows it is not on Remote Control and has status `busy`
 
 When the keep-alive sweep reads the pane
 
-Then the sweep sends the pane no key and no text
+Then the sweep presses Enter on `Continue` and sends the pane no text
 
-And it names the pane as not on Remote Control
+And it names the pane as continued while not connected
+
+And a later sweep reconnects it once its record shows `idle`
+
+## Scenario: A fresh session that starts disconnected after an account switch is reconnected by the next sweep
+
+Given a herdr pane whose Claude Code started after the account switch was pushed and whose session record has no `bridgeSessionId`
+
+And the pane shows the Remote Control NOT-CONNECTED panel with its `Continue` option selected
+
+When the keep-alive sweep reads the pane
+
+Then the sweep presses Enter on `Continue`
+
+And once the record shows `idle` the sweep waits at least 12 seconds and sends the reconnect command followed by Enter
 
 ## Scenario: A sweep that runs out of time leaves the remaining seats to the next sweep
 
