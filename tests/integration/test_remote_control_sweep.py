@@ -28,6 +28,13 @@ FIX = ROOT / "tests" / "fixtures"
 SWEEP_FIX = FIX / "remote_control_sweep"
 ENABLE = (SWEEP_FIX / "enable-dialog-2.1.325.txt").read_text(encoding="utf-8")
 PANEL = (SWEEP_FIX / "status-panel-2.1.325.txt").read_text(encoding="utf-8")
+# The NOT-CONNECTED panel as gamingpc-xubuntu showed it on 2026-11-18 after the 12:17Z rotation,
+# read with `herdr pane read --source recent-unwrapped --format ansi` (codes stripped here).
+NOT_CONNECTED = (SWEEP_FIX / "not-connected-panel-2.1.325.txt").read_text(encoding="utf-8")
+# The same panel with the selection on Disconnect: Enter there would disconnect the seat.
+NOT_CONNECTED_ON_DISCONNECT = NOT_CONNECTED.replace(
+    "     Disconnect this session", "   ❯ Disconnect this session"
+).replace("   ❯ Continue", "     Continue")
 TRUST = (SWEEP_FIX / "trust-prompt-2.1.325.txt").read_text(encoding="utf-8")
 SUGGESTION = (SWEEP_FIX / "greyed-prompt-suggestion-2.1.325.ansi.txt").read_text(encoding="utf-8")
 EMPTY = (FIX / "claude_2.1.323_herdr_input_empty.txt").read_text(encoding="utf-8")
@@ -150,7 +157,14 @@ def _run(
 
 @pytest.mark.parametrize(
     ("screen", "kind"),
-    [(ENABLE, "enable"), (NEVER, "enable-other"), (PANEL, "panel"), (TRUST, "trust"), (EMPTY, "")],
+    [
+        (ENABLE, "enable"),
+        (NEVER, "enable-other"),
+        (PANEL, "panel"),
+        (NOT_CONNECTED, "panel"),
+        (TRUST, "trust"),
+        (EMPTY, ""),
+    ],
 )
 def test_each_real_capture_is_recognised_as_its_dialog(*, screen: str, kind: str) -> None:
     assert SWEEP.dialog_kind(screen=screen) == kind
@@ -475,32 +489,88 @@ def test_run_herdr_maps_a_missing_binary_or_failure_to_none(
 def test_a_status_panel_on_a_seat_off_remote_control_is_reported_offline() -> None:
     """After an account switch, `/remote-control` opens the panel on a seat still off.
 
-    Measured on the role holder's journal at the 2026-11-15T16:47:30Z rotation: the
-    panel the re-issue opened was dismissed as an ordinary status panel, and the seat
-    then sat out the ten-minute cap. The record, not the text, says it is not connected.
+    Measured on the role holder's journal at the 2026-11-15T16:47:30Z rotation and again
+    at 2026-11-18T12:17:31Z: Escape dismissed the panel without reconnecting, and the seat
+    sat out the ten-minute cap. The record, not the text, says it is not connected, and
+    the panel's own text says to choose Continue, wait, then run /remote-control.
     """
-    report, sent = _run(screens=[PANEL, EMPTY], record=DISCONNECTED)
-    assert sent == [("p", "esc")]
-    assert report["actions"] == ["herdr:s:p offline:Escape"]
+    report, sent = _run(screens=[NOT_CONNECTED, EMPTY, TYPED, EMPTY], record=DISCONNECTED)
+    assert sent == [("p", "Enter"), ("p", NAMED), ("p", "Enter")]
+    assert report["actions"] == ["herdr:s:p offline:Continue", f"herdr:s:p {NAMED}"]
+    assert report["offline"] == ["herdr:s:p"]
+    assert report["off_rc"] == ["herdr:s:p"]
+    assert report["reissued"] == ["herdr:s:p"]
+
+
+def test_a_reissue_that_opens_the_panel_on_a_seat_still_off_is_reported_offline() -> None:
+    screens = [EMPTY, TYPED, NOT_CONNECTED, EMPTY, TYPED, EMPTY]
+    report, sent = _run(screens=screens, record=DISCONNECTED)
+    assert sent == [("p", NAMED), ("p", "Enter"), ("p", "Enter"), ("p", NAMED), ("p", "Enter")]
+    assert report["reissued"] == ["herdr:s:p"]
+    assert report["actions"] == [
+        f"herdr:s:p {NAMED}",
+        "herdr:s:p offline:Continue",
+        f"herdr:s:p {NAMED}",
+    ]
+    assert report["offline"] == ["herdr:s:p"]
+
+
+def test_a_mid_turn_seat_at_the_not_connected_panel_is_continued_and_typed_nothing() -> None:
+    """Continue closes the panel and cannot disconnect or interrupt; no text is typed mid-turn."""
+    report, sent = _run(screens=[NOT_CONNECTED, EMPTY], record={**DISCONNECTED, "status": "busy"})
+    assert sent == [("p", "Enter")]
+    assert report["actions"] == ["herdr:s:p offline:Continue"]
     assert report["offline"] == ["herdr:s:p"]
     assert report["off_rc"] == ["herdr:s:p"]
     assert report["reissued"] == []
 
 
-def test_a_reissue_that_opens_the_panel_on_a_seat_still_off_is_reported_offline() -> None:
-    report, sent = _run(screens=[EMPTY, TYPED, PANEL, EMPTY], record=DISCONNECTED)
-    assert sent == [("p", NAMED), ("p", "Enter"), ("p", "esc")]
+def test_a_fresh_session_that_starts_disconnected_is_continued_then_reconnected() -> None:
+    """A session launched after the switch has no bridgeSessionId and shows the panel at once."""
+    fresh = {**DISCONNECTED, "sessionId": "fresh-session-after-the-push"}
+    report, sent = _run(screens=[NOT_CONNECTED, EMPTY, TYPED, EMPTY], record=fresh)
+    assert sent == [("p", "Enter"), ("p", NAMED), ("p", "Enter")]
     assert report["reissued"] == ["herdr:s:p"]
-    assert report["actions"] == [f"herdr:s:p {NAMED}", "herdr:s:p offline:Escape"]
-    assert report["offline"] == ["herdr:s:p"]
+    assert report["sessions"] == {"herdr:s:p": "fresh-session-after-the-push"}
 
 
-def test_a_mid_turn_seat_at_the_panel_while_off_remote_control_gets_no_key() -> None:
-    """The not-connected handling never sends a key to a pane whose session is mid-turn."""
-    report, sent = _run(screens=[PANEL], record={**DISCONNECTED, "status": "busy"})
+def test_the_not_connected_panel_with_disconnect_selected_gets_no_key() -> None:
+    """Enter is sent only after a re-read shows Continue selected; Disconnect is never entered."""
+    assert SWEEP.dialog_kind(screen=NOT_CONNECTED_ON_DISCONNECT) == "panel"
+    report, sent = _run(screens=[NOT_CONNECTED_ON_DISCONNECT], record=DISCONNECTED)
     assert sent == []
     assert "offline" not in report
-    assert report["off_rc"] == ["herdr:s:p"]
+
+
+def test_a_continued_seat_that_went_busy_during_the_wait_is_not_typed_into() -> None:
+    reads = [DISCONNECTED, {**DISCONNECTED, "status": "busy"}]
+
+    def record_of(*, pid: int) -> dict[str, object]:
+        assert pid == PID
+        return reads.pop(0) if len(reads) > 1 else reads[0]
+
+    herdr = FakeHerdr(panes={"p": _pane(screens=[NOT_CONNECTED, EMPTY])})
+    report = SWEEP.sweep(blocked=[], herdr=herdr, record_of=record_of, sleep=no_sleep)
+    assert herdr.sent == [("p", "Enter")]
+    assert report["reissued"] == []
+
+
+def test_a_seat_continued_at_the_panel_is_reconnected_though_its_last_send_was_recent() -> None:
+    """The ten-minute limit releases a pane just continued, so the reconnect is sent now."""
+    report, sent = _run(
+        screens=[NOT_CONNECTED, EMPTY, TYPED, EMPTY], record=DISCONNECTED, blocked=["herdr:s:p"]
+    )
+    assert sent == [("p", "Enter"), ("p", NAMED), ("p", "Enter")]
+    assert report["reissued"] == ["herdr:s:p"]
+
+
+def test_the_continue_wait_is_at_least_twelve_seconds() -> None:
+    waits: list[float] = []
+    herdr = FakeHerdr(panes={"p": _pane(screens=[NOT_CONNECTED, EMPTY, TYPED, EMPTY])})
+    _ = SWEEP.sweep(
+        blocked=[], herdr=herdr, record_of=records(value=DISCONNECTED), sleep=waits.append
+    )
+    assert max(waits) >= 12.0
 
 
 def test_a_status_panel_on_a_connected_seat_is_not_reported_offline() -> None:
@@ -546,10 +616,11 @@ def test_the_dialog_after_a_reissue_is_answered_on_a_fresh_record() -> None:
         assert pid == PID
         return reads.pop(0) if len(reads) > 1 else reads[0]
 
-    herdr = FakeHerdr(panes={"p": _pane(screens=[EMPTY, TYPED, PANEL])})
+    herdr = FakeHerdr(panes={"p": _pane(screens=[EMPTY, TYPED, PANEL, EMPTY])})
     report = SWEEP.sweep(blocked=[], herdr=herdr, record_of=record_of, sleep=no_sleep)
-    assert herdr.sent == [("p", NAMED), ("p", "Enter")]
-    assert "offline" not in report
+    assert herdr.sent == [("p", NAMED), ("p", "Enter"), ("p", "Enter")]
+    assert report["offline"] == ["herdr:s:p"]
+    assert report["reissued"] == ["herdr:s:p"]
 
 
 def test_a_null_session_name_is_treated_as_absent() -> None:

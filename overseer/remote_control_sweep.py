@@ -12,11 +12,16 @@ reconnected. The text is read only to recognise a dialog and the input box.
 
 Per Claude Code pane at the bottom of its scroll, re-reading before every key:
 - the enable dialog with `1. Enable Remote Control` selected gets Enter;
-- the status panel (`Disconnect this session` + `Esc to continue`) gets Escape,
-  never Enter, and only while the record's status is not `busy`; on a session
-  whose record has no `bridgeSessionId` it is the not-connected case (what
-  `/remote-control` opens right after an account switch), reported as
-  `offline` so the service can retry that pane before its cap runs out;
+- the status panel (`Disconnect this session` + `Esc to continue`) of a CONNECTED
+  session gets Escape, never Enter, and only while the record's status is not
+  `busy`. On a session whose record has no `bridgeSessionId` it is the NOT-CONNECTED
+  panel (what Claude Code opens after an account switch, with or without a typed
+  `/remote-control`): it gets Enter, never Escape, only once a re-read shows
+  `Continue` selected, whatever the status, and is reported as `offline` (continued)
+  so the service can retry that pane before its cap runs out. An idle seat is then
+  given at least _CONTINUE_WAIT_S seconds for Remote Control to turn off and sent
+  the reconnect command; a busy seat is sent no text. Escape only dismissed this
+  panel without reconnecting (measured at the 2026-11-16 and 2026-11-18 rotations);
 - the folder-trust prompt is answered `Yes, I trust this folder` only when the
   directory it names, real-pathed, is the pane's herdr cwd and lies strictly
   below `~/workspace` or `~/.worktrees`;
@@ -32,7 +37,7 @@ Per Claude Code pane at the bottom of its scroll, re-reading before every key:
 It prints one JSON line: `actions` (what it sent), `reissued`, `off_rc`,
 `unknown` (no readable record) and `sessions` (pane label -> session id), plus
 `refused_name` (panes whose record name was refused) and `offline` (panes whose
-not-connected panel it dismissed) when there is one.
+not-connected panel it continued) when there is one.
 Dialog wording was pinned from real captures of Claude Code _CLAUDE_CODE_VERSION.
 """
 
@@ -63,18 +68,20 @@ _CLAUDE_CODE_VERSION = "2.1.325"
 # The service replaces this list with the pane labels sent `/remote-control`
 # within the last ten minutes.
 BLOCKED_INPUT = "[]"
-_COMMAND, _PROMPT, _RULE = "/remote-control", "❯", "─"
+_COMMAND, _PROMPT, _RULE, _CONTINUE = "/remote-control", "❯", "─", "Continue"
 _ENABLE, _NEVER = "1. Enable Remote Control", "2. Never mind"
 _PANEL = ("Disconnect this session", "Esc to continue")
 _PANEL_OPTIONS = ("Disconnect this session", "Show QR code", "Continue")
 _TRUST_YES, _TRUST_HEADER = "Yes, I trust this folder", "Accessing workspace:"
 _TRUST_HINT, _TRUST_NO = "Enter to confirm · Esc to cancel", "No, exit"
 _ROOTS, _VERSIONS = ("workspace", ".worktrees"), ".local/share/claude/versions/"
-_SETTLE_S, _DIALOG_WAIT_S, _TIMEOUT_S, _NAME_MAX = 0.8, 3.0, 10, 200
-# A sweep stops typing once this much of its run is spent, well inside the
-# service's 60 s SWEEP_TIMEOUT_S: a sweep that times out loses its report, and
-# with it the cap on every pane it typed into.
-_REISSUE_BUDGET_S = 40.0
+# _REISSUE_BUDGET_S: a sweep stops typing once this much of its run is spent, well inside the
+# service's 60 s SWEEP_TIMEOUT_S: a sweep that times out loses its report, and with it the cap
+# on every pane it typed into.
+_SETTLE_S, _DIALOG_WAIT_S, _TIMEOUT_S, _NAME_MAX, _REISSUE_BUDGET_S = 0.8, 3.0, 10, 200, 40.0
+# The NOT-CONNECTED panel's own text says to choose Continue, wait about 10 seconds for
+# Remote Control to turn off, then run /remote-control: wait a little longer than that.
+_CONTINUE_WAIT_S, _CONTINUED = 12.0, "offline:Continue"
 # Code points a typed name must not hold: C0 controls (newline, tab, escape) and DEL.
 _CONTROL = frozenset(map(chr, [*range(0x20), 0x7F]))
 _SUGGESTION = re.compile(
@@ -83,6 +90,9 @@ _SUGGESTION = re.compile(
 )
 
 Herdr = Callable[..., str | None]
+Record = dict[str, object]
+Sleep = Callable[[float], None]
+RecordOf = Callable[..., Record]
 # (herdr session, pane id, viewport rows, cwd, Claude Code pid)
 Pane = tuple[str, str, int, str, int]
 
@@ -213,7 +223,7 @@ def _keys(*, herdr: Herdr, pane: Pane, keys: tuple[str, ...]) -> bool:
     return herdr("--session", pane[0], "pane", "send-keys", pane[1], *keys) is not None
 
 
-def _answer_trust(*, herdr: Herdr, pane: Pane, sleep: Callable[[float], None]) -> str:
+def _answer_trust(*, herdr: Herdr, pane: Pane, sleep: Sleep) -> str:
     """Select `Yes, I trust this folder` and confirm it, only for an allowed directory."""
     for _ in range(3):
         screen = _read(herdr=herdr, pane=pane)
@@ -228,35 +238,36 @@ def _answer_trust(*, herdr: Herdr, pane: Pane, sleep: Callable[[float], None]) -
     return ""
 
 
-def _answer(
-    *, herdr: Herdr, pane: Pane, record: dict[str, object], sleep: Callable[[float], None]
-) -> str:
-    """Answer the dialog the pane shows, re-reading before each key; the action taken, or ``."""
-    kind = dialog_kind(screen=_read(herdr=herdr, pane=pane))
+def _answer(*, herdr: Herdr, pane: Pane, record: Record, sleep: Sleep) -> str:
+    """Answer the dialog the pane shows, re-reading before each key; the action taken, or ``.
+
+    The status panel of a CONNECTED session gets Escape unless the seat is busy. On a record
+    with no `bridgeSessionId` it is the NOT-CONNECTED panel: Enter once a re-read shows
+    `Continue` selected, whatever the status, since Continue cannot disconnect or interrupt.
+    """
+    screen = _read(herdr=herdr, pane=pane)
+    kind = dialog_kind(screen=screen)
+    if kind == "panel" and record:
+        bridged, busy = record.get("bridgeSessionId"), record.get("status") == "busy"
+        go = _CONTINUE in _last_prompt(lines=_modal(screen=screen)) and not bridged
+        key = "esc" if bridged and not busy else "Enter" if go else ""
+        done = bool(key) and _keys(herdr=herdr, pane=pane, keys=(key,))
+        return ("panel:Escape" if bridged else _CONTINUED) if done else ""
     if kind == "enable":
         return "enable:Enter" if _keys(herdr=herdr, pane=pane, keys=("Enter",)) else ""
-    if kind == "panel" and record and record.get("status") != "busy":
-        panel = "panel" if record.get("bridgeSessionId") else "offline"
-        return f"{panel}:Escape" if _keys(herdr=herdr, pane=pane, keys=("esc",)) else ""
     return _answer_trust(herdr=herdr, pane=pane, sleep=sleep) if kind == "trust" else ""
 
 
-def reconnect_command(*, record: dict[str, object]) -> tuple[str, bool]:
+def reconnect_command(*, record: Record) -> tuple[str, bool]:
     """The text to type for this record, and whether its name was refused."""
-    if record.get("name") is None:  # absent, or JSON null
+    name = record.get("name")  # absent, or JSON null: the bare command
+    if name is None:
         return _COMMAND, False
-    name = record["name"]
-    if (
-        not isinstance(name, str)
-        or not name
-        or len(name) > _NAME_MAX
-        or not _CONTROL.isdisjoint(name)
-    ):
-        return _COMMAND, True
-    return f"{_COMMAND} {name}", False
+    ok = isinstance(name, str) and 0 < len(name) <= _NAME_MAX and _CONTROL.isdisjoint(name)
+    return (f"{_COMMAND} {name}", False) if ok else (_COMMAND, True)
 
 
-def _reissue(*, herdr: Herdr, pane: Pane, command: str, sleep: Callable[[float], None]) -> bool:
+def _reissue(*, herdr: Herdr, pane: Pane, command: str, sleep: Sleep) -> bool:
     if not _empty_box(screen=_read(herdr=herdr, pane=pane)):
         return False
     target = ("--session", pane[0], "pane")
@@ -271,12 +282,7 @@ def _reissue(*, herdr: Herdr, pane: Pane, command: str, sleep: Callable[[float],
 
 
 def _reconnect(
-    *,
-    herdr: Herdr,
-    pane: Pane,
-    command: str,
-    record_of: Callable[..., dict[str, object]],
-    sleep: Callable[[float], None],
+    *, herdr: Herdr, pane: Pane, command: str, record_of: RecordOf, sleep: Sleep
 ) -> list[str]:
     """Type `command` and answer the dialog it opens; the actions taken, `[]` if not typed.
 
@@ -286,18 +292,40 @@ def _reconnect(
     if not _reissue(herdr=herdr, pane=pane, command=command, sleep=sleep):
         return []
     sleep(_DIALOG_WAIT_S)
-    followed = _answer(herdr=herdr, pane=pane, record=record_of(pid=pane[4]), sleep=sleep)
-    return [command, *([followed] if followed else [])]
+    record = record_of(pid=pane[4])
+    followed = _answer(herdr=herdr, pane=pane, record=record, sleep=sleep)
+    idle = followed == _CONTINUED and record.get("status") == "idle"
+    again = _retype(herdr=herdr, pane=pane, record_of=record_of, sleep=sleep) if idle else []
+    return [command, *([followed] if followed else []), *again]
+
+
+def _retype(*, herdr: Herdr, pane: Pane, record_of: RecordOf, sleep: Sleep) -> list[str]:
+    """After Continue: wait for Remote Control to turn off, then reconnect a seat still idle."""
+    sleep(_CONTINUE_WAIT_S)
+    record = record_of(pid=pane[4])
+    command = reconnect_command(record=record)[0]
+    fresh = not record.get("bridgeSessionId") and record.get("status") == "idle"
+    typed = fresh and _reissue(herdr=herdr, pane=pane, command=command, sleep=sleep)
+    return [command] if typed else []
+
+
+def _report(*, actions: list[str], reissued: list[str], off: list[str], found: Record) -> Record:
+    """The sweep's one report: what it sent, what it found, and the optional parts when present."""
+    continued = [a.split(" ", 1)[0] for a in actions if a.endswith(f" {_CONTINUED}")]
+    report: Record = {"actions": actions, "reissued": reissued, "off_rc": off}
+    report |= {"unknown": found["unknown"], "sessions": found["sessions"]}
+    extra = {"refused_name": found["refused"], "offline": continued}
+    return {**report, **{key: value for key, value in extra.items() if value}}
 
 
 def sweep(
     *,
     blocked: list[str],
     herdr: Herdr = _run_herdr,
-    record_of: Callable[..., dict[str, object]] = _read_record,
-    sleep: Callable[[float], None] = time.sleep,
+    record_of: RecordOf = _read_record,
+    sleep: Sleep = time.sleep,
     clock: Callable[[], float] = time.monotonic,
-) -> dict[str, object]:
+) -> Record:
     """One sweep of every Claude Code pane on this host; the report the service journals."""
     start = clock()
     actions: list[str] = []
@@ -311,38 +339,28 @@ def sweep(
         answered = _answer(herdr=herdr, pane=pane, record=record, sleep=sleep)
         if record:
             sessions[label] = record.get("sessionId")
-        if record and not record.get("bridgeSessionId"):
-            off.append(label)
+            off += [] if record.get("bridgeSessionId") else [label]
+        spent = clock() - start >= _REISSUE_BUDGET_S
+        retype = answered == _CONTINUED and record.get("status") == "idle" and not spent
+        more = _retype(herdr=herdr, pane=pane, record_of=record_of, sleep=sleep) if retype else []
         if answered or not record or record.get("bridgeSessionId"):
-            actions += [f"{label} {answered}"] if answered else []
+            actions += [f"{label} {action}" for action in (answered, *more) if action]
             unknown += [] if answered or record else [label]
+            reissued += [label] if more else []
             continue
-        if record.get("status") != "idle" or label in blocked:
-            continue
-        if clock() - start >= _REISSUE_BUDGET_S:
+        if record.get("status") != "idle" or label in blocked or spent:
             continue
         command, was_refused = reconnect_command(record=record)
         refused += [label] if was_refused else []
         done = _reconnect(herdr=herdr, pane=pane, command=command, record_of=record_of, sleep=sleep)
         reissued += [label] if done else []
         actions += [f"{label} {action}" for action in done]
-    report: dict[str, object] = {
-        "actions": actions,
-        "reissued": reissued,
-        "off_rc": off,
-        "unknown": unknown,
-        "sessions": sessions,
-    }
-    offline = [action.split(" ", 1)[0] for action in actions if action.endswith(" offline:Escape")]
-    extra = {"refused_name": refused, "offline": offline}
-    return {**report, **{key: value for key, value in extra.items() if value}}
+    found: Record = {"unknown": unknown, "sessions": sessions, "refused": refused}
+    return _report(actions=actions, reissued=reissued, off=off, found=found)
 
 
 def main(
-    *,
-    herdr: Herdr = _run_herdr,
-    record_of: Callable[..., dict[str, object]] = _read_record,
-    sleep: Callable[[float], None] = time.sleep,
+    *, herdr: Herdr = _run_herdr, record_of: RecordOf = _read_record, sleep: Sleep = time.sleep
 ) -> int:
     """Run one sweep with the service's blocked list and print its report as one JSON line."""
     blocked = [str(item) for item in _rows(value={"b": _parsed(text=BLOCKED_INPUT)}, path=("b",))]
