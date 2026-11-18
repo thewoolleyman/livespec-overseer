@@ -4871,8 +4871,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A mid-turn seat at the not-connected panel is continued and typed nothing",
-    "test": "tests.integration.test_remote_control_sweep.test_a_mid_turn_seat_at_the_panel_while_off_remote_control_gets_no_key",
-    "reason": "Integration-tier: a pane showing the real 2.1.325 status panel whose record is off Remote Control with status `busy` is sent no key and no text, and is still named off Remote Control."
+    "test": "tests.integration.test_remote_control_sweep.test_a_mid_turn_seat_at_the_not_connected_panel_is_continued_and_typed_nothing",
+    "reason": "Integration-tier: the real 2.1.325 NOT-CONNECTED panel on a seat off Remote Control with status `busy` is sent Enter on its selected Continue and no text, and is named as continued under `offline`."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -4956,8 +4956,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A fresh session that starts disconnected after an account switch is reconnected by the next sweep",
-    "test": "TODO",
-    "reason": "A real test at the integration tier is owed: a herdr pane that starts after the push, whose record has no bridgeSessionId and which shows the NOT-CONNECTED panel with Continue selected, is sent Enter, then reconnected once idle. The code item under overseer-fdwat6 owns it.",
-    "work_item": "overseer-fdwat6"
+    "test": "tests.integration.test_remote_control_sweep.test_a_fresh_session_that_starts_disconnected_is_continued_then_reconnected",
+    "reason": "Integration-tier: a pane whose record has no bridgeSessionId and a new sessionId, showing the real NOT-CONNECTED panel, is sent Enter on Continue and then reconnected under its own name once idle, after the 12 s wait."
   }
 ]

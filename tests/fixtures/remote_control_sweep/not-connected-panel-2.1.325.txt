@@ -1,0 +1,14 @@
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+   Remote Control
+  
+   × Remote Control isn't connected.
+   signed-in claude.ai account or organization changed on this machine — run /remote-control to start 
+   a session for the current account, or /login to switch back, then /remote-control
+
+   To try again, choose Continue, wait about 10 seconds for Remote Control to switch off, then run
+   /remote-control.
+
+     Disconnect this session   Can archive it now and stop a later --resume reconnecting it
+   ❯ Continue
+
+   Enter to select · Esc to continue
