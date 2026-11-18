@@ -107,9 +107,9 @@ class _Pass:
         self.pushed.append(message)
         return self.push_outcome
 
-    def run(self, *, dry_run: bool = False, at: float = NOW) -> int:
+    def run(self, *, dry_run: bool = False, at: float = NOW, scheduled: bool = True) -> int:
         flags = Flags(
-            scheduled=True,
+            scheduled=scheduled,
             force=False,
             dry_run=dry_run,
             no_models=True,
@@ -296,6 +296,19 @@ def test_a_dry_run_probes_and_alerts_nothing(*, tmp_path: Path) -> None:
 
     assert scenario.run(dry_run=True) == 0
 
+    assert scenario.pushed == []
+    assert not (tmp_path / CONDITIONS_REL).exists()
+
+
+def test_an_unscheduled_manual_pass_reads_no_credential_and_sends_no_alert(
+    *, tmp_path: Path
+) -> None:
+    """Factory probes run on scheduled passes only, never on an explicit manual rotation."""
+    scenario = _pass(tmp_path=tmp_path, readable=False)
+
+    assert scenario.run(scheduled=False) == 0
+
+    assert scenario.probes == 0
     assert scenario.pushed == []
     assert not (tmp_path / CONDITIONS_REL).exists()
 
