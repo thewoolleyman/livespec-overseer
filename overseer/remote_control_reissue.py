@@ -119,8 +119,8 @@ def _run(*, argv: list[str]) -> str | None:
     # ``#!/usr/bin/env python3`` shebang.  Preserve the caller's command lookup,
     # but ensure that those scripts use the interpreter already executing this
     # program instead of an unrelated inherited ``python3`` shim.
-    interpreter_dir = str(Path(sys.executable).parent)
-    path = os.pathsep.join(part for part in (interpreter_dir, os.environ.get("PATH", "")) if part)
+    path = os.environ.get("PATH", "")
+    path = str(Path(sys.executable).parent) + (os.pathsep + path if path else "")
     try:
         done = subprocess.run(  # noqa: S603 -- fixed argv, no shell
             argv,
@@ -151,8 +151,7 @@ def _herdr_binary() -> str | None:
 
 
 def _run_herdr(*args: str) -> str | None:
-    binary = _herdr_binary()
-    return None if binary is None else _run(argv=[binary, *args])
+    return _run(argv=[binary, *args]) if (binary := _herdr_binary()) else None
 
 
 def _is_claude(*, executable: str) -> bool:
@@ -172,10 +171,6 @@ def _foreground_is_claude(*, tty: str, ps: Ps) -> bool:
         if "+" in stat and words and _is_claude(executable=words[0]):
             return True
     return False
-
-
-def _collapsed(*, text: str) -> str:
-    return " ".join(text.split())
 
 
 def _empty_box(*, lines: list[str]) -> tuple[int, int] | None:
@@ -211,22 +206,21 @@ def _notice_block_end(*, lines: list[str], index: int) -> int | None:
     collapsed, begins with the transcript form + NOTICE, so a wrap anywhere
     inside the form or the notice still matches.
     """
-    line = lines[index]
-    body = line.lstrip(" ")
+    body = lines[index].lstrip(" ")
     mark = next((mark for mark in _TRANSCRIPT_MARKS if body.startswith(mark)), None)
     if mark is None:
         return None
     text = body[len(mark) :].lstrip(" ")
-    column = len(line) - len(text)
+    column = len(lines[index]) - len(text)
     continuation = list(
         itertools.takewhile(
             lambda row: bool(row.strip()) and len(row) - len(row.lstrip(" ")) == column,
             lines[index + 1 :],
         )
     )
-    joined = _collapsed(text=" ".join([text, *(row.strip() for row in continuation)]))
+    joined = " ".join(" ".join([text, *(row.strip() for row in continuation)]).split())
     stop = index + 1 + len(continuation)
-    return stop if joined.startswith(_collapsed(text=FORMS[0] + NOTICE)) else None
+    return stop if joined.startswith(" ".join((FORMS[0] + NOTICE).split())) else None
 
 
 def _submitted(*, line: str) -> bool:
@@ -240,13 +234,9 @@ def _needs_reissue(*, screen: str) -> bool:
     if box is None:
         return False
     top, bottom = box
-    ends = [
-        end
-        for index in range(top)
-        if (end := _notice_block_end(lines=lines, index=index)) is not None
-    ]
-    if ends:
-        return not any(_submitted(line=line) for line in lines[ends[-1] : top])
+    for index in range(top - 1, -1, -1):
+        if (end := _notice_block_end(lines=lines, index=index)) is not None:
+            return not any(_submitted(line=line) for line in lines[end:top])
     return any(_FOOTER_STATUS.search(line) for line in lines[bottom + 1 :])
 
 
