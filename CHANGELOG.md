@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.64.2](https://github.com/livespec-ai/livespec-overseer/compare/v5.64.1...v5.64.2) (2026-11-18)
+
+
+### Bug Fixes
+
+* **caam-delivery:** a continued pane honours the ten-minute limit and the typing budget (overseer-fdwat6) ([c1fd26f](https://github.com/livespec-ai/livespec-overseer/commit/c1fd26fe938d522ee929b713f44926aad6510b13))
+* **caam-delivery:** the keep-alive sweep continues the not-connected panel, then reconnects (overseer-fdwat6) ([e248107](https://github.com/livespec-ai/livespec-overseer/commit/e2481078b9d7d098015f1b32868d045997db0f09))
+
 ## [5.64.1](https://github.com/livespec-ai/livespec-overseer/compare/v5.64.0...v5.64.1) (2026-11-17)
 
 
