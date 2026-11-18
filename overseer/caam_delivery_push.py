@@ -23,6 +23,8 @@ import caam_delivery_service
 import streams
 from caam_delivery_apply_script import APPLY_SCRIPT, apply_program
 from caam_delivery_factory_record import factory_record, factory_targets, record_factory_result
+from caam_delivery_push_bound import MAX_REFRESHES_PER_PASS, bounded
+from caam_delivery_push_factory import send_factory_only
 from caam_delivery_push_reissue import reissue as _reissue
 from caam_delivery_push_reissue import reissue_script
 from caam_delivery_push_state import (
@@ -65,9 +67,6 @@ __all__: list[str] = [
 Runner = Callable[..., tuple[int, str]]
 Starter = Callable[..., None]
 _due = due
-# Refreshes of a delivery a host already holds are spread over passes rather
-# than fanned out to every host at once; a new delivery is never held back.
-MAX_REFRESHES_PER_PASS = 2
 
 
 def run_ssh(
@@ -143,22 +142,25 @@ def push_due(  # noqa: PLR0913 - independent seams
             entry=state.get(host.label, {}), sequence=delivery.sequence, now=now, settings=settings
         )
     ]
-    behind = _bounded(hosts=behind, state=state, sequence=delivery.sequence)
+    behind = bounded(hosts=behind, state=state, sequence=delivery.sequence)
     factory = factory_record(home=home)
     behind = factory_targets(hosts=hosts, behind=behind, state=state, factory_record=factory)
     oauth = {key: value for key, value in delivery.oauth.items() if key != "refreshToken"}
-    payload = {
-        **asdict(delivery),
-        "oauth": oauth,
-        **({"factory_record": factory[0].decode("utf-8")} if factory is not None else {}),
-    }
-    program = apply_program(payload=json.dumps(payload))
+    program = _delivery_program(delivery=delivery, oauth=oauth, factory=factory)
+    factory_lines: dict[str, str] = {}
     token = str(oauth.get("accessToken", "")) or "\0"
     known_hosts = str(home / KNOWN_HOSTS)
     switched: list[Host] = []
 
     def push_one(*, host: Host) -> str:
         if host.platform == "macos":
+            send_factory_only(
+                host=host,
+                factory=factory,
+                lines=factory_lines,
+                run=run,
+                send=(settings, known_hosts, token),
+            )
             return UNSUPPORTED_MACOS
         reply = run(
             target=host.target,
@@ -180,7 +182,9 @@ def push_due(  # noqa: PLR0913 - independent seams
         outcomes = {label: future.result() for label, future in futures.items()}
     for label, line in outcomes.items():
         record_result(entry=state.setdefault(label, {}), line=line, delivery=delivery, now=now)
-        record_factory_result(entry=state[label], line=line, factory_record=factory)
+        record_factory_result(
+            entry=state[label], line=factory_lines.get(label, line), factory_record=factory
+        )
     try:
         caam_delivery_service.write_private_json(path=home / PUSH_STATE, value=dict(state))
     except OSError as error:
@@ -192,6 +196,21 @@ def push_due(  # noqa: PLR0913 - independent seams
             )
         )
     return outcomes
+
+
+def _delivery_program(
+    *,
+    delivery: caam_delivery_service.Delivery,
+    oauth: dict[str, object],
+    factory: tuple[bytes, str] | None,
+) -> str:
+    """The apply program carrying the delivery (without a refresh token) and the factory record."""
+    payload = {
+        **asdict(delivery),
+        "oauth": oauth,
+        **({"factory_record": factory[0].decode("utf-8")} if factory is not None else {}),
+    }
+    return apply_program(payload=json.dumps(payload))
 
 
 def _reissue_task(
@@ -223,27 +242,3 @@ def _reissue_task(
             )
 
     return task
-
-
-def _bounded(
-    *, hosts: list[Host], state: dict[str, dict[str, object]], sequence: int
-) -> list[Host]:
-    """Every host behind `sequence`, plus at most MAX_REFRESHES_PER_PASS refreshes, oldest first."""
-    refreshes = sorted(
-        (host for host in hosts if _holds(entry=state.get(host.label, {}), sequence=sequence)),
-        key=lambda host: _last_success(entry=state.get(host.label, {})),
-    )
-    fresh = [
-        host for host in hosts if not _holds(entry=state.get(host.label, {}), sequence=sequence)
-    ]
-    return fresh + refreshes[:MAX_REFRESHES_PER_PASS]
-
-
-def _holds(*, entry: dict[str, object], sequence: int) -> bool:
-    applied = entry.get("sequence")
-    return isinstance(applied, int) and applied >= sequence
-
-
-def _last_success(*, entry: dict[str, object]) -> float:
-    success = entry.get("last_success")
-    return success if isinstance(success, float) else float("-inf")
