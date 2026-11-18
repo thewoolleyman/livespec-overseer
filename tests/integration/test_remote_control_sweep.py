@@ -539,6 +539,18 @@ def test_the_not_connected_panel_with_disconnect_selected_gets_no_key() -> None:
     assert "offline" not in report
 
 
+def test_a_stale_panel_above_an_input_box_holding_the_word_continue_gets_no_enter() -> None:
+    """Enter is sent only on the selected `❯ Continue` row, never on a typed draft.
+
+    A stale NOT-CONNECTED panel can sit above a live input box; text the maintainer typed
+    that starts with the word Continue must not be submitted by the sweep.
+    """
+    draft = EMPTY.replace("❯\u00a0\n", "❯\u00a0Continue with the plan\n")
+    report, sent = _run(screens=[NOT_CONNECTED + draft], record=DISCONNECTED)
+    assert sent == []
+    assert "offline" not in report
+
+
 def test_a_continued_seat_that_went_busy_during_the_wait_is_not_typed_into() -> None:
     reads = [DISCONNECTED, {**DISCONNECTED, "status": "busy"}]
 
