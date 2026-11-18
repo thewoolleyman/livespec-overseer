@@ -292,11 +292,8 @@ def _reconnect(
     if not _reissue(herdr=herdr, pane=pane, command=command, sleep=sleep):
         return []
     sleep(_DIALOG_WAIT_S)
-    record = record_of(pid=pane[4])
-    followed = _answer(herdr=herdr, pane=pane, record=record, sleep=sleep)
-    idle = followed == _CONTINUED and record.get("status") == "idle"
-    again = _retype(herdr=herdr, pane=pane, record_of=record_of, sleep=sleep) if idle else []
-    return [command, *([followed] if followed else []), *again]
+    followed = _answer(herdr=herdr, pane=pane, record=record_of(pid=pane[4]), sleep=sleep)
+    return [command, *([followed] if followed else [])]
 
 
 def _retype(*, herdr: Herdr, pane: Pane, record_of: RecordOf, sleep: Sleep) -> list[str]:
@@ -341,7 +338,10 @@ def sweep(
             sessions[label] = record.get("sessionId")
             off += [] if record.get("bridgeSessionId") else [label]
         spent = clock() - start >= _REISSUE_BUDGET_S
-        retype = answered == _CONTINUED and record.get("status") == "idle" and not spent
+        # The ten-minute limit holds (the service releases a continued pane for the NEXT sweep),
+        # and the typing after the wait must still start inside the sweep's budget.
+        room = clock() - start + _CONTINUE_WAIT_S < _REISSUE_BUDGET_S and label not in blocked
+        retype = answered == _CONTINUED and record.get("status") == "idle" and room
         more = _retype(herdr=herdr, pane=pane, record_of=record_of, sleep=sleep) if retype else []
         if answered or not record or record.get("bridgeSessionId"):
             actions += [f"{label} {action}" for action in (answered, *more) if action]
