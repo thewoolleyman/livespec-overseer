@@ -207,8 +207,10 @@ def _pass_with_active(
         requested_accounts=context.flags.protected_accounts,
     )
     # Observation only: the probe reads and alerts on the factory credentials and is
-    # never an input to the account decision below.
-    observe_pass_factory_probes(context=context, fetcher=seams.fetcher, post=seams.push_post)
+    # never an input to the account decision below. It runs on scheduled passes only,
+    # so an explicit manual rotation never reads credentials or sends alerts.
+    if scheduled_pass(flags=context.flags):
+        observe_pass_factory_probes(context=context, fetcher=seams.fetcher, post=seams.push_post)
     current = next((profile.usage for profile in profiles if profile.name == active_name), None)
     if current is None:
         # Published AFTER the report is written and the state persisted, and
