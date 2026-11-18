@@ -12,11 +12,12 @@ from _caam_pass_span import Clock, PassEventEmitter, PassSpan, open_pass_span
 from _caam_rotation_span import rotation_sink
 from _caam_span_seam import emitter_from_env
 from caam_anthropic_decide import DecisionSeams, decide
-from caam_anthropic_finish import LineWriter, finish
+from caam_anthropic_finish import ACTIVE_FAIL, EMPTY_VAULT, LineWriter, finish
 from caam_anthropic_flags import Flags, scheduled_pass
 from caam_anthropic_revive import revive_pass_profiles
 from caam_anthropic_status import write_status
 from caam_pass_capacity import observe_pass_capacity
+from caam_pass_factory_probe import observe_pass_factory_probes
 from caam_pass_probe import probe_snapshotless_profiles
 from caam_pass_publish import complete_publications, pass_publication, pass_stamp
 from caam_pass_refusals import observe_pass_refusals
@@ -42,9 +43,6 @@ from caam_rendering import trigger_header
 from caam_warm import resnapshot_active
 
 __all__: list[str] = ["AgentRunner", "Flags", "PassContext", "run_pass"]
-
-_EMPTY_VAULT = "FAIL no profiles found in the caam vault for claude"
-_ACTIVE_FAIL = "FAIL could not determine active claude profile"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -112,7 +110,7 @@ def _run_pass(
             state_path=state_path,
             save=seams.save_state,
             stdout=stdout,
-            lines=(_EMPTY_VAULT,),
+            lines=(EMPTY_VAULT,),
         )
     active = active_profile(
         live_account_path=run_home / ".claude.json",
@@ -126,7 +124,7 @@ def _run_pass(
             state_path=state_path,
             save=seams.save_state,
             stdout=stdout,
-            lines=(_ACTIVE_FAIL,),
+            lines=(ACTIVE_FAIL,),
         )
     span.note_account(name=active.profile)
     return _pass_with_active(
@@ -208,6 +206,9 @@ def _pass_with_active(
         state=context.state,
         requested_accounts=context.flags.protected_accounts,
     )
+    # Observation only: the probe reads and alerts on the factory credentials and is
+    # never an input to the account decision below.
+    observe_pass_factory_probes(context=context, fetcher=seams.fetcher, post=seams.push_post)
     current = next((profile.usage for profile in profiles if profile.name == active_name), None)
     if current is None:
         # Published AFTER the report is written and the state persisted, and

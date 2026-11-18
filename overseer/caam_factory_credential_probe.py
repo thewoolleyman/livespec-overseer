@@ -1,24 +1,36 @@
-"""Probe factory credentials and describe their alert lifecycle.
+"""Judge factory credentials and drive the alert lifecycle their verdicts imply.
 
-The scheduled credential operation keeps prior alert conditions outside this
-module and supplies them on each pass.  Keeping the boundary pure makes a
-rate-limited request explicitly inconclusive instead of mistaking it for an
-unusable credential.
+The scheduled pass keeps the alert conditions outside this module and supplies
+them on each call; this module only decides.  A rate-limited or failed provider
+read is INCONCLUSIVE and never alerts, because the usage endpoint backs off a
+repeatedly read token and its refusal is not evidence that a credential is
+exhausted.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import datetime, timezone
+from typing import Final
 
 __all__: list[str] = [
+    "INCONCLUSIVE",
+    "UNUSABLE",
+    "USABLE",
     "AlertCondition",
     "FactoryCredential",
+    "Observer",
+    "ProbePass",
     "ProbeReading",
     "ProbeReport",
     "render_report",
     "run_once",
 ]
+
+USABLE: Final = "usable"
+UNUSABLE: Final = "unusable"
+INCONCLUSIVE: Final = "inconclusive"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -37,133 +49,141 @@ class FactoryCredential:
 
 @dataclass(frozen=True, kw_only=True)
 class ProbeReading:
-    """The usable portion of one provider probe."""
+    """One read-only authenticated reading, or the reason none could be taken."""
 
+    unauthenticated: bool = False
+    inconclusive: bool = False
     weekly_remaining: float | None = None
-    rate_limited: bool = False
+    short_window_remaining: float | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
 class AlertCondition:
-    """The last alert-delivered verdict for one credential."""
+    """An unusable credential whose onset alert was delivered."""
 
-    verdict: str
+    started_at: float
     alerted_at: float
 
 
 @dataclass(frozen=True, kw_only=True)
 class ProbeReport:
-    """One credential's current, reportable probe verdict."""
+    """One credential's reportable verdict."""
 
+    key: str
     verdict: str
+    probed_at: float
 
 
-CredentialReader = Callable[..., str]
-ProbeObserver = Callable[..., ProbeReading]
-Notifier = Callable[[str], None]
+@dataclass(frozen=True, kw_only=True)
+class ProbePass:
+    """The reports of one probe pass, the conditions to remember, and failed alerts."""
+
+    reports: tuple[ProbeReport, ...]
+    conditions: dict[str, AlertCondition]
+    failed_alerts: tuple[str, ...]
 
 
-def run_once(  # noqa: PLR0913 - the seams are independently supplied by the pass
+Observer = Callable[..., ProbeReading]
+Notifier = Callable[..., bool]
+
+
+def run_once(
     *,
     now: float,
     credentials: tuple[FactoryCredential, ...],
-    prior_conditions: Mapping[str, AlertCondition],
+    prior: Mapping[str, AlertCondition],
     repeat_interval_seconds: float,
-    read_credential: CredentialReader,
-    observe: ProbeObserver,
+    observe: Observer,
     notify: Notifier,
-) -> dict[str, ProbeReport]:
-    """Probe configured credentials and deliver only due failure or recovery alerts."""
-    reports: dict[str, ProbeReport] = {}
+) -> ProbePass:
+    """Probe each credential; an alert is delivered only when its lifecycle makes one due.
+
+    `observe` raises OSError for a credential that cannot be read from its
+    location.  `notify` returns whether the alert was delivered; an undelivered
+    alert leaves the condition as it was, so the next pass retries it.
+    """
+    reports: list[ProbeReport] = []
+    conditions: dict[str, AlertCondition] = {}
+    failed: list[str] = []
     for credential in credentials:
-        report = _probe(
+        verdict = _verdict(credential=credential, observe=observe)
+        reports.append(ProbeReport(key=credential.key, verdict=verdict, probed_at=now))
+        condition, delivered = _lifecycle(
             credential=credential,
-            read_credential=read_credential,
-            observe=observe,
-        )
-        reports[credential.key] = report
-        _notify_if_due(
-            credential=credential,
-            report=report,
-            prior=prior_conditions.get(credential.key),
+            verdict=verdict,
+            prior=prior.get(credential.key),
             now=now,
             repeat_interval_seconds=repeat_interval_seconds,
             notify=notify,
         )
-    return reports
+        if condition is not None:
+            conditions[credential.key] = condition
+        if not delivered:
+            failed.append(credential.key)
+    return ProbePass(reports=tuple(reports), conditions=conditions, failed_alerts=tuple(failed))
 
 
-def render_report(*, reports: Mapping[str, ProbeReport], push_channel_configured: bool) -> str:
-    """Render a stable, operator-facing credential report."""
-    lines = [f"{key}: {report.verdict}" for key, report in sorted(reports.items())]
-    lines.extend(
-        {
-            True: (),
-            False: ("alerts cannot be delivered: no push channel configured",),
-        }[push_channel_configured]
-    )
-    return "\n".join(lines)
+def render_report(
+    *,
+    reports: tuple[ProbeReport, ...],
+    failed_alerts: tuple[str, ...],
+    push_channel_configured: bool,
+) -> tuple[str, ...]:
+    """Render each credential's label, tenant, last probe time and verdict, then delivery state."""
+    lines = [
+        f"{report.key}: {report.verdict} (probed {_when(at=report.probed_at)})"
+        for report in sorted(reports, key=lambda report: report.key)
+    ]
+    if not push_channel_configured:
+        lines.append("alerts cannot be delivered: no push channel configured")
+    lines.extend(f"alert delivery failed for {key}; retrying next pass" for key in failed_alerts)
+    return tuple(lines)
 
 
-def _probe(
-    *, credential: FactoryCredential, read_credential: CredentialReader, observe: ProbeObserver
-) -> ProbeReport:
+def _verdict(*, credential: FactoryCredential, observe: Observer) -> str:
     try:
-        _ = read_credential(location=credential.location)
+        reading = observe(credential=credential)
     except OSError:
-        return ProbeReport(verdict="unusable")
-    reading = observe(credential=credential)
-    if reading.rate_limited:
-        return ProbeReport(verdict="inconclusive")
-    if reading.weekly_remaining is None or reading.weekly_remaining <= 0:
-        return ProbeReport(verdict="unusable")
-    return ProbeReport(verdict="usable")
+        return UNUSABLE
+    if reading.inconclusive:
+        return INCONCLUSIVE
+    exhausted = any(
+        figure is not None and figure <= 0
+        for figure in (reading.weekly_remaining, reading.short_window_remaining)
+    )
+    if reading.unauthenticated or exhausted:
+        return UNUSABLE
+    return USABLE
 
 
-def _notify_if_due(
+def _lifecycle(
     *,
     credential: FactoryCredential,
-    report: ProbeReport,
+    verdict: str,
     prior: AlertCondition | None,
     now: float,
     repeat_interval_seconds: float,
     notify: Notifier,
-) -> None:
-    if report.verdict == "inconclusive":
-        return
-    if report.verdict == "usable":
-        _deliver(
-            notify=notify,
-            messages=_when(
-                due=getattr(prior, "verdict", "") == "unusable",
-                message=(
-                    f"factory credential recovered: {credential.label} "
-                    f"for tenant {credential.tenant}"
-                ),
-            ),
-        )
-        return
-    if prior is None or prior.verdict != report.verdict:
-        notify(f"factory credential unusable: {credential.label} for tenant {credential.tenant}")
-        return
-    _deliver(
-        notify=notify,
-        messages=_when(
-            due=now - prior.alerted_at >= repeat_interval_seconds,
-            message=(
-                f"factory credential still unusable: {credential.label} "
-                f"for tenant {credential.tenant}"
-            ),
-        ),
+) -> tuple[AlertCondition | None, bool]:
+    """Return the condition to remember and whether no alert is left undelivered."""
+    subject = f"{credential.label} for tenant {credential.tenant}"
+    if verdict == INCONCLUSIVE:
+        return prior, True
+    if verdict == USABLE:
+        if prior is None:
+            return None, True
+        sent = notify(message=f"factory credential recovered: {subject}")
+        return (None if sent else prior), sent
+    if prior is None:
+        sent = notify(message=f"factory credential unusable since {_when(at=now)}: {subject}")
+        return (AlertCondition(started_at=now, alerted_at=now) if sent else None), sent
+    if now - prior.alerted_at < repeat_interval_seconds:
+        return prior, True
+    sent = notify(
+        message=f"factory credential still unusable since {_when(at=prior.started_at)}: {subject}"
     )
+    return (replace(prior, alerted_at=now) if sent else prior), sent
 
 
-def _when(*, due: bool, message: str) -> tuple[str, ...]:
-    """Return a one-message sequence precisely when an alert is due."""
-    return (message,)[: int(due)]
-
-
-def _deliver(*, notify: Notifier, messages: tuple[str, ...]) -> None:
-    """Deliver every already-authorized alert message."""
-    for message in messages:
-        notify(message)
+def _when(*, at: float) -> str:
+    return datetime.fromtimestamp(at, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

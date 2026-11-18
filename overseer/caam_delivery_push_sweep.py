@@ -44,6 +44,7 @@ __all__: list[str] = [
     "SweepState",
     "maybe_start",
     "ntfy_push",
+    "ntfy_url",
     "reissue_finished",
     "reissue_started",
     "run_here",
@@ -225,14 +226,22 @@ def _post(*, url: str, message: str) -> str:
         return f"failed {type(error).__name__}"
 
 
-def ntfy_push(*, home: Path, message: str, post: Post = _post) -> str:
-    """Push `message` to the role holder's Claude ntfy address; the outcome, never the topic."""
+def ntfy_url(*, home: Path) -> str | None:
+    """The role holder's Claude ntfy address, or None when none is configured."""
     settings = jsonio.as_object(value=_loads(text=_text(path=home / ".claude" / "settings.json")))
     env = jsonio.as_object(value=None if settings is None else settings.get("env")) or {}
     topic, server = env.get("CLAUDE_NTFY_TOPIC"), env.get("CLAUDE_NTFY_SERVER") or _NTFY_DEFAULT
     if not isinstance(topic, str) or not topic or not isinstance(server, str):
+        return None
+    return f"{server.rstrip('/')}/{topic}"
+
+
+def ntfy_push(*, home: Path, message: str, post: Post | None = None) -> str:
+    """Push `message` to the role holder's Claude ntfy address; the outcome, never the topic."""
+    url = ntfy_url(home=home)
+    if url is None:
         return "skipped no ntfy address"
-    return post(url=f"{server.rstrip('/')}/{topic}", message=message)
+    return (_post if post is None else post)(url=url, message=message)
 
 
 def _text(*, path: Path) -> str:

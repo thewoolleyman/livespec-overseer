@@ -6,10 +6,15 @@ from pathlib import Path
 from typing import Protocol
 
 __all__: list[str] = [
+    "ACTIVE_FAIL",
+    "EMPTY_VAULT",
     "LineWriter",
     "SaveState",
     "finish",
 ]
+
+EMPTY_VAULT = "FAIL no profiles found in the caam vault for claude"
+ACTIVE_FAIL = "FAIL could not determine active claude profile"
 
 
 class LineWriter(Protocol):
