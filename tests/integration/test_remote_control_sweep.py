@@ -503,15 +503,12 @@ def test_a_status_panel_on_a_seat_off_remote_control_is_reported_offline() -> No
 
 
 def test_a_reissue_that_opens_the_panel_on_a_seat_still_off_is_reported_offline() -> None:
-    screens = [EMPTY, TYPED, NOT_CONNECTED, EMPTY, TYPED, EMPTY]
+    """A pane typed this sweep is continued, not typed twice: the ten-minute limit holds."""
+    screens = [EMPTY, TYPED, NOT_CONNECTED, EMPTY]
     report, sent = _run(screens=screens, record=DISCONNECTED)
-    assert sent == [("p", NAMED), ("p", "Enter"), ("p", "Enter"), ("p", NAMED), ("p", "Enter")]
+    assert sent == [("p", NAMED), ("p", "Enter"), ("p", "Enter")]
     assert report["reissued"] == ["herdr:s:p"]
-    assert report["actions"] == [
-        f"herdr:s:p {NAMED}",
-        "herdr:s:p offline:Continue",
-        f"herdr:s:p {NAMED}",
-    ]
+    assert report["actions"] == [f"herdr:s:p {NAMED}", "herdr:s:p offline:Continue"]
     assert report["offline"] == ["herdr:s:p"]
 
 
@@ -555,13 +552,26 @@ def test_a_continued_seat_that_went_busy_during_the_wait_is_not_typed_into() -> 
     assert report["reissued"] == []
 
 
-def test_a_seat_continued_at_the_panel_is_reconnected_though_its_last_send_was_recent() -> None:
-    """The ten-minute limit releases a pane just continued, so the reconnect is sent now."""
-    report, sent = _run(
-        screens=[NOT_CONNECTED, EMPTY, TYPED, EMPTY], record=DISCONNECTED, blocked=["herdr:s:p"]
+def test_a_seat_continued_inside_the_ten_minute_limit_is_not_retyped_until_released() -> None:
+    """The service releases a continued pane for the NEXT sweep, so this one types nothing."""
+    report, sent = _run(screens=[NOT_CONNECTED, EMPTY], record=DISCONNECTED, blocked=["herdr:s:p"])
+    assert sent == [("p", "Enter")]
+    assert report["offline"] == ["herdr:s:p"]
+    assert report["reissued"] == []
+
+
+def test_a_continued_seat_is_not_retyped_when_the_wait_would_end_past_the_typing_budget() -> None:
+    herdr = FakeHerdr(panes={"p": _pane(screens=[NOT_CONNECTED, EMPTY, TYPED, EMPTY])})
+    report = SWEEP.sweep(
+        blocked=[],
+        herdr=herdr,
+        record_of=records(value=DISCONNECTED),
+        sleep=no_sleep,
+        clock=_clock(readings=[0.0, 29.0]),
     )
-    assert sent == [("p", "Enter"), ("p", NAMED), ("p", "Enter")]
-    assert report["reissued"] == ["herdr:s:p"]
+    assert herdr.sent == [("p", "Enter")]
+    assert report["offline"] == ["herdr:s:p"]
+    assert report["reissued"] == []
 
 
 def test_the_continue_wait_is_at_least_twelve_seconds() -> None:
