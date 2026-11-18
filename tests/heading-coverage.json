@@ -4488,41 +4488,41 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A persisting condition is not re-alerted before the repeat interval",
-    "test": "TODO",
+    "test": "tests/integration/test_factory_credential_probe_alerts.py::test_a_persisting_unusable_factory_credential_is_not_realerted_before_its_repeat_interval",
     "work_item": "overseer-wh4sh2",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-wh4sh2 owns it. (Successor test owner to closed overseer-hydiph.)"
+    "reason": "Integration test pins six-hour repeat suppression after an unusable factory-credential alert."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A rate-limited probe is inconclusive and not alerted",
-    "test": "TODO",
+    "test": "tests/integration/test_factory_credential_probe_alerts.py::test_a_rate_limited_factory_credential_probe_is_inconclusive_and_not_alerted",
     "work_item": "overseer-wh4sh2",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-wh4sh2 owns it. (Successor test owner to closed overseer-hydiph.)"
+    "reason": "Integration test pins a rate-limited factory probe as inconclusive without an alert."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A credential that cannot be read from its location is unusable",
-    "test": "TODO",
+    "test": "tests/integration/test_factory_credential_probe_alerts.py::test_an_unreadable_factory_credential_is_unusable_and_alerted_with_its_identity",
     "work_item": "overseer-wh4sh2",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-wh4sh2 owns it. (Successor test owner to closed overseer-hydiph.)"
+    "reason": "Integration test pins unreadable configured credentials as unusable with tenant and label in the alert."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A recovered condition sends one recovery alert",
-    "test": "TODO",
+    "test": "tests/integration/test_factory_credential_probe_alerts.py::test_a_recovered_factory_credential_sends_exactly_one_recovery_alert",
     "work_item": "overseer-wh4sh2",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-wh4sh2 owns it. (Successor test owner to closed overseer-hydiph.)"
+    "reason": "Integration test pins exactly one recovery alert after a previously alerted credential becomes usable."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: No push channel configured is reported",
-    "test": "TODO",
+    "test": "tests/integration/test_factory_credential_probe_alerts.py::test_a_report_states_when_no_push_channel_is_configured",
     "work_item": "overseer-wh4sh2",
-    "reason": "A real test at the integration tier or above is owed for this heading; overseer-wh4sh2 owns it. (Successor test owner to closed overseer-hydiph.)"
+    "reason": "Integration test pins the report's explicit no-push-channel delivery warning."
   },
   {
     "spec_root": "SPECIFICATION",

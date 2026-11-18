@@ -212,13 +212,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A credential that cannot be read from its location is unusable",
-    "work_item": "overseer-wh4sh2",
-    "first_seen": "2026-11-10"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: A daemon message is delivered through a session-bound channel when one is available",
     "work_item": "overseer-uepcr6",
     "first_seen": "2026-10-15"
@@ -604,13 +597,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A persisting condition is not re-alerted before the repeat interval",
-    "work_item": "overseer-wh4sh2",
-    "first_seen": "2026-11-10"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: A persisting ready hold is re-reported at the next window boundary",
     "work_item": "overseer-tzi4y6",
     "first_seen": "2026-11-05"
@@ -656,13 +642,6 @@
     "heading": "## Scenario: A qualifying factory account is kept rather than moved",
     "work_item": "overseer-shojan",
     "first_seen": "2026-11-16"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A rate-limited probe is inconclusive and not alerted",
-    "work_item": "overseer-wh4sh2",
-    "first_seen": "2026-11-10"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -746,13 +725,6 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A recorded login shows its age in the report",
     "work_item": "overseer-meryyx",
-    "first_seen": "2026-11-10"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: A recovered condition sends one recovery alert",
-    "work_item": "overseer-wh4sh2",
     "first_seen": "2026-11-10"
   },
   {
@@ -1929,13 +1901,6 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: No lifetime-cap warning before the cap is measured",
     "work_item": "overseer-meryyx",
-    "first_seen": "2026-11-10"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
-    "heading": "## Scenario: No push channel configured is reported",
-    "work_item": "overseer-wh4sh2",
     "first_seen": "2026-11-10"
   },
   {
