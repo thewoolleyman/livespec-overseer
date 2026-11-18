@@ -25,6 +25,7 @@ from caam_anthropic_finish import LineWriter, SaveState
 from caam_anthropic_status import EnforceModels
 from caam_capacity import CapacitySource
 from caam_capacity_source import read_rate_limit_tier
+from caam_delivery_push_sweep import Post
 from caam_enforcement import enforce_models as default_enforce_models
 from caam_pass_refusals import TrackedSessionSource, tracked_session_source
 from caam_profile_state import save_state as default_save_state
@@ -102,6 +103,7 @@ class PassSeams:
     agent_runner: AgentRunner
     caam_runner: ResnapshotRunner
     tracked_sessions: TrackedSessionSource
+    push_post: Post | None
 
 
 def pass_seams(*, overrides: dict[str, object]) -> PassSeams:
@@ -129,4 +131,5 @@ def pass_seams(*, overrides: dict[str, object]) -> PassSeams:
         agent_runner=default_agent_runner if agent_runner is None else agent_runner,
         caam_runner=default_caam_runner if caam_runner is None else caam_runner,
         tracked_sessions=tracked_session_source(overrides=overrides),
+        push_post=cast(Post | None, overrides.get("push_post")),
     )
