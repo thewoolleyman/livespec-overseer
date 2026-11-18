@@ -7,7 +7,9 @@ token, refuses a host whose own login still holds one (`not-converted`),
 refuses a sequence that is not greater than the applied one (`stale-sequence`),
 then writes the credential, the global state file and the applied sequence
 temp-then-rename at 0600 and verifies them. A separately-carried factory
-selection record is validated and written before that delivery; it has no
+selection record is validated and written before that delivery, or alone when
+the payload says `factory_only` (the macOS hosts, whose credential delivery is
+not supported, and which print `factory-applied`); it has no
 delivery sequence and is replaced only when its written_at is later than the
 copy on the host, the read, compare and write all under one exclusive lock so
 concurrent pushes cannot move it backward. On any credential-delivery failure
@@ -136,9 +138,10 @@ def apply(seq, oauth, identity):
 def main(text):
     try:
         d = json.loads(text)
-        seq = int(d["sequence"])
-        oauth = d["oauth"]
-        identity = d["identity"]
+        only = d.get("factory_only") is True
+        seq = 0 if only else int(d["sequence"])
+        oauth = {} if only else d["oauth"]
+        identity = {} if only else d["identity"]
         if not isinstance(oauth, dict) or not isinstance(identity, dict):
             raise ValueError("shape")
     except Exception:
@@ -151,6 +154,10 @@ def main(text):
             apply_factory(factory)
         except Exception:
             out("failed - bad-factory-record", 5)
+    if only:
+        if factory is None:
+            out("failed - bad-factory-record", 5)
+        out("factory-applied", 0)
     if "refreshToken" in oauth:
         out("failed %d delivered-refresh-token" % seq, 4)
     try:
