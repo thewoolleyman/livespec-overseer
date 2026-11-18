@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.64.3](https://github.com/livespec-ai/livespec-overseer/compare/v5.64.2...v5.64.3) (2026-11-18)
+
+
+### Bug Fixes
+
+* **caam-delivery:** Enter goes only on the selected `❯ Continue` row, never on a typed draft (overseer-fdwat6) ([758e211](https://github.com/livespec-ai/livespec-overseer/commit/758e21147a974b724a137af446752f1ec6f85122))
+
 ## [5.64.2](https://github.com/livespec-ai/livespec-overseer/compare/v5.64.1...v5.64.2) (2026-11-18)
 
 
