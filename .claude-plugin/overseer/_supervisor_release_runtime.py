@@ -112,6 +112,8 @@ def _check_summary(*, value: object) -> Mapping[str, object]:
     return {
         "name": check.get("name") or "<unnamed>",
         "conclusion": check.get("conclusion") or "",
+        "completed_at": check.get("completed_at") or "",
+        "id": check.get("id") or 0,
     }
 
 

@@ -73,6 +73,81 @@ def test_adapter_computes_one_green_verdict_and_installs_that_target(*, tmp_path
     assert len(calls) == 3
 
 
+def test_adapter_accepts_superseded_skipped_duplicate_check_runs(*, tmp_path) -> None:
+    """Later successful runs make each duplicate check name green."""
+    mod = adapter_module()
+    release = "2222222222222222222222222222222222222222"
+    current = "1111111111111111111111111111111111111111"
+
+    def run(argv, *, capture_output, text, check, timeout):
+        endpoint = argv[-1]
+        if endpoint.endswith("/commits/release"):
+            return Completed(stdout=json.dumps({"sha": release}))
+        if endpoint.endswith(f"/commits/v{mod.APP_VERSION}"):
+            return Completed(stdout=json.dumps({"sha": current}))
+        return Completed(
+            stdout=json.dumps(
+                {
+                    "check_runs": [
+                        {
+                            "id": 102,
+                            "name": "check-doctor-static",
+                            "conclusion": "success",
+                            "completed_at": "2026-11-19T02:36:07Z",
+                        },
+                        {
+                            "id": 101,
+                            "name": "check-doctor-static",
+                            "conclusion": "skipped",
+                            "completed_at": "2026-11-19T02:34:40Z",
+                        },
+                        {
+                            "id": 202,
+                            "name": "check-python-batch",
+                            "conclusion": "success",
+                            "completed_at": "2026-11-19T02:36:48Z",
+                        },
+                        {
+                            "id": 201,
+                            "name": "check-python-batch",
+                            "conclusion": "skipped",
+                            "completed_at": "2026-11-19T02:34:40Z",
+                        },
+                        {
+                            "id": 302,
+                            "name": "check-metadata-batch",
+                            "conclusion": "success",
+                            "completed_at": "2026-11-19T02:37:40Z",
+                        },
+                        {
+                            "id": 301,
+                            "name": "check-metadata-batch",
+                            "conclusion": "skipped",
+                            "completed_at": "2026-11-19T02:34:40Z",
+                        },
+                        {
+                            "id": 400,
+                            "name": "ci-green",
+                            "conclusion": "success",
+                            "completed_at": "2026-11-19T02:38:00Z",
+                        },
+                    ]
+                }
+            )
+        )
+
+    adapter = mod.ReleaseRuntimeAdapter(
+        sup=object(),
+        run=run,
+        ensure_release_runtime=lambda *, release: tmp_path / release,
+    )
+
+    verdict = adapter.currency_check()
+
+    assert verdict["eligible"] is True
+    assert verdict["target"] == release
+
+
 def test_release_runtime_adapter_factory_returns_adapter() -> None:
     mod = adapter_module()
 
