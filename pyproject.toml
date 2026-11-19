@@ -555,7 +555,9 @@ omit = [
     "*/site-packages/*",
     "*/_vendor/*",
     "*/__pycache__/*",
-    "/tmp/*",
+    # pytest's scratch tree is not product code. Do not omit all of /tmp:
+    # the factory gate previews a checkout there and must still measure it.
+    "/tmp/pytest-of-*/*",
     "overseer/test_*.py",
     "overseer/conftest.py",
     "tests/test_*.py",

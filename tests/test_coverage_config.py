@@ -23,9 +23,11 @@ def test_coverage_omits_host_installed_absolute_tool_paths() -> None:
     matcher = coverage_omit_matcher()
 
     assert matcher.match(str(Path("/usr/local/bin/bd-guard-emit.py"))) is True
+    assert matcher.match(str(Path("/tmp/pytest-of-user/pytest-0/test_case/file.py"))) is True
 
 
 def test_coverage_still_traces_first_party_product_paths() -> None:
     matcher = coverage_omit_matcher()
 
     assert matcher.match(str(ROOT / "overseer" / "supervisor.py")) is False
+    assert matcher.match("/tmp/livespec-gate-preview-example/overseer/supervisor.py") is False
