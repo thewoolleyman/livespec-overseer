@@ -255,6 +255,9 @@ def test_the_package_the_switched_process_resolves_is_what_ends_the_reexec_cycle
     }
 
     def fake_gh(command, **_kwargs) -> _GhResult:
+        if command[:2] == ["git", "ls-remote"]:
+            tag = str(command[-2]).removeprefix("refs/tags/")
+            return _GhResult(stdout=f"{commits[tag]}\trefs/tags/{tag}^{{}}\n")
         endpoint = str(command[-1])
         if endpoint.endswith("check-runs?per_page=100"):
             return _GhResult(
