@@ -318,14 +318,19 @@ def test_push_writes_the_current_factory_selection_record_to_every_listed_host(
     )
     receivers = {"user@one": tmp_path / "one", "user@two": tmp_path / "two"}
 
+    seam = threading.Lock()
+
     def run(*, target: str, program: str, **_: object) -> tuple[int, str]:
-        monkeypatch.setenv("HOME", str(receivers[target]))
-        code = 0
-        try:
-            exec(compile(program, "<push>", "exec"), {"__name__": "__main__"})  # noqa: S102
-        except SystemExit as stop:
-            code = int(stop.code or 0)
-        return code, capsys.readouterr().out.strip()
+        with (
+            seam
+        ):  # the in-process seam mutates global HOME and stdout; production stays concurrent
+            monkeypatch.setenv("HOME", str(receivers[target]))
+            code = 0
+            try:
+                exec(compile(program, "<push>", "exec"), {"__name__": "__main__"})  # noqa: S102
+            except SystemExit as stop:
+                code = int(stop.code or 0)
+            return code, capsys.readouterr().out.strip()
 
     delivery = service.Delivery(
         sequence=1,
@@ -996,3 +1001,24 @@ def test_the_role_holders_reissue_line_never_carries_part_of_a_credential(
     assert "sk-ant" not in result
     assert "Q" not in result
     assert result.startswith("y" * 190) and len(result) <= 200
+
+
+def test_push_reaches_every_listed_host_concurrently_so_a_slow_host_delays_none(
+    *, tmp_path: Path
+) -> None:
+    push = importlib.import_module("caam_delivery_push")
+    service = importlib.import_module("caam_delivery_service")
+    (tmp_path / push.HOSTS_FILE).parent.mkdir(parents=True, exist_ok=True)
+    _ = (tmp_path / push.HOSTS_FILE).write_text(
+        "one user@one linux\ntwo user@two linux\n", encoding="utf-8"
+    )
+    both_in_flight = threading.Barrier(2, timeout=5)
+
+    def run(*, target: str, **_: object) -> tuple[int, str]:
+        _ = target
+        both_in_flight.wait()
+        return 0, "applied 1"
+
+    delivery = service.Delivery(sequence=1, account_id="a", identity={}, oauth={})
+    outcomes = push.push_due(home=tmp_path, delivery=delivery, now=1.0, run=run)
+    assert outcomes == {"one": "applied 1", "two": "applied 1"}

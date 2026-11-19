@@ -174,10 +174,7 @@ def push_due(  # noqa: PLR0913 - independent seams
             switched.append(host)
         return scrubbed(text=reply, token=token)
 
-    # A factory update and its credential delivery share one remote program.
-    # Preserve the host-list order so a caller that runs that program in
-    # process (the integration seam) cannot race its receiving-home context.
-    with ThreadPoolExecutor(max_workers=1) as pool:
+    with ThreadPoolExecutor(max_workers=max(1, len(behind))) as pool:
         futures = {host.label: pool.submit(push_one, host=host) for host in behind}
         outcomes = {label: future.result() for label, future in futures.items()}
     for label, line in outcomes.items():
