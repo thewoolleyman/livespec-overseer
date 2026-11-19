@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.66.0](https://github.com/livespec-ai/livespec-overseer/compare/v5.65.0...v5.66.0) (2026-11-19)
+
+
+### Features
+
+* red ([e7244eb](https://github.com/livespec-ai/livespec-overseer/commit/e7244ebb0ac34af994c068775286001dd5484543))
+* red ([8713fd0](https://github.com/livespec-ai/livespec-overseer/commit/8713fd00ba6de1d996aa57175b7b2ef4bce8db9e))
+
 ## [5.65.0](https://github.com/livespec-ai/livespec-overseer/compare/v5.64.3...v5.65.0) (2026-11-18)
 
 
