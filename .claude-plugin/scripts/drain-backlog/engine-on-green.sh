@@ -53,8 +53,24 @@ while true; do
 done
 
 # Gate 2: master green. Red master -> not launching (exit 2) so the caller can decide; queued/in_progress -> wait.
+# The poll is a CONDITIONAL request: it sends the stored ETag as If-None-Match, so an unchanged master answers a
+# 304 that costs no primary rate-limit budget. `gh api --cache` is NOT used: it is a TTL-only local cache that
+# sends no If-None-Match, so a TTL equal to the sleep makes every iteration a counted 200. `gh api -i` prints the
+# status line and headers on stdout and exits 1 on a 304, so the status line (not the exit code) decides.
+etag=""
+runs_url="repos/$gh_repo/actions/workflows/ci.yml/runs?branch=master&per_page=1"
 while true; do
-  j=$(gh api --cache 60s "repos/$gh_repo/actions/workflows/ci.yml/runs?branch=master&per_page=1" 2>/dev/null) || { sleep 60; continue; }
+  if [ -n "$etag" ]; then
+    resp=$(gh api -i -H "If-None-Match: $etag" "$runs_url" 2>/dev/null); rc=$?
+  else
+    resp=$(gh api -i "$runs_url" 2>/dev/null); rc=$?
+  fi
+  http=$(printf '%s\n' "$resp" | head -n 1 | awk '{print $2}')
+  # Unchanged since the last evaluation, which did not end the gate: wait without spending a counted call.
+  if [ "$http" = "304" ]; then sleep 60; continue; fi
+  [ "$rc" -eq 0 ] || { sleep 60; continue; }
+  etag=$(printf '%s\n' "$resp" | tr -d '\r' | sed -n 's/^[Ee][Tt][Aa][Gg]:[[:space:]]*//p' | head -n 1)
+  j=$(printf '%s\n' "$resp" | tr -d '\r' | sed '1,/^$/d')
   id=$(jq -r '.workflow_runs[0].id' <<<"$j"); st=$(jq -r '.workflow_runs[0].status' <<<"$j"); cc=$(jq -r '.workflow_runs[0].conclusion' <<<"$j")
   echo "$(ts) newest master run $id status=$st conclusion=$cc"
   if [ "$st" = "completed" ]; then

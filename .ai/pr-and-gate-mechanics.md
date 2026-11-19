@@ -126,9 +126,14 @@ in a `--title` from a shell loop. Denials it produced here included a `gh pr
 create` whose only sin was the title "... extrapolations **for** the lessons
 tally", and a `git commit` whose message quoted a `gh pr list` command.
 
-The message it prints ("use the cached alternative `gh api --cache`") is sound
-advice for a genuine polling loop and actively misleading for this case: there is
-no loop, and no cache flag exists on `gh pr create`.
+The message it prints is advice for a genuine polling loop and actively
+misleading for this case: there is no loop, and no cache flag exists on
+`gh pr create`. Note that `gh api --cache <duration>` is a TTL-only local cache:
+it sends no If-None-Match, so it never earns a free 304, and every call after the
+TTL is a counted request (measured with GH_DEBUG=api on gh 2.96.0, 2026-11-19).
+A polling loop earns free 304s only by sending the stored ETag itself
+(`gh api -i -H "If-None-Match: <etag>"`; a 304 exits 1, so read the status line),
+or by using a TTL longer than the loop period, or by comparing the ref sha first.
 
 **Remedies, in order:** reword the title or message to avoid `for` / `while` /
 `until` / `select` / `sleep` as standalone words; put long prose in a file and
