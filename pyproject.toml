@@ -539,6 +539,12 @@ omit = [
     # setting too; it is not this repo's code and must not be measured.
     "/usr/local/*",
     "*/.livespec-gh-refresh/*",
+    # The orchestrator's gh-refresh bundle moved to
+    # ${LIVESPEC_SANDBOX_CLAUDE_PLUGINS_ROOT:-$HOME/.claude/plugins}/livespec-gh-refresh,
+    # so the entry above no longer matches it and every factory run whose tests
+    # spawn `gh` measures mint_app_token.py (overseer-pl62ze). Temporary until
+    # the dispatcher's gh wrapper unsets COVERAGE_PROCESS_START (orchestrator #5588).
+    "/root/.claude/plugins/livespec-gh-refresh/*",
     # Harness PLUGIN CACHES are the same class as the tooling above and were
     # missing from this list rather than deliberately included. Under xdist the
     # workers' subprocesses inherit COVERAGE_PROCESS_START, so hooks the harness
