@@ -110,6 +110,8 @@ def test_runtime_provision_failure_is_not_run_by_the_release_currency_verdict(*,
             self.stdout = stdout
 
     def run(argv, *, capture_output, text, check, timeout):
+        if argv[:2] == ["git", "ls-remote"]:
+            return Completed(stdout=f"{current}\trefs/tags/v{mod.APP_VERSION}^{{}}\n")
         endpoint = argv[-1]
         if endpoint.endswith("/commits/release"):
             return Completed(stdout=json.dumps({"sha": release}))

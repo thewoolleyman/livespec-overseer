@@ -28,6 +28,8 @@ def test_final_release_refresh_uses_etag_without_rereading_checks(*, tmp_path: P
     def run(argv, *, capture_output, text, check, timeout):
         del capture_output, text, check, timeout
         calls.append(list(argv))
+        if argv[:2] == ["git", "ls-remote"]:
+            return Completed(stdout=f"{current}\trefs/tags/v{mod.APP_VERSION}^{{}}\n")
         endpoint = argv[-1]
         if endpoint.endswith("/commits/release") and len(calls) == 1:
             return Completed(
@@ -91,6 +93,8 @@ def test_provisioning_failure_stays_blocked_after_a_refresh(*, tmp_path: Path) -
 
     def run(argv, *, capture_output, text, check, timeout):
         del capture_output, text, check, timeout
+        if argv[:2] == ["git", "ls-remote"]:
+            return Completed(stdout="")
         endpoint = argv[-1]
         if endpoint.endswith("/commits/release"):
             if "If-None-Match" in argv:

@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 __all__: list[str] = ["ReleaseRuntimeAdapter", "release_runtime_adapter"]
 
 _REPO = "livespec-ai/livespec-overseer"
+_REPO_URL = f"https://github.com/{_REPO}.git"
 _REFRESH_SECONDS = 60
 _HTTP_NOT_MODIFIED = 304
 SubprocessRun = Callable[..., subprocess.CompletedProcess[str]]
@@ -160,9 +161,20 @@ class ReleaseRuntimeAdapter:
         return release
 
     def _commit_for_ref(self, *, ref: str) -> str | None:
-        data = self._run_json(command=["gh", "api", f"/repos/{_REPO}/commits/{ref}"])
-        sha = data.get("sha")
-        return sha if isinstance(sha, str) and sha else None
+        """Resolve an immutable tag without spending GitHub REST budget."""
+        completed = self.run(
+            ["git", "ls-remote", _REPO_URL, f"refs/tags/{ref}", f"refs/tags/{ref}^{{}}"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=30,
+        )
+        refs: dict[str, str] = {}
+        for line in completed.stdout.splitlines():
+            sha, separator, name = line.partition("\t")
+            if separator and sha and name:
+                refs[name] = sha
+        return refs.get(f"refs/tags/{ref}^{{}}") or refs.get(f"refs/tags/{ref}")
 
     def _checks_for_commit(self, *, commit: str) -> Sequence[Mapping[str, object]] | None:
         data = self._run_json(

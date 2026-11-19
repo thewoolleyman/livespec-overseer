@@ -34,6 +34,8 @@ def test_adapter_computes_one_green_verdict_and_installs_that_target(*, tmp_path
         assert text is True
         assert check is True
         assert timeout == 30
+        if argv[:2] == ["git", "ls-remote"]:
+            return Completed(stdout=f"{current}\trefs/tags/v{mod.APP_VERSION}^{{}}\n")
         endpoint = argv[-1]
         if endpoint.endswith("/commits/release"):
             return Completed(stdout=json.dumps({"sha": release}))
@@ -81,11 +83,50 @@ def test_release_runtime_adapter_factory_returns_adapter() -> None:
     assert isinstance(adapter, mod.ReleaseRuntimeAdapter)
 
 
+def test_adapter_prefers_a_peeled_git_tag_and_ignores_malformed_lines(*, tmp_path) -> None:
+    mod = adapter_module()
+    tag = f"v{mod.APP_VERSION}"
+    tag_sha = "1111111111111111111111111111111111111111"
+    peeled_sha = "2222222222222222222222222222222222222222"
+
+    def run(argv, *, capture_output, text, check, timeout):
+        assert argv == [
+            "git",
+            "ls-remote",
+            "https://github.com/livespec-ai/livespec-overseer.git",
+            f"refs/tags/{tag}",
+            f"refs/tags/{tag}^{{}}",
+        ]
+        assert capture_output is True
+        assert text is True
+        assert check is True
+        assert timeout == 30
+        return Completed(
+            stdout=(
+                "missing-tab\n"
+                "\tmissing-sha\n"
+                f"{tag_sha}\t\n"
+                f"{tag_sha}\trefs/tags/{tag}\n"
+                f"{peeled_sha}\trefs/tags/{tag}^{{}}\n"
+            )
+        )
+
+    adapter = mod.ReleaseRuntimeAdapter(
+        sup=object(),
+        run=run,
+        ensure_release_runtime=lambda *, release: tmp_path / release,
+    )
+
+    assert adapter._running_commit() == peeled_sha
+
+
 def test_adapter_ineligible_verdict_does_not_install(*, tmp_path) -> None:
     mod = adapter_module()
     release = "1111111111111111111111111111111111111111"
 
     def run(argv, *, capture_output, text, check, timeout):
+        if argv[:2] == ["git", "ls-remote"]:
+            return Completed(stdout=f"{release}\trefs/tags/v{mod.APP_VERSION}^{{}}\n")
         endpoint = argv[-1]
         if endpoint.endswith("/check-runs?per_page=100"):
             return Completed(stdout=json.dumps({"check_runs": []}))
@@ -112,6 +153,8 @@ def test_adapter_treats_unreadable_shape_as_ineligible(*, tmp_path) -> None:
     release = "2222222222222222222222222222222222222222"
 
     def run(argv, *, capture_output, text, check, timeout):
+        if argv[:2] == ["git", "ls-remote"]:
+            return Completed(stdout="")
         endpoint = argv[-1]
         if endpoint.endswith("/commits/release"):
             return Completed(stdout=json.dumps({"sha": release}))
@@ -137,6 +180,8 @@ def test_adapter_treats_unresolvable_release_as_ineligible(*, tmp_path) -> None:
     mod = adapter_module()
 
     def run(argv, *, capture_output, text, check, timeout):
+        if argv[:2] == ["git", "ls-remote"]:
+            return Completed(stdout="")
         endpoint = argv[-1]
         if endpoint.endswith("/commits/release"):
             return Completed(stdout=json.dumps({"sha": ""}))
@@ -161,6 +206,8 @@ def test_adapter_rejects_malformed_check_run_and_bad_target(*, tmp_path) -> None
     release = "2222222222222222222222222222222222222222"
 
     def run(argv, *, capture_output, text, check, timeout):
+        if argv[:2] == ["git", "ls-remote"]:
+            return Completed(stdout="")
         endpoint = argv[-1]
         if endpoint.endswith("/commits/release"):
             return Completed(stdout=json.dumps({"sha": release}))
@@ -196,6 +243,8 @@ def test_adapter_does_not_install_an_eligible_verdict_with_a_malformed_target(
     monkeypatch.setattr(mod.release_currency, "update_target", update_target)
 
     def run(argv, *, capture_output, text, check, timeout):
+        if argv[:2] == ["git", "ls-remote"]:
+            return Completed(stdout="")
         endpoint = argv[-1]
         if endpoint.endswith("/check-runs?per_page=100"):
             return Completed(stdout=json.dumps({"check_runs": [{"conclusion": "success"}]}))
@@ -246,6 +295,8 @@ def test_adapter_surfaces_release_runtime_install_failure_on_the_next_currency_c
     installs: list[str] = []
 
     def run(argv, *, capture_output, text, check, timeout):
+        if argv[:2] == ["git", "ls-remote"]:
+            return Completed(stdout=f"{current}\trefs/tags/v{mod.APP_VERSION}^{{}}\n")
         endpoint = argv[-1]
         if endpoint.endswith("/commits/release"):
             return Completed(stdout=json.dumps({"sha": release}))
@@ -290,6 +341,8 @@ def test_adapter_keeps_a_final_verdict_without_a_forge_reread_within_one_minute(
 
     def run(argv, *, capture_output, text, check, timeout):
         calls.append(list(argv))
+        if argv[:2] == ["git", "ls-remote"]:
+            return Completed(stdout=f"{current}\trefs/tags/v{mod.APP_VERSION}^{{}}\n")
         endpoint = argv[-1]
         if endpoint.endswith("/commits/release"):
             return Completed(stdout=json.dumps({"sha": release}))
