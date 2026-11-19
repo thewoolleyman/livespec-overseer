@@ -130,6 +130,25 @@ def test_dry_run_changes_nothing(
     assert REFRESH not in out
 
 
+def test_without_confirmation_only_reports_refresh_token_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    home = _home(tmp_path=tmp_path, monkeypatch=monkeypatch)
+    live = home / ".claude/.credentials.json"
+    snapshot = _snapshots(home=home)[0]
+    _cred(path=live)
+    _cred(path=snapshot)
+    before = {path: path.read_bytes() for path in (live, snapshot)}
+
+    code, out = _run(proc=_proc(tmp_path=tmp_path), capsys=capsys)
+
+    assert code == 0, out
+    assert {path: path.read_bytes() for path in (live, snapshot)} == before
+    assert f"would-strip {live} " in out
+    assert f"would-strip {snapshot} " in out
+    assert REFRESH not in out
+
+
 @pytest.mark.parametrize(
     "argv",
     [
