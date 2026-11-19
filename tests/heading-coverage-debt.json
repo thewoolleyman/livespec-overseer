@@ -779,6 +779,20 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A release whose newest run of a check name is skipped is not adopted",
+    "work_item": "overseer-ydigho",
+    "first_seen": "2026-11-19"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A release whose newest run of every check name succeeded is adopted although an older run of one name was skipped",
+    "work_item": "overseer-ydigho",
+    "first_seen": "2026-11-19"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A report after lease expiry uses retained assignment evidence",
     "work_item": "overseer-5g5uzg",
     "first_seen": "2026-09-12"
@@ -1272,6 +1286,13 @@
     "heading": "## Scenario: An uncertifiable ready on a busy pane is never a ready hold",
     "work_item": "overseer-5fibo3",
     "first_seen": "2026-11-05"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unchanged release ref costs no forge read on a later tick",
+    "work_item": "overseer-nerus6",
+    "first_seen": "2026-11-19"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -2546,6 +2567,13 @@
     "heading": "## LLM provider credential management",
     "work_item": "overseer-sqaect",
     "first_seen": "2026-09-12"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## Release currency",
+    "work_item": "overseer-ydigho",
+    "first_seen": "2026-11-19"
   },
   {
     "spec_root": "SPECIFICATION",

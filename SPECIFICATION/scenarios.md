@@ -7390,3 +7390,39 @@ And the exercise fails with a message naming the hang-guard expiry
 And the exercise does not pass
 
 And the exercise does not retry the observation quietly
+
+## Scenario: A release whose newest run of every check name succeeded is adopted although an older run of one name was skipped
+
+Given the `release` ref resolves to a commit newer than the running build
+
+And one check name has a skipped run followed by a later successful run
+
+And the newest completed run of every other check name succeeded
+
+When the daemon evaluates release currency
+
+Then the release is eligible
+
+And the daemon log names the deciding run for each check name
+
+## Scenario: A release whose newest run of a check name is skipped is not adopted
+
+Given the `release` ref resolves to a commit newer than the running build
+
+And the newest completed run of one check name concluded skipped
+
+When the daemon evaluates release currency
+
+Then the release is not eligible and is reported blocked
+
+And the report names that check name and its deciding run
+
+## Scenario: An unchanged release ref costs no forge read on a later tick
+
+Given the daemon has evaluated release currency at the current commit of the `release` ref
+
+When further ticks pass within one minute and the ref has not moved
+
+Then the daemon makes no forge request on those ticks
+
+And the daemon keeps supervising every track as before
