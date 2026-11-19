@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.67.1](https://github.com/livespec-ai/livespec-overseer/compare/v5.67.0...v5.67.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* the release-currency check reads the forge at most once a minute through a conditional ref request (overseer-nerus6) ([02d2f8a](https://github.com/livespec-ai/livespec-overseer/commit/02d2f8ad01f16f1632c9c34f2ca01bc3eae1b428))
+
 ## [5.67.0](https://github.com/livespec-ai/livespec-overseer/compare/v5.66.1...v5.67.0) (2026-11-19)
 
 
