@@ -277,3 +277,35 @@ def test_adapter_surfaces_release_runtime_install_failure_on_the_next_currency_c
     }
     assert adapter.reexec_target() is None
     assert installs == [release]
+
+
+def test_adapter_keeps_a_final_verdict_without_a_forge_reread_within_one_minute(
+    *, tmp_path
+) -> None:
+    """A settled release must not spend forge budget again on the next tick."""
+    mod = adapter_module()
+    release = "2222222222222222222222222222222222222222"
+    current = "1111111111111111111111111111111111111111"
+    calls: list[list[str]] = []
+
+    def run(argv, *, capture_output, text, check, timeout):
+        calls.append(list(argv))
+        endpoint = argv[-1]
+        if endpoint.endswith("/commits/release"):
+            return Completed(stdout=json.dumps({"sha": release}))
+        if endpoint.endswith(f"/commits/v{mod.APP_VERSION}"):
+            return Completed(stdout=json.dumps({"sha": current}))
+        assert endpoint.endswith(f"/commits/{release}/check-runs?per_page=100")
+        return Completed(
+            stdout=json.dumps({"check_runs": [{"name": "ci-green", "conclusion": "success"}]})
+        )
+
+    adapter = mod.ReleaseRuntimeAdapter(
+        sup=object(),
+        run=run,
+        ensure_release_runtime=lambda *, release: tmp_path / release,
+    )
+
+    first = adapter.currency_check()
+    assert adapter.currency_check() == first
+    assert len(calls) == 3
