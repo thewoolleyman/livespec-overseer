@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.66.1](https://github.com/livespec-ai/livespec-overseer/compare/v5.66.0...v5.66.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **drain-backlog:** engine-on-green gate 2 polls master CI with a conditional ETag request ([b600598](https://github.com/livespec-ai/livespec-overseer/commit/b600598d168644a0aa770e520440fbda49941d0a))
+
 ## [5.66.0](https://github.com/livespec-ai/livespec-overseer/compare/v5.65.0...v5.66.0) (2026-11-19)
 
 
