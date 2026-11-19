@@ -71,6 +71,11 @@ def test_factory_targets_and_push_state_follow_the_record_time_not_delivery_sequ
         entry=state["first"], line="failed 3 JSONDecodeError", factory_record=record
     )
     assert state["first"]["factory_written_at"] == record[1]
+    # The host persists the factory record before its credential reply, so a
+    # protected (not-converted) host has already written it.
+    protected: dict[str, object] = {}
+    factory.record_factory_result(entry=protected, line="not-converted 3", factory_record=record)
+    assert protected["factory_written_at"] == record[1]
 
 
 def test_receiver_writes_the_exact_newer_record_but_rejects_a_delayed_one(

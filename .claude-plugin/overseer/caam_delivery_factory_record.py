@@ -50,9 +50,12 @@ def record_factory_result(
 ) -> None:
     """Remember propagation only after the remote program accepted the record."""
     words = line.split()
-    accepted = words[:1] in (["applied"], ["stale-sequence"], ["factory-applied"]) or (
-        words[:1] == ["failed"] and len(words) > 1 and words[1].isdigit()
-    )
+    accepted = words[:1] in (
+        ["applied"],
+        ["stale-sequence"],
+        ["not-converted"],
+        ["factory-applied"],
+    ) or (words[:1] == ["failed"] and len(words) > 1 and words[1].isdigit())
     if factory_record is not None and accepted:
         entry["factory_written_at"] = factory_record[1]
 
