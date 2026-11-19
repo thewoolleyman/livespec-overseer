@@ -1474,6 +1474,16 @@ attention — supervision died mid-brief and the ledger entry is at risk; one
 that disappears with no round open is surfaced only through the ordinary
 supervision offer.
 
+## Release currency
+
+The daemon replaces its own running build only with a release whose checks are known to have passed. A release that merely exists is not adopted: a release-tag lane that fails for days still publishes releases, so released does not imply green.
+
+- **Candidate.** The candidate is the commit the repository's `release` ref resolves to. The running build is identified by its own release tag, resolved once per process. A candidate equal to the running build is the routine "already current" verdict: it is not a blocked condition and raises no alert.
+- **Check-green.** A candidate is eligible only when it is check-green. Check-green is judged per check NAME, from the newest completed run of that name, ordered by completion time and then by run id. A name whose newest completed run concluded `success` is green, whatever older runs of the same name concluded. A name whose newest run concluded anything else (skipped, neutral, cancelled, failed or timed out), or has no conclusion yet because it is still running, is not green. No check name is exempt, so there is no allowlist of names. A candidate that reports no check runs at all is not check-green.
+- **Fail toward not adopting.** Every unknown resolves to ineligible: an unresolvable `release` ref, an unreadable check rollup, a check still running, and a candidate with no checks. Declining to update costs one release of staleness; adopting wrongly costs every tracked session. Each ineligible verdict other than "already current" is reported as blocked, and the report names the check names that decided it and, for each, the deciding run (its name, conclusion, and completion time or run id), so a refusal is auditable from the daemon log without re-querying the forge.
+- **Fail open for supervision.** No currency failure stops, delays or alters supervision. An unreachable forge, an exhausted rate-limit budget, an unresolvable ref and malformed forge output each leave the daemon on its running build and the tick continuing, consistent with the fail-soft posture.
+- **Bounded forge cost.** The currency check reads the forge at most once per minute, whatever the tick length. It re-reads the `release` ref with a conditional request that carries a validator stored from the previous read, so an unchanged ref answers not-modified and consumes no rate-limit budget. It re-resolves the verdict only when that ref's commit changes. The verdict for a commit whose checks are all final is kept for the life of the process and is not re-read. While a candidate's checks are still running, the daemon re-reads them no more often than once per minute. No forge read may rely on a client-side HTTP cache that serves an entry past its stated lifetime or sends no validator, as `gh api --cache` does.
+
 ## First-run onboarding screens
 
 A tracked Claude Code session can come up on a first-run onboarding screen

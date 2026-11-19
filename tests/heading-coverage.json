@@ -4746,6 +4746,14 @@
   },
   {
     "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## Release currency",
+    "test": "TODO",
+    "work_item": "overseer-ydigho",
+    "reason": "An integration-tier test or above is owed for this heading, ratified in SPECIFICATION v120 (spec.md, proposal release-currency); work item overseer-ydigho owns landing it. The clause also carries the bounded-forge-cost rule (at most one forge read per minute, a conditional ref read, the verdict cached per final commit), which overseer-nerus6 owns."
+  },
+  {
+    "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A topic live on one machine is not bound on another",
     "test": "TODO",
@@ -4958,5 +4966,29 @@
     "heading": "## Scenario: A fresh session that starts disconnected after an account switch is reconnected by the next sweep",
     "test": "tests.integration.test_remote_control_sweep.test_a_fresh_session_that_starts_disconnected_is_continued_then_reconnected",
     "reason": "Integration-tier: a pane whose record has no bridgeSessionId and a new sessionId, showing the real NOT-CONNECTED panel, is sent Enter on Continue and then reconnected under its own name once idle, after the 12 s wait."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A release whose newest run of every check name succeeded is adopted although an older run of one name was skipped",
+    "test": "TODO",
+    "work_item": "overseer-ydigho",
+    "reason": "An integration-tier test or above is owed for this heading, ratified in SPECIFICATION v120 (scenarios.md, proposal release-currency); work item overseer-ydigho owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A release whose newest run of a check name is skipped is not adopted",
+    "test": "TODO",
+    "work_item": "overseer-ydigho",
+    "reason": "An integration-tier test or above is owed for this heading, ratified in SPECIFICATION v120 (scenarios.md, proposal release-currency); work item overseer-ydigho owns landing it."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unchanged release ref costs no forge read on a later tick",
+    "test": "TODO",
+    "work_item": "overseer-nerus6",
+    "reason": "An integration-tier test or above is owed for this heading, ratified in SPECIFICATION v120 (scenarios.md, proposal release-currency); work item overseer-nerus6 owns landing it. The cadence cap and the conditional ref request in the same clause have no scenario of their own and are owed by the same item."
   }
 ]
