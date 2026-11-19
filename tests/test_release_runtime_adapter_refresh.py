@@ -56,6 +56,34 @@ def test_final_release_refresh_uses_etag_without_rereading_checks(*, tmp_path: P
     assert len(calls) == 4
 
 
+def test_initial_final_verdict_spends_at_most_two_rest_responses(*, tmp_path: Path) -> None:
+    """The running release tag must not consume a third REST response."""
+    mod = adapter_module()
+    release = "2222222222222222222222222222222222222222"
+    current = "1111111111111111111111111111111111111111"
+    calls: list[list[str]] = []
+
+    def run(argv, *, capture_output, text, check, timeout):
+        del capture_output, text, check, timeout
+        calls.append(list(argv))
+        if argv[:2] == ["git", "ls-remote"]:
+            return Completed(stdout=f"{current}\trefs/tags/v{mod.APP_VERSION}^{{}}\n")
+        endpoint = argv[-1]
+        if endpoint.endswith("/commits/release"):
+            return Completed(stdout=json.dumps({"sha": release}))
+        assert endpoint.endswith(f"/commits/{release}/check-runs?per_page=100")
+        return Completed(stdout=json.dumps({"check_runs": [{"conclusion": "success"}]}))
+
+    adapter = mod.ReleaseRuntimeAdapter(
+        sup=object(),
+        run=run,
+        ensure_release_runtime=lambda *, release: tmp_path / release,
+    )
+
+    assert adapter.currency_check()["eligible"] is True
+    assert sum(call[:2] == ["gh", "api"] for call in calls) <= 2
+
+
 def test_provisioning_failure_stays_blocked_after_a_refresh(*, tmp_path: Path) -> None:
     mod = adapter_module()
     release = "2222222222222222222222222222222222222222"
