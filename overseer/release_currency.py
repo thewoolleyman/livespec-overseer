@@ -75,18 +75,37 @@ def update_target(
 
 
 def _not_green(*, checks: Sequence[Mapping[str, object]]) -> list[str]:
-    """Name every check that is not a settled success, in the order supplied.
+    """Name check names whose newest run is not a settled success.
 
-    A run still in flight reports an empty conclusion. It is grouped with the
-    outright failures deliberately: both mean "this commit is not known to be
-    good", and separating them would invite a caller to treat pending as
-    benign, which is a false green with a timing dependency.
+    GitHub can retain several runs with one name on a commit.  The newest one
+    decides that name's state, ordered by completion time and then run id; an
+    older skipped sibling therefore cannot make a later successful retry red.
+    A run still in flight reports an empty conclusion, which remains blocking
+    when it is the newest run for its name.
     """
+    newest_by_name: dict[str, Mapping[str, object]] = {}
+    for check in checks:
+        name = str(check.get("name") or "<unnamed>")
+        previous = newest_by_name.get(name)
+        if previous is None or _run_order(check=check) > _run_order(check=previous):
+            newest_by_name[name] = check
     return [
-        str(check.get("name") or "<unnamed>")
-        for check in checks
+        name
+        for name, check in newest_by_name.items()
         if str(check.get("conclusion") or "") != _SUCCESS
     ]
+
+
+def _run_order(*, check: Mapping[str, object]) -> tuple[str, int]:
+    """Return the forge's completion-time, run-id ordering key.
+
+    The adapter retains these fields even for malformed or unfinished runs so
+    this rule can fail closed on their conclusion rather than losing the run
+    while adapting the forge response.
+    """
+    completed_at = str(check.get("completed_at") or "")
+    run_id = check.get("id")
+    return completed_at, run_id if isinstance(run_id, int) else 0
 
 
 def _verdict(*, reason: str, blocked: bool = True) -> dict[str, object]:
