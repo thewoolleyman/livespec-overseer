@@ -88,6 +88,30 @@ def test_a_newer_skipped_duplicate_check_run_blocks_the_release() -> None:
     assert "ci-green" in str(verdict["reason"])
 
 
+def test_a_newer_pending_run_blocks_despite_an_older_completed_success() -> None:
+    """A run still in flight has no completion time and is the newest of its name."""
+    checks = [
+        {
+            "id": 101,
+            "name": "ci-green",
+            "conclusion": "success",
+            "completed_at": "2026-11-19T02:34:40Z",
+        },
+        {"id": 102, "name": "ci-green", "conclusion": "", "completed_at": ""},
+        {
+            "id": 200,
+            "name": "check-types",
+            "conclusion": "success",
+            "completed_at": "2026-11-19T02:38:00Z",
+        },
+    ]
+
+    verdict = update_target(current=_CURRENT, release=_RELEASE, checks=checks)
+
+    assert verdict["eligible"] is False
+    assert "ci-green" in str(verdict["reason"])
+
+
 def test_an_empty_check_set_is_not_green() -> None:
     """THE control that separates this rule from one that cannot fail.
 

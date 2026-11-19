@@ -78,7 +78,7 @@ def _not_green(*, checks: Sequence[Mapping[str, object]]) -> list[str]:
     """Name check names whose newest run is not a settled success.
 
     GitHub can retain several runs with one name on a commit.  The newest one
-    decides that name's state, ordered by completion time and then run id; an
+    decides that name's state, ordered by unfinished-first, completion time and then run id; an
     older skipped sibling therefore cannot make a later successful retry red.
     A run still in flight reports an empty conclusion, which remains blocking
     when it is the newest run for its name.
@@ -96,8 +96,12 @@ def _not_green(*, checks: Sequence[Mapping[str, object]]) -> list[str]:
     ]
 
 
-def _run_order(*, check: Mapping[str, object]) -> tuple[str, int]:
-    """Return the forge's completion-time, run-id ordering key.
+def _run_order(*, check: Mapping[str, object]) -> tuple[bool, str, int]:
+    """Return the forge's unfinished-first, completion-time, run-id ordering key.
+
+    A run still in flight has no completion time yet, so it is newer than every
+    completed run of its name and ranks first; ordering it by its empty
+    timestamp would let an older success hide it and fail open.
 
     The adapter retains these fields even for malformed or unfinished runs so
     this rule can fail closed on their conclusion rather than losing the run
@@ -105,7 +109,7 @@ def _run_order(*, check: Mapping[str, object]) -> tuple[str, int]:
     """
     completed_at = str(check.get("completed_at") or "")
     run_id = check.get("id")
-    return completed_at, run_id if isinstance(run_id, int) else 0
+    return not completed_at, completed_at, run_id if isinstance(run_id, int) else 0
 
 
 def _verdict(*, reason: str, blocked: bool = True) -> dict[str, object]:
