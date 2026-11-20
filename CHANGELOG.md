@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.67.2](https://github.com/livespec-ai/livespec-overseer/compare/v5.67.1...v5.67.2) (2026-11-20)
+
+
+### Bug Fixes
+
+* **caam-strip:** strip refresh tokens inside vault tarballs and judge residue by claudeAiOauth.refreshToken alone (overseer-k5z2is) ([9cab114](https://github.com/livespec-ai/livespec-overseer/commit/9cab114f2850a0506db3c6806099eb86b6c39a8f))
+
 ## [5.67.1](https://github.com/livespec-ai/livespec-overseer/compare/v5.67.0...v5.67.1) (2026-11-19)
 
 
