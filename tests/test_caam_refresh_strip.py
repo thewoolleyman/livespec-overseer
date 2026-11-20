@@ -9,7 +9,9 @@ while anything that could still refresh is running, and never prints a value.
 from __future__ import annotations
 
 import importlib
+import io
 import json
+import tarfile
 from pathlib import Path
 from types import ModuleType
 
@@ -229,3 +231,108 @@ def test_a_failed_write_leaves_the_file_intact_and_fails(
     assert f"failed {live} OSError" in out
     assert f"residue {live}" in out
     assert not stale_tmp.exists()
+
+
+def _tarball(*, path: Path) -> None:
+    """A gzip archive of a vault: two credential snapshots and one unrelated member."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    cred = json.dumps({"claudeAiOauth": {"accessToken": ACCESS, "refreshToken": REFRESH}})
+    members = {
+        "claude/anthropic-1/.credentials.json": cred,
+        "claude/anthropic-2/.credentials.json": cred,
+        "claude/anthropic-1/meta.json": '{"name": "anthropic-1"}',
+    }
+    with tarfile.open(path, "w:gz") as archive:
+        for name, text in members.items():
+            data = text.encode()
+            info = tarfile.TarInfo(name=name)
+            info.size = len(data)
+            archive.addfile(info, io.BytesIO(data))
+
+
+def test_a_vault_tarball_is_stripped_not_left_holding_refresh_tokens(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    home = _home(tmp_path=tmp_path, monkeypatch=monkeypatch)
+    _cred(path=home / ".claude/.credentials.json")
+    archive = home / ".local/share/caam/vault-claude.pre-0.1.25-step2.tar.gz"
+    _tarball(path=archive)
+    code, out = _run(proc=_proc(tmp_path=tmp_path), capsys=capsys)
+    assert code == 0
+    assert f"stripped {archive} " in out
+    assert REFRESH not in out
+    with tarfile.open(archive, "r:gz") as opened:
+        names = opened.getnames()
+        assert "claude/anthropic-1/meta.json" in names
+        bodies = [opened.extractfile(name) for name in names if name.endswith(".credentials.json")]
+        assert len(bodies) == 2
+        for handle in bodies:
+            assert handle is not None
+            oauth = json.loads(handle.read())["claudeAiOauth"]
+            assert "refreshToken" not in oauth
+            assert oauth["accessToken"] == ACCESS
+
+
+def test_a_refresh_token_under_another_key_does_not_fail_the_removal_proof(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    home = _home(tmp_path=tmp_path, monkeypatch=monkeypatch)
+    live = home / ".claude/.credentials.json"
+    _cred(path=live, extra={"mcpOAuth": {"server": {"refreshToken": "mcp-" + "do-not-print"}}})
+    code, out = _run(proc=_proc(tmp_path=tmp_path), capsys=capsys)
+    assert code == 0
+    assert f"stripped {live} " in out
+    assert "residue" not in out
+    kept = json.loads(live.read_text(encoding="utf-8"))
+    assert "refreshToken" not in kept["claudeAiOauth"]
+    assert kept["mcpOAuth"]["server"]["refreshToken"] == "mcp-" + "do-not-print"
+
+
+def test_an_unreadable_archive_fails_closed_and_clean_or_dry_run_archives_are_reported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    home = _home(tmp_path=tmp_path, monkeypatch=monkeypatch)
+    caam = home / ".local/share/caam"
+    broken = caam / "broken.tar.gz"
+    broken.parent.mkdir(parents=True)
+    _ = broken.write_bytes(b"not a gzip archive")
+    clean = caam / "clean.tgz"
+    with tarfile.open(clean, "w:gz") as archive:
+        data = b'{"claudeAiOauth": {"accessToken": "x"}}'
+        info = tarfile.TarInfo(name="a/.credentials.json")
+        info.size = len(data)
+        archive.addfile(info, io.BytesIO(data))
+        archive.addfile(tarfile.TarInfo(name="a/empty-dir"))
+    dry = caam / "dry.tar.gz"
+    _tarball(path=dry)
+    proc = _proc(tmp_path=tmp_path)
+    code, out = _run(proc=proc, capsys=capsys, argv=["--dry-run"])
+    assert code == 0
+    assert f"unreadable {broken}" in out
+    assert f"clean {clean} " in out
+    assert f"would-strip {dry} " in out
+    code, out = _run(proc=proc, capsys=capsys)
+    assert code != 0
+    assert f"residue {broken}" in out
+    assert f"stripped {dry} " in out
+    assert REFRESH not in out
+
+
+def test_a_failed_archive_write_leaves_it_intact_and_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    home = _home(tmp_path=tmp_path, monkeypatch=monkeypatch)
+    archive = home / ".local/share/caam/vault.tar.gz"
+    _tarball(path=archive)
+    before = archive.read_bytes()
+
+    def _refuse(*, src: Path, dst: Path) -> None:
+        del src, dst
+        raise OSError("disk full")
+
+    monkeypatch.setattr(_strip().os, "replace", _refuse)
+    code, out = _run(proc=_proc(tmp_path=tmp_path), capsys=capsys)
+    assert code != 0
+    assert archive.read_bytes() == before
+    assert f"failed {archive} OSError" in out
+    assert f"residue {archive}" in out
