@@ -290,6 +290,66 @@ def test_scenario_a_refusing_active_account_is_left_whatever_its_usage_reads(
     assert any("usage-limit refusal" in line for line in lines)
 
 
+def test_scenario_a_dark_active_login_is_left_on_the_next_pass(*, tmp_path: Path) -> None:
+    """An unrenewable, recorded login outranks otherwise healthy quota readings."""
+    harness = RotationHarness(
+        home=tmp_path,
+        active="anthropic-3",
+        usages={
+            "anthropic-3": usage(five_hour_remaining=45.0, seven_day_remaining=45.0),
+            "anthropic-1": usage(five_hour_remaining=90.0, seven_day_remaining=90.0),
+        },
+    )
+    harness.seed_state(
+        state={
+            **active_since(account="anthropic-3", at=NOW - 2 * ONE_HOUR),
+            "login_records": {
+                "anthropic-3": {
+                    "current": {
+                        "minted_at": NOW - 28 * 24 * ONE_HOUR,
+                        "mint_time_source": "recorded",
+                    },
+                    "past": [],
+                }
+            },
+        }
+    )
+    session_id = "dark-login"
+    transcript = (
+        harness.live_config_dir / "projects" / "-data-projects-livespec" / f"{session_id}.jsonl"
+    )
+    transcript.parent.mkdir(parents=True, exist_ok=True)
+    _ = transcript.write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "timestamp": stamp(at=NOW - NINE_MINUTES),
+                "isApiErrorMessage": True,
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Claude AI login reached its time limit and cannot be renewed",
+                        }
+                    ],
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    harness.track(
+        sessions=(StandInSession(session_id=session_id, config_dir=harness.live_config_dir),)
+    )
+
+    code, lines = harness.run()
+
+    assert code == 0
+    assert harness.switches == ["anthropic-1"]
+    assert any("dark login" in line for line in lines)
+
+
 def test_scenario_the_switch_line_names_the_refusal_and_when_it_was_recorded(
     *, tmp_path: Path
 ) -> None:
