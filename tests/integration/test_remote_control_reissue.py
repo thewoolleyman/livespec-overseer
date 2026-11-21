@@ -757,6 +757,56 @@ def test_herdr_reissue_scenarios(
     ]
 
 
+@pytest.mark.parametrize("mode", ["subprocess", "inprocess"])
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    [
+        (
+            {
+                "panes": [
+                    _pane(
+                        pane="%27",
+                        screen=_above_input(capture=EMPTY, lines=[TRANSCRIPT]),
+                        cmd="claude-on-path",
+                    )
+                ]
+            },
+            ["%27"],
+        ),
+        (
+            {
+                "no_server": True,
+                "panes": [],
+                "herdr": _herdr(
+                    {"default": [_herdr_pane(pane="w1:p3", screen=H_NOTICE, cmd="claude-versions")]}
+                ),
+            },
+            ["herdr:default:w1:p3"],
+        ),
+    ],
+    ids=["tmux", "herdr"],
+)
+def test_reissue_scenarios_ignore_an_inherited_python3_path_shim(
+    *,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+    state: dict,
+    expected: list[str],
+) -> None:
+    """Scenario stubs remain runnable after another test supplied a PATH shim."""
+    shim = tmp_path / "python3-shim"
+    shim.mkdir()
+    python3 = shim / "python3"
+    _ = python3.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    python3.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{shim}{os.pathsep}{os.environ['PATH']}")
+
+    reissued, _, _ = _run_all(tmp_path=tmp_path, monkeypatch=monkeypatch, mode=mode, state=state)
+
+    assert reissued == expected
+
+
 def _named_seat(*, tmp_path: Path, name: object) -> tuple[dict, Path]:
     """A herdr seat showing the notice whose Claude Code pid 4242 has a record named `name`."""
     home = tmp_path / "home"
