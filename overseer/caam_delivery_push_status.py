@@ -97,7 +97,10 @@ def status_lines(*, home: Path, now: float, reissue_available: bool) -> list[str
     if expiry is not None and expiry / 1000 <= now:
         lines.append("expired: the role holder's live credential has expired; not refreshed here")
     if not reissue_available:
-        lines.append("remote-control: re-issue unavailable (remote_control_reissue.py not present)")
+        lines.append(
+            "remote-control: re-issue unavailable (disabled: remote control support is off);"
+            " keep-alive sweep disabled"
+        )
     return lines
 
 
