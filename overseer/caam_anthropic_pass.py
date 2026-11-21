@@ -16,12 +16,12 @@ from caam_anthropic_finish import ACTIVE_FAIL, EMPTY_VAULT, LineWriter, finish
 from caam_anthropic_flags import Flags, scheduled_pass
 from caam_anthropic_revive import revive_pass_profiles
 from caam_anthropic_status import write_status
-from caam_pass_capacity import observe_pass_capacity
+from caam_hold_record import record_pass_hold
 from caam_pass_factory_probe import observe_pass_factory_probes
+from caam_pass_observe import observe_pass_rows
 from caam_pass_probe import probe_snapshotless_profiles
 from caam_pass_publish import complete_publications, pass_publication, pass_stamp
 from caam_pass_refusals import observe_pass_refusals
-from caam_pass_resets import observe_pass_resets
 from caam_pass_seams import AgentRunner, PassSeams, line_logger, pass_seams
 from caam_pass_table import emit_pass_table, pass_table_lines
 from caam_pass_warm import WarmStage, run_warm_stage, warm_idle
@@ -188,19 +188,12 @@ def _pass_with_active(
     # capacity class. It is a separate read-only request per account, made with
     # the same credential that account's usage was polled with, and a failure is
     # `unknown` rather than an exit code.
-    profiles = observe_pass_capacity(
+    profiles = observe_pass_rows(
         active_name=active_name,
         home=context.home,
         now=context.now,
         profiles=profiles,
-        source=seams.capacity_source,
-    )
-    profiles = observe_pass_resets(
-        active_name=active_name,
-        home=context.home,
-        now=context.now,
-        profiles=profiles,
-        source=seams.reset_source,
+        seams=seams,
     )
     protected_accounts = apply_protected_accounts(
         state=context.state,
@@ -308,6 +301,14 @@ def _pass_with_active(
             lock_contended=publication.suppress,
             emit_rotation=rotation_sink(span=context.span, at=context.now),
         ),
+    )
+    record_pass_hold(
+        context=context,
+        active_name=active_name,
+        final_name=final_active_name[0],
+        current=current,
+        profiles=profiles,
+        protection_floors=protected_accounts.values,
     )
     # Answers publication for every outcome the decision did not already settle:
     # a hold, a dry run, an unsatisfiable pin, an empty candidate set, and every
