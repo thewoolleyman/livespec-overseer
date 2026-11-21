@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import importlib
-import io
 import json
 import subprocess
 import urllib.request
@@ -225,8 +224,8 @@ def test_the_ntfy_post_reports_its_status_or_its_failure(
     assert sw._post(url="no-scheme/secret-topic", message="m") == "failed ValueError"
 
 
-def test_the_service_loop_starts_sweeps_through_the_tracked_push(
-    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_the_service_loop_types_nothing_remote_control_support_is_off(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     runs: list[dict[str, object]] = []
@@ -236,8 +235,12 @@ def test_the_service_loop_starts_sweeps_through_the_tracked_push(
         entry.caam_delivery_push_sweep, "maybe_start", lambda **kw: calls.append(kw) or True
     )
     assert entry.main(argv=["run"], sleep=lambda _: None, passes=1) == 0
-    assert calls[0]["targets"] == [] and calls[0]["script"] is not None and callable(runs[0]["run"])
-    assert calls[0]["notify"](message="m") == "skipped no ntfy address"
+    assert calls == [] and runs[0]["reissue"] is None
+    assert runs[0]["run"] is entry.caam_delivery_push.run_ssh
+    assert entry.main(argv=["status"]) == 0
+    status = capsys.readouterr().out
+    assert "remote-control: re-issue unavailable (disabled" in status
+    assert "keep-alive sweep disabled" in status
 
 
 def test_the_tracked_runner_registers_reissue_runs_and_passes_pushes_through(
@@ -280,25 +283,6 @@ class Immediate:
 
     def start(self) -> None:
         self.target()
-
-
-def test_the_entry_builds_an_ssh_runner_and_a_journal(
-    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    seen: list[dict[str, object]] = []
-    monkeypatch.setattr(push, "run_ssh", lambda **kw: seen.append(kw) or (0, "line"))
-    remote = entry._sweep_remote(home=tmp_path)(
-        host=push.Host(label="h", target="u@h", platform="linux")
-    )
-    assert (
-        remote(program="prog") == "line"
-        and seen[0]["target"] == "u@h"
-        and seen[0]["program"] == "prog"
-    )
-    out = io.StringIO()
-    monkeypatch.setattr(entry.streams, "write_stdout", lambda *, text: out.write(text))
-    entry._journal(line="a line")
-    assert out.getvalue() == "a line\n"
 
 
 def test_run_here_returns_the_whole_last_line_or_the_failure(
