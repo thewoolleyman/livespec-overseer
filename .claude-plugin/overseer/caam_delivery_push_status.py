@@ -1,7 +1,9 @@
 """`caam-delivery-push status`: one secret-free line per listed host, plus the role holder.
 
-Host STATE is exactly one of not-converted, expired, stale, lagging or current,
-the first that applies in that order. A host never pushed successfully reads
+Host STATE is exactly one of not-converted, ahead, expired, stale, lagging or
+current, the first that applies in that order. A host is `ahead` when its last
+refusal named a host-applied sequence greater than the service's counter; its
+row then also shows that host-applied sequence. A host never pushed successfully reads
 stale. Each row names the account its last-applied delivery carried, with the
 profile name the vault gives it, that delivery's sequence and when it was
 applied, the last successful push, and the last error with its time. The role
@@ -31,6 +33,13 @@ def host_state(
     expires = entry.get("expires_at")
     if entry.get("state") == "not-converted":
         return "not-converted"
+    host_applied = entry.get("host_applied")
+    if (
+        entry.get("state") == "ahead"
+        and isinstance(host_applied, int)
+        and host_applied > current_sequence
+    ):
+        return "ahead"
     if isinstance(expires, int | float) and expires / 1000 <= now:
         return "expired"
     if not isinstance(success, float) or now - success > stale_after:
@@ -68,9 +77,11 @@ def status_lines(*, home: Path, now: float, reissue_available: bool) -> list[str
     for host in caam_delivery_push.load_hosts(home=home):
         entry = state.get(host.label, {})
         account = entry.get("account_id")
+        word = host_state(entry=entry, current_sequence=sequence, now=now, stale_after=stale)
+        if word == "ahead":
+            word = f"ahead host-applied {entry.get('host_applied')}"
         lines.append(
-            f"{host.label}  {host.target}  {host.platform}  "
-            f"{host_state(entry=entry, current_sequence=sequence, now=now, stale_after=stale)}  "
+            f"{host.label}  {host.target}  {host.platform}  {word}  "
             f"account {account if isinstance(account, str) else '-'}"
             f" profile {profile_name(home=home, account=account)}  "
             f"sequence {entry.get('sequence', '-')} applied {_when(value=entry.get('applied_at'))}"

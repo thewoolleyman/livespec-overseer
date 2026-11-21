@@ -7,8 +7,6 @@ memory. `caam-delivery-push status` prints one secret-free line per host.
 
 from __future__ import annotations
 
-import hashlib
-import json
 import subprocess
 import sys
 import threading
@@ -18,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import caam_delivery_push
+import caam_delivery_push_ahead
 import caam_delivery_push_state
 import caam_delivery_push_status
 import caam_delivery_push_sweep
@@ -26,8 +25,6 @@ import jsonio
 import streams
 from caam_capacity_source import OAUTH_BETA_HEADER, PROFILE_URL
 from caam_oauth_get import OAuthRequest, get_json
-from caam_profile_state import live_creds_path
-from caam_profiles import account_uuid
 
 __all__: list[str] = [
     "POLL_INTERVAL_S",
@@ -132,7 +129,7 @@ def run_once(  # noqa: PLR0913 - each argument is an independent seam
     start: caam_delivery_push.Starter = caam_delivery_push.start_in_background,
 ) -> None:
     """One pass: issue a delivery when the live file changed, then push to hosts behind it."""
-    marker = _live_pair(home=home)
+    marker = caam_delivery_service.live_marker(home=home)
     if marker is not None:
         _reissue_on_switch(loop=loop, account=marker[1], reissue=reissue, local=local)
     retry_due = loop.retry_at is not None and now >= loop.retry_at
@@ -157,11 +154,15 @@ def run_once(  # noqa: PLR0913 - each argument is an independent seam
             _reissue_on_switch(loop=loop, account=issued.account_id, reissue=reissue, local=local)
             loop.last = issued
     if loop.last is not None:
-        outcomes = caam_delivery_push.push_due(
-            home=home, delivery=loop.last, now=now, run=run, reissue=reissue, start=start
+        loop.last = caam_delivery_push_ahead.push_and_reconcile(
+            home=home,
+            delivery=loop.last,
+            now=now,
+            confirm=confirm,
+            run=run,
+            reissue=reissue,
+            start=start,
         )
-        for label, outcome in outcomes.items():
-            streams.write_stdout(text=f"push {label} sequence {loop.last.sequence}: {outcome}\n")
 
 
 def _reissue_on_switch(
@@ -180,20 +181,6 @@ def _reissue_on_switch(
         return
     line = "re-issue unavailable" if reissue is None else local(script=reissue)
     streams.write_stdout(text=f"remote-control role holder: {line}\n")
-
-
-def _live_pair(*, home: Path) -> tuple[str, str] | None:
-    """A fingerprint of the live access token plus the live account id, read locally."""
-    try:
-        cred = json.loads(live_creds_path(home=home).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    oauth = jsonio.as_object(value=jsonio.as_object(value=cred) and cred.get("claudeAiOauth"))
-    token = None if oauth is None else oauth.get("accessToken")
-    account = account_uuid(claude_json_path=home / ".claude.json")
-    if not isinstance(token, str) or account is None:
-        return None
-    return hashlib.sha256(token.encode()).hexdigest()[:12], account
 
 
 def _sweep_remote(*, home: Path) -> Callable[..., Callable[..., str]]:
