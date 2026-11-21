@@ -2581,5 +2581,26 @@
     "heading": "## Supervision across machines",
     "work_item": "overseer-fnu5gl",
     "first_seen": "2026-11-13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An active account at 20 percent of its 5-hour window is rotated to an unprotected account with session headroom",
+    "work_item": "overseer-xwfyxy",
+    "first_seen": "2026-11-21"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A protected account is never selected under the session-window trigger and a dry run reports the would-be selection",
+    "work_item": "overseer-xwfyxy",
+    "first_seen": "2026-11-21"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The committed protected set marks only anthropic-0 and an unintended stored mark is cleared by the operator",
+    "work_item": "overseer-xwfyxy",
+    "first_seen": "2026-11-21"
   }
 ]
