@@ -702,13 +702,6 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A ready-gated restart of a Claude seat keeps its Remote Control name",
-    "work_item": "overseer-m3p2ei",
-    "first_seen": "2026-11-15"
-  },
-  {
-    "spec_root": "SPECIFICATION",
-    "spec_file": "scenarios.md",
     "heading": "## Scenario: A real Codex coordinator in Herdr resumes authorized recovery after FINAL",
     "work_item": "overseer-okf6bu",
     "first_seen": "2026-10-08"

@@ -6183,147 +6183,17 @@ Then that delivery carries a sequence greater than 40
 
 And every following host applies it
 
-## Scenario: An account switch re-issues Remote Control only where it stopped
+## Scenario: An account switch types nothing into any seat
 
-Given a following host runs two agent sessions in panes of its terminal multiplexer, herdr or tmux, one using Remote Control and one not
+Given a following host runs agent sessions in panes of its terminal multiplexer, herdr or tmux
 
-And the multiplexer reports each pane's current command as the Claude Code version number `2.1.323`, not `claude`
+And one pane shows Claude Code's account-changed notice
 
-And a third pane runs a pager displaying the same notice text
+When a pushed delivery naming a different account is applied
 
-When a pushed delivery naming a different account is applied and the first pane shows Claude Code's account-changed notice `signed-in claude.ai account or organization changed on this machine — run /remote-control` inside its `Remote Control disconnected — ` transcript line, or only the `/rc failed` footer status
+Then the service sends no key and no text to any pane of any host
 
-Then the service sends the reconnect command to the first pane once
-
-And it sends nothing to the second pane or to the pager pane
-
-And it sends nothing to a pane showing that notice whose input box holds unsubmitted text
-
-## Scenario: An idle seat showing only a prompt suggestion is re-issued, and a seat with typed text is not
-
-Given a herdr pane runs Claude Code whose session record has no `bridgeSessionId` and status `idle`, and whose input box shows only a greyed prompt suggestion after the prompt mark, rendered as dim text, carrying SGR 2 or a foreground colour that differs from the input box's default foreground such as `38;2;136;136;136`
-
-And a second such pane whose input box holds text a person typed, rendered in the input box's default foreground with neither
-
-When the keep-alive sweep runs
-
-Then the sweep sends the reconnect command followed by Enter to the first pane and names it in the journal
-
-And it sends nothing to the second pane
-
-And a pane read that carries no colour attributes, a tmux pane included, or that cannot tell dim text from typed text, is treated as holding unsubmitted text and is sent nothing
-
-## Scenario: An account switch re-issues Remote Control on the role holder's own sessions
-
-Given the role holder runs an agent session in a herdr or tmux pane that was using Remote Control
-
-When the rotation operation switches the role holder's live login to a different account and that pane shows Claude Code's account-changed notice `signed-in claude.ai account or organization changed on this machine — run /remote-control`
-
-Then the service sends the reconnect command to that pane once
-
-And it sends nothing to a role-holder pane that does not show that notice
-
-## Scenario: A reconnected seat keeps the name it is addressed by
-
-Given a herdr pane whose foreground Claude Code process has a session record with `name` `caam-anthropic-loop-runner` and a `pid` equal to that process's id
-
-And the session is not on Remote Control, its record's status is `idle`, and its input box is empty
-
-When the keep-alive sweep or the Remote Control re-issue reconnects it
-
-Then the text typed into the pane is `/remote-control caam-anthropic-loop-runner` followed by Enter
-
-And the journal line names that command
-
-## Scenario: A seat with no usable name is reconnected with the bare command
-
-Given a herdr pane whose Claude Code session record has no `name`, or a tmux pane
-
-When the service reconnects it to Remote Control
-
-Then the text typed into the pane is `/remote-control` followed by Enter
-
-## Scenario: A session name holding a control character is never typed
-
-Given a herdr pane whose Claude Code session record's `name` contains a newline, a tab, or another control character, or is longer than 200 characters
-
-When the service reconnects it to Remote Control
-
-Then the text typed into the pane is the bare `/remote-control` followed by Enter
-
-And the journal line names the refused name's pane
-
-And no part of the name is typed
-
-## Scenario: A seat that meets the not-connected panel after an account switch is retried at the next sweep
-
-Given an account switch has just been pushed to a listed host
-
-And the Remote Control re-issue typed the reconnect command into an idle herdr pane whose session record shows it is not on Remote Control
-
-And the pane then shows the Remote Control status panel
-
-When the keep-alive sweep reads the pane while its record's status is not `busy`
-
-Then the sweep presses Enter on its `Continue` option and names the pane as continued while not connected
-
-And once the pane is idle the sweep waits at least 12 seconds and sends the reconnect command followed by Enter
-
-And the next sweep may send the reconnect command to that pane again, without waiting ten minutes
-
-## Scenario: The not-connected retry is bounded
-
-Given a herdr pane the sweep has found at the not-connected panel four times since a sweep last read it on Remote Control
-
-When the sweep finds it at the not-connected panel again
-
-Then the service sends that pane the reconnect command at most once in the next ten minutes
-
-## Scenario: A mid-turn seat at the not-connected panel is continued and typed nothing
-
-Given a herdr pane showing the Remote Control NOT-CONNECTED panel with its `Continue` option selected, whose session record shows it is not on Remote Control and has status `busy`
-
-When the keep-alive sweep reads the pane
-
-Then the sweep presses Enter on `Continue` and sends the pane no text
-
-And it names the pane as continued while not connected
-
-And a later sweep reconnects it once its record shows `idle`
-
-## Scenario: A fresh session that starts disconnected after an account switch is reconnected by the next sweep
-
-Given a herdr pane whose Claude Code started after the account switch was pushed and whose session record has no `bridgeSessionId`
-
-And the pane shows the Remote Control NOT-CONNECTED panel with its `Continue` option selected
-
-When the keep-alive sweep reads the pane
-
-Then the sweep presses Enter on `Continue`
-
-And once the record shows `idle` the sweep waits at least 12 seconds and sends the reconnect command followed by Enter
-
-## Scenario: A sweep that runs out of time leaves the remaining seats to the next sweep
-
-Given a listed host where several idle herdr panes are not on Remote Control
-
-And 40 seconds of the keep-alive sweep's run have passed
-
-When the sweep reaches the next such pane
-
-Then it types nothing into that pane
-
-And the next sweep may send that pane the reconnect command
-
-## Scenario: A seat that starts a turn after its reconnect command gets no key
-
-Given the keep-alive sweep typed the reconnect command into an idle herdr pane that is not on Remote Control
-
-And the session's record shows status `busy` when the sweep reads it again after the command
-
-When the pane shows the Remote Control status panel
-
-Then the sweep sends the pane no key
+And the service runs no Remote Control re-issue and no keep-alive sweep
 
 ## Scenario: A macOS host applies a delivery from its inbox and its result is recorded
 
@@ -6890,19 +6760,19 @@ When the operator runs the sanctioned relaunch entrypoint for that topic and tar
 
 Then the recorded runtime is launched under its recorded launch profile and no rename is submitted
 
-And for a Claude-harness profile the launch command carries `--remote-control` with the same name it passes to `-n`
+And for a Claude-harness profile the launch command carries `-n <seat-name>` and no `--remote-control`
 
 And the resume prompt naming the track's repository and epic is delivered
 
 And the track's mapping row binds the target pane, the launched session's identity and that launch profile
 
-## Scenario: A ready-gated restart of a Claude seat keeps its Remote Control name
+## Scenario: A ready-gated restart of a Claude seat keeps its name and passes no Remote Control flag
 
 Given a mapped Claude-harness track that has declared a certifiable `ready`
 
 When the daemon restarts the track
 
-Then the launch command carries `-n <seat-name>` and `--remote-control <seat-name>` with the same `<seat-name>`
+Then the launch command carries `-n <seat-name>` and no `--remote-control`
 
 And the recorded launch profile is unchanged by the flag
 
