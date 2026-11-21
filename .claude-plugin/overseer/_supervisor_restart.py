@@ -123,7 +123,7 @@ def _do_claude_restart(
     launch = _supervisor_launch.claude_launch_plan(
         track=track,
         daemon_restart=True,
-        remote_control=True,
+        remote_control=False,
     )
     if not isinstance(launch, ClaudeLaunchPlan):
         sup.alert(
