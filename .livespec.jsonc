@@ -291,11 +291,8 @@
       // R01 bd-ib-tvcbmc, plan epic overseer-iyfjbo line 6). The factory pool is
       // ONLY these declared numbered slots that the credential wrapper injects
       // non-empty; undeclared slots and the unnumbered CLAUDE_CODE_OAUTH_TOKEN are
-      // never assessed or projected. INTERIM narrowing: until the central factory
-      // pick (overseer-shojan) replaces local slot ranking, this keeps local
-      // ranking, which does not read caam's protection floors, off anthropic-0 and
-      // off the interactive accounts. When the central pick lands, the declaration
-      // widens to every managed slot the central pick may name.
+      // never assessed or projected.
+      // The central factory selection now chooses among the declared slots; protection stays on anthropic-0 only, and anthropic-4's host protection mark is removed in a later deploy.
       // Committed-only and variable names only.
       "claude_credential_policy": {
         "mode": "numbered-slots",
@@ -303,9 +300,14 @@
         // legacy-coordinator-agent ruling 6tgd2z). anthropic-5 is OUT: at 5% weekly it
         // sits below the 10% reserve, so falling over to it is not real capacity.
         "slots": [
+          "CLAUDE_CODE_OAUTH_TOKEN__ANTHROPIC_1",
+          "CLAUDE_CODE_OAUTH_TOKEN__ANTHROPIC_2",
+          "CLAUDE_CODE_OAUTH_TOKEN__ANTHROPIC_3",
           "CLAUDE_CODE_OAUTH_TOKEN__ANTHROPIC_4",
-          "CLAUDE_CODE_OAUTH_TOKEN__ANTHROPIC_2"
-        ]
+          "CLAUDE_CODE_OAUTH_TOKEN__ANTHROPIC_5",
+          "CLAUDE_CODE_OAUTH_TOKEN__ANTHROPIC_6"
+        ],
+        "selection": "central-factory-selection"
       },
       "implement": { "mechanical_targets": ["check-check-coverage-incremental", "check-coverage", "check-file-lloc", "check-format", "check-keyword-only-args", "check-lint", "check-no-lloc-soft-warnings", "check-per-file-coverage"] },
       // CLAIM TOKENS (2026-11-12, coordinator P1 order so expedited incident mode can
