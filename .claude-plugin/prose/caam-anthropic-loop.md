@@ -136,7 +136,8 @@ Resolve the mode from the invocation text after the schedule check.
   protected at different floors. Protection persists in the operation state
   across later scheduled ticks and is reported on the summary line as
   `protected-accounts:`. A protected account is never selected while any
-  unprotected account is eligible, and its floor is not released by the
+  unprotected account is eligible, and a pass triggered by the 5-hour session window
+  NEVER selects one at all (it holds instead), and its floor is not released by the
   fleet-wide weekly reserve's release. Idle-profile keep-warm maintenance is ON
   BY DESIGN so idle accounts stay selectable: it refreshes an idle snapshot the
   instant that snapshot's token expires, and never before, because the delegated
@@ -144,12 +145,25 @@ Resolve the mode from the invocation text after the schedule check.
   burns an inference request. `--no-warm` explicitly disables keep-warm for this
   pass; the retired `--warm` / `CAAM_ROTATE_WARM=1` opt-in no longer governs it.
 
+The committed configuration protects ONLY `anthropic-0`, the maintainer's personal
+account: every pass marks it at the default floor before applying the invocation's
+flags, so no flag is needed for it, and `--protected-account=anthropic-0=none` still
+clears it for that pass. Protection is an operator mark; no other account is protected
+by default. A stale mark persisted in the host state (for example
+`anthropic-4`) is cleared with `--protected-account=anthropic-4=none`.
+
+To see which account the next pass would select, and why, without switching, run the
+operation with `--dry-run` (with `--scheduled` to apply the scheduled triggers): it
+prints the trigger line and `DRY-RUN would switch <active> -> <target>`.
+
 Do not add retry, recovery, alternate thresholds, or a manual fallback. The
 program owns the account decision.
 
 ## Rotation Threshold Configuration
 
-The short-window rotation knob is `CAAM_ROTATE_FIVE_HOUR_REMAINING`, default `15`.
+The short-window (5-hour SESSION) rotation knob is `CAAM_ROTATE_FIVE_HOUR_REMAINING`, default `20`
+(it was `15` until overseer-xwfyxy; a candidate must hold MORE than this on the
+window to be a destination).
 It names percent REMAINING, like every quota figure this operation stores, prints
 and compares: a pass rotates once the active account's 5-hour window has that
 percent or less LEFT.
@@ -158,7 +172,7 @@ MIGRATION FOR OPERATORS. It replaces `CAAM_ROTATE_FIVE_HOUR_THRESHOLD`, which na
 percent SPENT, and there is no backward-compatible alias -- an environment still
 exporting the retired name is ignored outright and the default applies, silently.
 Transform a customised value by subtracting it from 100: the old default `85`
-spent becomes `15` remaining, and `CAAM_ROTATE_FIVE_HOUR_THRESHOLD=90` becomes
+spent becomes `15` remaining (the default has since moved to `20`), and `CAAM_ROTATE_FIVE_HOUR_THRESHOLD=90` becomes
 `CAAM_ROTATE_FIVE_HOUR_REMAINING=10`. `CAAM_ROTATE_WEEKLY_RESERVE` (default `10`)
 already named a remaining balance and is unchanged.
 

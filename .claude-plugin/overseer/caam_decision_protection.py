@@ -27,6 +27,7 @@ __all__: list[str] = [
 # Every allowance in this module is measured in what it has LEFT, so the
 # exhaustion boundary is zero rather than a full hundred spent.
 _NOTHING_LEFT = 0.0
+_SESSION_DIMENSION = "five_hour"
 NO_PROTECTION_FLOORS: Mapping[str, float] = {}
 
 
@@ -57,6 +58,11 @@ class CandidatePolicy:
     # makes "holds above the reserve" collapse to "can serve", so those paths keep
     # the ratified cannot-serve boundary byte for byte.
     scoped_reserve: float = 0.0
+    # The short-window floor a candidate must be strictly ABOVE when the comparison
+    # dimension is the session window, so a move made because the 5-hour window is
+    # nearly spent never lands on an account that would itself be due to leave.
+    # Zero leaves every other caller unchanged.
+    session_floor: float = 0.0
 
 
 def can_serve_scoped_model(*, usage: UsageRecord | None) -> bool:
@@ -220,7 +226,11 @@ def select_candidate_set(
         )
         and not is_protected(profile=profile, protection_floors=protection_floors)
     )
-    if unprotected:
+    # The session-window comparison has NO protected fallback: a protected account
+    # is never a destination for a move made because the 5-hour window is nearly
+    # spent. Falling back onto one is how a protected account went live and ran
+    # out its own session (overseer-xwfyxy); an empty set holds the pass instead.
+    if unprotected or policy.dimension == _SESSION_DIMENSION:
         return unprotected
     return tuple(
         profile
@@ -249,6 +259,10 @@ def candidate_allowed(
         profile.name != active_name
         and profile.source == "live"
         and profile.usage is not None
+        and (
+            policy.dimension != _SESSION_DIMENSION
+            or profile.usage.five_hour_remaining > policy.session_floor
+        )
         and (
             not policy.enforce_reserve or weekly_left(usage=profile.usage) >= policy.weekly_reserve
         )

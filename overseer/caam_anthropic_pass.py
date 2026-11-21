@@ -38,7 +38,7 @@ from caam_profiles import (
     ActiveIdentity,
     active_profile,
 )
-from caam_protected_accounts import apply_protected_accounts
+from caam_protected_accounts import apply_protected_accounts, requested_protected_accounts
 from caam_rendering import trigger_header
 from caam_warm import resnapshot_active
 
@@ -204,7 +204,7 @@ def _pass_with_active(
     )
     protected_accounts = apply_protected_accounts(
         state=context.state,
-        requested_accounts=context.flags.protected_accounts,
+        requested_accounts=requested_protected_accounts(flagged=context.flags.protected_accounts),
     )
     # Observation only: the probe reads and alerts on the factory credentials and is
     # never an input to the account decision below. It runs on scheduled passes only,

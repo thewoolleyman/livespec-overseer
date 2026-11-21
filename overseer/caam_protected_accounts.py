@@ -9,9 +9,12 @@ from typing import Final
 import jsonio
 
 __all__: list[str] = [
+    "COMMITTED_PROTECTED_ACCOUNTS",
     "ProtectedAccounts",
     "apply_protected_accounts",
+    "committed_protected_requests",
     "protected_account_default",
+    "requested_protected_accounts",
 ]
 
 STATE_KEY: Final = "protected_accounts"
@@ -19,6 +22,10 @@ _CLEAR_VALUES: Final = frozenset(("auto", "none", "off"))
 _DEFAULT_ENV: Final = "CAAM_ROTATE_PROTECTED_ACCOUNT_DEFAULT"
 _DEFAULT_FLOOR: Final = "10"
 _MAX_FLOOR = 100.0
+# The committed configuration protects ONLY the maintainer's personal account
+# (overseer-xwfyxy). Protection is an operator mark, never a default of any other
+# account; a stale stored mark is cleared with `--protected-account=<acct>=none`.
+COMMITTED_PROTECTED_ACCOUNTS: Final = ("anthropic-0",)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -40,6 +47,18 @@ def protected_account_default() -> float:
     return float(os.environ.get(_DEFAULT_ENV, _DEFAULT_FLOOR))
 
 
+def committed_protected_requests() -> tuple[tuple[str, str], ...]:
+    """The committed protected set as requests at the default floor."""
+    return tuple((account, "") for account in COMMITTED_PROTECTED_ACCOUNTS)
+
+
+def requested_protected_accounts(
+    *, flagged: tuple[tuple[str, str], ...]
+) -> tuple[tuple[str, str], ...]:
+    """The committed marks first, then the invocation's flags, so a flag can override."""
+    return (*committed_protected_requests(), *flagged)
+
+
 def apply_protected_accounts(
     *, state: dict[str, object], requested_accounts: tuple[tuple[str, str], ...]
 ) -> ProtectedAccounts:
@@ -52,8 +71,7 @@ def apply_protected_accounts(
             requested_floor=requested_floor,
             messages=messages,
         )
-    if protected or requested_accounts or STATE_KEY in state:
-        state[STATE_KEY] = protected
+    state[STATE_KEY] = protected
     summary = ProtectedAccounts(values=protected, messages=tuple(messages)).summary()
     if summary is not None:
         messages.append(summary)

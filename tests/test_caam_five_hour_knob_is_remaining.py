@@ -38,7 +38,7 @@ PROSE = ROOT / ".claude-plugin" / "prose" / "caam-anthropic-loop.md"
 
 REMAINING_ENV = "CAAM_ROTATE_FIVE_HOUR_REMAINING"
 RETIRED_ENV = "CAAM_ROTATE_FIVE_HOUR_THRESHOLD"
-DEFAULT_REMAINING_FLOOR = 15.0
+DEFAULT_REMAINING_FLOOR = 20.0
 
 
 def decision_module() -> ModuleType:
@@ -89,7 +89,7 @@ def test_the_retired_name_appears_nowhere_in_either_shipped_package():
 def test_the_operator_prose_documents_the_rename_and_the_value_transform():
     prose = PROSE.read_text(encoding="utf-8")
 
-    assert f"`{REMAINING_ENV}`, default `15`" in prose
+    assert f"`{REMAINING_ENV}`, default `20`" in prose
     assert f"replaces `{RETIRED_ENV}`" in prose
     assert "no backward-compatible alias" in prose
     assert "subtracting it from 100" in prose
