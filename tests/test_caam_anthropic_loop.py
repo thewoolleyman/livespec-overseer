@@ -743,8 +743,9 @@ def test_protected_accounts_persist_as_top_level_state_and_survive_empty_pass(
 
     assert first == 0
     assert second == 0
-    assert saved[0]["protected_accounts"] == {"main": 12.5, "backup": 17.5}
-    assert saved[-1]["protected_accounts"] == {"main": 12.5, "backup": 17.5}
+    # The committed mark rides the configured default floor (17.5 here).
+    assert saved[0]["protected_accounts"] == {"anthropic-0": 17.5, "main": 12.5, "backup": 17.5}
+    assert saved[-1]["protected_accounts"] == {"anthropic-0": 17.5, "main": 12.5, "backup": 17.5}
     assert saved[-1]["session-models"] == {"worker": "fable"}
     assert saved[-1]["foreman_model"] == "opus"
 
@@ -778,7 +779,7 @@ def test_protected_account_bad_values_report_and_leave_existing_state_unchanged(
     )
 
     assert result == 0
-    assert saved[-1]["protected_accounts"] == {"main": 12.5}
+    assert saved[-1]["protected_accounts"] == {"anthropic-0": 10.0, "main": 12.5}
     assert "protected-accounts: ignoring --protected-account=main=not-a-number" in out
     assert "protected-accounts: ignoring --protected-account=main=101" in out
     assert "protected-accounts: ignoring --protected-account==10" in out
@@ -811,7 +812,7 @@ def test_protected_accounts_summary_reports_floors_and_table_is_unchanged(*, tmp
     )
 
     assert result == 0
-    assert "protected-accounts: main=12%, backup=5%" in out
+    assert "protected-accounts: anthropic-0=10%, main=12%, backup=5%" in out
     # Carrier R12's trigger header now leads every pass (overseer-54k2za.38), so the
     # table starts one line later. The rows themselves are unchanged, which is what
     # this test is actually about.
@@ -890,7 +891,7 @@ def test_every_state_key_the_program_writes_uses_the_underscore_convention(*, tm
 
     assert result == 0
     assert "protected_accounts" in saved[-1]
-    assert saved[-1]["protected_accounts"] == {"main": 12.5}
+    assert saved[-1]["protected_accounts"] == {"anthropic-0": 10.0, "main": 12.5}
     # The convention itself, so the next key added to this file inherits it.
     hyphenated = sorted(key for key in saved[-1] if "-" in key)
     assert hyphenated == [], f"state keys must use underscores, found: {hyphenated}"

@@ -50,6 +50,16 @@ HEAVY_FALL = 10.0
 LIGHT_FALL = 1.0
 
 
+@pytest.fixture(autouse=True)
+def _scenarios_are_written_at_the_fifteen_percent_floor(monkeypatch: pytest.MonkeyPatch) -> None:
+    """These scenarios state their figures against a 15% short-window floor.
+
+    The shipped default moved to 20% (overseer-xwfyxy), so the floor they were
+    written against is pinned explicitly rather than inherited.
+    """
+    monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_REMAINING", "15")
+
+
 def fleet_load_record(*, harness: RotationHarness) -> dict[str, object]:
     """The fleet load the operation's own durable store now holds."""
     stored = harness.read_state()[FLEET_LOAD]

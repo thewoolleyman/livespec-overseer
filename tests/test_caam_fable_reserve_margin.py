@@ -28,6 +28,16 @@ from caam_scoped_model import OBSERVED_MODELS_KEY
 __all__: list[str] = []
 
 
+@pytest.fixture(autouse=True)
+def _scenarios_are_written_at_the_fifteen_percent_floor(monkeypatch: pytest.MonkeyPatch) -> None:
+    """These scenarios state their figures against a 15% short-window floor.
+
+    The shipped default moved to 20% (overseer-xwfyxy), so the floor they were
+    written against is pinned explicitly rather than inherited.
+    """
+    monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_REMAINING", "15")
+
+
 def _usage(
     *,
     fable_remaining: float | None,

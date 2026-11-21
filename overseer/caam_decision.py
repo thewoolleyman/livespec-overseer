@@ -76,6 +76,7 @@ __all__: list[str] = [
     "resets_at",
     "scoped_reserve",
     "scoped_waiver_floor",
+    "session_destination_floor",
     "trigger_header",
     "triggered",
     "unsatisfiable_pin_reason",
@@ -135,6 +136,16 @@ def triggered(
         or (protection_floor > 0 and raw_weekly_left(usage=usage) <= protection_floor)
         or (scoped_pin and active_at_or_below_scoped_reserve(usage=usage, reserve=scoped_reserve()))
     )
+
+
+def session_destination_floor(*, active: ActiveAccount) -> float:
+    """The short-window balance a destination must exceed on a session-window move.
+
+    Zero where the active account is spend-capped: that move is made because the
+    account cannot serve at all, not because its session is low, and the released
+    weekly-reserve scenarios already admit any positive balance there.
+    """
+    return 0.0 if spend_capped(usage=active.usage) else five_hour_remaining_floor()
 
 
 def scoped_waiver_floor(*, active: ActiveAccount) -> float | None:
@@ -197,6 +208,7 @@ def eligible_profiles(
                 enforce_reserve=enforce_reserve,
                 weekly_reserve=reserve,
                 scoped_reserve=scoped_reserve(),
+                session_floor=session_destination_floor(active=active),
                 scoped_waiver_floor=scoped_waiver_floor(active=active),
                 current_protection_floor=protection_floor_for(
                     name=active.name, protection_floors=protection_floors
@@ -270,6 +282,11 @@ def resets_at(*, timestamp: str | None) -> float:
 def five_hour_remaining_floor() -> float:
     """The short-window balance at or below which a pass rotates.
 
+    This is the SESSION-WINDOW trigger's floor, 20% remaining by default (it was 15
+    until overseer-xwfyxy): the 5-hour session must be left BEFORE it runs out, and
+    a pass only sees the window every few minutes. Under that trigger a protected
+    account is never a destination -- see `select_candidate_set`.
+
     NO BRIDGE, and no complement anywhere in the decision path. The operator knob
     is published in the same direction every stored figure and every predicate
     runs in, so this reads it and hands it straight to the trigger, the binding
@@ -284,7 +301,7 @@ def five_hour_remaining_floor() -> float:
     operators in `.claude-plugin/prose/caam-anthropic-loop.md`, which is the only
     place the retired name survives.
     """
-    return float(os.environ.get("CAAM_ROTATE_FIVE_HOUR_REMAINING", "15"))
+    return float(os.environ.get("CAAM_ROTATE_FIVE_HOUR_REMAINING", "20"))
 
 
 def weekly_reserve() -> float:
