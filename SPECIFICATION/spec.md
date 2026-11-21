@@ -483,15 +483,7 @@ downgrades a hand-picked model and, for a track launched through an
 env-wrapper, silently converts it from a local runtime back onto the
 cloud API.
 
-For a Claude-harness track, every launch the daemon or the sanctioned relaunch
-entrypoint performs MUST pass `--remote-control <seat-name>` to the runtime,
-where `<seat-name>` is EXACTLY the name the same launch passes to `-n`, the
-track's derived session name under §"Session-name derivation". This is part of
-re-asserting the launch: a restart or relaunch MUST NOT leave a seat without
-the Remote Control name its successor needs to be reached from another
-machine. The flag is not a fourth launch-profile field and MUST NOT be read
-from or written to the recorded profile; it is derived from the session name
-on every launch. A Codex launch is unaffected.
+A Claude-harness launch the daemon or the sanctioned relaunch entrypoint performs MUST NOT pass `--remote-control`: Remote Control support is retired, so a launch passes only `-n <seat-name>`, the track's derived session name under §"Session-name derivation". A Codex launch is unaffected.
 
 The daemon MUST read the profile from `/proc/<pid>/environ` and
 argv/parent-chain as the primary source, and MAY use the statusline's
@@ -681,8 +673,7 @@ record or sending any input when any of the following holds:
 Otherwise it MUST launch that profile's runtime by submitting its launch
 command at the target pane's shell prompt, setting or scrubbing the launch
 environment exactly as §"The launch profile" requires of a daemon relaunch.
-For a Claude-harness launch the submitted command MUST carry `--remote-control
-<seat-name>` as §"The launch profile" requires. It MUST NOT terminate any
+For a Claude-harness launch the submitted command MUST NOT carry `--remote-control`, as §"The launch profile" requires. It MUST NOT terminate any
 process, and MUST NOT write, consume or clear a state-file declaration.
 
 When the launched runtime is Codex, the entrypoint MUST then submit
@@ -2003,7 +1994,7 @@ Atomicity, serialization and rollback are defined in contracts.md §"Enrolled-ho
 
 **Deliveries never move backwards.** Every delivery MUST carry a DELIVERY SEQUENCE number strictly greater than the number of every delivery the service issued before it. The sequence MUST continue across a move of the role. The apply step MUST apply a delivery only when its delivery sequence is greater than the one the host last applied, so a delayed or retried push cannot move a host back to an earlier account or an earlier token.
 
-**Remote Control follows an account switch.** Claude Code stops a session's Remote Control when the signed-in account changes. After a following host applies a delivery that names a different account from the one it last applied, the service MUST re-issue Remote Control on that host in every agent session it can reach, as contracts.md §"Enrolled-host delivery" defines, whose terminal shows Claude Code's account-changed notice (in Claude Code 2.1.323, `signed-in claude.ai account or organization changed on this machine — run /remote-control` in the transcript, or `/rc failed` in the footer) and whose input box holds no unsubmitted text, as contracts.md §"Enrolled-host delivery" defines. The re-issue MUST carry the session's own name, as contracts.md §"Enrolled-host delivery" defines, so that a reconnected session can be reached under the name other sessions address it by. The service MUST apply the same re-issue, once, to the role holder's own agent sessions that it can reach after the account the role holder's live credential holds changes to a different account, whether or not that change produces a delivery. It MUST NOT start Remote Control in any other session. The re-issue is advisory and best-effort: its failure MUST be reported and MUST NOT undo the delivery or fail a rotation pass.
+**No Remote Control after an account switch.** Remote Control support is retired. After a following host applies a delivery, the service MUST NOT type any command, including `/remote-control`, into any agent session or pane on any host, and MUST NOT run a Remote Control re-issue or keep-alive sweep.
 
 **Delivery is not the request path.** The delivery service and the apply step MUST NOT carry, relay or observe inference traffic. Each following host's sessions MUST authenticate directly to the provider with the delivered access token.
 
