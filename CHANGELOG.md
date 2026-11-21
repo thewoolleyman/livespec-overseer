@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.69.1](https://github.com/livespec-ai/livespec-overseer/compare/v5.69.0...v5.69.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* seat relaunch no longer passes --remote-control (remote-control-retirement) ([22187eb](https://github.com/livespec-ai/livespec-overseer/commit/22187eb69e676cff0cc212173641c82b10f72db5))
+
 ## [5.69.0](https://github.com/livespec-ai/livespec-overseer/compare/v5.68.0...v5.69.0) (2026-11-21)
 
 
