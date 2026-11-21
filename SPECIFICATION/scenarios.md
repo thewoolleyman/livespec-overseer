@@ -7426,3 +7426,49 @@ When further ticks pass within one minute and the ref has not moved
 Then the daemon makes no forge request on those ticks
 
 And the daemon keeps supervising every track as before
+
+## Scenario: An active account at 20 percent of its 5-hour window is rotated to an unprotected account with session headroom
+
+Given the active account is unprotected and its weekly allowance is well above the weekly reserve
+
+And the active account's 5-hour session window has 20 percent remaining
+
+And one verified unprotected account has at least 50 percent of its 5-hour window remaining
+
+And one protected account has the most weekly headroom of any account
+
+When the operation evaluates rotation
+
+Then the session-window trigger fires
+
+And the operation rotates to the verified unprotected account, compared on the short-window dimension
+
+## Scenario: A protected account is never selected under the session-window trigger and a dry run reports the would-be selection
+
+Given the active account's 5-hour session window has 20 percent remaining
+
+And the only other verified account with short-window headroom is protected
+
+When the scheduled operation runs with `--dry-run`
+
+Then the report states that the operation would hold on the active account and why
+
+And the report does not name the protected account as a selection
+
+And no account is switched and the account manager's active profile is unchanged
+
+## Scenario: The committed protected set marks only anthropic-0 and an unintended stored mark is cleared by the operator
+
+Given the committed configuration marks only `anthropic-0` as protected
+
+And a stored mark, which the operator did not intend, names `anthropic-4` as protected
+
+When the operation evaluates rotation
+
+Then `anthropic-0` is protected at the default floor on that pass, with no stored mark
+
+And `anthropic-4` is protected only by its stored mark
+
+When the operator runs `--protected-account=anthropic-4=none`
+
+Then `anthropic-4` is unprotected and `anthropic-0` remains protected
