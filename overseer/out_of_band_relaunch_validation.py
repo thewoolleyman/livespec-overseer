@@ -126,7 +126,7 @@ def validated_launch(
     profile_track = profile_for_request(track=track, request=request)
     if isinstance(profile_track, RelaunchResult):
         return profile_track
-    plan = claude_launch_plan(track=profile_track, remote_control=True)
+    plan = claude_launch_plan(track=profile_track, remote_control=False)
     if isinstance(plan, LaunchProfileProblem):
         return _refuse(message=plan.message)
     return track, profile_track, plan

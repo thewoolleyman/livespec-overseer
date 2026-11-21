@@ -124,7 +124,7 @@ def test_sanctioned_relaunch_launches_claude_with_the_topic_remote_control_name(
 
     assert not isinstance(validated, entrypoint.RelaunchResult)
     _matched_track, _profile_track, plan = validated
-    assert plan.command == ("claude --dangerously-skip-permissions --remote-control alpha -n alpha")
+    assert plan.command == ("claude --dangerously-skip-permissions -n alpha")
 
 
 def test_low_level_launch_identity_and_rebind_are_nondestructive(
